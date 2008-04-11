@@ -68,9 +68,8 @@ The final syntax for the `acquire` function is:
 Once an object is no longer needed, the caller must inform DSMCBE about this, with a call to `release`. Since stage 1 only has write access, the data must be written back to the originating EA, using a DMA transfer. Once data has been written, the PPE must examine if other processes are waiting for the object, and signal those. The syntax for the `release` function is:
 {{{
   void release(void* data);
-
+}}}
 === Summary ===
 We have described the three functions that constitutes the core of DSMCBE. We will try to implement DSMCBE with only these three functions. Later stages add parameters, and the final stage adds helper functions.
 
 To communicate between SPE and PPE, we will use the fast Cell BE mailbox system. To further simplify this stage, we assume that user code does not wish to use the mailbox system.
-}}}
