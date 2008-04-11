@@ -5,7 +5,7 @@
 This page describes our motivation for doing this project, as well as the approach we use.
 
 == Motivation ==
-We have manually ported some applications from another multiprogramming system to the Cell BE. During this work, we became aware of the relative difficulty this task had. We also noted that applications with low memory usage were much easier to port than those with heavy memory usage.
+We have manually ported some applications from other multiprogramming systems to the Cell BE. During this work, we became aware of the relative difficulty this task had. We also noted that applications with low memory usage were much easier to port than those with heavy memory usage.
 
 We have considered many interresting projects for the Cell BE, which will ease the programming task. We find the optimal scenario to be one where an application written for multihtreading programming, can run without modification on the Cell BE. Once this works, the programmer may make optimizations to the code. We consider this project to be the first step in that direction. The project itself is also interresting, and will reduce the amount of manual work required to port an application to the Cell BE, hopefully without too much performance loss.
 
