@@ -1,0 +1,22 @@
+#summary This page describes stage 1 of the development
+
+Stage 1 is the first stage, and the result of an implementation of this stage is a functional system, which is severely limited. We will start by listing the limitations of this stage.
+
+The first limitiation, is that there is only one Cell BE machine. This makes the step easier to understand and simplifies problems such as data locality. In this stage, it is desireable to use static locality for the data, because the PPE is the only element with a resonable storage capacity. 
+
+In stage 1, it is also only possible to fetch an entire object. This may pose problem, if the data objects are larger than the avalible LS space. We ignore that problem, because the programmer may split a large object manually, and it greatly simplifies the code, since data can only be avalible or not, not partially avalible.
+
+In this stage there is only one way to retrieve an object, and that is a function called `acquire`, and one to release the object, called `release`. This means that all access is considered write access, which is requires exclusive access. If any unit tries to retrieve an object that is not avalible, the call will block until the object is avalible. All data transfers will be between main memory and LS, and we will not perform LS to LS transfers.
+
+To create a new object, the process should call `create`, which is only avalible on the PPE. Below is a summarization of the limitations in the first stage:
+  * Only a single Cell BE machine
+  * Only complete object transfers
+  * No SPE to SPE transfers
+  * No threadswitching on blocking operations for the SPE
+  * Only one type of `acquire` and `release` (write-mode)
+  * The `create` function is only avalible on the PPE
+
+The next step is to define the functions avalible in the system. To be able to use the system, there should be a function call to create new shared data objects. We call this function `create`, and it is only avalible on the PPE in the first stage. Once the shared object is created, it should be possible to retrieve it, and we name the function for that `acquire`. Since the acquire locks the data object, there should be a function to release the lock, when it is no longer needed. We call that function `release`. This is the three functions that we will implement for the use API in stage 1. The rest of this page describes how the three functions are implemented.
+
+=== Create ===
+As described, it is only possible to create shared data objects on the PPE.
