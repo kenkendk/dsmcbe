@@ -19,4 +19,35 @@ To create a new object, the process should call `create`, which is only avalible
 The next step is to define the functions avalible in the system. To be able to use the system, there should be a function call to create new shared data objects. We call this function `create`, and it is only avalible on the PPE in the first stage. Once the shared object is created, it should be possible to retrieve it, and we name the function for that `acquire`. Since the acquire locks the data object, there should be a function to release the lock, when it is no longer needed. We call that function `release`. This is the three functions that we will implement for the use API in stage 1. The rest of this page describes how the three functions are implemented.
 
 === Create ===
-As described, it is only possible to create shared data objects on the PPE in stage 1.
+As described, it is only possible to create shared data objects on the PPE in stage 1. As all shared data objects must be identifiable, this function must take an identifier for the object to create. The Cell BE has strict allignment requirements for data transfer. It is thus very beneficial if all data transfers are correctly alligned. Since most programmers are ignorant to alignment, the `create` function should allocate the object and allign it correctly. This means that the function must also take a size parameter. After creation, the creating process is expected to fill the object with meaningfull data. To avoid race conditions, the `create` function will automically call the `acquire` function and return the created object with write access. This ensures that no other process can retrieve the object before the object contains meaningfull data.
+
+To keep track of the processes that wait for a given locked object, a wait list i required. It is also required that the system stores the id, the size and the EA of the object. This information is most manageable if it is stored in a structure:
+{{{
+struct SharedObject
+{
+  unsigned int ID;
+  unsigned long size;
+  unsigned long EA;
+  list waitlist;
+}
+}}}
+It is expected that the number of items will be large, and efficient access to the list is crucial, so we recommend a hashtable for storing this information.
+
+The result of a call to the `create` function, depends on wether data already exists. If data is already created, the system could automatically call acquire on the object. We find that this can easily lead to bugs that are hard to find. Since the `create` call is probably fairly rare, it should be considered an error to create an object that already exists. It is possible to build a function that either creates or acquires an object in user code:
+{{{
+function void* CreateOrAcquire(unsigned int ID, unsigned long& size)
+{
+  void* result = create(id, size);
+  if (result == NULL)
+    result = acquire(id, size);
+  return result;
+}
+}}}
+
+If `create` is called, and the object does not exist, the function should allocate space for the object, record information about the object, and return the pointer to the object.
+The final syntax for the function is:
+{{{
+void* create(unsigned int id, unsigned long& size);
+}}}
+
+=== Acquire ===
