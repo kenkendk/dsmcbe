@@ -28,7 +28,7 @@ struct SharedObject
   unsigned int ID;
   unsigned long size;
   unsigned long EA;
-  list waitlist;
+  queue waitlist;
 }
 }}}
 It is expected that the number of items will be large, and efficient access to the list is crucial, so we recommend a hashtable for storing this information.
@@ -47,7 +47,19 @@ function void* CreateOrAcquire(unsigned int ID, unsigned long& size)
 If `create` is called, and the object does not exist, the function should allocate space for the object, record information about the object, and return the pointer to the object.
 The final syntax for the function is:
 {{{
-void* create(unsigned int id, unsigned long& size);
+  void* create(unsigned int id, unsigned long& size);
 }}}
 
 === Acquire ===
+The `acquire` function is used to obtain access to a shared object, and in stage 1, this will always be write access. The process wishing to acquire an object, will send a request with the only known thing about the object, the ID. The PPE will then examine if the object is avalible. If the object is not yet avalible, the request is put into the waitlist for the object. Once the object is avalible, the PPE will return the EA and size of the object to the caller. If the caller was an SPE, it must allocate space locally, and transfer the object into LS via a DMA transfer. When all work is complete, the function can return a pointer to the data.
+
+If a process calls acquire for an object that is not yet created, there are three logical actions to choose from: return an error, create the object or wait for the object to be created. Since a data object is rarely usefull before being filled with data, we choose not to create the object. Since the function will also wait for data if it is locked, the caller will anticipate some wait time, and we consider this to be the most logical action.
+
+Later on, a timeout parameter for the `acquire` call can help in implementing functionallity that returns an error if the object is not yet created.
+
+To achieve the waiting functionality, there should be a queue for processes waiting for objects that are not yet created. Once an object is created, this queue can be inserted as the objects waitlist, rather than using an empty one.
+
+The final syntax for the `acquire` function is:
+{{{
+  void* acquire(unsigned int id, unsigned long& data);
+}}}
