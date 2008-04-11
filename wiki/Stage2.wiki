@@ -10,4 +10,8 @@ As indicated in the Cell BE handbook, thread switching is fully supported on the
 
 By defining what operations are permitted, and which are not, it is possible to reduce the requirements and hereby also the cost of a thread switch. 
 
-We want to perform a thread switch that only involves
+We want to perform a thread switch that only involves switching the registerfile and thus the call stack. Such a switch has very little overhead, but requires that the program does not use hardware interrupts without special care.
+
+Since the SPE only has 256Kb of LS and a register file with 2Kb data, the amount of concurrent threads is small. Since the 256Kb is also shared with data and program code, we  expect the number of threads is 4 or less. For most programs 2 threads should give the desired overlap between data transfer and execution.
+
+The implementation consists of the functions `createThreads`, `yield` and `terminate`.
