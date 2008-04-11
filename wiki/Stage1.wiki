@@ -19,4 +19,4 @@ To create a new object, the process should call `create`, which is only avalible
 The next step is to define the functions avalible in the system. To be able to use the system, there should be a function call to create new shared data objects. We call this function `create`, and it is only avalible on the PPE in the first stage. Once the shared object is created, it should be possible to retrieve it, and we name the function for that `acquire`. Since the acquire locks the data object, there should be a function to release the lock, when it is no longer needed. We call that function `release`. This is the three functions that we will implement for the use API in stage 1. The rest of this page describes how the three functions are implemented.
 
 === Create ===
-As described, it is only possible to create shared data objects on the PPE.
+As described, it is only possible to create shared data objects on the PPE in stage 1.
