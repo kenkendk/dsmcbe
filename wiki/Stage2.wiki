@@ -17,4 +17,41 @@ Since the SPE only has 256Kb of LS and a register file with 2Kb data, the amount
 The implementation consists of the functions `createThreads`, `yield` and `terminate`. In an effort to simplify the interface, we have choosen not to use the standard pthreads signatures. The functionality is more similar to the unix fork() call.
 
 === CreateThreads ===
-In order to create threads, the program calls the `createThreads` function with an integer denoting the number of threads to create.
+In order to create threads, the program calls the `createThreads` function with an integer denoting the number of threads to create. The function allocates space for the threads' stack and register files. The return value of the function indicates the threads number. When all threads have called `terminate`, the originating thread returns with the value -1. The syntax is:
+{{{
+  int createThreads(int threadCount);
+}}}
+
+=== Yield ===
+When a thread want's to allow another thread to execute, it calls the function `yield`. Calling `yield` will switch to the next thread, based on the thread ID. This makes a very simple scheduling mechanism. There is no problem in allowing a thread to call `yield`, but  it is usually simpler if the library does this automatically. We will call yield while a thread awaits a pending DMA transfer. The syntax is:
+{{{
+  void yield();
+}}}
+
+=== Terminate ===
+When a thread completes all assigned work, it must call the `terminate` function. This will free the resources allocated for the thread, and switch to the next avalible thread. If there are no more threads, control will resume to the thread that orignally called `createThreads`. If a thread exits without calling the `terminate` function, the SPU runtime library will raise an error because the call stack is empty at the function completion. The syntax is:
+{{{
+  void terminate();
+}}}
+
+=== Typical use of the thread system ===
+A typical use of the thread system will look like this:
+{{{
+  int threadNo;
+  //At this point there is only 1 thread
+  threadNo = createThreads(2);
+  if (threadNo == -1) //Main thread returns
+    return;
+  //At this point, there are two threads
+  
+  while(work_to_do)
+  {
+    ... perform work ...
+    yield(); //Switch thread, implicit when waiting for DMA
+  }
+  terminate();
+  //This line will not be hit
+}}}
+
+=== Summary ===
+The functions in stage 2 are largely unrelated to DSM systems, but gives the programmer a simple way of implementing overlapped execution and data transfer. The interface looks very similar to traditional multhreaded programming.
