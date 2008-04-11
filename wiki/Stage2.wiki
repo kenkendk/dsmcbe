@@ -14,4 +14,7 @@ We want to perform a thread switch that only involves switching the registerfile
 
 Since the SPE only has 256Kb of LS and a register file with 2Kb data, the amount of concurrent threads is small. Since the 256Kb is also shared with data and program code, we  expect the number of threads is 4 or less. For most programs 2 threads should give the desired overlap between data transfer and execution.
 
-The implementation consists of the functions `createThreads`, `yield` and `terminate`.
+The implementation consists of the functions `createThreads`, `yield` and `terminate`. In an effort to simplify the interface, we have choosen not to use the standard pthreads signatures. The functionality is more similar to the unix fork() call.
+
+=== CreateThreads ===
+In order to create threads, the program calls the `createThreads` function with an integer denoting the number of threads to create.
