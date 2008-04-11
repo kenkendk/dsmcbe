@@ -1,0 +1,13 @@
+#summary This page describes stage 2 of the development
+
+Having implemented a fully functional system in stage 1, we add lightweight threads to the SPE, and allow the SPE to create new shared objects. Event though it is possible to implement the lightwight threads on top of stage 1, without modifying the stage 1 code, we will build it with a tighter integration. None of the other stages depend on stage 2.
+
+=== Create ===
+The create function should do exactly the same as on the PPE. The only extra handling is forwarding the call to the PPE, since it is not desireable for a SPE to administrate the data. The call is blocking but otherwise identical to the same call in stage 1.
+
+=== Lightweight threads ===
+As indicated in the Cell BE handbook, thread switching is fully supported on the SPE. The functionality is ment to aid the operating system in providing preemptive thread switching, and thus involves a complete switch of the SPU problem state. This is a resonable implementation, since the operating system has no way to determine what the SPE is currently working on. Unfortunately it also clears all pending DMA transfers and restart them once the thread is restored. This is not desireable for overlapping DMA transfers and execution.
+
+By defining what operations are permitted, and which are not, it is possible to reduce the requirements and hereby also the cost of a thread switch. 
+
+We want to perform a thread switch that only involves
