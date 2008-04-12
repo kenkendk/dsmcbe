@@ -53,4 +53,88 @@ The disadvantage of this model is that there will be a transmission of potential
 
 If it is determined that the first machine creates the and is originator for the page table, other machines can easily retrieve the pagetable. It would be problematic to allow migration of the pagetable, even though this might improve performance.
 
-We suggest that the pagetable is an array of machine ID's. The ID of a data object 
+We suggest that the pagetable is an array of machine ID's. The ID of a data object can then be used as the index into this array, and the value at the given index indicates the data objects origin. By using segmentation, it is possible to overcome the limitation that the pagetable is a fixed size. The last entry in the pagetable simply point to the next "page" in the pagetable. This will allow the pagetable to grow in an unlimited fashion. The implementation of a partial `acquire` will reduce the amount of unnecesary data transfers.
+
+In this model, a create is implemented by first acquiring a write lock on the pagetable, or the relevant entry if partial `acquire` is implemented. If there is an invalid value in the table, the creating machines ID is written, and the pagetable is released. If there is a valid value at the entry, the object has already been created, and an error is returned. A machine that has previously tried to acquire the object, will retrieve an invalidate message for the page table, and by issuing a new `acquire`, it can get the ID of the owner machine, and transfer all pending requests to that machine.
+
+Migration is accomplished by first aquiring a write lock on the pagetable, and then the object to migrate. Once the object has been transfered, the locks can be released. There is a potential risk that an `acquire` is in progress while the object is being migrated. This can be solved by responding with a NACK, which forces the process to re-acquire the updated pagetable.
+
+=== Summary ===
+We belive the pagetable model has greater performance potential than the coordinator model, especially if the partial `acquire` method is implemented. The problematic situation where a single machine is the bottleneck, is reduced to cases where objects are created and migrated, which is expected to be a small part of an entire program.
+
+=== Protocol ===
+To communicate properly over the network, a protocol is required. We choose to define eight different packages that can be transmitted over the network: `acquireRequest`, `acquireResponse`, `migrateResponse`, `releaseRequest`, `releaseResponse`, `NACK`, `invalidateRequest` and `invalidateResponse`.
+
+Each package contains a field named packageCode as the first entry. This field is used to determine the package layout and size. All packaged contain a field named requestID, which is assigned a unique value by the sender. The responder inserts this requestID into the response, so that a requester can have multiple pending requests, and correctly process the responses. The `NACK` package includes a hint field that can contain the ID of a machine that is more likely to be able to process the request. The packages are structured like this:
+{{{
+    struct acquireRequest
+    {
+        //1 for read, 2 for write
+        unsigned char packageCode = 1;
+        unsigned int requestID;
+        unsigned int dataItem;
+    }
+
+    struct acquireResponse
+    {
+        unsigned char packageCode = 3;
+        unsigned int requestID;
+        unsigned long dataSize;
+        void* data;
+    }
+
+    struct migrationResponse
+    {
+        unsigned char packageCode = 4;
+        unsigned int requestID;
+        unsigned long dataSize;
+        unsigned long waitListSize;
+        void* data;
+        void* waitList;
+    }
+
+    struct releaseRequest
+    {
+        unsigned char packageCode = 5;
+        unsigned int requestID;
+        unsigned int dataItem;
+        unsigned long dataSize;
+        void* data;
+    }
+
+    struct releaseResponse
+    {
+        unsigned char packageCode = 6;
+        unsigned int requestID;
+    }
+
+    struct NACK
+    {
+        unsigned char packageCode = 7;
+        unsigned int requestID;
+        unsigned int hint;
+    }
+
+    struct invalidateRequest
+    {
+        unsigned char packageCode = 8;
+        unsigned int requestID;
+        unsigned int dataItem;
+    }
+
+    struct invalidateResponse
+    {
+        unsigned char packageCode = 9;
+        unsigned int requestID;
+    }
+}}}
+
+=== Summary ===
+It is possible to implement manual migration on a system that supports creation of a data object on a given machine, by letting the new machine create the data object, and informing other that they should use the new data object.
+
+Once there are more than one machine in the system, a localization algorithm is required. If the localization alogrithm does not rely on a relation between the data object id and the originating machine, migration can be supported with very little effort. The system only needs to support NACK responses to `acquire` requests. By adding a special migration message, the migration procedure can be made more effective.
+
+This stage only adds a single function to the API:
+{{{
+  void initialize(unsigned int id, const char* filename);
+}}}
