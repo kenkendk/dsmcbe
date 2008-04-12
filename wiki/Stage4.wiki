@@ -13,3 +13,15 @@ There exists protocols that allows machines to determine group membership dynami
 It is possible to use the adress as the ID, but if some form of ordering is required in the running program, an ID can be used for that purpose. A common use of ordering, is to assign the first machine the task of initializing the system, and all others wait for this one machine. It is also space consuming to have an ID, especially if the adresses become IPv6.
 
 To load this file, we add a function, called `initialize`. This function must also assign the machine the correct ID. At a later time, it would be nice if the system could determine its own ID. For the simpler scenario, where there is only one machine, it is not neccesary to call `intialize`. It is possible to implement stage 4 directly on top of a stage 1 implementation, but the extensions in stage 3 are vital for system performance.
+
+=== Startup ===
+To ensure that all machines can communicate in a Cell BE cluster, there must be a connection from each machine to all other machines. We use TCP for communication, and this means that each connection is bidirectional. To start up the process, we use the first machine in the list described above. This machine becomes the coordinator for the startup proccess. The coordinator starts by creating a permanent connection to each of the other machines in the list. This entails that all other processes must be started before the coordinator starts. The ccordinator then creates a page table (described later on), and instructs the remaining machines to start connecting. The coordinator waits until all machines have responded, and then instructs the machines to start.
+
+The non-coordinator machines will start up and await a message from a coordinator. When they recieve the message, they will create permanent connections to every machine that has an ID that is greater than their own. This ensures that there is only one connection between each machine pair. Once a machine has created all connections, it reports back to the coordinator.
+
+With this approach, some machines have to create more connections than others, but the overall time spent in the startup phase is expected to be very small. We find that there is no signinficant gain in improving this startup scheme.
+
+=== Network topology and routing ===
+We choose to leave the routing problem to the network, and assume a full interconnect. If the network is segmented, ea. by switches, the routing task will be handled by the network.
+
+=== Communcation ===
