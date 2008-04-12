@@ -32,4 +32,25 @@ Once the lists are implemented, the TCP server-client infrastructure must be imp
 To ensure maximum responsiveness, the communcation should be prioritized so that invalidation can be performed before data transfers. This can be implemented with a sorted list, based on transmission size. The problem with prioritizing is that it leads to starvation. Another problem is that it is much more efficient if multiple packages can be transmitted together. Starvation can be prevented by using a system with aging. By collecting data with the same destination, and use the sum of priorities, some perfomance can be gained.
 
 === Migration ===
-In some situations, the read and write patterns make it desireable to move the data origin. This movement will place the data closer to the place where it is used, and thus reduce the amount of transfered data. We have not found any research that examines the optimal migration threshold. We will try to make it as simple as possible to change the migration criteria, so others may experiment with this.
+In some situations, the read and write patterns make it desireable to move the data origin. This movement will place the data closer to the place where it is used, and thus reduce the amount of transfered data. We have not found any research that examines the optimal migration threshold. We will try to make it as simple as possible to change the migration criteria, so others may experiment with this. 
+
+The migration will happen when a machine issues an acquire. The machine that responds to the request is the current origin, and will respond with a message that satisfies the request and notifices the requesting machine that it the data origin has changed.
+
+=== Localizing data ===
+Once data has migrated, some machines may not know the correct location of data anymore. Is becomes necesary to implement a `NACK` message, so a machine can deny processing the request.
+
+We have not found any litterature that describes the start up phase in data localization. Stage 1 described how the `acquire` and `release` functions work. We want to maintain this functionality when there are multiple machines involved. This makes it a problem to determine if a given data block exists or not. Without knowledge about the data location, the only solution is to ask every machine in turn. Once a positive reply is recieved, it is known that data exists. If no positive responses are recieved, the data does not exist. This makes it a potentially costly task to determine the existence of a given data object,. The problem can be reduced a little by saving a hint about the data location on all machines that has had the data object.
+
+=== Coordinator ===
+One solution is to assign one machine to be the coordinator, so that this single machine can determine the existence question. If the coordinator machine keeps a list of processes waiting for the creation of a given object, it can transfer the list to the first machine that creates the data. By introducing a coordinator machine, the lookup time is reduced from O(n - 1) to O(1). Network race conditions can be controlled with a mutex on the coordinator machine. Unfortunately this model is very much like the "centralized server model", which means that the coordinator machine becomes a bottleneck. By using an adressing scheme, the coordinator role can be spread out across all machines in the network. A very simple model is to use the formula "_id_ mod _machine count_". This spreads out the coordinator role, and allows the user to "select" the coordinator machine.
+
+=== Pagetable ===
+Another solution is to use a shared memory object, that works as a lookup table for created data objects. By using the DSMCBE memory model, it is possible to use the regular `acquire` and `release` functions to coordinate access. Special care must be taken to avoid deadlocks, since the programmer does not explicitly issue all `acquire` calls. Like the previous model, a coordinator is required for the startup of this special data object.
+
+The advantage of this model is that each machine has an up-to-date overview of data locations and this reduces the number of errorneous communications to the short periods where a machine reads the object location right before a migration.
+
+The disadvantage of this model is that there will be a transmission of potentially unused data between the machines. This problem can be mitigated by using a partial `acquire` which we describe in stage 6. Another problem is that the size of the pagetable must be determined at startup, because DSMCBE does not allow resizing objects in this stage.
+
+If it is determined that the first machine creates the and is originator for the page table, other machines can easily retrieve the pagetable. It would be problematic to allow migration of the pagetable, even though this might improve performance.
+
+We suggest that the pagetable is an array of machine ID's. The ID of a data object 
