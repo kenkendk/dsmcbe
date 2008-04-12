@@ -25,3 +25,11 @@ With this approach, some machines have to create more connections than others, b
 We choose to leave the routing problem to the network, and assume a full interconnect. If the network is segmented, ea. by switches, the routing task will be handled by the network.
 
 === Communcation ===
+In stage 3 we described that the system maintains a list of proccesses awating a given object, and a list of data copies. These lists must now be expanded to include the distinction between a local process and a remote machine. It is not neccesary to be able to specify a process on a remote machine, since each machine records this information locally.
+
+Once the lists are implemented, the TCP server-client infrastructure must be implemented. This server/client must be handled in a seperate thread, so the network traffic does not interfere with other activity on the machine. The data transmitted between the machines is identical to the data transmitted between PPE and SPU over DMA and mailboxes.
+
+To ensure maximum responsiveness, the communcation should be prioritized so that invalidation can be performed before data transfers. This can be implemented with a sorted list, based on transmission size. The problem with prioritizing is that it leads to starvation. Another problem is that it is much more efficient if multiple packages can be transmitted together. Starvation can be prevented by using a system with aging. By collecting data with the same destination, and use the sum of priorities, some perfomance can be gained.
+
+=== Migration ===
+In some situations, the read and write patterns make it desireable to move the data origin. This movement will place the data closer to the place where it is used, and thus reduce the amount of transfered data. We have not found any research that examines the optimal migration threshold. We will try to make it as simple as possible to change the migration criteria, so others may experiment with this.
