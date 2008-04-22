@@ -8,8 +8,15 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic.1777038663" name="SPU GNU Assembler" superClass="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic"/>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.689415637" name="SPU GNU C Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe"/>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.1427043464" name="SPU GNU C++ Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe"/>
-<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.1115882960" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.1115882960" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
+<option id="gnu.c.compiler.option.include.paths.1636201903" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Stage1/Common"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
+</option>
+</tool>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.debug.29730629" name="SPU GNU C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.debug"/>
+<macros/>
 </toolChain>
 </configuration>
 <configuration artifactName="SPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1836524169" name="spu-gnu-release" parent="celldt.managedbuild.config.cell.spu.gnu.exe.release">

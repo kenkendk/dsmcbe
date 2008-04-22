@@ -1,6 +1,10 @@
-#Tue Apr 22 11:08:16 CEST 2008
+#Tue Apr 22 13:14:06 CEST 2008
 celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421/internalBuilder/enabled=false
 celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421/internalBuilder/ignoreErr=true
 celldt.managedbuild.config.cell.spu.gnu.exe.release.1836524169/internalBuilder/enabled=false
 celldt.managedbuild.config.cell.spu.gnu.exe.release.1836524169/internalBuilder/ignoreErr=true
 eclipse.preferences.version=1
+environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentLibrary/celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="LIBRARY_PATH" operation\="remove"/>\n</environment>\n
+environment/project=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
+environment/project/celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
