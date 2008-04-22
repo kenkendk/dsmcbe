@@ -7,8 +7,8 @@ static hashtable allocatedItems;
 
 typedef unsigned int GUID;
 extern void* create(GUID id, unsigned long size);
-extern void* acquire(GUID id, unsigned long* size);
-extern void release(void* data);
+extern void* acquire();
+extern void release();
 
 #endif /*DSMCBE_PPU_H_*/
 
