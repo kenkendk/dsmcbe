@@ -1,0 +1,10 @@
+#Tue Apr 22 11:09:04 CEST 2008
+celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.1431171080/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.1431171080/internalBuilder/ignoreErr=true
+celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1741351050/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1741351050/internalBuilder/ignoreErr=true
+celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.671516157/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.671516157/internalBuilder/ignoreErr=true
+celldt.managedbuild.config.cell.ppu.gnu64.exe.release.165934190/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu64.exe.release.165934190/internalBuilder/ignoreErr=true
+eclipse.preferences.version=1
