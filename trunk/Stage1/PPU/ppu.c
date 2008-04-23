@@ -1,4 +1,4 @@
-#include "dsmcbe_ppu.h"
+#include "dsmcbe.h"
 #include <stdio.h>
 #include <spu_intrinsics.h>
 

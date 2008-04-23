@@ -50,6 +50,7 @@ void* forwardRequest(void* data)
 	pthread_cond_t e;
 	QueueableItem q;
 	
+	printf("PPUEventandler.c: creating item\n");
 	//Create the entry, this will be released by the coordinator
 	q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
 	
@@ -57,18 +58,27 @@ void* forwardRequest(void* data)
 	pthread_mutex_init(&m, NULL);
 	pthread_cond_init(&e, NULL);
 	q->dataRequest = data;
-	q->event = e;
-	q->mutex = m;
-	q->queue = dummy;
+	q->event = &e;
+	q->mutex = &m;
+	q->queue = &dummy;
 	
+	printf("PPUEventandler.c: adding item to queue\n");
 	EnqueItem(q);
+	printf("PPUEventandler.c: item added to queue %i\n", q);
 	
 	pthread_mutex_lock(&m);
-	while (queue_empty(dummy))
+	printf("PPUEventandler.c: locked %i\n", &m);
+	
+	while (queue_empty(dummy)) {
+		printf("PPUEventandler.c: waiting for queue %i\n", &e);
 		pthread_cond_wait(&e, &m);
+		printf("PPUEventandler.c: queue filled\n");
+	}
 	
 	data = queue_deq(dummy);
 	pthread_mutex_unlock(&m);
+
+	printf("PPUEventandler.c: returning response\n");
 	
 	//queue_free(dummy);
 	pthread_mutex_destroy(&m);
@@ -85,6 +95,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 	//If the response was valid, record the item data
 	if (retval != NULL)
 	{
+		printf("PPUEventandler.c: recording entry\n");
 		ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct));
 		ent->data = retval;
 		ent->id = id;
@@ -104,6 +115,7 @@ void* threadCreate(GUID id, unsigned long size)
 	struct acquireResponse* ar;
 	void* retval;
 	
+	printf("PPUEventandler.c: creating structure\n");
 	//Create the request, this will be released by the coordinator
 	cr = (struct createRequest*)malloc(sizeof(struct createRequest));
 	cr->packageCode = PACKAGE_CREATE_REQUEST;
@@ -117,11 +129,13 @@ void* threadCreate(GUID id, unsigned long size)
 	ar = (struct acquireResponse*)forwardRequest(cr);
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
+		printf("PPUEventandler.c: response was negative\n");
 		if (ar->packageCode != PACKAGE_NACK)
 			perror("Unexcepted response for a Create request");
 	}
 	else
 	{
+		printf("PPUEventandler.c: response was positive\n");
 		//The response was positive
 		retval = ar->data;
 		#if DEBUG
@@ -134,7 +148,6 @@ void* threadCreate(GUID id, unsigned long size)
 
 	recordPointer(retval, id, size, 0);	
 	
-	free(cr);
 	free(ar);
 	return retval;	
 }
@@ -201,7 +214,7 @@ void threadRelease(void* data)
 		re->requestID = 0;
 		re->dataItem = pe->id;
 		re->dataSize = pe->size;
-		re->packageCode = pe->offset;
+		re->offset = pe->offset;
 		re->data = data;
 		
 		//The pointer data is no longer needed

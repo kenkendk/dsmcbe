@@ -155,9 +155,9 @@ void* ProcessMessages(void* data)
 				{
 					queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
 					queueItem->dataRequest = dataItem;
-					queueItem->event = work_ready;
-					queueItem->mutex = work_mutex;
-					queueItem->queue = requestQueues[i];
+					queueItem->event = &work_ready;
+					queueItem->mutex = &work_mutex;
+					queueItem->queue = &requestQueues[i];
 					
 					EnqueItem(queueItem);
 					dataItem = NULL;

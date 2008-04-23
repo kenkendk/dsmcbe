@@ -7,7 +7,7 @@
 
 #include <malloc.h>
 #include <malloc_align.h>
-#include "../dsmcbe_ppu.h"
+#include "../dsmcbe.h"
 #include "../datastructures.h"
 #include "datapackages.h"
 
@@ -21,9 +21,9 @@ typedef struct QueueableItemStruct *QueueableItem;
 //The event is signaled once data has been written to the queue
 //The requester must call free() on the reponse in the queue
 struct QueueableItemStruct {
-	pthread_mutex_t mutex;
-	pthread_cond_t event;
-	queue queue;
+	pthread_mutex_t* mutex;
+	pthread_cond_t* event;
+	queue* queue;
 	void* dataRequest;
 };
 
