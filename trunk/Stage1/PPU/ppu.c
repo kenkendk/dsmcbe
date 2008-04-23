@@ -21,7 +21,7 @@ void* ppu_pthread_function(void* arg) {
 int main(int argc, char **argv) {
 	int i;
 
-	printf("ppu.c: Starting");
+	printf("ppu.c: Starting\n");
 
 	unsigned int cont[1] = {0x1};
 	int total_reads = SPU_THREADS;
@@ -33,13 +33,13 @@ int main(int argc, char **argv) {
 	
 	GUID id = 1;
 	
-	printf("ppu.c: Creating");
+	printf("ppu.c: Creating\n");
 	int* data = create(id, sizeof(int));
 	(*data) = 928;
 	
-	printf("ppu.c: Data location is %i", data);
+	printf("ppu.c: Data location is %i\n", data);
 	
-	printf("ppu.c: Releasing");
+	printf("ppu.c: Releasing\n");
 	release(id, 1);
 		
 	// Create several SPE-threads to execute 'SPU'.
@@ -47,32 +47,32 @@ int main(int argc, char **argv) {
 		// Create context
 		if ((spe_ids[i] = spe_context_create (0, NULL)) == NULL) 
 		{
-			perror ("Failed creating context");
+			perror ("ppu.c: Failed creating context\n");
 			return -1;
 		}
 
 		// Create communication thread for each SPE context
-		printf("ppu.c: Starting communication thread");
+		printf("ppu.c: Starting communication thread\n");
 		pthread_create(&com_threads[i], NULL, &ppu_pthread_com_function, &spe_ids[i]);	
-		printf("ppu.c: Started communication thread");
+		printf("ppu.c: Started communication thread\n");
 		
 		// Load program into context
 		if (spe_program_load (spe_ids[i], &SPU)) 
 		{
-			perror ("Failed loading program");
+			perror ("Failed loading program\n");
 			return -1;
 		}
 
-		printf("ppu.c: Starting SPU thread");
+		printf("ppu.c: Starting SPU thread\n");
 		// Create thread for each SPE context
 		if (pthread_create (&spu_threads[i], NULL,	&ppu_pthread_function, &spe_ids[i])) 
 		{
-			perror ("Failed creating thread");
+			perror ("Failed creating thread\n");
 			return -1;
 		}
-		printf("ppu.c: Started SPU thread");
+		printf("ppu.c: Started SPU thread\n");
 		
-		printf("ppu.c: Sending start signal to SPU");
+		printf("ppu.c: Sending start signal to SPU\n");
 		spe_in_mbox_write(spe_ids[i], cont, 1, SPE_MBOX_ALL_BLOCKING);
 	}
 	
@@ -82,11 +82,11 @@ int main(int argc, char **argv) {
 		{
 			if (spe_out_mbox_status(spe_ids[i]) != 0)
 			{
-				printf("ppu.c: Recieved signal from SPU");
+				printf("ppu.c: Recieved signal from SPU\n");
 				void* data;
 				spe_out_mbox_read(spe_ids[i], data, sizeof(int));
 				if((int)data == 1) {
-					printf("ppu.c: Recieved data: %i from SPU", (int)data);
+					printf("ppu.c: Recieved data: %i from SPU\n", (int)data);
 					total_reads--;
 				}				
 			}

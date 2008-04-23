@@ -140,36 +140,37 @@ void release(GUID id, int requestID){
 
 void* ppu_pthread_com_function(void* arg) {
 	
-	void* data;
-	void* requestID;
-	void* id;
+	unsigned int data;
+	unsigned int requestID;
+	GUID id;
 	
 	SPE = (spe_context_ptr_t) arg;
 	
 	while(1) {
 		if (spe_out_mbox_status(SPE) != 0) {
-			printf("dsmcbe.c: recieved signal from SPU");
-			spe_out_mbox_read(SPE, data, 1);
-			spe_out_mbox_read(SPE, requestID, 1);
+			spe_out_mbox_read(SPE, &data, 1);
+			spe_out_mbox_read(SPE, &requestID, 1);
+			printf("dsmcbe.c: recieved signal from SPU (%i, %i)\n", data, requestID);
+			
 			switch((int)data){
 				// Acquire request
 				case 1:
-					printf("dsmcbe.c: recieved acquire from SPU");
+					printf("dsmcbe.c: recieved acquire from SPU\n");
 					spe_out_mbox_read(SPE, id, 1);
-					printf("dsmcbe.c: acquire ID recieved from SPU is %i", id);
+					printf("dsmcbe.c: acquire ID recieved from SPU is %i\n", id);
 					data = acquire((GUID)id, (int)requestID);
-					printf("dsmcbe.c: acquire completed returned EA %i", data);
+					printf("dsmcbe.c: acquire completed returned EA %i\n", data);
 					break;			
 				
 				// Release request			
 				case 5:
-					spe_out_mbox_read(SPE, id, 1);
+					spe_out_mbox_read(SPE, &id, 1);
 					release((GUID)id, (int)requestID);
 					break;
 				
 				//Unknown request
 				default:
-					perror("Recieved unknown request");
+					perror("Recieved unknown request: %i\n", data);
 					break;
 			}
 		}
