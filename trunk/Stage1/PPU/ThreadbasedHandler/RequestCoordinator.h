@@ -8,6 +8,8 @@
 #include <pthread.h>
 #include "../datastructures.h"
 #include "datapackages.h"
+#include <malloc.h>
+#include <malloc_align.h>
 
 #ifndef REQUESTCOORDINATOR_H_
 #define REQUESTCOORDINATOR_H_

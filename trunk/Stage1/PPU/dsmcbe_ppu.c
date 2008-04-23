@@ -16,20 +16,6 @@ struct dataObjectStruct{
 	queue waitqueue;
 };
 
-int lessint(void* a, void* b){
-	
-	return ((int)a) < ((int)b);
-}
-
-int hashfc(void* a, unsigned int count){
-	
-	return ((int)a % count);
-}
-
-void setup() {
-	allocatedItems = ht_create(10, lessint, hashfc);
-}
-
 
 void ReplyAcquire(dataObject object, int requestID){
 	unsigned int x;
@@ -66,7 +52,7 @@ void* create(GUID id, unsigned long size){
 #if DEBUG
 	void* acquired = acquire(id, 1);
 	if (allocated != acquired){
-		perror("Allocated pointer does't match acquired pointer");
+		perror("Allocated pointer doens't match acquired pointer");
 		return NULL;
 	}
 #else
