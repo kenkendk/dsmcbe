@@ -34,7 +34,7 @@ SPU: $(OBJS) $(USER_OBJS)
 
 # Other Targets
 clean:
-	-$(RM) $(OBJS)$(EXECUTABLES)$(C_DEPS) SPU
+	-$(RM) $(C_DEPS)$(OBJS)$(EXECUTABLES) SPU
 	-@echo ' '
 
 .PHONY: all clean dependents

@@ -7,13 +7,13 @@ C_SRCS += \
 ../datastructures.c \
 ../dsmcbe_spu.c 
 
-OBJS += \
-./datastructures.o \
-./dsmcbe_spu.o 
-
 C_DEPS += \
 ./datastructures.d \
 ./dsmcbe_spu.d 
+
+OBJS += \
+./datastructures.o \
+./dsmcbe_spu.o 
 
 
 # Each subdirectory must supply rules for building sources it contributes
