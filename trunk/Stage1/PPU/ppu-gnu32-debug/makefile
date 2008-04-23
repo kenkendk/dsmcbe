@@ -14,6 +14,8 @@ RM := rm -fr
 # All of the sources participating in the build are defined here
 -include sources.mk
 -include subdir.mk
+-include spu_objs/subdir.mk
+-include ThreadbasedHandler/subdir.mk
 -include objects.mk
 
 ifneq ($(MAKECMDGOALS),clean)

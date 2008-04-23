@@ -5,15 +5,18 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../datastructures.c \
-../dsmcbe_ppu.c 
+../dsmcbe_ppu.c \
+../ppu.c 
 
 OBJS += \
 ./datastructures.o \
-./dsmcbe_ppu.o 
+./dsmcbe_ppu.o \
+./ppu.o 
 
 C_DEPS += \
 ./datastructures.d \
-./dsmcbe_ppu.d 
+./dsmcbe_ppu.d \
+./ppu.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
