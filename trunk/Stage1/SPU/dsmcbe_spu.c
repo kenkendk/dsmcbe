@@ -8,7 +8,7 @@
 
 int main(int argc, char **argv) {
 	
-	int data = (int)spu_read_in_mbox();
+	int data;
 	unsigned long size;
 	unsigned int tmp[2];
 	

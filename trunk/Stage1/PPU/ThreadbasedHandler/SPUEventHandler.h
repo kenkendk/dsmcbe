@@ -2,7 +2,6 @@
  * 
  * This file contains declarations for communcating with the SPU Event Handler
  * 
- * 
  */
 
 #ifndef SPUEVENTHANDLER_H_
@@ -10,6 +9,8 @@
 
 #include <malloc.h>
 #include <libspe2.h>
+#include "../datastructures.h"
+#include "../dsmcbe_ppu.h"
 
 //The number of messages the hardware allows in the MBOX queue
 #define MBOX_HW_QUEUE_SIZE 4

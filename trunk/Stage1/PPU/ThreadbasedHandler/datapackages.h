@@ -8,6 +8,8 @@
 #ifndef DATAPACKAGES_H_
 #define DATAPACKAGES_H_
 
+#include "../dsmcbe_ppu.h"
+
 #define PACKAGE_CREATE_REQUEST 1
 #define PACKAGE_ACQUIRE_REQUEST_READ 2
 #define PACKAGE_ACQUIRE_REQUEST_WRITE 3
@@ -18,8 +20,6 @@
 #define PACKAGE_NACK 8
 #define PACKAGE_INVALIDATE_REQUEST 9
 #define PACKAGE_INVALIDATE_RESPONSE 10
-
-typedef unsigned int GUID;
 
 struct createRequest
 {

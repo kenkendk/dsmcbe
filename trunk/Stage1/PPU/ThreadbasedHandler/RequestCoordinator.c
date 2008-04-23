@@ -6,6 +6,7 @@
  */
  
 #include "RequestCoordinator.h"
+#include <stdio.h>
 
 volatile int terminate;
 
@@ -20,6 +21,7 @@ hashtable waiters;
 
 typedef struct dataObjectStruct *dataObject;
 
+//This structure contains information about the registered objects
 struct dataObjectStruct{
 	
 	GUID id;
@@ -28,17 +30,20 @@ struct dataObjectStruct{
 	queue waitqueue;
 };
 
+//This is used for sorting inside the hashtables
 int lessint(void* a, void* b){
 	return ((int)a) < ((int)b);
 }
 
+//This is a simple textbook hashing algorithm
 int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
-
+//This is the method the thread runs
 void* ProccessWork(void* data);
 
+//Stops the coordination thread and releases all resources
 void TerminateCoordinator(int force)
 {
 	int queueEmpty;
@@ -65,6 +70,7 @@ void TerminateCoordinator(int force)
 	pthread_cond_destroy(&queue_ready);
 }
 
+//This method initializes all items related to the coordinator and starts the handler thread
 void InitializeCoordinator()
 {
 	pthread_attr_t attr;
@@ -87,7 +93,8 @@ void InitializeCoordinator()
 		waiters = ht_create(10, lessint, hashfc);
 	}
 }
- 
+
+//This method can be called from outside the module to set up a request
 void EnqueItem(QueueableItem item)
 {
  	pthread_mutex_lock(&queue_mutex);
@@ -98,17 +105,74 @@ void EnqueItem(QueueableItem item)
  	pthread_mutex_unlock(&queue_mutex);
 }
 
+//Helper method with common code for responding
+//It sets the requestID on the response, and frees the data structures
+void RespondAny(QueueableItem item, void* resp)
+{
+	//The actual type is not important, since the first two fields are 
+	// layed out the same way for all packages
+	((struct acquireResponse*)resp)->requestID = ((struct acquireRequest*)item->dataRequest)->requestID;
+
+	pthread_mutex_lock(&item->mutex);
+	queue_enq(item->queue, resp);
+	pthread_cond_signal(&item->event);
+	pthread_mutex_unlock(&item->mutex);
+	
+	free(item->dataRequest);
+	free(item);
+}
+
+//Responds with NACK to a request
+void RespondNACK(QueueableItem item)
+{
+	struct NACK* resp = (struct NACK*)malloc(sizeof(struct NACK));
+	resp->packageCode = PACKAGE_NACK;
+	resp->hint = 0;
+	
+	RespondAny(item, resp);
+}
+
+//Responds to an acquire request
+void RespondAcquire(QueueableItem item, dataObject obj)
+{
+	struct acquireResponse* resp = (struct acquireResponse*)malloc(sizeof(struct acquireResponse));
+	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
+	resp->dataSize = obj->size;
+	resp->data = obj->EA;
+
+	RespondAny(item, resp);	
+}
+
+//Responds to a release request
+void RespondRelease(QueueableItem item)
+{
+	struct releaseResponse* resp = (struct releaseResponse*)malloc(sizeof(struct releaseResponse));
+	resp->packageCode = PACKAGE_RELEASE_RESPONSE;
+
+	RespondAny(item, resp);	
+}
+
+//Responds to an invalidate request
+void RespondInvalidate(QueueableItem item)
+{
+	struct invalidateResponse* resp = (struct invalidateResponse*)malloc(sizeof(struct invalidateResponse));
+	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
+
+	RespondAny(item, resp);	
+}
+
+//Performs all actions releated to a create request
 void DoCreate(QueueableItem item, struct createRequest* request)
 {
-	struct acquireResponse* resp;
 	unsigned long size;
 	void* data;
 	queue prevWaiters;
+	dataObject object;
 	
+	//Check that the item is not already created
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
-		data = NULL;
-		size = 0;
+		RespondNACK(item);
 	}
 	else
 	{
@@ -116,83 +180,126 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		data = _malloc_align(size, 7);
 
 		// Make datastructures for later use
-		dataObject object = (dataObject)malloc(sizeof(struct dataObjectStruct));
+		object = (dataObject)malloc(sizeof(struct dataObjectStruct));
 		object->id = request->dataItem;
 		object->EA = data;
 		object->size = size;
 		object->waitqueue = queue_create();
 		
+		//Acquire the item
 		queue_enq(object->waitqueue, NULL);
+		
+		//If there are pending acquires, add them to the list
 		if (ht_member(waiters, (void*)object->id))
 		{
 			prevWaiters = ht_get(waiters, (void*)object->id);
 			while(!queue_empty(prevWaiters))
 				queue_enq(object->waitqueue, queue_deq(prevWaiters));
-				
+			
+			//queue_free(prevWaiters);	
 			ht_delete(waiters, (void*)object->id);
 		}
 		
+		//Register this item as created
 		ht_insert(allocatedItems, (void*)object->id, object);
+		
+		//Notify the requestor 
+		RespondAcquire(item, object);
 	}
-	
-	resp = (struct acquireResponse*)malloc(sizeof(struct acquireResponse));
-	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
-	resp->requestID = request->requestID;
-	resp->dataSize = request->dataSize;
-	resp->data = data;
-	
-	pthread_mutex_lock(&item->mutex);
-	queue_enq(item->queue, resp);
-	pthread_cond_signal(&item->event);
-	pthread_mutex_unlock(&item->mutex);
-	
-	free(request);
-	free(item);
 	
 }
 
+//Performs all actions releated to an acquire request
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
 	queue q;
 	dataObject obj;
-	struct acquireResponse* resp;
 	
+	//Check that the item exists
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
 		q = obj->waitqueue;
+		
+		//If the object is not locked, register as locked and respond
 		if (queue_empty(q))
 		{
 			queue_enq(q, NULL);
-	
-			resp = (struct acquireResponse*)malloc(sizeof(struct acquireResponse));
-			resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
-			resp->requestID = request->requestID;
-			resp->dataSize = obj->size;
-			resp->data = obj->EA;
-			
-			pthread_mutex_lock(&item->mutex);
-			queue_enq(item->queue, resp);
-			pthread_cond_signal(&item->event);
-			pthread_mutex_unlock(&item->mutex);
-			
-			free(request);
-			free(item);
+			RespondAcquire(item, obj);
 		}
-		else
+		else //Otherwise add the request to the wait list
 			queue_enq(q, item);
 	}
 	else
 	{
+		//Create a list if none exists
 		if (!ht_member(waiters, (void*)request->dataItem))
 			ht_insert(waiters, (void*)request->dataItem, queue_create());
+		
+		//Append the request to the waiters, for use when the object gets created
 		q = (queue)ht_get(waiters, (void*)request->dataItem);
 		queue_enq(q, item);		
 	}
 	
 }
 
+//Performs all actions releated to a release
+void DoRelease(QueueableItem item, struct releaseRequest* request)
+{
+	queue q;
+	dataObject obj;
+	QueueableItem next;
+	
+	//Ensure that the item exists
+	if (ht_member(allocatedItems, (void*)request->dataItem))
+	{
+		obj = ht_get(allocatedItems, (void*)request->dataItem);
+		q = obj->waitqueue;
+		
+		//Ensure that the item was actually locked
+		if (queue_empty(q))
+		{
+			perror("Bad release, item was not locked!");
+			RespondNACK(item);
+		}
+		else
+		{
+			//Get the next pending request
+			next = queue_deq(q);
+			if (next != NULL)
+			{
+				perror("Bad queue, the top entry was not a locker!");
+				queue_enq(q, next);
+				RespondNACK(item);
+			}
+			else
+			{
+				//Respond to the releaser
+				RespondRelease(item);
+				if (!queue_empty(q))
+				{
+					//Acquire for the next in the queue
+					next = queue_deq(q);
+					queue_enq(q, NULL);
+					RespondAcquire(next, obj);
+				}
+			}
+		}
+	}
+	else
+	{
+		perror("Tried to release a non-existing item!");
+		RespondNACK(item);		
+	}
+}
 
+//Perform all actions related to an invalidate
+void DoInvalidate(QueueableItem item, struct invalidateRequest* request)
+{
+	RespondInvalidate(item);
+}
+
+//This is the main thread function
 void* ProccessWork(void* data)
 {
 	QueueableItem item;
@@ -200,13 +307,18 @@ void* ProccessWork(void* data)
 	
 	while(!terminate)
 	{
+
+		//Get the next item, or sleep until it arrives		
 		pthread_mutex_lock(&queue_mutex);
-		if (queue_empty(bagOfTasks))
+		while (queue_empty(bagOfTasks) && !terminate)
 			pthread_cond_wait(&queue_ready, &queue_mutex);
+		if (terminate)
+			break;
 		item = (QueueableItem)queue_deq(bagOfTasks);
-		pthread_mutex_unlock(&queue_mutex);	
+		pthread_mutex_unlock(&queue_mutex);
 		
-		datatype = ((unsigned char*)item->dataRequest)[0];
+		//Get the type of the package and perform the corresponding action
+		datatype = ((struct acquireRequest*)item->dataRequest)->packageCode;
 		switch(datatype)
 		{
 			case PACKAGE_CREATE_REQUEST:
@@ -218,14 +330,20 @@ void* ProccessWork(void* data)
 				break;
 			
 			case PACKAGE_RELEASE_REQUEST:
+				DoRelease(item, (struct releaseRequest*)item->dataRequest);
 				break;
 			
 			case PACKAGE_INVALIDATE_REQUEST:
+				DoInvalidate(item, (struct invalidateRequest*)item->dataRequest);
 				break;
 			
+			default:
+				perror("Unknown package recieved");
+				RespondNACK(item);
 		};	
 		
-		//TODO: Remember to free(item) and free(item->dataRequest) when it is no longer needed
+		//All responses ensure that the QueueableItem and request structures are free'd
+		//It is the obligation of the requestor to free the response
 	}
 	
 	//Returning the unused argument removes a warning

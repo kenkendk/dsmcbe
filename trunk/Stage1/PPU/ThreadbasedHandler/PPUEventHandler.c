@@ -16,29 +16,33 @@
 pthread_mutex_t pointer_mutex;
 hashtable pointers;
 
+//Simple hashtable comparision
 int cmplessint(void* a, void* b)
 {
 	return ((int)a) < ((int)b);
 }
 
+//Basic text book hash function
 int cmphashfc(void* a, unsigned int count)
 {
 	return ((int)a) % count;
 }
 
-
+//Setup the PPUHandler
 void InitializePPUHandler()
 {
 	pointers = ht_create(10, cmplessint, cmphashfc);
 	pthread_mutex_init(&pointer_mutex, NULL);
 }
 
+//Terminate the PPUHandler and release all resources
 void TerminatePPUHandler()
 {
 	//ht_free(pointers);
 	pthread_mutex_destroy(&pointer_mutex);
 }
 
+//Sends a request into the coordinator, and awaits the response (blocking)
 void* forwardRequest(void* data)
 {
 	queue dummy;
@@ -46,6 +50,7 @@ void* forwardRequest(void* data)
 	pthread_cond_t e;
 	QueueableItem q;
 	
+	//Create the entry, this will be released by the coordinator
 	q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
 	
 	dummy = queue_create();
@@ -59,7 +64,8 @@ void* forwardRequest(void* data)
 	EnqueItem(q);
 	
 	pthread_mutex_lock(&m);
-	pthread_cond_wait(&e, &m);
+	while (queue_empty(dummy))
+		pthread_cond_wait(&e, &m);
 	
 	data = queue_deq(dummy);
 	pthread_mutex_unlock(&m);
@@ -70,14 +76,35 @@ void* forwardRequest(void* data)
 	
 	return data;
 }
- 
+
+//Record information about the returned pointer
+void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offset)
+{
+	PointerEntry ent;
+	
+	//If the response was valid, record the item data
+	if (retval != NULL)
+	{
+		ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct));
+		ent->data = retval;
+		ent->id = id;
+		ent->offset = offset;
+		ent->size = size;
+
+		pthread_mutex_lock(&pointer_mutex);
+		ht_insert(pointers, retval, ent);
+		pthread_mutex_unlock(&pointer_mutex);
+	}	
+}
+
+//Perform a create in the current thread
 void* threadCreate(GUID id, unsigned long size)
 {
 	struct createRequest* cr;
-	void* retval;
 	struct acquireResponse* ar;
-	PointerEntry ent;
+	void* retval;
 	
+	//Create the request, this will be released by the coordinator
 	cr = (struct createRequest*)malloc(sizeof(struct createRequest));
 	cr->packageCode = PACKAGE_CREATE_REQUEST;
 	cr->requestID = 0;
@@ -85,8 +112,9 @@ void* threadCreate(GUID id, unsigned long size)
 	cr->dataSize = size;
 
 	retval = NULL;
-		
-	ar = (struct acquireResponse*)forwardRequest(ar);
+	
+	//Perform the request and await the response
+	ar = (struct acquireResponse*)forwardRequest(cr);
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
 		if (ar->packageCode != PACKAGE_NACK)
@@ -94,6 +122,7 @@ void* threadCreate(GUID id, unsigned long size)
 	}
 	else
 	{
+		//The response was positive
 		retval = ar->data;
 		#if DEBUG
 		if (ar->dataSize != size)
@@ -102,31 +131,22 @@ void* threadCreate(GUID id, unsigned long size)
 			perror("Bad request ID returned in create");
 		#endif
 	}
-	
-	if (retval != NULL)
-	{
-		ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct));
-		ent->data = retval;
-		ent->id = id;
-		ent->offset = 0;
-		ent->size = size;
 
-		pthread_mutex_lock(&pointer_mutex);
-		ht_insert(pointers, retval, ent);
-		pthread_mutex_unlock(&pointer_mutex);
-	}	
+	recordPointer(retval, id, size, 0);	
 	
+	free(cr);
 	free(ar);
 	return retval;	
 }
 
+//Perform an acquire in the current thread
 void* threadAcquire(GUID id, unsigned long* size)
 {
 	struct acquireRequest* cr;
 	void* retval;
 	struct acquireResponse* ar;
-	PointerEntry ent;
-	
+
+	//Create the request, this will be released by the coordinator	
 	cr = (struct acquireRequest*)malloc(sizeof(struct acquireRequest));
 	cr->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
 	cr->requestID = 0;
@@ -134,7 +154,8 @@ void* threadAcquire(GUID id, unsigned long* size)
 
 	retval = NULL;
 		
-	ar = (struct acquireResponse*)forwardRequest(ar);
+	//Perform the request and await the response
+	ar = (struct acquireResponse*)forwardRequest(cr);
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
 		if (ar->packageCode != PACKAGE_NACK)
@@ -142,6 +163,7 @@ void* threadAcquire(GUID id, unsigned long* size)
 	}
 	else
 	{
+		//The request was positive
 		retval = ar->data;
 		(*size) = ar->dataSize;
 		
@@ -151,36 +173,29 @@ void* threadAcquire(GUID id, unsigned long* size)
 		#endif
 	}	
 	
-	if (retval != NULL)
-	{
-		ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct));
-		ent->data = retval;
-		ent->id = id;
-		ent->offset = 0;
-		ent->size = (*size);
-
-		pthread_mutex_lock(&pointer_mutex);
-		ht_insert(pointers, retval, ent);
-		pthread_mutex_unlock(&pointer_mutex);
-	}	
+	recordPointer(retval, id, *size, 0);	
 	
 	free(ar);
 	return retval;	
 }
 
+//Perform a release on the current thread
 void threadRelease(void* data)
 {
 	PointerEntry pe;
 	struct releaseRequest* re;
 	struct releaseResponse* rr;
 	
+	//Verify that the pointer is registered
 	pthread_mutex_lock(&pointer_mutex);
 	if (ht_member(pointers, data))
 	{
+		//Extract the pointer, and release the mutex fast
 		pe = ht_get(pointers, data);
 		ht_delete(pointers, data);
 		pthread_mutex_unlock(&pointer_mutex);
 		
+		//Create a request, this will be released by the coordinator
 		re = (struct releaseRequest*)malloc(sizeof(struct releaseRequest));
 		re->packageCode = PACKAGE_RELEASE_REQUEST;
 		re->requestID = 0;
@@ -189,8 +204,10 @@ void threadRelease(void* data)
 		re->packageCode = pe->offset;
 		re->data = data;
 		
+		//The pointer data is no longer needed
 		free(pe);
 		
+		//Perform the request and await the response
 		rr = (struct releaseResponse*)forwardRequest(re);
 		if(rr->packageCode != PACKAGE_RELEASE_RESPONSE)
 			perror("Reponse to release had unexpected type");

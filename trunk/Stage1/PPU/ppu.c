@@ -29,19 +29,7 @@ int main(int argc, char **argv) {
 	pthread_t spu_threads[SPU_THREADS];
 	pthread_t com_threads[SPU_THREADS];
 	
-	setup();
-	
-	GUID id = 1;
-	
-	printf("ppu.c: Creating\n");
-	int* data = create(id, sizeof(int));
-	(*data) = 928;
-	
-	printf("ppu.c: Data location is %i\n", data);
-	
-	printf("ppu.c: Releasing\n");
-	release(id, 1);
-		
+
 	// Create several SPE-threads to execute 'SPU'.
 	for(i = 0; i < SPU_THREADS; i++){
 		// Create context
@@ -51,11 +39,6 @@ int main(int argc, char **argv) {
 			return -1;
 		}
 
-		// Create communication thread for each SPE context
-		printf("ppu.c: Starting communication thread\n");
-		pthread_create(&com_threads[i], NULL, &ppu_pthread_com_function, spe_ids[i]);	
-		printf("ppu.c: Started communication thread\n");
-		
 		// Load program into context
 		if (spe_program_load (spe_ids[i], &SPU)) 
 		{
@@ -70,36 +53,23 @@ int main(int argc, char **argv) {
 			perror ("Failed creating thread");
 			return -1;
 		}
-		printf("ppu.c: Started SPU thread\n");
-				
-		printf("ppu.c: Sending start signal to SPU\n");
-		spe_in_mbox_write(spe_ids[i], cont, 1, SPE_MBOX_ALL_BLOCKING);
 	}
 
-	pthread_join(spu_threads[0], NULL);
 	
-/*	
-	while (total_reads > 0){
-
-		printf("Joining thread\n");
-		pthread_join(spu_threads[0], NULL);
+	initialize(spe_ids, SPU_THREADS);
+	
+	GUID id = 1;
+	
+	printf("ppu.c: Creating\n");
+	int* data = create(id, sizeof(int));
+	(*data) = 928;
+	
+	printf("ppu.c: Data location is %i\n", data);
+	
+	printf("ppu.c: Releasing\n");
+	release(data);
 		
-		for(i = 0; i < SPU_THREADS; i++)
-		{
-			if (spe_out_mbox_status(spe_ids[i]) != 0)
-			{
-				printf("ppu.c: Recieved signal from SPU\n");
-				void* data;
-				spe_out_mbox_read(spe_ids[i], data, sizeof(int));
-				if((int)data == 1) {
-					printf("ppu.c: Recieved data: %i from SPU\n", (int)data);
-					total_reads--;
-				}				
-			}
-		}
-	}
-
-*/
+	pthread_join(spu_threads[0], NULL);
 	
 	return 0;
 }
