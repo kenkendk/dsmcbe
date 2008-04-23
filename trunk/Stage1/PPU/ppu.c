@@ -71,16 +71,19 @@ int main(int argc, char **argv) {
 			return -1;
 		}
 		printf("ppu.c: Started SPU thread\n");
-		
+				
 		printf("ppu.c: Sending start signal to SPU\n");
 		spe_in_mbox_write(spe_ids[i], cont, 1, SPE_MBOX_ALL_BLOCKING);
 	}
-	
-	printf("Joining thread\n");
+
 	pthread_join(spu_threads[0], NULL);
 	
-	/*while (total_reads > 0)
-	{		
+/*	
+	while (total_reads > 0){
+
+		printf("Joining thread\n");
+		pthread_join(spu_threads[0], NULL);
+		
 		for(i = 0; i < SPU_THREADS; i++)
 		{
 			if (spe_out_mbox_status(spe_ids[i]) != 0)
@@ -94,6 +97,9 @@ int main(int argc, char **argv) {
 				}				
 			}
 		}
-	}*/
+	}
+
+*/
+	
 	return 0;
 }

@@ -154,11 +154,15 @@ void* ppu_pthread_com_function(void* arg) {
 	unsigned int requestID;
 	GUID id;
 	
-	SPE = (spe_context_ptr_t) arg;
+	printf("dsmcbe.c: dsmcbe communication thread started\n");
 	printf("In listener loop: %i\n", SPE);
 	
+	SPE = (spe_context_ptr_t)arg;
+
+	printf("dsmcbe.c: Waiting for incoming SPU communication\n");	
 	while(1) {
 		if (spe_out_mbox_status(SPE) != 0) {
+			printf("dsmcbe.c: SPU communication started\n");
 			spe_out_mbox_read(SPE, &data, 1);
 			spe_out_mbox_read(SPE, &requestID, 1);
 			printf("dsmcbe.c: recieved signal from SPU (%i, %i)\n", data, requestID);
@@ -181,7 +185,7 @@ void* ppu_pthread_com_function(void* arg) {
 				
 				//Unknown request
 				default:
-					perror("Recieved unknown request");
+					//perror("Recieved unknown request");
 					break;
 			}
 		}

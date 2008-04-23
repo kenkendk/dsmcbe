@@ -30,7 +30,8 @@ int main(int argc, char **argv) {
 		printf("spu.c: Data size: %i\n", (int)size);
 		
 		data = spu_read_in_mbox();
-		printf("spu.c: Data EA: %i\n", (int)data);		
+		printf("spu.c: Data EA: %i\n", (int)data);
+		
 	}
 	
 	spu_write_out_mbox(1);
