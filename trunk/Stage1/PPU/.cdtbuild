@@ -6,7 +6,11 @@
 <configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.1431171080" name="ppu-gnu32-debug" parent="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug">
 <toolChain id="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.toolchain.585618546" name="PPU GNU 32 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.toolchain">
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.1889310184" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
-<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.2138533893" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.2138533893" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
+<option id="cell.ppu.gnu.embedspu.option.inputs.363752971" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
+<listOptionValue builtIn="false" value="/root/dsmcbe/Stage1/SPU/spu-gnu-debug/SPU"/>
+</option>
+</tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.607878669" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
 <option id="cell.ppu.gnu.c.linker.option.libs.1083399389" superClass="cell.ppu.gnu.c.linker.option.libs" valueType="libs">
 <listOptionValue builtIn="false" value="spe2"/>

@@ -1,9 +1,8 @@
+#include <free_align.h>
+#include <malloc_align.h>
 #include "dsmcbe_ppu.h"
 #include <stdio.h>
-#include <malloc_align.h>
-#include <libspe2.h>
-#include <free_align.h>
-#include <pthread.h>
+#define DEBUG 1
 
 spe_context_ptr_t SPE;
 
@@ -17,7 +16,6 @@ struct dataObjectStruct{
 	queue waitqueue;
 };
 
-
 int lessint(void* a, void* b){
 	
 	return ((int)a) < ((int)b);
@@ -28,18 +26,23 @@ int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
+void setup() {
+	allocatedItems = ht_create(10, lessint, hashfc);
+}
+
+
 void ReplyAcquire(dataObject object, int requestID){
 	
-	spe_in_mbox_write(SPE, (void*)3,  sizeof(unsigned int), SPE_MBOX_ALL_BLOCKING);
-	spe_in_mbox_write(SPE, (void*)requestID,  sizeof(unsigned int), SPE_MBOX_ALL_BLOCKING);
-	spe_in_mbox_write(SPE, (void*)object->size,  sizeof(unsigned long), SPE_MBOX_ALL_BLOCKING);
-	spe_in_mbox_write(SPE, object->EA,  sizeof(void*), SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, (void*)3,  1, SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, (void*)requestID,  1, SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, (void*)object->size,  1, SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, object->EA,  1, SPE_MBOX_ALL_BLOCKING);
 }
 
 void ReplyRelease(int requestID){
 
-	spe_in_mbox_write(SPE, (void*)3,  sizeof(unsigned int), SPE_MBOX_ALL_BLOCKING);
-	spe_in_mbox_write(SPE, (void*)requestID,  sizeof(unsigned int), SPE_MBOX_ALL_BLOCKING);	
+	spe_in_mbox_write(SPE, (void*)3,  1, SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, (void*)requestID,  1, SPE_MBOX_ALL_BLOCKING);	
 }
 
 void* create(GUID id, unsigned long size){
@@ -57,24 +60,20 @@ void* create(GUID id, unsigned long size){
 	
 	// Acquire object
 #if DEBUG
-	void* acquired = acquire(id, &size)
+	void* acquired = acquire(id, 1);
 	if (allocated != acquired){
 		perror("Allocated pointer does't match acquired pointer");
 		return NULL;
 	}
 #else
-	allocated = acquire(id, &size);
+	allocated = acquire(id, 1);
 #endif	
 		
 	// Return memory location
 	return allocated;
 }
 
-void* acquire(int requestID){
-	
-	void* data;
-	spe_out_mbox_read(SPE, data, 1);
-	GUID id = (GUID)data;
+void* acquire(GUID id, int requestID){
 	
 	// Find "id" in allocatedItems
 	if(ht_member(allocatedItems, (void*)id)){
@@ -86,7 +85,10 @@ void* acquire(int requestID){
 			// This thread is the only one in the waitqueue and 
 			// therefore does't need to create condition variable
 			queue_enq(object->waitqueue, NULL);
-			ReplyAcquire(object, requestID);			
+			if(requestID != 1)
+				ReplyAcquire(object, requestID);
+			
+			return object->EA;			
 		}else{
 			// Object "ID" is locked. Therefore we need to setup 
 			// and wait on condition variable to be signaled, 
@@ -101,7 +103,10 @@ void* acquire(int requestID){
 			pthread_cond_wait(&cond, &mutex);
 			
 			// This thread is now the firste element of the waitqueue!			
-			ReplyAcquire(object, requestID);
+			if(requestID != 1)
+				ReplyAcquire(object, requestID);
+
+			return object->EA;			
 		} 
 	}else{
 		// Add ID to waitlist for object "ID"
@@ -111,18 +116,15 @@ void* acquire(int requestID){
 	return NULL;
 }
 
-void release(int requestID){
-	
-	void* data;
-	spe_out_mbox_read(SPE, data, 1);
-	GUID id = (GUID)data;
-	
+void release(GUID id, int requestID){
+
 	// Find "id" in allocatedItems
 	if(ht_member(allocatedItems, (void*)id)){
 		
 		dataObject object = ht_get(allocatedItems, (void*)id);
-	
-		ReplyRelease(requestID);
+
+		if(requestID != 1)	
+			ReplyRelease(requestID);
 		
 		while(!queue_empty(object->waitqueue))
 		{
@@ -136,39 +138,42 @@ void release(int requestID){
 	}
 }
 
-
-int main(int argc, char **argv) {
-	if(argc != 2){
-		perror("Not enough arguments to start thread");
-		return -1;
-	}
+void* ppu_pthread_com_function(void* arg) {
 	
-	SPE = (spe_context_ptr_t)argv[1];
-
 	void* data;
 	void* requestID;
+	void* id;
 	
-	while(1){
-		spe_out_mbox_read(SPE, data, 1);
-		spe_out_mbox_read(SPE, requestID, 1);
-		switch((int)data){
-			// Acquire request
-			case 1:
-				acquire((int)requestID);
-				break;			
-			
-			// Release request			
-			case 5:
-				release((int)requestID);
-				break;
-			
-			//Unknown request
-			default:
-				perror("Recieved unknown request");
-				break;
+	SPE = (spe_context_ptr_t) arg;
+	
+	while(1) {
+		if (spe_out_mbox_status(SPE) != 0) {
+			printf("dsmcbe.c: recieved signal from SPU");
+			spe_out_mbox_read(SPE, data, 1);
+			spe_out_mbox_read(SPE, requestID, 1);
+			switch((int)data){
+				// Acquire request
+				case 1:
+					printf("dsmcbe.c: recieved acquire from SPU");
+					spe_out_mbox_read(SPE, id, 1);
+					printf("dsmcbe.c: acquire ID recieved from SPU is %i", id);
+					data = acquire((GUID)id, (int)requestID);
+					printf("dsmcbe.c: acquire completed returned EA %i", data);
+					break;			
+				
+				// Release request			
+				case 5:
+					spe_out_mbox_read(SPE, id, 1);
+					release((GUID)id, (int)requestID);
+					break;
+				
+				//Unknown request
+				default:
+					perror("Recieved unknown request");
+					break;
+			}
 		}
 	}
 	
-	//allocatedItems = ht_create(10, lessint, hashfc);
 	return 0;	
 }
