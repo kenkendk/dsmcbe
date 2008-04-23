@@ -9,6 +9,8 @@
 int main(int argc, char **argv) {
 	
 	int data = (int)spu_read_in_mbox();
+	unsigned long size;
+	unsigned int tmp[2];
 	
 	if(data == 1) {
 		printf("spu.c: Hello World\n");
@@ -22,8 +24,10 @@ int main(int argc, char **argv) {
 		data = spu_read_in_mbox();
 		printf("spu.c: Request id: %i\n", (int)data);
 		
-		data = spu_read_in_mbox();
-		printf("spu.c: Data size: %i\n", (int)data);
+		tmp[0] = spu_read_in_mbox();
+		tmp[1] = spu_read_in_mbox();
+		size = *((unsigned long*)tmp);
+		printf("spu.c: Data size: %i\n", (int)size);
 		
 		data = spu_read_in_mbox();
 		printf("spu.c: Data EA: %i\n", (int)data);		

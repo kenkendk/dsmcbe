@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 
 		// Create communication thread for each SPE context
 		printf("ppu.c: Starting communication thread\n");
-		pthread_create(&com_threads[i], NULL, &ppu_pthread_com_function, &spe_ids[i]);	
+		pthread_create(&com_threads[i], NULL, &ppu_pthread_com_function, spe_ids[i]);	
 		printf("ppu.c: Started communication thread\n");
 		
 		// Load program into context
@@ -76,7 +76,10 @@ int main(int argc, char **argv) {
 		spe_in_mbox_write(spe_ids[i], cont, 1, SPE_MBOX_ALL_BLOCKING);
 	}
 	
-	while (total_reads > 0)
+	printf("Joining thread\n");
+	pthread_join(spu_threads[0], NULL);
+	
+	/*while (total_reads > 0)
 	{		
 		for(i = 0; i < SPU_THREADS; i++)
 		{
@@ -91,6 +94,6 @@ int main(int argc, char **argv) {
 				}				
 			}
 		}
-	}
+	}*/
 	return 0;
 }

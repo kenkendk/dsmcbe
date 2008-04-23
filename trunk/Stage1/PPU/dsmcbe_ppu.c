@@ -32,17 +32,21 @@ void setup() {
 
 
 void ReplyAcquire(dataObject object, int requestID){
-	
-	spe_in_mbox_write(SPE, (void*)3,  1, SPE_MBOX_ALL_BLOCKING);
-	spe_in_mbox_write(SPE, (void*)requestID,  1, SPE_MBOX_ALL_BLOCKING);
-	spe_in_mbox_write(SPE, (void*)object->size,  1, SPE_MBOX_ALL_BLOCKING);
-	spe_in_mbox_write(SPE, object->EA,  1, SPE_MBOX_ALL_BLOCKING);
+	unsigned int x;
+	x = 3;
+	spe_in_mbox_write(SPE, &x,  1, SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, (unsigned int*)&requestID,  1, SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, (unsigned int*)&object->size, 2, SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, (unsigned int*)&object->EA, 1, SPE_MBOX_ALL_BLOCKING);
 }
 
 void ReplyRelease(int requestID){
 
-	spe_in_mbox_write(SPE, (void*)3,  1, SPE_MBOX_ALL_BLOCKING);
-	spe_in_mbox_write(SPE, (void*)requestID,  1, SPE_MBOX_ALL_BLOCKING);	
+	unsigned int x;
+	x = 3;
+
+	spe_in_mbox_write(SPE, &x,  1, SPE_MBOX_ALL_BLOCKING);
+	spe_in_mbox_write(SPE, &requestID,  1, SPE_MBOX_ALL_BLOCKING);	
 }
 
 void* create(GUID id, unsigned long size){
@@ -77,11 +81,13 @@ void* acquire(GUID id, int requestID){
 	
 	// Find "id" in allocatedItems
 	if(ht_member(allocatedItems, (void*)id)){
+		printf("Item existed %i\n", id);
 		
 		dataObject object = ht_get(allocatedItems, (void*)id);
 		
 		// Is "id" locked?
 		if(queue_empty(object->waitqueue)){
+			printf("Item was not locked\n");
 			// This thread is the only one in the waitqueue and 
 			// therefore does't need to create condition variable
 			queue_enq(object->waitqueue, NULL);
@@ -90,6 +96,7 @@ void* acquire(GUID id, int requestID){
 			
 			return object->EA;			
 		}else{
+			printf("Item was locked\n");
 			// Object "ID" is locked. Therefore we need to setup 
 			// and wait on condition variable to be signaled, 
 			// before continuing
@@ -100,7 +107,9 @@ void* acquire(GUID id, int requestID){
 			
 			queue_enq(object->waitqueue, &cond);
 			
+			printf("Waiting for release\n");
 			pthread_cond_wait(&cond, &mutex);
+			printf("Released!\n");
 			
 			// This thread is now the firste element of the waitqueue!			
 			if(requestID != 1)
@@ -109,6 +118,7 @@ void* acquire(GUID id, int requestID){
 			return object->EA;			
 		} 
 	}else{
+		printf("Item %i did not exist\n", id);
 		// Add ID to waitlist for object "ID"
 	}
 	
@@ -145,6 +155,7 @@ void* ppu_pthread_com_function(void* arg) {
 	GUID id;
 	
 	SPE = (spe_context_ptr_t) arg;
+	printf("In listener loop: %i\n", SPE);
 	
 	while(1) {
 		if (spe_out_mbox_status(SPE) != 0) {
@@ -156,9 +167,9 @@ void* ppu_pthread_com_function(void* arg) {
 				// Acquire request
 				case 1:
 					printf("dsmcbe.c: recieved acquire from SPU\n");
-					spe_out_mbox_read(SPE, id, 1);
+					spe_out_mbox_read(SPE, &id, 1);
 					printf("dsmcbe.c: acquire ID recieved from SPU is %i\n", id);
-					data = acquire((GUID)id, (int)requestID);
+					data = acquire(id, (unsigned int)requestID);
 					printf("dsmcbe.c: acquire completed returned EA %i\n", data);
 					break;			
 				
