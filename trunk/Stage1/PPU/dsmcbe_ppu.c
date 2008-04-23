@@ -170,7 +170,7 @@ void* ppu_pthread_com_function(void* arg) {
 				
 				//Unknown request
 				default:
-					perror("Recieved unknown request: %i\n", data);
+					perror("Recieved unknown request");
 					break;
 			}
 		}

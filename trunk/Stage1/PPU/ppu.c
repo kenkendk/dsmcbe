@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
 		// Create context
 		if ((spe_ids[i] = spe_context_create (0, NULL)) == NULL) 
 		{
-			perror ("ppu.c: Failed creating context\n");
+			perror ("ppu.c: Failed creating context");
 			return -1;
 		}
 
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 		// Load program into context
 		if (spe_program_load (spe_ids[i], &SPU)) 
 		{
-			perror ("Failed loading program\n");
+			perror ("Failed loading program");
 			return -1;
 		}
 
@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
 		// Create thread for each SPE context
 		if (pthread_create (&spu_threads[i], NULL,	&ppu_pthread_function, &spe_ids[i])) 
 		{
-			perror ("Failed creating thread\n");
+			perror ("Failed creating thread");
 			return -1;
 		}
 		printf("ppu.c: Started SPU thread\n");
