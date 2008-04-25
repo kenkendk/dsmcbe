@@ -7,6 +7,7 @@
 #include "ThreadbasedHandler/RequestCoordinator.h"
 #include <pthread.h>
 #include "dsmcbe_ppu.h"
+#include "../Common/debug.h"
 
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
@@ -15,13 +16,13 @@ void* ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
 	unsigned int entry = SPE_DEFAULT_ENTRY;
 	ctx = *((spe_context_ptr_t *)arg);
-	printf("ppu.c: Starting SPU\n");
+	printf(WHERESTR "Starting SPU\n", WHEREARG);
 	if (spe_context_run(ctx, &entry, 0, NULL, NULL, NULL) < 0)
 	{
 		perror ("Failed running context");
 		return NULL;
 	}
-	printf("ppu.c: Terminated SPU\n");
+	printf(WHERESTR "Terminated SPU\n", WHEREARG);
 	pthread_exit(NULL);
 }
 
@@ -42,7 +43,7 @@ pthread_t* simpleInitialize(unsigned int thread_count)
 		// Create context
 		if ((spe_ids[i] = spe_context_create (0, NULL)) == NULL) 
 		{
-			perror ("ppu.c: Failed creating context");
+			perror ("Failed creating context");
 			return NULL;
 		}
 
@@ -53,7 +54,7 @@ pthread_t* simpleInitialize(unsigned int thread_count)
 			return NULL;
 		}
 
-		printf("ppu.c: Starting SPU thread\n");
+		printf(WHERESTR "Starting SPU thread\n", WHEREARG);
 		// Create thread for each SPE context
 		if (pthread_create (&spu_threads[i], NULL,	&ppu_pthread_function, &spe_ids[i])) 
 		{

@@ -1,4 +1,5 @@
 #include "DMATransfer.h"
+#include "../Common/debug.h"
 
 void WaitForDMATransferByGroup(int groupid)
 {
@@ -17,10 +18,10 @@ void StartDMAReadTransferOfNext(void* b0, void* b1, void* current, unsigned int*
 	unsigned char* target = current == b0 ? b1 : b0;
 	
 	if (((unsigned int)target % 128) != 0)
-		printf("Warning detected non-aligned DMA transfer\n");
+		printf(WHERESTR "Warning detected non-aligned DMA transfer\n", WHEREARG);
 
 	if (((*ea) % 128) != 0)
-		printf("Error, EA was non-aligned in DMA transfer\n");
+		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 		
 	int groupid = GetDMAGroupID(b0, b1, current);
 
@@ -38,10 +39,10 @@ void WaitForDMATransfer(void* b0, void* b1, void* current)
 void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid)
 {
 	if (((unsigned int)buffer % 128) != 0)
-		printf("Warning detected non-aligned DMA transfer\n");
+		printf(WHERESTR "Warning detected non-aligned DMA transfer\n", WHEREARG);
 
 	if ((ea % 128) != 0)
-		printf("Error, EA was non-aligned in DMA transfer\n");
+		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
 	mfc_put(buffer, ea, size, groupid, 0, 0);
 }
@@ -50,10 +51,10 @@ void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int
 void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid)
 {
 	if (((unsigned int)buffer % 128) != 0)
-		printf("Warning detected non-aligned DMA transfer\n");
+		printf(WHERESTR "Warning detected non-aligned DMA transfer\n", WHEREARG);
 
 	if ((ea % 128) != 0)
-		printf("Error, EA was non-aligned in DMA transfer\n");
+		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
 	mfc_get(buffer, ea, size, groupid, 0, 0);
 }

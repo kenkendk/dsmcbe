@@ -7,6 +7,7 @@
 #include "datastructures.h"
 #include "../Common/guids.h"
 #include "DMATransfer.h"
+#include "../Common/debug.h"
 
 static hashtable allocatedItems;
 
@@ -34,27 +35,27 @@ void* acquire(GUID id, unsigned long* size) {
 	int data;
 	unsigned int tmp[2];
 	
-	printf("spu.c: Starting acquiring id: %i\n", id);
+	printf(WHERESTR "Starting acquiring id: %i\n", WHEREARG, id);
 	spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_WRITE);
 	spu_write_out_mbox(2);
 	spu_write_out_mbox(id);
 
 	data = spu_read_in_mbox();
-	printf("spu.c: Message type: %i\n", (int)data);
+	printf(WHERESTR "Message type: %i\n", WHEREARG, (int)data);
 		
 	data = spu_read_in_mbox();
-	printf("spu.c: Request id: %i\n", (int)data);
+	printf(WHERESTR "Request id: %i\n", WHEREARG, (int)data);
 		
 	tmp[0] = spu_read_in_mbox();
 	tmp[1] = spu_read_in_mbox();
 	*size = *((unsigned long*)tmp);
-	printf("spu.c: Data size: %i\n", (int)size);
+	printf(WHERESTR "Data size: %i\n", WHEREARG, (int)size);
 	
 	data = spu_read_in_mbox();
-	printf("spu.c: Data EA: %i\n", (int)data);
+	printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)data);
 	
 	void* allocation = _malloc_align(*size, 7);
-	printf("spu.c: Memory allocated\n");
+	printf(WHERESTR "Memory allocated\n", WHEREARG);
 
 	// Make datastructures for later use
 	dataObject object = malloc(sizeof(struct dataObjectStruct));
@@ -64,13 +65,13 @@ void* acquire(GUID id, unsigned long* size) {
 	ht_insert(allocatedItems, allocation, object);
 	
 	
-	printf("spu.c: Starting DMA transfer\n");
+	printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
 	StartDMAReadTransfer(allocation, (int)data, *size, 0);
 	
-	printf("spu.c: Waiting for DMA transfer\n");
+	printf(WHERESTR "Waiting for DMA transfer\n", WHEREARG);
 	WaitForDMATransferByGroup(0);
 	
-	printf("spu.c: Finished DMA transfer\n");
+	printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
 	
 	return allocation;	
 }
@@ -91,10 +92,10 @@ void release(void* data){
 		spu_write_out_mbox((int)data);
 		
 		int result = spu_read_in_mbox();
-		printf("spu.c: Message type: %i\n", result);
+		printf(WHERESTR "Message type: %i\n", WHEREARG, result);
 			
 		result = spu_read_in_mbox();
-		printf("spu.c: Request id: %i\n", result);
+		printf(WHERESTR "Request id: %i\n", WHEREARG, result);
 		
 		ht_delete(allocatedItems, data);
 	}
@@ -111,20 +112,20 @@ int main(int argc, char **argv) {
 	//int data = (int)spu_read_in_mbox();
 	
 	/*if(data == 1)*/ {
-		printf("spu.c: Hello World\n");
+		printf(WHERESTR "Hello World\n", WHEREARG);
 		unsigned long size;
 		
 		int* allocation = acquire(ETTAL, &size);
 	
-		printf("spu.c: Value read from acquire is: %i\n", *allocation);
+		printf(WHERESTR "Value read from acquire is: %i\n", WHEREARG, *allocation);
 		
 		*allocation = 210;
 				
 		release(allocation);
-		printf("spu.c: Release completed\n");
+		printf(WHERESTR "Release completed\n", WHEREARG);
 	}
 	
-	printf("spu.c: Done\n");
+	printf(WHERESTR "Done\n", WHEREARG);
 	
 	return 0;
 }

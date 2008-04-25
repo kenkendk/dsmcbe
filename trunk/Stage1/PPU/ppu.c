@@ -3,10 +3,11 @@
 #include <stdio.h>
 #include "../Common/guids.h"
 #define SPU_THREADS 1
+#include "../Common/debug.h"
 
 int main(int argc, char **argv) {
 
-	printf("ppu.c: Starting\n");
+	printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
 	spu_threads = simpleInitialize(SPU_THREADS);
@@ -14,19 +15,19 @@ int main(int argc, char **argv) {
 	/*printf("ppu.c: Going to sleep\n");
 	sleep(1);*/
 	
-	printf("ppu.c: Creating\n");
+	printf(WHERESTR "Creating\n", WHEREARG);
 	int* data = create(ETTAL, sizeof(int));
 	(*data) = 928;
 	
-	printf("ppu.c: Data location is %i\n", (unsigned int)data);
+	printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
 	
-	printf("ppu.c: Releasing\n");
+	printf(WHERESTR "Releasing\n");
 	release(data);
 	
-	printf("ppu.c: Released, waiting for SPU to complete\n");
+	printf(WHERESTR "Released, waiting for SPU to complete\n", WHEREARG);
 	pthread_join(spu_threads[SPU_THREADS - 1], NULL);
 	
-	printf("All done, exiting cleanly\n");
+	printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);
 	
 	return 0;
 }
