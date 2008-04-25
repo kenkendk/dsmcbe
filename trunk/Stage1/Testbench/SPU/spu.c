@@ -1,4 +1,4 @@
-#include "dsmcbe_spu.h"
+#include "spu.h"
 #include <stdio.h>
 #include <spu_intrinsics.h>
 #include <malloc_align.h>
