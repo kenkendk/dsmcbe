@@ -87,8 +87,12 @@ void release(void* data){
 	
 		spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
 		spu_write_out_mbox(2);
+		printf("spu.c: Release for id: %i\n", object->id);
 		spu_write_out_mbox(object->id);
-		spu_write_out_mbox(object->size);
+		
+		spu_write_out_mbox(((unsigned int*)&object->size)[0]);
+		spu_write_out_mbox(((unsigned int*)&object->size)[1]);
+		
 		spu_write_out_mbox((int)data);
 		
 		int result = spu_read_in_mbox();

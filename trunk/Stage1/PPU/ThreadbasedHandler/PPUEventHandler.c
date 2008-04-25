@@ -11,6 +11,7 @@
 #include "RequestCoordinator.h"
 #include <malloc.h>
 #include <stdio.h>
+#include "../Common/debug.h"
 
 
 pthread_mutex_t pointer_mutex;
@@ -50,7 +51,7 @@ void* forwardRequest(void* data)
 	pthread_cond_t e;
 	QueueableItem q;
 	
-	printf("PPUEventandler.c: creating item\n");
+	//printf(WHERESTR "creating item\n", WHEREARG);
 	//Create the entry, this will be released by the coordinator
 	q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
 	
@@ -62,23 +63,23 @@ void* forwardRequest(void* data)
 	q->mutex = &m;
 	q->queue = &dummy;
 	
-	printf("PPUEventandler.c: adding item to queue\n");
+	//printf(WHERESTR "adding item to queue\n", WHEREARG);
 	EnqueItem(q);
-	printf("PPUEventandler.c: item added to queue %i\n", (int)q);
+	printf(WHERESTR "item added to queue %i\n", WHEREARG, (int)q);
 	
 	pthread_mutex_lock(&m);
-	printf("PPUEventandler.c: locked %i\n", (int)&m);
+	//printf(WHERESTR "locked %i\n", WHEREARG, (int)&m);
 	
 	while (queue_empty(dummy)) {
-		printf("PPUEventandler.c: waiting for queue %i\n", (int)&e);
+		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
 		pthread_cond_wait(&e, &m);
-		printf("PPUEventandler.c: queue filled\n");
+		//printf(WHERESTR "queue filled\n", WHEREARG);
 	}
 	
 	data = queue_deq(dummy);
 	pthread_mutex_unlock(&m);
 
-	printf("PPUEventandler.c: returning response\n");
+	printf(WHERESTR "returning response\n", WHEREARG);
 	
 	//queue_free(dummy);
 	pthread_mutex_destroy(&m);
@@ -95,7 +96,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 	//If the response was valid, record the item data
 	if (retval != NULL)
 	{
-		printf("PPUEventandler.c: recording entry\n");
+		printf(WHERESTR "recording entry\n", WHEREARG);
 		ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct));
 		ent->data = retval;
 		ent->id = id;
@@ -115,7 +116,7 @@ void* threadCreate(GUID id, unsigned long size)
 	struct acquireResponse* ar;
 	void* retval;
 	
-	printf("PPUEventandler.c: creating structure\n");
+	printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
 	cr = (struct createRequest*)malloc(sizeof(struct createRequest));
 	cr->packageCode = PACKAGE_CREATE_REQUEST;
@@ -129,13 +130,13 @@ void* threadCreate(GUID id, unsigned long size)
 	ar = (struct acquireResponse*)forwardRequest(cr);
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
-		printf("PPUEventandler.c: response was negative\n");
+		printf(WHERESTR "response was negative\n", WHEREARG);
 		if (ar->packageCode != PACKAGE_NACK)
 			perror("Unexcepted response for a Create request");
 	}
 	else
 	{
-		printf("PPUEventandler.c: response was positive\n");
+		//printf(WHERESTR "response was positive\n", WHEREARG);
 		//The response was positive
 		retval = ar->data;
 		#if DEBUG

@@ -8,6 +8,7 @@
 #include "RequestCoordinator.h"
 #include <stdio.h>
 #include <pthread.h>
+#include "../Common/debug.h"
 
 volatile int terminate;
 
@@ -98,35 +99,35 @@ void InitializeCoordinator()
 //This method can be called from outside the module to set up a request
 void EnqueItem(QueueableItem item)
 {
-	printf("RequestCoordinator.c: adding item to queue: %i\n", (int)item);
+	//printf(WHERESTR "adding item to queue: %i\n", WHEREARG, (int)item);
  	pthread_mutex_lock(&queue_mutex);
  	
  	queue_enq(bagOfTasks, (void*)item);
-	printf("RequestCoordinator.c: setting event\n");
+	//printf(WHERESTR "setting event\n", WHEREARG);
  	
  	pthread_cond_signal(&queue_ready);
  	pthread_mutex_unlock(&queue_mutex);
 
-	printf("RequestCoordinator.c: item added to queue\n");
+	printf(WHERESTR "item added to queue\n", WHEREARG);
 }
 
 //Helper method with common code for responding
 //It sets the requestID on the response, and frees the data structures
 void RespondAny(QueueableItem item, void* resp)
 {
-	printf("RequestCoordinator.c: responding to %i\n", (int)item);
+	printf(WHERESTR "responding to %i\n", WHEREARG, (int)item);
 	//The actual type is not important, since the first two fields are 
 	// layed out the same way for all packages
 	((struct acquireResponse*)resp)->requestID = ((struct acquireRequest*)item->dataRequest)->requestID;
 
-	printf("RequestCoordinator.c: responding, locking %i\n", (int)item->mutex);
+	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
 	pthread_mutex_lock(item->mutex);
-	printf("RequestCoordinator.c: responding, locked %i\n", (int)item->queue);
+	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
 	queue_enq(*(item->queue), resp);
 	pthread_cond_signal(item->event);
-	printf("RequestCoordinator.c: responding, signalled %i\n", (int)item->event);
+	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
 	pthread_mutex_unlock(item->mutex);
-	printf("RequestCoordinator.c: responding, done\n");
+	printf(WHERESTR "responding, done\n", WHEREARG);
 	
 	free(item->dataRequest);
 	free(item);
@@ -182,6 +183,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	//Check that the item is not already created
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
+		perror("RequestCoordinator.c: Create request for already existing item");
 		RespondNACK(item);
 	}
 	else
@@ -319,18 +321,18 @@ void* ProccessWork(void* data)
 	{
 
 		//Get the next item, or sleep until it arrives	
-		printf("RequestCoordinator.c: fetching job\n");
+		//printf(WHERESTR "fetching job\n", WHEREARG);
 			
 		pthread_mutex_lock(&queue_mutex);
 		while (queue_empty(bagOfTasks) && !terminate) {
-			printf("RequestCoordinator.c: waiting for event\n");
+			//printf(WHERESTR "waiting for event\n", WHEREARG);
 			pthread_cond_wait(&queue_ready, &queue_mutex);
-			printf("RequestCoordinator.c: event recieved\n");
+			//printf(WHERESTR "event recieved\n", WHEREARG);
 		}
 		if (terminate)
 			break;
 
-		printf("RequestCoordinator.c: fetching event\n");
+		printf(WHERESTR "fetching event\n", WHEREARG);
 		item = (QueueableItem)queue_deq(bagOfTasks);
 		pthread_mutex_unlock(&queue_mutex);
 		
@@ -355,7 +357,7 @@ void* ProccessWork(void* data)
 				break;
 			
 			default:
-				printf("Unknown package code: %i\n", datatype);
+				printf(WHERESTR "Unknown package code: %i\n", WHEREARG, datatype);
 				perror("Unknown package recieved");
 				RespondNACK(item);
 		};	
