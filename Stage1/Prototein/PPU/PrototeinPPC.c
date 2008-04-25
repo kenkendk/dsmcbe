@@ -1,20 +1,22 @@
 #include "PrototeinShared.h"
 #include "ppu.h"
 #include <stdio.h>
+#include <string.h>
 #include <malloc_align.h>
 #include <free_align.h>
+#include <memory.h>
 
 #define JOBS_PR_PROCESSOR 10
 #define REQUIRED_JOB_COUNT (spu_count * 1000)
 
 void fold_broad(struct coordinate place, unsigned int required_jobs);
 
-int job_queue_length;
-int current_job;
+unsigned int job_queue_length;
+unsigned int current_job;
 struct coordinate* job_queue;
 
-int job_queue_tree_depth;
-int job_queue_tree_break;
+unsigned int job_queue_tree_depth;
+unsigned int job_queue_tree_break;
 int bestscore;
 struct coordinate* winner;
 
@@ -29,7 +31,7 @@ int GetWaitingSPU(speid_t* ids, int spu_count, struct coordinate** winners, unsi
 				res = spe_out_mbox_status(ids[i]);
 				if (res != 0)
 				{
-					spe_out_mbox_read(ids[i], &score, 1);
+					spe_out_mbox_read(ids[i], (unsigned int*)&score, 1);
 					printf("Read a score %d\n", score);	        
 					
 					if (score > bestscore)
@@ -44,7 +46,7 @@ int GetWaitingSPU(speid_t* ids, int spu_count, struct coordinate** winners, unsi
 		}
 }
 
-void PrepareWorkBlock(struct workblock* w, int current_job)
+void PrepareWorkBlock(struct workblock* w, unsigned int current_job)
 {
 	int trn_size;
 	unsigned int joboffset;
@@ -123,14 +125,14 @@ void FoldPrototein(char* proto, speid_t* ids, pthread_t* threads, int spu_count)
 		PrepareWorkBlock(workblocks[i], current_job);
 
 		current_job += (*workblocks[i]).worksize;		 		
-		send_mailbox_message_to_spe(ids[i], 1, &workblocks[i]);
+		send_mailbox_message_to_spe(ids[i], 1,(unsigned int*) &workblocks[i]);
 		inprogress[i]++;
 	}
 	
 	//Tell the rest to die after the current work
 	j = 0;
 	for(i = 0; i < spu_count; i++)
-		send_mailbox_message_to_spe(ids[i], 1, &j);
+		send_mailbox_message_to_spe(ids[i], 1, (unsigned int *)&j);
 		
 	printf("Written stop for all, harvesting remaining results\n");
 	
@@ -143,7 +145,7 @@ void FoldPrototein(char* proto, speid_t* ids, pthread_t* threads, int spu_count)
 			if(inprogress[i] > 0)
 				while(spe_out_mbox_status(ids[i]) > 0)
 				{
-					spe_out_mbox_read(ids[i], &score, 1);
+					spe_out_mbox_read(ids[i], (unsigned int*)&score, 1);
 					printf("Read a score %d\n", score);
 					if (score > bestscore)
 					{
@@ -178,11 +180,11 @@ void fold_broad(struct coordinate place, unsigned int required_jobs)
     struct coordinate* prev_places;
     struct coordinate* new_places;
     
-    int prev_place_length;
-    int new_place_length;
-    int tree_depth;
+    unsigned int prev_place_length;
+    unsigned int new_place_length;
+    unsigned int tree_depth;
     
-    int i;
+    size_t i;
 	
 	int x, y;
 	struct coordinate* prev_offset;

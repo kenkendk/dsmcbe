@@ -37,9 +37,9 @@ inline char get_map_char_raw(int x, int y, struct coordinate* place, int places_
 }
 	
 	
-void printmap(struct coordinate* place, int places_length)
+void printmap(struct coordinate* place, unsigned int places_length)
 {
-	int i, j;
+	size_t i, j;
 	
 	printf("Map (%i): \n", places_length);
 	for(i = 0; i<prototein_length*2; i++)
