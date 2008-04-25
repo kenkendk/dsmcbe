@@ -1,6 +1,6 @@
 #include "dsmcbe.h"
 #include <stdio.h>
-#include <spu_intrinsics.h>
+#include "guids.h"
 
 extern spe_program_handle_t SPU;
 
@@ -29,7 +29,14 @@ int main(int argc, char **argv) {
 	pthread_t spu_threads[SPU_THREADS];
 	pthread_t com_threads[SPU_THREADS];
 	
-
+	setup();
+	
+	printf("ppu.c: Creating\n");
+	int* data = create(ETTAL, sizeof(int));
+	(*data) = 928;
+	
+	printf("ppu.c: Data location is %i\n", data);
+			
 	// Create several SPE-threads to execute 'SPU'.
 	for(i = 0; i < SPU_THREADS; i++){
 		// Create context
@@ -54,7 +61,13 @@ int main(int argc, char **argv) {
 			return -1;
 		}
 	}
-
+	
+	printf("ppu.c: Going to sleep\n");
+	sleep(1);
+	
+	printf("ppu.c: Releasing\n");
+	release(ETTAL, 1);	
+	
 	
 	initialize(spe_ids, SPU_THREADS);
 	
