@@ -1,6 +1,7 @@
 #ifndef DSMCBE_PPU_H_
 #define DSMCBE_PPU_H_
 
+#icnlude "../Common/dsmcbe.h"
 #include <libspe2.h>
 #include <pthread.h>
 
