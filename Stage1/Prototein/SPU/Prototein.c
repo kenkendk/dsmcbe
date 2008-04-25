@@ -6,13 +6,14 @@
 #include <math.h>
 #include <errno.h>
 #include <malloc_align.h>
+#include <string.h>
 
 #define MAP_WIDTH (prototein_length * 2 + 1) 
 #define MAP_HEIGTH (prototein_length * 2 + 1)
 #define MAP_SIZE (MAP_WIDTH * MAP_HEIGTH)
 #define MAP_COORDINATES(x, y) (((y)*MAP_WIDTH)+(x))
 
-void fold(struct coordinate* place, int places_length);
+void fold(struct coordinate* place, unsigned int places_length);
 
 #define GET_MAP_CHAR(x,y) (map[MAP_COORDINATES((x),(y))])
 #define UPDATE_MAP(x,y,c) (GET_MAP_CHAR((x),(y)) = (c))
@@ -24,9 +25,10 @@ char* map;
 
 int calc_score_run;
 
-void initialize_map(struct coordinate* place, int places_length)
+void initialize_map(struct coordinate* place, unsigned int places_length)
 {
-    int i, z;
+    size_t i; 
+    int z;
 	for(i = 0; i< MAP_SIZE; i++)
 		map[i] = ' ';
 
@@ -55,7 +57,7 @@ int FoldPrototein(unsigned long long id)
     struct coordinate* queue;
     struct workblock* work;
     
-    int i;
+    size_t i;
     
     bestscore = -9999999;
    	b0 = (void*)malloc_align(BUFFER_SIZE, 7); 
@@ -101,7 +103,7 @@ int FoldPrototein(unsigned long long id)
 		current_buffer = current_buffer == b0 ? b1 : b0;
 
 	    ea = spu_read_in_mbox();
-	    if (ea != NULL)
+	    if ((void*)ea != NULL)
 	       	StartDMAReadTransfer(current_buffer, ea, BUFFER_SIZE, GetDMAGroupID(b0, b1, current_buffer));
 	    	    	    
 	   	//printf("SPU recieved a work block with %d items\n", (*work).worksize);
@@ -159,9 +161,10 @@ inline void recurse(int newx, int newy, struct coordinate* place, int places_len
 	}
 }
 
-void calc_score(struct coordinate* place, int places_length)
+void calc_score(struct coordinate* place, unsigned int places_length)
 {
-	int score, i, x, y;	
+	size_t i;
+	int score, x, y;	
 	score = 0;
 	
 	calc_score_run++;
@@ -202,7 +205,7 @@ void calc_score(struct coordinate* place, int places_length)
 	
 }
 
-void fold(struct coordinate* place, int places_length)
+void fold(struct coordinate* place, unsigned int places_length)
 {
 	if (places_length == prototein_length)
 	{

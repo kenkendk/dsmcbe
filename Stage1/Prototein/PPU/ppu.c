@@ -1,6 +1,7 @@
 #include "ppu.h"
+#include <pthread.h>
+#include <libspe2.h>
 
-DMATest(speid_t*, unsigned int);
 void FoldPrototein(char* proto, speid_t* ids, pthread_t* threads, int spu_count);
 
 void *ppu_pthread_function(void *arg) {
@@ -19,7 +20,7 @@ void *ppu_pthread_function(void *arg) {
 int main(int argc,char** argv) {
 	speid_t* spe_ids;
 	pthread_t* threads;
-	int i, j, status = 0, spu_threads;
+	int i, spu_threads;
 	
 	if (argc <= 1)
 	{
@@ -85,10 +86,10 @@ void send_mailbox_message_to_spe(speid_t target, unsigned int data_size, unsigne
 
 void WaitForSPUCompletion(pthread_t* threads, unsigned int spu_count)
 {
-	int i, status;
+	size_t i;
 	/*Wait for SPU-thread to complete execution.*/
 	for(i=0;i<spu_count;i++) {
-		pthread_join(threads[i], &status);
+		pthread_join(threads[i], NULL);
 		//(void)spe_wait(spe_ids[i],&status,0);
 	}
 	
