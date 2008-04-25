@@ -3,6 +3,7 @@
 	<name>SPU</name>
 	<comment></comment>
 	<projects>
+		<project>DSMCBE_SPU</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

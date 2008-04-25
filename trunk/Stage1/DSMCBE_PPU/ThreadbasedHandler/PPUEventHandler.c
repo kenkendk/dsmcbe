@@ -11,7 +11,7 @@
 #include "RequestCoordinator.h"
 #include <malloc.h>
 #include <stdio.h>
-#include "../Common/debug.h"
+#include "../../Common/debug.h"
 
 
 pthread_mutex_t pointer_mutex;

@@ -1,5 +1,4 @@
-#include "../Common/dsmcbe.h"
-#include "dsmcbe_ppu.h"
+#include "../DSMCBE_PPU/dsmcbe_ppu.h"
 #include <stdio.h>
 #include "../Common/guids.h"
 #include "../Common/debug.h"

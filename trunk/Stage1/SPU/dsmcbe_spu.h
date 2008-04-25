@@ -1,8 +1,6 @@
-#include "../PPU/ThreadbasedHandler/datapackages.h"
+#ifndef DSMCBE_SPU_LOCAL_H_
+#define DSMCBE_SPU_LOCAL_H_
 
-#ifndef DSMCBE_SPU_H_
-#define DSMCBE_SPU_H_
+#include "../DSMCBE_SPU/dsmcbe_spu.h"
 
-#include "../Common/dsmcbe.h"
-
-#endif /*DSMCBE_SPU_H_*/
+#endif /*DSMCBE_SPU_LOCAL_H_*/

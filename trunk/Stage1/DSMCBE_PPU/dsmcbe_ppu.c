@@ -1,7 +1,7 @@
 #include <free_align.h>
 #include <malloc_align.h>
 #include <stdio.h>
-#include "dsmcbe.h"
+#include "../Common/dsmcbe.h"
 #include "ThreadbasedHandler/PPUEventHandler.h"
 #include "ThreadbasedHandler/SPUEventHandler.h"
 #include "ThreadbasedHandler/RequestCoordinator.h"

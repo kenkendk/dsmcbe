@@ -8,7 +8,7 @@
 #include "RequestCoordinator.h"
 #include <stdio.h>
 #include <pthread.h>
-#include "../Common/debug.h"
+#include "../../Common/debug.h"
 
 volatile int terminate;
 

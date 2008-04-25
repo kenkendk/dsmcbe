@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include "../datastructures.h"
 #include "RequestCoordinator.h"
-#include "../Common/debug.h"
+#include "../../Common/debug.h"
 
 volatile int terminate;
 pthread_t workthread;
