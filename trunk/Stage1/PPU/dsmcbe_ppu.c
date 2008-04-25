@@ -6,6 +6,7 @@
 #include "ThreadbasedHandler/SPUEventHandler.h"
 #include "ThreadbasedHandler/RequestCoordinator.h"
 #include <pthread.h>
+#include "dsmcbe_ppu.h"
 
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
@@ -31,7 +32,7 @@ pthread_t* simpleInitialize(unsigned int thread_count)
 	spe_context_ptr_t* spe_ids;
 	pthread_t* spu_threads;
 	
-	spe_ids = (spe_context_ptr_t)malloc(thread_count * sizeof(spe_context_ptr_t));
+	spe_ids = (spe_context_ptr_t*)malloc(thread_count * sizeof(spe_context_ptr_t));
 	spu_threads = (pthread_t*)malloc(thread_count * sizeof(pthread_t));
 
 	mustrelease_spe_id = 1;

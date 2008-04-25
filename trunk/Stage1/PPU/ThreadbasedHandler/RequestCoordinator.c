@@ -98,7 +98,7 @@ void InitializeCoordinator()
 //This method can be called from outside the module to set up a request
 void EnqueItem(QueueableItem item)
 {
-	printf("RequestCoordinator.c: adding item to queue: %i\n", item);
+	printf("RequestCoordinator.c: adding item to queue: %i\n", (int)item);
  	pthread_mutex_lock(&queue_mutex);
  	
  	queue_enq(bagOfTasks, (void*)item);
@@ -114,17 +114,17 @@ void EnqueItem(QueueableItem item)
 //It sets the requestID on the response, and frees the data structures
 void RespondAny(QueueableItem item, void* resp)
 {
-	printf("RequestCoordinator.c: responding to %i\n", item);
+	printf("RequestCoordinator.c: responding to %i\n", (int)item);
 	//The actual type is not important, since the first two fields are 
 	// layed out the same way for all packages
 	((struct acquireResponse*)resp)->requestID = ((struct acquireRequest*)item->dataRequest)->requestID;
 
-	printf("RequestCoordinator.c: responding, locking %i\n", item->mutex);
+	printf("RequestCoordinator.c: responding, locking %i\n", (int)item->mutex);
 	pthread_mutex_lock(item->mutex);
-	printf("RequestCoordinator.c: responding, locked %i\n", item->queue);
+	printf("RequestCoordinator.c: responding, locked %i\n", (int)item->queue);
 	queue_enq(*(item->queue), resp);
 	pthread_cond_signal(item->event);
-	printf("RequestCoordinator.c: responding, signalled %i\n", item->event);
+	printf("RequestCoordinator.c: responding, signalled %i\n", (int)item->event);
 	pthread_mutex_unlock(item->mutex);
 	printf("RequestCoordinator.c: responding, done\n");
 	

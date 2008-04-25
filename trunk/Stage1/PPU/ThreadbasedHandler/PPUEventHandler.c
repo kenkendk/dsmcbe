@@ -64,13 +64,13 @@ void* forwardRequest(void* data)
 	
 	printf("PPUEventandler.c: adding item to queue\n");
 	EnqueItem(q);
-	printf("PPUEventandler.c: item added to queue %i\n", q);
+	printf("PPUEventandler.c: item added to queue %i\n", (int)q);
 	
 	pthread_mutex_lock(&m);
-	printf("PPUEventandler.c: locked %i\n", &m);
+	printf("PPUEventandler.c: locked %i\n", (int)&m);
 	
 	while (queue_empty(dummy)) {
-		printf("PPUEventandler.c: waiting for queue %i\n", &e);
+		printf("PPUEventandler.c: waiting for queue %i\n", (int)&e);
 		pthread_cond_wait(&e, &m);
 		printf("PPUEventandler.c: queue filled\n");
 	}
