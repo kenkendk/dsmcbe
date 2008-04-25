@@ -10,7 +10,7 @@
 #include <malloc.h>
 #include <libspe2.h>
 #include "../datastructures.h"
-#include "../dsmcbe.h"
+#include "../../Common/dsmcbe.h"
 
 //The number of messages the hardware allows in the MBOX queue
 #define MBOX_HW_QUEUE_SIZE 4

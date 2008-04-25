@@ -7,7 +7,7 @@
 
 #include <malloc.h>
 #include <malloc_align.h>
-#include "../dsmcbe.h"
+#include "../../Common/dsmcbe.h"
 #include "../datastructures.h"
 #include "datapackages.h"
 

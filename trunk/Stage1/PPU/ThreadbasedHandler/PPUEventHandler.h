@@ -1,7 +1,7 @@
 #ifndef PPUEVENTHANDLER_H_
 #define PPUEVENTHANDLER_H_
 
-#include "../dsmcbe.h"
+#include "../../Common/dsmcbe.h"
 #include "../datastructures.h"
 #include "datapackages.h"
 

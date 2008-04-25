@@ -5,7 +5,7 @@
 #include <free_align.h>
 #include <spu_mfcio.h> 
 #include "datastructures.h"
-#include "../PPU/guids.h"
+#include "../Common/guids.h"
 #include "DMATransfer.h"
 
 static hashtable allocatedItems;
@@ -108,13 +108,13 @@ int main(int argc, char **argv) {
 	
 	setup();
 	
-	int data = (int)spu_read_in_mbox();
+	//int data = (int)spu_read_in_mbox();
 	
-	if(data == 1) {
+	/*if(data == 1)*/ {
 		printf("spu.c: Hello World\n");
 		unsigned long size;
 		
-		int* allocation = acquire(ETTAL+1, &size);
+		int* allocation = acquire(ETTAL, &size);
 	
 		printf("spu.c: Value read from acquire is: %i\n", *allocation);
 		

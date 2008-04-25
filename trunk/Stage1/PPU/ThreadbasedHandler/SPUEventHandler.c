@@ -19,6 +19,7 @@ spe_context_ptr_t* spe_threads;
 unsigned int spe_thread_count;
 
 queue* requestQueues;
+queue* mailboxQueues;
 
 
 
@@ -34,8 +35,13 @@ void TerminateSPUHandler(int force)
 	pthread_mutex_destroy(&work_mutex);
 	pthread_cond_destroy(&work_ready);
 	
-	/*for(i = 0; i < spe_thread_count; i++)
-		queue_free(requestQueues[i]);*/
+	/*
+	for(i = 0; i < spe_thread_count; i++)
+	{
+		queue_free(mailboxQueues[i]);
+		queue_free(requestQueues[i]);
+	}
+	*/
 	
 	free(requestQueues);
 }
@@ -46,6 +52,18 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	
 	pthread_attr_t attr;
 	terminate = 0;
+
+	spe_thread_count = thread_count;
+	spe_threads = threads;
+
+	/* Setup queues */
+	requestQueues = (queue*)malloc(sizeof(queue) * spe_thread_count);
+	mailboxQueues = (queue*)malloc(sizeof(queue) * spe_thread_count);
+	for(i = 0; i < spe_thread_count; i++)
+	{
+		requestQueues[i] = queue_create();
+		mailboxQueues[i] = queue_create();
+	}
 	
 	/* Initialize mutex and condition variable objects */
 	pthread_mutex_init(&work_mutex, NULL);
@@ -57,12 +75,6 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	pthread_create(&workthread, &attr, ProcessMessages, NULL);
 	pthread_attr_destroy(&attr);
 	
-	spe_thread_count = thread_count;
-	spe_threads = threads;
-	
-	requestQueues = (queue*)malloc(sizeof(queue) * spe_thread_count);
-	for(i = 0; i < spe_thread_count; i++)
-		requestQueues[i] = queue_create();
 }
 
 void* ProcessMessages(void* data)
@@ -78,24 +90,26 @@ void* ProcessMessages(void* data)
 	
 	while(!terminate)
 	{
+		//printf("SPUEventHandler.c: Inside loop\n");
 		//Step 1, process SPU mailboxes
 		for(i = 0; i < spe_thread_count; i++)
 			if (spe_out_mbox_status(spe_threads[i]) != 0)
 			{
+				datatype = 8000;
+				printf("SPUEventHandler.c: SPU mailbox message detected\n");
 				if (spe_out_mbox_read(spe_threads[i], &datatype, 1) != 1)
-					perror("Read MBOX failed!");
+					perror("Read MBOX failed (1)!");
 					
 				switch(datatype)
 				{
 					case PACKAGE_CREATE_REQUEST:
 						dataItem = malloc(sizeof(struct createRequest));
-
 						if (spe_out_mbox_read(spe_threads[i], &requestID, 1) != 1)
-							perror("Read MBOX failed!");
+							perror("Read MBOX failed create(2)!");
 						if (spe_out_mbox_read(spe_threads[i], &itemid, 1) != 1)
-							perror("Read MBOX failed!");
+							perror("Read MBOX failed create(3)!");
 						if (spe_out_mbox_read(spe_threads[i], (unsigned int*)&datasize, 2) != 2)
-							perror("Read MBOX failed!");
+							perror("Read MBOX failed create(4)!");
 												
 						((struct createRequest*)dataItem)->dataItem = itemid;
 						((struct createRequest*)dataItem)->packageCode = datatype;
@@ -105,12 +119,12 @@ void* ProcessMessages(void* data)
 						
 					case PACKAGE_ACQUIRE_REQUEST_READ:
 					case PACKAGE_ACQUIRE_REQUEST_WRITE:
+						printf("SPUEventHandler.c: Acquire recieved\n");
 						dataItem = malloc(sizeof(struct acquireRequest));
-
 						if (spe_out_mbox_read(spe_threads[i], &requestID, 1) != 1)
-							perror("Read MBOX failed!");
+							perror("Read MBOX failed acq(2)!");
 						if (spe_out_mbox_read(spe_threads[i], &itemid, 1) != 1)
-							perror("Read MBOX failed!");
+							perror("Read MBOX failed acq(3)!");
 												
 						((struct acquireRequest*)dataItem)->dataItem = itemid;
 						((struct acquireRequest*)dataItem)->packageCode = datatype;
@@ -118,14 +132,20 @@ void* ProcessMessages(void* data)
 						break;
 						
 					case PACKAGE_RELEASE_REQUEST:
-						dataItem = malloc(sizeof(struct releaseRequest));
-
+						printf("SPUEventHandler.c: Release recieved\n");
+					
+						if ((dataItem = malloc(sizeof(struct releaseRequest))) == NULL)
+							perror("SPUEventHandler.c: maloc failed");
+						printf("SPUEventHandler.c: malloc'ed\n");
 						if (spe_out_mbox_read(spe_threads[i], &requestID, 1) != 1)
 							perror("Read MBOX failed!");
+						printf("SPUEventHandler.c: read (1)\n");
 						if (spe_out_mbox_read(spe_threads[i], &itemid, 1) != 1)
 							perror("Read MBOX failed!");
+						printf("SPUEventHandler.c: read (2)\n");
 						if (spe_out_mbox_read(spe_threads[i], (unsigned int*)&datasize, 2) != 2)
 							perror("Read MBOX failed!");
+						printf("SPUEventHandler.c: read (3)\n");
 												
 						((struct releaseRequest*)dataItem)->dataItem = itemid;
 						((struct releaseRequest*)dataItem)->packageCode = datatype;
@@ -159,58 +179,57 @@ void* ProcessMessages(void* data)
 					queueItem->mutex = &work_mutex;
 					queueItem->queue = &requestQueues[i];
 					
+					printf("SPUEventHandler.c: Got message from SPU, enqued as %i\n", queueItem);
+					
 					EnqueItem(queueItem);
 					dataItem = NULL;
 					queueItem = NULL;
 				}
 				
 			}
-			
+		
 		//Step 2, proccess any responses
+		//printf("SPUEventHandler.c: checking for coordinator reponses\n");
+		
 		pthread_mutex_lock(&work_mutex);
 		for(i = 0; i < spe_thread_count; i++)
 			if (!queue_empty(requestQueues[i]))
 			{
+				printf("SPUEventHandler.c: Detected coordinator response\n");
+				
 				dataItem = queue_deq(requestQueues[i]);
 				pthread_mutex_unlock(&work_mutex);
 				
 				datatype = ((unsigned char*)dataItem)[0];
+				printf("SPUEventHandler.c: Got response from Coordinator\n");
 				switch(datatype)
 				{
 					case PACKAGE_ACQUIRE_RESPONSE:
-						if (spe_in_mbox_write(spe_threads[i], &datatype, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
-						if (spe_in_mbox_write(spe_threads[i], &((struct acquireResponse*)datatype)->requestID, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
-						if (spe_in_mbox_write(spe_threads[i], (unsigned int*)&((struct acquireResponse*)datatype)->dataSize, 2, SPE_MBOX_ANY_NONBLOCKING) != 2)
-							perror("MBOX write error");
-						if (spe_in_mbox_write(spe_threads[i], (unsigned int*)&((struct acquireResponse*)datatype)->data, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
+						printf("SPUEventHandler.c: Got acquire response message, converting to MBOX messages\n");
+						queue_enq(mailboxQueues[i], (void*)datatype);
+						queue_enq(mailboxQueues[i], (void*)((struct acquireResponse*)dataItem)->requestID);
+						queue_enq(mailboxQueues[i], (void*)((unsigned int*)&((struct acquireResponse*)dataItem)->dataSize)[0]);
+						queue_enq(mailboxQueues[i], (void*)((unsigned int*)&((struct acquireResponse*)dataItem)->dataSize)[1]);
+						queue_enq(mailboxQueues[i], (void*)&((struct acquireResponse*)dataItem)->data);
+						
 						break;
 					case PACKAGE_MIGRATION_RESPONSE:
 						break;
 					case PACKAGE_RELEASE_RESPONSE:
-						if (spe_in_mbox_write(spe_threads[i], &datatype, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
-						if (spe_in_mbox_write(spe_threads[i], &((struct releaseResponse*)datatype)->requestID, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
+						queue_enq(mailboxQueues[i], (void*)datatype);
+						queue_enq(mailboxQueues[i], (void*)((struct releaseResponse*)dataItem)->requestID);
 						break;
 					case PACKAGE_NACK:
-						if (spe_in_mbox_write(spe_threads[i], &datatype, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
-						if (spe_in_mbox_write(spe_threads[i], &((struct NACK*)datatype)->requestID, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
-						if (spe_in_mbox_write(spe_threads[i], &((struct NACK*)datatype)->hint, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
+						queue_enq(mailboxQueues[i], (void*)datatype);
+						queue_enq(mailboxQueues[i], (void*)((struct NACK*)dataItem)->requestID);
+						queue_enq(mailboxQueues[i], (void*)((struct NACK*)dataItem)->hint);
 						break;
 					case PACKAGE_INVALIDATE_RESPONSE:
-						if (spe_in_mbox_write(spe_threads[i], &datatype, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
-						if (spe_in_mbox_write(spe_threads[i], &((struct invalidateResponse*)datatype)->requestID, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)
-							perror("MBOX write error");
+						queue_enq(mailboxQueues[i], (void*)datatype);
+						queue_enq(mailboxQueues[i], (void*)((struct invalidateResponse*)dataItem)->requestID);
 						break;
 					default:
-						perror("Bad Coordinator response");
+						perror("SPUEventHandler.c: Bad Coordinator response");
 						break;
 				}
 				
@@ -218,8 +237,24 @@ void* ProcessMessages(void* data)
 								
 				pthread_mutex_lock(&work_mutex);
 			}
-		
+	
 		pthread_mutex_unlock(&work_mutex);
+		
+		//printf("SPUEventHandler.c: Processing mailbox messages\n");
+		
+		//Step 3, forward messages to SPU
+		for(i = 0; i < spe_thread_count; i++) 
+		{
+			while (!queue_empty(mailboxQueues[i]) && spe_in_mbox_status(spe_threads[i]) != 0)	
+			{
+				printf("Sending Mailbox message: %i\n", (unsigned int)mailboxQueues[i]->head->element);
+				if (spe_in_mbox_write(spe_threads[i], (unsigned int*)&mailboxQueues[i]->head->element, 1, SPE_MBOX_ALL_BLOCKING) != 1)
+					perror("SPUEventHandler.c: Failed to send message, even though it was blocking!"); 
+
+				queue_deq(mailboxQueues[i]);
+			}
+		}				
+		
 	}
 	
 	//Returning the unused argument removes a warning

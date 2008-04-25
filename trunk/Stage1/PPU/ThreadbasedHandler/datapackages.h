@@ -8,7 +8,7 @@
 #ifndef DATAPACKAGES_H_
 #define DATAPACKAGES_H_
 
-#include "../dsmcbe.h"
+#include "../../Common/dsmcbe.h"
 
 #define PACKAGE_CREATE_REQUEST 1
 #define PACKAGE_ACQUIRE_REQUEST_READ 2
