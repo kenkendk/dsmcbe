@@ -1,7 +1,6 @@
 #include<stdio.h>
 #include<profile.h>
 #include<malloc.h>
-#include "DMATransfer.h"
 
 int FoldPrototein(unsigned long long id);
 

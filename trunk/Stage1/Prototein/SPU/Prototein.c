@@ -1,5 +1,4 @@
 #include "../PPU/PrototeinShared.h"
-#include "DMATransfer.h"
 
 #include <stdio.h>
 #include <malloc.h>
@@ -7,6 +6,8 @@
 #include <errno.h>
 #include <malloc_align.h>
 #include <string.h>
+#include <dsmcbe_spu.h>
+#include <common/debug.h>
 
 #define MAP_WIDTH (prototein_length * 2 + 1) 
 #define MAP_HEIGTH (prototein_length * 2 + 1)
@@ -44,68 +45,65 @@ void initialize_map(struct coordinate* place, unsigned int places_length)
 
 int FoldPrototein(unsigned long long id)
 {
-	unsigned int ea;
-	unsigned int ea_winner;
-	unsigned int prototein_buffer_length;
-	unsigned int winner_buffer_length;
-	
-	void* b0;
-	void* b1;
-	void* current_buffer;  
-
     struct coordinate* places;
     struct coordinate* queue;
     struct workblock* work;
+    void* prototein_object;
+    unsigned int* synclock;
+    unsigned long size;
+    GUID itemno;
+    unsigned int thread_id;
     
     size_t i;
     
     bestscore = -9999999;
-   	b0 = (void*)malloc_align(BUFFER_SIZE, 7); 
-   	b1 = (void*)malloc_align(BUFFER_SIZE, 7);
-   	current_buffer = b0; 
     
-    prototein_length = spu_read_in_mbox();
-    ea = spu_read_in_mbox();
-    ea_winner = spu_read_in_mbox();
-    map = (char*) malloc_align(MAP_SIZE, 7);
+    //printf(WHERESTR "Started SPU\n", WHEREARG);
+    initialize();
     
-    //Must transfer in multiples of 16
-    prototein_buffer_length = prototein_length + (16 - prototein_length % 16);
+    prototein_object = acquire(PROTOTEIN, &size);
+    printf(WHERESTR "SPU got prototein\n", WHEREARG);
     
-    prototein = (char*)malloc_align(sizeof(char) * prototein_buffer_length, 7);
-    StartDMAReadTransfer(prototein, ea, prototein_buffer_length, 2);
+    thread_id = ((unsigned int*)prototein_object)[0];
+    ((unsigned int*)prototein_object)[0]++;
+    prototein_length = ((unsigned int*)prototein_object)[1];
+    prototein = (char*)malloc(sizeof(char) * prototein_length);
+    memcpy(prototein, prototein_object + sizeof(unsigned int), prototein_length);
+    printf(WHERESTR "SPU read prototein, and got ID: %d\n", WHEREARG, thread_id);
+    release(prototein_object);
+
+    map = (char*) malloc(MAP_SIZE);
     
-    winner_buffer_length = sizeof(struct coordinate) * prototein_length;
-    winner_buffer_length += 16 - winner_buffer_length % 16;
-    
-    ea = spu_read_in_mbox();
-    winner = (struct coordinate*)malloc_align(winner_buffer_length, 7);
-    if (winner == NULL)
-    	printf("Failed to allocate memory %d\n", errno);
-    places = (struct coordinate*)malloc_align(sizeof(struct coordinate) * prototein_length, 7);
+    winner = (struct coordinate*)acquire(WINNER_OFFSET + thread_id, &size);
+    printf(WHERESTR "thread %d acquired winner block\n", WHEREARG, thread_id);
+    places = (struct coordinate*)malloc(sizeof(struct coordinate) * prototein_length);
     if (places == NULL)
     	printf("Failed to allocate memory %d\n", errno);
     
-    StartDMAReadTransfer(current_buffer, ea, BUFFER_SIZE, GetDMAGroupID(b0, b1, current_buffer));
-    WaitForDMATransferByGroup(2);
-
-    while(ea != 0)
+    while(1)
     {
-	    WaitForDMATransfer(b0, b1, current_buffer); 
+	    printf(WHERESTR "thread %d is waiting for work\n", WHEREARG, thread_id);
+    	
+	    synclock = acquire(PACKAGE_ITEM, &size);
+	    if (synclock[0] >= synclock[1])
+	    {
+		    printf(WHERESTR "thread %d is terminating\n", WHEREARG, thread_id);
+	    	release(synclock);
+	    	break;
+	    }
+	    	
+	    itemno = WORKITEM_OFFSET + synclock[0];
+	    printf(WHERESTR "thread %d acquired work %d of %d\n", WHEREARG, thread_id, synclock[0], synclock[1]);
+	    synclock[0]++;
+    	release(synclock);
 
-		work = (struct workblock*)current_buffer;  
-	    queue = (struct coordinate*)(current_buffer + sizeof(struct workblock));
+		work = (struct workblock*)acquire(itemno, &size);	    
+	    queue = (struct coordinate*)(((void*)work) + sizeof(struct workblock));
     
     	//This reduces copying of the winner
     	if ((*work).winner_score < bestscore)
     		bestscore = (*work).winner_score;
     		  
-		current_buffer = current_buffer == b0 ? b1 : b0;
-
-	    ea = spu_read_in_mbox();
-	    if ((void*)ea != NULL)
-	       	StartDMAReadTransfer(current_buffer, ea, BUFFER_SIZE, GetDMAGroupID(b0, b1, current_buffer));
-	    	    	    
 	   	//printf("SPU recieved a work block with %d items\n", (*work).worksize);
 	    for(i = 0; i < (*work).worksize; i++)
 	    {
@@ -129,23 +127,23 @@ int FoldPrototein(unsigned long long id)
 	        queue += (*work).item_length;
     	}
     	
+    	release(work);
+	    printf(WHERESTR "thread %d is completed work %d\n", WHEREARG, thread_id, itemno);
+    	
     	//printf("Done folding work block at SPU, score: %d\n", bestscore);
     	//printmap(winner, prototein_length);
-        StartDMAWriteTransfer(winner, ea_winner, winner_buffer_length, 2);
 
-		WaitForDMATransferByGroup(2);
 		//printf("Writing a score %d\n", bestscore);	        
-        spu_write_out_mbox(bestscore);
     }
 
-    free_align(prototein);
-    free_align(winner);
-    free_align(places);
-    free(queue);
-    free_align(b0);
-    free_align(b1);
+    printf(WHERESTR "thread %d is writing back results\n", WHEREARG, thread_id);
+	release(winner);
+	
+    free(prototein);
+    free(places);
     free(map);
 
+    printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
 	return 0;
 }
 

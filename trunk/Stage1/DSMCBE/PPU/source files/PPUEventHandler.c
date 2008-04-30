@@ -66,7 +66,7 @@ void* forwardRequest(void* data)
 	
 	//printf(WHERESTR "adding item to queue\n", WHEREARG);
 	EnqueItem(q);
-	printf(WHERESTR "item added to queue %i\n", WHEREARG, (int)q);
+	//printf(WHERESTR "item added to queue %i\n", WHEREARG, (int)q);
 	
 	pthread_mutex_lock(&m);
 	//printf(WHERESTR "locked %i\n", WHEREARG, (int)&m);
@@ -80,7 +80,7 @@ void* forwardRequest(void* data)
 	data = queue_deq(dummy);
 	pthread_mutex_unlock(&m);
 
-	printf(WHERESTR "returning response\n", WHEREARG);
+	//printf(WHERESTR "returning response\n", WHEREARG);
 	
 	//queue_free(dummy);
 	pthread_mutex_destroy(&m);
@@ -97,7 +97,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 	//If the response was valid, record the item data
 	if (retval != NULL)
 	{
-		printf(WHERESTR "recording entry\n", WHEREARG);
+		//printf(WHERESTR "recording entry\n", WHEREARG);
 		ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct));
 		ent->data = retval;
 		ent->id = id;
@@ -117,7 +117,7 @@ void* threadCreate(GUID id, unsigned long size)
 	struct acquireResponse* ar;
 	void* retval;
 	
-	printf(WHERESTR "creating structure\n", WHEREARG);
+	//printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
 	cr = (struct createRequest*)malloc(sizeof(struct createRequest));
 	cr->packageCode = PACKAGE_CREATE_REQUEST;

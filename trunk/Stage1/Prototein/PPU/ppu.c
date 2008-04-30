@@ -2,25 +2,10 @@
 #include <pthread.h>
 #include <libspe2.h>
 
-void FoldPrototein(char* proto, speid_t* ids, pthread_t* threads, int spu_count);
-
-void *ppu_pthread_function(void *arg) {
-	spe_context_ptr_t ctx;
-	unsigned int entry = SPE_DEFAULT_ENTRY;
-	ctx = *((spe_context_ptr_t *)arg);
-	if (spe_context_run(ctx, &entry, 0, NULL, NULL, NULL) < 0) 
-	{
-		perror ("Failed running context");
-		exit (1);
-	}
-	pthread_exit(NULL);
-}
-
+void FoldPrototein(char* proto, int spu_count);
 
 int main(int argc,char** argv) {
-	speid_t* spe_ids;
-	pthread_t* threads;
-	int i, spu_threads;
+	int spu_threads;
 	
 	if (argc <= 1)
 	{
@@ -36,61 +21,13 @@ int main(int argc,char** argv) {
 		perror("There must be at least one SPU process\n");
 		exit(1);
 	}
-	spe_ids = malloc(sizeof(speid_t) * spu_threads);
-	threads = malloc(sizeof(pthread_t) * spu_threads);
 
-	/*Create several SPE-threads to execute 'SPU'.*/
-	for(i=0;i<spu_threads;i++)
-	{
-		/* Create context */
-		if ((spe_ids[i] = spe_context_create (0, NULL)) == NULL) 
-		{
-			perror ("Failed creating context");
-			exit (1);
-		}
-		
-		/* Load program into context */
-		if (spe_program_load (spe_ids[i], &SPU)) 
-		{
-			perror ("Failed loading program");
-			exit (1);
-		}
-
-		/* Create thread for each SPE context */
-		if (pthread_create (&threads[i], NULL,	&ppu_pthread_function, &spe_ids[i])) 
-		{
-			perror ("Failed creating thread");
-			exit (1);
-		}
-	}	
-	
-	//DMATest(spe_ids, SPU_THREADS);
 	if (argc == 3)
-		FoldPrototein(argv[2], spe_ids, threads, spu_threads);
+		FoldPrototein(argv[2], spu_threads);
 	else
-		FoldPrototein("PPPHHHPPP", spe_ids, threads, spu_threads);
-	
-	free(spe_ids);
-	free(threads);
+		FoldPrototein("PPPHHHPPP", spu_threads);
 	
 	printf("\nThe program has successfully executed.\n");
 	
 	return (0);
-}
-
-
-void send_mailbox_message_to_spe(speid_t target, unsigned int data_size, unsigned int* data)
-{
-	spe_in_mbox_write(target, data, data_size, SPE_MBOX_ALL_BLOCKING);
-}
-
-void WaitForSPUCompletion(pthread_t* threads, unsigned int spu_count)
-{
-	size_t i;
-	/*Wait for SPU-thread to complete execution.*/
-	for(i=0;i<spu_count;i++) {
-		pthread_join(threads[i], NULL);
-		//(void)spe_wait(spe_ids[i],&status,0);
-	}
-	
 }

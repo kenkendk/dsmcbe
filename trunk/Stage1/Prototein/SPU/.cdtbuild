@@ -19,6 +19,7 @@
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug" id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.441072089" name="SPU GNU C Compiler with Debug Options">
           <option superClass="gnu.c.compiler.option.include.paths" id="gnu.c.compiler.option.include.paths.637708398" valueType="includePath">
             <listOptionValue value="/opt/ibm/systemsim-cell/include/callthru/spu" builtIn="false"/>
+            <listOptionValue value="/root/dsmcbe/Stage1/DSMCBE" builtIn="false"/>
             <listOptionValue value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include" builtIn="false"/>
           </option>
         </tool>
