@@ -2216,3 +2216,207 @@ java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
 	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
 	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
 	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 20:09:59.295
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:09:59.295
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:09:59.295
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 20:09:59.865
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 20:09:59.865
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:09:59.875
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 20:10:16.445
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:16.445
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:16.445
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 20:10:16.475
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 20:10:16.475
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:16.475
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 20:10:25.845
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:25.845
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:25.845
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 20:10:25.845
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 20:10:25.855
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:25.855
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 20:10:37.345
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:37.345
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:37.345
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 20:10:37.365
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 20:10:37.365
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:10:37.385
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 20:12:03.026
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:12:03.026
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:12:03.026
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 20:12:03.046
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 20:12:03.046
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:12:03.046
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 20:12:23.607
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:12:23.607
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:12:23.607
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 20:12:23.627
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 20:12:23.627
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 20:12:23.627
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.osgi 2 1 2008-04-30 20:20:09.604
+!MESSAGE NLS unused message: SimulatorControl_SimulatorTerminatedWithError in: com.ibm.celldt.simulator.internal.messages
+
+!ENTRY org.eclipse.osgi 2 1 2008-04-30 20:20:09.604
+!MESSAGE NLS unused message: SimulatorControl_MinMemoryError in: com.ibm.celldt.simulator.internal.messages
+
+!ENTRY org.eclipse.osgi 2 1 2008-04-30 20:20:09.604
+!MESSAGE NLS missing message: ConfigurationControl_MemorySize in: com.ibm.celldt.simulator.internal.messages
+
+!ENTRY org.eclipse.osgi 2 1 2008-04-30 20:24:05.007
+!MESSAGE NLS unused message: CopyTools_DownloadFileFile_FailedDownloadFile in: com.ibm.celldt.remotetools.internal.ssh.messages

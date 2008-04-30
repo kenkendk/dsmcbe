@@ -53,57 +53,6 @@ unsigned int MEMORYWIDTH()
 	 return (CTWIDTH + (128 - CTWIDTH % 128));
 }
 
-void SendResult(struct POINTS* source, unsigned int ea_low)
-{
-	unsigned int i = 0;
-	unsigned int tagid;
-	unsigned int listsize = sizeof(struct DMA_LIST_ELEMENT);
-
-	for(i = 0; i < 2; i++)
-	{
-		list[i].size.all32 = sizeof(struct POINTS) * 1024;
-		list[i].ea_low = ea_low;
-		ea_low += sizeof(struct POINTS) * 1024;
-	}
-	
-	/* Specify the list size and initiate the list transfer */
-	tagid = 10;
-	listsize *= i;
- 
-	mfc_putl(source, list[0].ea_low, list, listsize, tagid, 0, 0);	
-}
-
-void StartDMAListTransferOfNext(unsigned char* b0, unsigned char* b1, unsigned char* current, unsigned int ea_low, struct CURRENT_GRID current_grid)
-{
-	unsigned char* target = (current == b0 ? b1 : b0);
-	unsigned int i = 0;
-	unsigned int tagid;
-	unsigned int listsize = sizeof(struct DMA_LIST_ELEMENT);
-	unsigned int width = MIN(GRIDWIDTH, CTWIDTH-(current_grid.x * GRIDWIDTH));
-	unsigned int heigth = MIN(GRIDHEIGTH, CTHEIGTH-(current_grid.y * GRIDHEIGTH)); 
-	ea_low += ((current_grid.y * GRIDHEIGTH) * MEMORYWIDTH()) + (current_grid.x * GRIDWIDTH);
-			
-	if (ea_low % 128 != 0)
-		printf("Not alligned!\n");
-	
-	for(i = 0; i < heigth; i++)
-	{
-		list[i].size.all32 = width;
-		list[i].ea_low = ea_low;
-		
-		ea_low += MEMORYWIDTH();
-		if (ea_low % 128 != 0)
-			printf("Not alligned!\n");
-	}
-	
-	/* Specify the list size and initiate the list transfer */
-	tagid = GetDMAGroupID(b0, b1, target);
-	listsize *= i;
-
-	//printf("Starting DMA transfer (%d,%d) with target: %d, tagid: %d, listsize: %d, size: %d, maxy: %d\n", current_grid.x, current_grid.y, (int)target, tagid, i, width, heigth); 
-	mfc_getl(target, list[0].ea_low, list, listsize, tagid, 0, 0);
-}
-
 float random_normal_variant(float mean, float variant)
 {
 	float V1, V2, fac;
@@ -217,25 +166,30 @@ int main()
 	
 	srand(1);
 	unsigned int i;
+
+	initialize();
 	
+	struct PACKAGE* package;
+	unsigned long size;
+	printf("spu.c: Trying to acquire JOB\n");
+	package = acquire(JOB, &size);
+	printf("spu.c: Finished acquiring JOB\n");
 	// Get canon information
-	// Position(x,y) Angel(ax,ay), Shots(S)
-	unsigned int canonS;
-	unsigned int canonX;
-	unsigned int canonY;
+	// Position(x,y) Angel(ax,ay), Shots(S)	
+	unsigned int canonS = package->shots_spu;
+	unsigned int canonX = package->canonX;
+	unsigned int canonY = package->canonY;
 	
-	unsigned int canonAX_Store;
-	unsigned int canonAY_Store; 
+	float canonAX = package->canonAX;
+	float canonAY = package->canonAY;
 	
-	float* canonAX;
-	float* canonAY;
+	printf("spu.c: canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f\n", canonS, canonX, canonY, canonAX, canonAY);
 
 	// Make points buffer
 	struct POINTS* points;
 
 	printf("SPU: Ready to start\n");
 
-	initialize();
 	
 	CTWIDTH = 576;
 	CTHEIGTH = 708;
@@ -290,7 +244,7 @@ int main()
 					i = 0;
 					if(next_grid.y == 3)
 					{
-						more_to_do = canon(points, (*canonAX), (*canonAY), canonS, current_buffer, current_grid);			
+						more_to_do = canon(points, canonAX, canonAY, canonS, current_buffer, current_grid);			
 						if(!more_to_do)
 						{
 							printf("All points in POINTS are dead!!\n");
@@ -308,7 +262,7 @@ int main()
 				next_buffer = acquire(id, &size);
 				printf("spu.c: Finished acquiring %i\n", id);
 											
-				more_to_do = canon(points, (*canonAX), (*canonAY), canonS, current_buffer, current_grid);
+				more_to_do = canon(points, canonAX, canonAY, canonS, current_buffer, current_grid);
 				
 				release(current_buffer);
 						

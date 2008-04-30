@@ -11,5 +11,6 @@
 #define GRID21 1021
 #define GRID22 1022
 #define RESULT 2000
+#define JOB 3000
 
 #endif /*GUIDS_H_*/

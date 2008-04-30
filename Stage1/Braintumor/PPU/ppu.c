@@ -50,11 +50,8 @@ void canon(int shots, int shots_spu, int canonX, int canonY, float canonAX, floa
 {
 	int i;
 	unsigned char max_integer = (unsigned char)pow(2, sizeof(unsigned char)*8);
-	unsigned int spu_pointers[5] = { 0x0, 0x0, 0x0, 0x0, 0x0};
-	float spu_data[2] = {0x0, 0x0};
 	
 	struct POINTS* points = create(RESULT, sizeof(struct POINTS) * shots);
-	printf("ppu.c: Points is at location: %i and size: %i\n", points, sizeof(struct POINTS) * shots);
 	
 	release(points);
 
@@ -63,17 +60,15 @@ void canon(int shots, int shots_spu, int canonX, int canonY, float canonAX, floa
 
 	for(i = 0; i < SPU_THREADS; i++)
 	{
-		//printf("Sending job (%d / %d) to (0x%dx)\n", sendmessages+1, shots/shots_spu, (int)spe_ids[i]);
-		spu_pointers[0] = (unsigned int)img.image;
-		spu_pointers[1] = (unsigned int)&points[sendmessages * shots_spu];
-		spu_pointers[2] = shotsspu;
-		spu_pointers[3] = canonX;
-		spu_pointers[4] = canonY;
-		spu_data[0] = canonAX;
-		spu_data[1] = canonAY;
+		struct PACKAGE* package;
+		package = create(JOB, sizeof(struct PACKAGE));
+		package->shots_spu = shotsspu;
+		package->canonX = canonX;
+		package->canonY = canonY;
+		package->canonAX = canonAX;
+		package->canonAY = canonAY;
+		release(package);
  		
-		spe_in_mbox_write(spe_ids[i], spu_pointers, 5, SPE_MBOX_ALL_BLOCKING);
-		spe_in_mbox_write(spe_ids[i], (unsigned int*)spu_data, 2, SPE_MBOX_ALL_BLOCKING);
 		sendmessages++;
 	}
 	
@@ -104,14 +99,6 @@ void canon(int shots, int shots_spu, int canonX, int canonY, float canonAX, floa
 				if(sendmessages >= (shots / shots_spu))
 					break;
 				
-				// TODO: When a computational result is received from a SPE issue an "lwsync"
-				// to garantee that data is written to main memory.
-				
-				//printf("Sending job (%d / %d) to (0x%dx)\n", sendmessages+1, shots/shots_spu, (int)spe_ids[i]);
-				spu_pointers[0] = (unsigned int)&points[sendmessages * shots_spu];
-				spu_pointers[1] = shotsspu;
-		 		//spe_in_mbox_write(spe_ids[i], spu_pointers, 1, SPE_MBOX_ALL_BLOCKING);
-		 		spe_in_mbox_write(spe_ids[i], spu_pointers, 2, SPE_MBOX_ALL_BLOCKING);
 				sendmessages++;
 			}
 		}

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<workbench progressCount="22" version="2.0">
+<workbench progressCount="24" version="2.0">
 <workbenchAdvisor/>
-<window height="994" width="1680" x="4" y="56">
+<window height="994" width="1680" x="0" y="26">
 <fastViewData fastViewLocation="1024">
 <orientation position="512" view="org.eclipse.ve.internal.java.codegen.editorpart.XMLViewPart"/>
 </fastViewData>
@@ -22,7 +22,7 @@
 <coolItem id="group.nav" itemType="typeGroupMarker"/>
 <coolItem id="org.eclipse.ui.workbench.navigate" itemType="typeToolBarContribution" x="182" y="28"/>
 <coolItem id="group.editor" itemType="typeGroupMarker"/>
-<coolItem id="org.eclipse.cdt.ui.editor.CEditor" itemType="typePlaceholder" x="-1" y="-1"/>
+<coolItem id="org.eclipse.cdt.ui.editor.CEditor" itemType="typeToolBarContribution" x="-1" y="-1"/>
 <coolItem id="group.help" itemType="typeGroupMarker"/>
 <coolItem id="org.eclipse.ui.workbench.help" itemType="typeToolBarContribution" x="-1" y="-1"/>
 </coolbarLayout>
@@ -31,28 +31,77 @@
 <editorArea activeWorkbook="DefaultEditorWorkbook">
 <info part="DefaultEditorWorkbook">
 <folder appearance="1" expanded="2">
-<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
+<part id="0"/>
+<part id="1"/>
+<part id="2"/>
+<part id="3"/>
+</presentation>
 </folder>
 </info>
 </editorArea>
+<editor activePart="true" focus="true" id="org.eclipse.cdt.ui.editor.CEditor" name="ppu.c" partName="ppu.c" path="/root/dsmcbe/Stage1/Braintumor/PPU/ppu.c" title="ppu.c" tooltip="PPU/ppu.c" workbook="DefaultEditorWorkbook">
+<input factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/PPU/ppu.c"/>
+</editor>
+<editor id="org.eclipse.cdt.ui.editor.CEditor" name="spu.c" partName="spu.c" path="/root/dsmcbe/Stage1/Braintumor/SPU/spu.c" title="spu.c" tooltip="SPU/spu.c" workbook="DefaultEditorWorkbook">
+<input factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/SPU/spu.c"/>
+</editor>
+<editor id="org.eclipse.cdt.ui.editor.CEditor" name="guids.h" partName="guids.h" path="/root/dsmcbe/Stage1/Braintumor/PPU/guids.h" title="guids.h" tooltip="PPU/guids.h" workbook="DefaultEditorWorkbook">
+<input factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/PPU/guids.h"/>
+</editor>
 </editors>
 <views>
-<view id="org.eclipse.cdt.make.ui.views.MakeView" partName="Make Targets"/>
-<view id="org.eclipse.ui.views.ContentOutline" partName="Outline">
+<view id="org.eclipse.wst.server.ui.ServersView" partName="Servers"/>
+<view id="org.eclipse.ui.views.TaskList" partName="Tasks"/>
+<view id="org.eclipse.debug.ui.VariableView" partName="Variables">
 <viewState/>
 </view>
-<view id="com.ibm.celldt.environment.ui.views.CellEnvironmentView" partName="Cell Environments">
+<view id="org.eclipse.cdt.ui.CView" partName="C/C++ Projects">
+<viewState horizontalPosition="0" verticalPosition="0">
+<expanded>
+<element path="/root/dsmcbe/Stage1/Braintumor/PPU"/>
+<element path="/root/dsmcbe/Stage1/Braintumor/SPU"/>
+</expanded>
+<selection>
+<element path="/root/dsmcbe/Stage1/Braintumor/PPU/guids.h"/>
+</selection>
+<customFilters userDefinedPatternsEnabled="false">
+<xmlDefinedFilters>
+<child filterId="org.eclipse.cdt.internal.ui.CView.ArchiveFilter" isEnabled="false"/>
+<child filterId="org.eclipse.cdt.ui.CView_patternFilterId_.*" isEnabled="true"/>
+<child filterId="org.eclipse.cdt.internal.ui.CView.NonCElementFilter" isEnabled="false"/>
+<child filterId="org.eclipse.cdt.internal.ui.CView.ExecutableFilter" isEnabled="false"/>
+<child filterId="org.eclipse.cdt.internal.ui.CView.SharedFilter" isEnabled="false"/>
+<child filterId="org.eclipse.cdt.internal.ui.CView.ObjectFilter" isEnabled="false"/>
+<child filterId="org.eclipse.cdt.internal.ui.CView.NonCProjectsFilter" isEnabled="false"/>
+<child filterId="org.eclipse.cdt.internal.ui.CView.ClosedProjectFilter" isEnabled="false"/>
+</xmlDefinedFilters>
+</customFilters>
+</viewState>
+</view>
+<view id="org.eclipse.debug.ui.DebugView" partName="Debug">
+<viewState/>
+</view>
+<view id="org.eclipse.ui.views.PropertySheet" partName="Properties">
+<viewState/>
+</view>
+<view id="org.eclipse.ui.views.ResourceNavigator" partName="Navigator"/>
+<view id="org.eclipse.ui.views.ProgressView" partName="Progress">
 <viewState/>
 </view>
 <view id="org.eclipse.ui.console.ConsoleView" partName="Console">
 <viewState/>
 </view>
-<view id="org.eclipse.cdt.ui.CView" partName="C/C++ Projects">
+<view id="com.ibm.celldt.environment.ui.views.CellEnvironmentView" partName="Cell Environments">
 <viewState/>
 </view>
-<view id="org.eclipse.ui.views.PropertySheet" partName="Properties"/>
+<view id="org.eclipse.ui.views.ContentOutline" partName="Outline">
+<viewState/>
+</view>
+<view id="org.eclipse.cdt.make.ui.views.MakeView" partName="Make Targets"/>
+<view id="org.eclipse.debug.ui.BreakpointView" partName="Breakpoints"/>
 <view id="org.eclipse.ui.views.ProblemView" partName="Problems">
-<viewState columnWidth0="256" columnWidth1="81" columnWidth2="156" columnWidth3="733" columnWidth4="0" horizontalPosition="0" verticalPosition="0">
+<viewState columnWidth0="339" columnWidth1="84" columnWidth2="159" columnWidth3="736" columnWidth4="0" horizontalPosition="0" verticalPosition="0">
 <columnOrder columnOrderIndex="0"/>
 <columnOrder columnOrderIndex="1"/>
 <columnOrder columnOrderIndex="2"/>
@@ -60,9 +109,135 @@
 <columnOrder columnOrderIndex="4"/>
 </viewState>
 </view>
-<view id="org.eclipse.ui.views.ResourceNavigator" partName="Navigator"/>
 </views>
-<perspectives activePart="org.eclipse.cdt.ui.CView" activePerspective="org.eclipse.cdt.ui.CPerspective">
+<perspectives activePart="org.eclipse.cdt.ui.editor.CEditor" activePerspective="org.eclipse.cdt.ui.CPerspective">
+<perspective editorAreaVisible="1" fixed="0" version="0.016">
+<descriptor class="org.eclipse.debug.internal.ui.DebugPerspectiveFactory" id="org.eclipse.debug.ui.DebugPerspective" label="Debug"/>
+<alwaysOnActionSet id="org.eclipse.ui.edit.text.actionSet.openExternalFile"/>
+<alwaysOnActionSet id="org.eclipse.ui.edit.text.actionSet.annotationNavigation"/>
+<alwaysOnActionSet id="org.eclipse.ui.edit.text.actionSet.navigation"/>
+<alwaysOnActionSet id="org.eclipse.ui.edit.text.actionSet.convertLineDelimitersTo"/>
+<alwaysOnActionSet id="org.eclipse.search.searchActionSet"/>
+<alwaysOnActionSet id="org.eclipse.ui.externaltools.ExternalToolsSet"/>
+<alwaysOnActionSet id="org.eclipse.ui.actionSet.keyBindings"/>
+<alwaysOnActionSet id="org.eclipse.ui.WorkingSetActionSet"/>
+<alwaysOnActionSet id="org.eclipse.update.ui.softwareUpdates"/>
+<alwaysOnActionSet id="org.eclipse.ui.cheatsheets.actionSet"/>
+<alwaysOnActionSet id="org.eclipse.wst.server.ui.internal.webbrowser.actionSet"/>
+<alwaysOnActionSet id="org.eclipse.debug.ui.launchActionSet"/>
+<alwaysOnActionSet id="org.eclipse.cdt.debug.ui.debugActionSet"/>
+<alwaysOnActionSet id="org.eclipse.ui.NavigateActionSet"/>
+<alwaysOnActionSet id="org.eclipse.debug.ui.breakpointActionSet"/>
+<alwaysOnActionSet id="org.eclipse.debug.ui.profileActionSet"/>
+<alwaysOnActionSet id="org.eclipse.jdt.debug.ui.JDTDebugActionSet"/>
+<alwaysOnActionSet id="org.eclipse.jdt.ui.JavaActionSet"/>
+<alwaysOnActionSet id="org.eclipse.debug.ui.analysisActionSet"/>
+<alwaysOnActionSet id="org.eclipse.debug.ui.debugActionSet"/>
+<show_view_action id="org.eclipse.debug.ui.DebugView"/>
+<show_view_action id="org.eclipse.debug.ui.VariableView"/>
+<show_view_action id="org.eclipse.debug.ui.BreakpointView"/>
+<show_view_action id="org.eclipse.debug.ui.ExpressionView"/>
+<show_view_action id="org.eclipse.ui.views.ContentOutline"/>
+<show_view_action id="org.eclipse.ui.console.ConsoleView"/>
+<show_view_action id="org.eclipse.ui.views.TaskList"/>
+<show_view_action id="com.ibm.celldt.debug.be.ui.views.spu.signals.SPUSignalsView"/>
+<show_view_action id="com.ibm.celldt.debug.be.ui.views.spu.event.SPUEventView"/>
+<show_view_action id="com.ibm.celldt.debug.be.ui.views.spu.mailbox.SPUMailboxView"/>
+<show_view_action id="com.ibm.celldt.debug.be.ui.views.spu.dma.SPUDMAView"/>
+<show_view_action id="com.ibm.celldt.debug.be.ui.views.spu.proxydma.SPUProxyDMAView"/>
+<show_view_action id="org.eclipse.ant.ui.views.AntView"/>
+<show_view_action id="org.eclipse.cdt.debug.ui.SignalsView"/>
+<show_view_action id="org.eclipse.debug.ui.RegisterView"/>
+<show_view_action id="org.eclipse.debug.ui.MemoryView"/>
+<show_view_action id="org.eclipse.cdt.debug.ui.DisassemblyView"/>
+<show_view_action id="org.eclipse.cdt.debug.ui.ModulesView"/>
+<show_view_action id="org.eclipse.jdt.debug.ui.DisplayView"/>
+<show_view_action id="org.eclipse.pde.runtime.LogView"/>
+<new_wizard_action id="org.eclipse.birt.report.designer.ui.ide.wizards.NewReportWizard"/>
+<new_wizard_action id="org.eclipse.birt.report.designer.ui.ide.wizards.NewTemplateWizard"/>
+<new_wizard_action id="org.eclipse.birt.report.designer.ui.wizards.NewLibraryWizard"/>
+<perspective_action id="org.eclipse.birt.report.designer.ui.ReportPerspective"/>
+<perspective_action id="org.eclipse.cdt.ui.CPerspective"/>
+<perspective_action id="org.eclipse.hyades.trace.internal.ui.tracePerspective"/>
+<perspective_action id="org.eclipse.jdt.ui.JavaPerspective"/>
+<perspective_action id="org.eclipse.jdt.ui.JavaBrowsingPerspective"/>
+<view id="org.eclipse.ui.console.ConsoleView"/>
+<view id="org.eclipse.ui.views.TaskList"/>
+<view id="org.eclipse.debug.ui.DebugView"/>
+<view id="org.eclipse.wst.server.ui.ServersView"/>
+<view id="org.eclipse.debug.ui.VariableView"/>
+<view id="org.eclipse.debug.ui.BreakpointView"/>
+<view id="org.eclipse.ui.views.ContentOutline"/>
+<layout>
+<mainWindow>
+<info folder="true" part="org.eclipse.debug.internal.ui.NavigatorFolderView">
+<folder activePageID="org.eclipse.debug.ui.DebugView" appearance="2" expanded="2">
+<page content="org.eclipse.debug.ui.DebugView" label="Debug"/>
+<page content="org.eclipse.ui.views.ResourceNavigator" label="LabelNotFound"/>
+<page content="org.eclipse.jdt.ui.PackageExplorer" label="LabelNotFound"/>
+<page content="org.eclipse.jdt.ui.TypeHierarchy" label="LabelNotFound"/>
+<page content="org.eclipse.wst.server.ui.ServersView" label="Servers"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
+<part id="0"/>
+<part id="1"/>
+</presentation>
+</folder>
+</info>
+<info folder="true" part="stickyFolderRight" ratio="0.7497006" ratioLeft="1252" ratioRight="418" relationship="2" relative="org.eclipse.debug.internal.ui.NavigatorFolderView">
+<folder appearance="2" expanded="2">
+<page content="org.eclipse.help.ui.HelpView" label="LabelNotFound"/>
+<page content="org.eclipse.ui.internal.introview" label="LabelNotFound"/>
+<page content="org.eclipse.ui.cheatsheets.views.CheatSheetView" label="LabelNotFound"/>
+</folder>
+</info>
+<info folder="true" part="org.eclipse.debug.internal.ui.ConsoleFolderView" ratio="0.74972314" ratioLeft="677" ratioRight="226" relationship="4" relative="org.eclipse.debug.internal.ui.NavigatorFolderView">
+<folder activePageID="org.eclipse.ui.console.ConsoleView" appearance="2" expanded="2">
+<page content="org.eclipse.ui.console.ConsoleView" label="Console"/>
+<page content="org.eclipse.ui.views.TaskList" label="Tasks"/>
+<page content="org.eclipse.ui.views.BookmarkView" label="LabelNotFound"/>
+<page content="org.eclipse.ui.views.PropertySheet" label="LabelNotFound"/>
+<page content="org.eclipse.jdt.debug.ui.DisplayView" label="LabelNotFound"/>
+<page content="org.eclipse.search.SearchResultView" label="LabelNotFound"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
+<part id="0"/>
+<part id="1"/>
+</presentation>
+</folder>
+</info>
+<info part="org.eclipse.ui.editorss" ratio="0.44903988" ratioLeft="304" ratioRight="373" relationship="4" relative="org.eclipse.debug.internal.ui.NavigatorFolderView"/>
+<info folder="true" part="org.eclipse.debug.internal.ui.OutlineFolderView" ratio="0.7497006" ratioLeft="1252" ratioRight="418" relationship="2" relative="org.eclipse.ui.editorss">
+<folder activePageID="org.eclipse.ui.views.ContentOutline" appearance="2" expanded="2">
+<page content="org.eclipse.ui.views.ContentOutline" label="Outline"/>
+<page content="org.eclipse.ant.ui.views.AntView" label="LabelNotFound"/>
+<page content="org.eclipse.cdt.debug.ui.DisassemblyView" label="LabelNotFound"/>
+<page content="org.eclipse.ve.internal.java.codegen.editorpart.BeansList" label="LabelNotFound"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
+<part id="0"/>
+</presentation>
+</folder>
+</info>
+<info folder="true" part="org.eclipse.debug.internal.ui.ToolsFolderView" ratio="0.5" ratioLeft="835" ratioRight="835" relationship="2" relative="org.eclipse.debug.internal.ui.NavigatorFolderView">
+<folder activePageID="org.eclipse.debug.ui.VariableView" appearance="2" expanded="2">
+<page content="org.eclipse.debug.ui.VariableView" label="Variables"/>
+<page content="org.eclipse.debug.ui.BreakpointView" label="Breakpoints"/>
+<page content="org.eclipse.debug.ui.ExpressionView" label="LabelNotFound"/>
+<page content="org.eclipse.debug.ui.RegisterView" label="LabelNotFound"/>
+<page content="com.ibm.celldt.debug.be.ui.views.spu.signals.SPUSignalsView" label="LabelNotFound"/>
+<page content="com.ibm.celldt.debug.be.ui.views.spu.event.SPUEventView" label="LabelNotFound"/>
+<page content="com.ibm.celldt.debug.be.ui.views.spu.mailbox.SPUMailboxView" label="LabelNotFound"/>
+<page content="com.ibm.celldt.debug.be.ui.views.spu.dma.SPUDMAView" label="LabelNotFound"/>
+<page content="com.ibm.celldt.debug.be.ui.views.spu.proxydma.SPUProxyDMAView" label="LabelNotFound"/>
+<page content="org.eclipse.cdt.debug.ui.SignalsView" label="LabelNotFound"/>
+<page content="org.eclipse.cdt.debug.ui.ModulesView" label="LabelNotFound"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
+<part id="0"/>
+<part id="1"/>
+</presentation>
+</folder>
+</info>
+</mainWindow>
+</layout>
+</perspective>
 <perspective editorAreaVisible="1" fixed="0" version="0.016">
 <descriptor class="org.eclipse.cdt.internal.ui.CPerspectiveFactory" id="org.eclipse.cdt.ui.CPerspective" label="C/C++"/>
 <alwaysOnActionSet id="org.eclipse.ui.edit.text.actionSet.openExternalFile"/>
@@ -111,6 +286,7 @@
 <view id="org.eclipse.ui.console.ConsoleView"/>
 <view id="org.eclipse.ui.views.PropertySheet"/>
 <view id="com.ibm.celldt.environment.ui.views.CellEnvironmentView"/>
+<view id="org.eclipse.ui.views.ProgressView"/>
 <view id="org.eclipse.ui.views.ContentOutline"/>
 <view id="org.eclipse.cdt.make.ui.views.MakeView"/>
 <layout>
@@ -135,16 +311,18 @@
 </info>
 <info part="org.eclipse.ui.editorss" ratio="0.2497006" ratioLeft="417" ratioRight="1253" relationship="2" relative="topLeft"/>
 <info folder="true" part="bottom" ratio="0.74972314" ratioLeft="677" ratioRight="226" relationship="4" relative="org.eclipse.ui.editorss">
-<folder activePageID="com.ibm.celldt.environment.ui.views.CellEnvironmentView" appearance="2" expanded="2">
+<folder activePageID="org.eclipse.ui.console.ConsoleView" appearance="2" expanded="2">
 <page content="org.eclipse.ui.views.ProblemView" label="Problems"/>
 <page content="org.eclipse.ui.console.ConsoleView" label="Console"/>
 <page content="org.eclipse.ui.views.PropertySheet" label="Properties"/>
 <page content="com.ibm.celldt.environment.ui.views.CellEnvironmentView" label="Cell Environments"/>
+<page content="org.eclipse.ui.views.ProgressView" label="Progress"/>
 <presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
 <part id="0"/>
 <part id="1"/>
 <part id="2"/>
 <part id="3"/>
+<part id="4"/>
 </presentation>
 </folder>
 </info>
@@ -170,6 +348,8 @@
 <editor factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" path="/dsmcbe_spu/source files/DMATransfer.c"/>
 <editor factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" path="/PPU/ppu.c"/>
 <editor factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" path="/SPU/spu.c"/>
+<editor factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" path="/PPU/ppu.c"/>
+<editor factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" path="/PPU/guids.h"/>
 </editors>
 <item historyLabel="ppu.c" index="0">
 <position/>
@@ -181,9 +361,91 @@
 <position/>
 </item>
 <item historyLabel="ppu.c" index="3"/>
-<item active="true" historyLabel="spu.c" index="4"/>
+<item historyLabel="spu.c" index="4"/>
+<item historyLabel="ppu.c" index="5">
+<position/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="1293" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="898" y="67"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3760" y="0"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3760" y="0"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="4039" y="0"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3760" y="0"/>
+</item>
+<item historyLabel="guids.h" index="6">
+<position/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3754" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="1393" y="0"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3640" y="24"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="1393" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="1390" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="1562" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="1208" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="2316" y="0"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3760" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="2316" y="0"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3623" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="1562" y="0"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3623" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="1566" y="0"/>
+</item>
+<item historyLabel="spu.c" index="4">
+<position info="not_deleted" x="3623" y="0"/>
+</item>
+<item historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="3487" y="0"/>
+</item>
+<item historyLabel="guids.h" index="6">
+<position info="not_deleted" x="251" y="0"/>
+</item>
+<item active="true" historyLabel="ppu.c" index="5">
+<position info="not_deleted" x="3487" y="0"/>
+</item>
 </navigationHistory>
 <stickyState>
+<perspective IMemento.internal.id="org.eclipse.debug.ui.DebugPerspective"/>
 <perspective IMemento.internal.id="org.eclipse.cdt.ui.CPerspective"/>
 </stickyState>
 <input factoryID="org.eclipse.ui.internal.model.ResourceFactory" path="/" type="8"/>
@@ -202,14 +464,17 @@
 </trimLayout>
 </window>
 <mruList>
-<file factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" name="DMATransfer.c" tooltip="dsmcbe_spu/source files/DMATransfer.c">
-<persistable path="/dsmcbe_spu/source files/DMATransfer.c"/>
+<file factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" name="guids.h" tooltip="PPU/guids.h">
+<persistable path="/PPU/guids.h"/>
 </file>
 <file factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" name="spu.c" tooltip="SPU/spu.c">
 <persistable path="/SPU/spu.c"/>
 </file>
 <file factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" name="ppu.c" tooltip="PPU/ppu.c">
 <persistable path="/PPU/ppu.c"/>
+</file>
+<file factoryID="org.eclipse.ui.part.FileEditorInputFactory" id="org.eclipse.cdt.ui.editor.CEditor" name="DMATransfer.c" tooltip="dsmcbe_spu/source files/DMATransfer.c">
+<persistable path="/dsmcbe_spu/source files/DMATransfer.c"/>
 </file>
 </mruList>
 </workbench>
