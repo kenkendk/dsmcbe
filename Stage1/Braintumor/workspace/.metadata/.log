@@ -355,3 +355,1864 @@ org.eclipse.core.internal.resources.ResourceException: A resource already exists
 	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
 !SUBENTRY 1 org.eclipse.core.resources 4 272 2008-04-30 15:55:07.109
 !MESSAGE A resource already exists on disk /root/dsmcbe/Stage1/Braintumor/PPU/.settings.
+!SESSION 2008-04-30 16:11:06.294 -----------------------------------------------
+eclipse.buildId=M20070212-1330
+java.fullversion=J2RE 1.4.2 IBM build cxia32142-20070708 (SR9) (JIT enabled: jitc)
+BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+Command-line arguments:  -os linux -ws gtk -arch x86
+
+!ENTRY org.eclipse.ui.workbench 4 2 2008-04-30 16:11:21.084
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.ui.workbench".
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 16:11:21.084
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 16:11:21.084
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.ui 4 4 2008-04-30 16:11:21.084
+!MESSAGE Unhandled Exception
+
+!ENTRY com.ibm.celldt.simulator 4 0 2008-04-30 16:11:21.084
+!MESSAGE Unable to execute early startup code for an extension
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 16:11:21.084
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:15:37.608
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:15:37.608
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:15:37.608
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:15:37.618
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:15:37.618
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:15:37.618
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SESSION 2008-04-30 16:17:10.069 -----------------------------------------------
+eclipse.buildId=M20070212-1330
+java.fullversion=J2RE 1.4.2 IBM build cxia32142-20070708 (SR9) (JIT enabled: jitc)
+BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+Command-line arguments:  -os linux -ws gtk -arch x86
+
+!ENTRY org.eclipse.ui.workbench 4 2 2008-04-30 16:17:28.199
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.ui.workbench".
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 16:17:28.419
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 16:17:28.419
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.ui 4 4 2008-04-30 16:17:28.419
+!MESSAGE Unhandled Exception
+
+!ENTRY com.ibm.celldt.simulator 4 0 2008-04-30 16:17:28.419
+!MESSAGE Unable to execute early startup code for an extension
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 16:17:28.419
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:19:21.311
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:21.321
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:21.321
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:19:21.341
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:19:21.341
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:21.341
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:19:35.231
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:35.231
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:35.231
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:19:35.231
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:19:35.231
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:35.231
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:19:54.152
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:54.162
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:54.162
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:19:54.162
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:19:54.162
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:19:54.162
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:22:08.804
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:08.804
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:08.814
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:22:08.824
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:22:08.824
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:08.824
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:22:24.644
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:24.644
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:24.644
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:22:24.654
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:22:24.654
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:24.654
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:22:33.374
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:33.374
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:33.374
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:22:33.384
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:22:33.384
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:22:33.384
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:23:34.065
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:34.075
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:34.075
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:23:34.075
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:23:34.075
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:34.075
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:23:41.495
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:41.495
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:41.495
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:23:41.515
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:23:41.515
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:41.515
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:23:47.015
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:47.015
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:47.015
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:23:47.035
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:23:47.045
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:47.045
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:23:53.075
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:53.075
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:53.085
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:23:53.085
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:23:53.085
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:23:53.085
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:24:34.206
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:24:34.206
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:24:34.206
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:24:34.216
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:24:34.216
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:24:34.216
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:28:06.579
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:28:06.579
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:28:06.579
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:28:06.599
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:28:06.599
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:28:06.599
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:29:17.110
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:29:17.110
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:29:17.110
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:29:17.160
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:29:17.160
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:29:17.160
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:29:48.621
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:29:48.621
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:29:48.621
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:29:48.641
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:29:48.641
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:29:48.641
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:30:13.431
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:13.431
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:13.431
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:30:13.441
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:30:13.441
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:13.441
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:30:34.411
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:34.411
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:34.411
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:30:34.421
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:30:34.421
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:34.421
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:30:47.201
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:47.201
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:47.201
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:30:47.211
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:30:47.211
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:30:47.211
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:31:19.192
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:19.192
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:19.192
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:31:19.222
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:31:19.222
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:19.222
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:31:27.442
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:27.442
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:27.442
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:31:27.452
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:31:27.452
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:27.452
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:31:39.232
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:39.232
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:39.232
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:31:39.242
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:31:39.242
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:31:39.242
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:32:08.083
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:32:08.083
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:32:08.083
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:32:08.093
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:32:08.093
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:32:08.093
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:32:46.143
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:32:46.143
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:32:46.143
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:32:46.173
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:32:46.173
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:32:46.173
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 16:33:07.114
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.runtime.CoreException: File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:450)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.generateMakefiles(GnuMakefileGenerator.java:203)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.incrementalBuild(GeneratedMakefileBuilder.java:798)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:489)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java(Compiled Code))
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:33:07.114
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:33:07.114
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 16:33:07.124
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 16:33:07.124
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 com.ibm.celldt.managedbuilder.core 4 2 2008-04-30 16:33:07.124
+!MESSAGE File /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU doesn't exist.
+!SESSION 2008-04-30 19:26:16.215 -----------------------------------------------
+eclipse.buildId=M20070212-1330
+java.fullversion=J2RE 1.4.2 IBM build cxia32142-20070708 (SR9) (JIT enabled: jitc)
+BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+Command-line arguments:  -data /root/dsmcbe/Stage1/Braintumor/workspace -os linux -ws gtk -arch x86
+
+!ENTRY org.eclipse.core.resources 2 10035 2008-04-30 19:26:20.295
+!MESSAGE A workspace crash was detected. The previous session did not exit normally.
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 19:26:28.005
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:419)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 19:26:28.045
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:419)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 19:26:28.115
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:419)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 19:26:28.195
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:419)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.core.resources 2 75 2008-04-30 19:26:28.195
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 19:26:28.195
+!MESSAGE Errors running builder "Generated Makefile Builder" on project dsmcbe_ppu.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 19:26:28.195
+!MESSAGE java.lang.NullPointerException encountered while running Generated Makefile Builder.
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:419)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 19:26:28.195
+!MESSAGE Errors running builder "Generated Makefile Builder" on project dsmcbe_spu.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 19:26:28.195
+!MESSAGE java.lang.NullPointerException encountered while running Generated Makefile Builder.
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:419)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 19:26:28.195
+!MESSAGE Errors running builder "Generated Makefile Builder" on project SPU.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 19:26:28.195
+!MESSAGE java.lang.NullPointerException encountered while running Generated Makefile Builder.
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:419)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 19:26:28.195
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 19:26:28.195
+!MESSAGE java.lang.NullPointerException encountered while running Generated Makefile Builder.
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:419)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.ui 4 0 2008-04-30 19:26:31.825
+!MESSAGE Unable to create editor ID org.eclipse.cdt.ui.editor.CEditor: Editor could not be initialized.
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.scannerconfig.ManagedBuildCPathEntryContainer.getPathEntries(ManagedBuildCPathEntryContainer.java:169)
+	at org.eclipse.cdt.internal.core.model.PathEntryManager.getResolvedPathEntries(PathEntryManager.java:457)
+	at org.eclipse.cdt.internal.core.model.PathEntryManager.getResolvedPathEntries(PathEntryManager.java:429)
+	at org.eclipse.cdt.core.model.CoreModel.getResolvedPathEntries(CoreModel.java:941)
+	at org.eclipse.cdt.internal.core.model.CProject.getResolvedPathEntries(CProject.java:400)
+	at org.eclipse.cdt.internal.core.model.CProject.computeSourceRoots(CProject.java:595)
+	at org.eclipse.cdt.internal.core.model.CProject.getAllSourceRoots(CProject.java:502)
+	at org.eclipse.cdt.internal.core.model.CModelManager.create(CModelManager.java:287)
+	at org.eclipse.cdt.core.model.CoreModel.create(CoreModel.java:76)
+	at org.eclipse.cdt.internal.ui.editor.CDocumentProvider.createTranslationUnit(CDocumentProvider.java:803)
+	at org.eclipse.cdt.internal.ui.editor.CDocumentProvider.createFileInfo(CDocumentProvider.java:832)
+	at org.eclipse.ui.editors.text.TextFileDocumentProvider.connect(TextFileDocumentProvider.java:482)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.doSetInput(AbstractTextEditor.java:3063)
+	at org.eclipse.ui.texteditor.StatusTextEditor.doSetInput(StatusTextEditor.java:173)
+	at org.eclipse.ui.texteditor.AbstractDecoratedTextEditor.doSetInput(AbstractDecoratedTextEditor.java:1512)
+	at org.eclipse.ui.editors.text.TextEditor.doSetInput(TextEditor.java:178)
+	at org.eclipse.cdt.internal.ui.editor.CEditor.doSetInput(CEditor.java:580)
+	at org.eclipse.ui.texteditor.AbstractTextEditor$17.run(AbstractTextEditor.java:2396)
+	at org.eclipse.jface.operation.ModalContext.runInCurrentThread(ModalContext.java:369)
+	at org.eclipse.jface.operation.ModalContext.run(ModalContext.java:313)
+	at org.eclipse.jface.window.ApplicationWindow$1.run(ApplicationWindow.java:763)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:67)
+	at org.eclipse.jface.window.ApplicationWindow.run(ApplicationWindow.java:760)
+	at org.eclipse.ui.internal.WorkbenchWindow.run(WorkbenchWindow.java:2283)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.internalInit(AbstractTextEditor.java:2414)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.init(AbstractTextEditor.java:2441)
+	at org.eclipse.ui.internal.EditorManager.createSite(EditorManager.java:842)
+	at org.eclipse.ui.internal.EditorReference.createPartHelper(EditorReference.java:583)
+	at org.eclipse.ui.internal.EditorReference.createPart(EditorReference.java:372)
+	at org.eclipse.ui.internal.WorkbenchPartReference.getPart(WorkbenchPartReference.java:566)
+	at org.eclipse.ui.internal.EditorAreaHelper.setVisibleEditor(EditorAreaHelper.java:263)
+	at org.eclipse.ui.internal.EditorManager.setVisibleEditor(EditorManager.java:1474)
+	at org.eclipse.ui.internal.EditorManager$5.run(EditorManager.java:1008)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.runtime.Platform.run(Platform.java:843)
+	at org.eclipse.ui.internal.EditorManager.restoreState(EditorManager.java:1003)
+	at org.eclipse.ui.internal.WorkbenchPage.restoreState(WorkbenchPage.java:2843)
+	at org.eclipse.ui.internal.WorkbenchWindow.restoreState(WorkbenchWindow.java:1936)
+	at org.eclipse.ui.internal.Workbench.doRestoreState(Workbench.java:2873)
+	at org.eclipse.ui.internal.Workbench.access$14(Workbench.java:2821)
+	at org.eclipse.ui.internal.Workbench$20.run(Workbench.java:1697)
+	at org.eclipse.ui.internal.Workbench.runStartupWithProgress(Workbench.java:1437)
+	at org.eclipse.ui.internal.Workbench.restoreState(Workbench.java:1695)
+	at org.eclipse.ui.internal.Workbench.access$12(Workbench.java:1666)
+	at org.eclipse.ui.internal.Workbench$18.run(Workbench.java:1545)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench.restoreState(Workbench.java:1489)
+	at org.eclipse.ui.internal.WorkbenchConfigurer.restoreState(WorkbenchConfigurer.java:183)
+	at org.eclipse.ui.application.WorkbenchAdvisor.openWindows(WorkbenchAdvisor.java:702)
+	at org.eclipse.ui.internal.Workbench.init(Workbench.java:1101)
+	at org.eclipse.ui.internal.Workbench.runUI(Workbench.java:1863)
+	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:422)
+	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:149)
+	at org.eclipse.ui.internal.ide.IDEApplication.run(IDEApplication.java:95)
+	at org.eclipse.core.internal.runtime.PlatformActivator$1.run(PlatformActivator.java:78)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:92)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:68)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:400)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:177)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:85)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:58)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:60)
+	at java.lang.reflect.Method.invoke(Method.java:391)
+	at org.eclipse.core.launcher.Main.invokeFramework(Main.java:336)
+	at org.eclipse.core.launcher.Main.basicRun(Main.java:280)
+	at org.eclipse.core.launcher.Main.run(Main.java:977)
+	at org.eclipse.core.launcher.Main.main(Main.java:952)
+
+!ENTRY org.eclipse.ui.workbench 4 0 2008-04-30 19:26:33.655
+!MESSAGE Unable to create view ID org.eclipse.cdt.ui.CView: An unexpected exception was thrown.
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.scannerconfig.ManagedBuildCPathEntryContainer.getPathEntries(ManagedBuildCPathEntryContainer.java:169)
+	at org.eclipse.cdt.internal.core.model.PathEntryManager.getResolvedPathEntries(PathEntryManager.java:457)
+	at org.eclipse.cdt.internal.core.model.PathEntryManager.getResolvedPathEntries(PathEntryManager.java:429)
+	at org.eclipse.cdt.core.model.CoreModel.getResolvedPathEntries(CoreModel.java:941)
+	at org.eclipse.cdt.internal.core.model.CProject.getResolvedPathEntries(CProject.java:400)
+	at org.eclipse.cdt.internal.core.model.CProject.computeSourceRoots(CProject.java:595)
+	at org.eclipse.cdt.internal.core.model.CProject.getAllSourceRoots(CProject.java:502)
+	at org.eclipse.cdt.internal.core.model.CModelManager.create(CModelManager.java:254)
+	at org.eclipse.cdt.internal.core.model.CModelManager.create(CModelManager.java:229)
+	at org.eclipse.cdt.internal.core.model.CModelManager.create(CModelManager.java:214)
+	at org.eclipse.cdt.core.model.CoreModel.create(CoreModel.java:62)
+	at org.eclipse.cdt.internal.ui.cview.CView.restoreState(CView.java:941)
+	at org.eclipse.cdt.internal.ui.cview.CView.createPartControl(CView.java:571)
+	at org.eclipse.ui.internal.ViewReference.createPartHelper(ViewReference.java:332)
+	at org.eclipse.ui.internal.ViewReference.createPart(ViewReference.java:197)
+	at org.eclipse.ui.internal.WorkbenchPartReference.getPart(WorkbenchPartReference.java:566)
+	at org.eclipse.ui.internal.PartPane.setVisible(PartPane.java:290)
+	at org.eclipse.ui.internal.ViewPane.setVisible(ViewPane.java:525)
+	at org.eclipse.ui.internal.presentations.PresentablePart.setVisible(PresentablePart.java:140)
+	at org.eclipse.ui.internal.presentations.util.PresentablePartFolder.select(PresentablePartFolder.java:268)
+	at org.eclipse.ui.internal.presentations.util.LeftToRightTabOrder.select(LeftToRightTabOrder.java:65)
+	at org.eclipse.ui.internal.presentations.util.TabbedStackPresentation.selectPart(TabbedStackPresentation.java:394)
+	at org.eclipse.ui.internal.PartStack.refreshPresentationSelection(PartStack.java:1144)
+	at org.eclipse.ui.internal.PartStack.createControl(PartStack.java:620)
+	at org.eclipse.ui.internal.PartStack.createControl(PartStack.java:532)
+	at org.eclipse.ui.internal.PartSashContainer.createControl(PartSashContainer.java:562)
+	at org.eclipse.ui.internal.PerspectiveHelper.activate(PerspectiveHelper.java:244)
+	at org.eclipse.ui.internal.Perspective.onActivate(Perspective.java:815)
+	at org.eclipse.ui.internal.WorkbenchPage.onActivate(WorkbenchPage.java:2436)
+	at org.eclipse.ui.internal.WorkbenchWindow$6.run(WorkbenchWindow.java:2616)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:67)
+	at org.eclipse.ui.internal.WorkbenchWindow.setActivePage(WorkbenchWindow.java:2597)
+	at org.eclipse.ui.internal.WorkbenchWindow.restoreState(WorkbenchWindow.java:1982)
+	at org.eclipse.ui.internal.Workbench.doRestoreState(Workbench.java:2873)
+	at org.eclipse.ui.internal.Workbench.access$14(Workbench.java:2821)
+	at org.eclipse.ui.internal.Workbench$20.run(Workbench.java:1697)
+	at org.eclipse.ui.internal.Workbench.runStartupWithProgress(Workbench.java:1437)
+	at org.eclipse.ui.internal.Workbench.restoreState(Workbench.java:1695)
+	at org.eclipse.ui.internal.Workbench.access$12(Workbench.java:1666)
+	at org.eclipse.ui.internal.Workbench$18.run(Workbench.java:1545)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench.restoreState(Workbench.java:1489)
+	at org.eclipse.ui.internal.WorkbenchConfigurer.restoreState(WorkbenchConfigurer.java:183)
+	at org.eclipse.ui.application.WorkbenchAdvisor.openWindows(WorkbenchAdvisor.java:702)
+	at org.eclipse.ui.internal.Workbench.init(Workbench.java:1101)
+	at org.eclipse.ui.internal.Workbench.runUI(Workbench.java:1863)
+	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:422)
+	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:149)
+	at org.eclipse.ui.internal.ide.IDEApplication.run(IDEApplication.java:95)
+	at org.eclipse.core.internal.runtime.PlatformActivator$1.run(PlatformActivator.java:78)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:92)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:68)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:400)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:177)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:85)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:58)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:60)
+	at java.lang.reflect.Method.invoke(Method.java:391)
+	at org.eclipse.core.launcher.Main.invokeFramework(Main.java:336)
+	at org.eclipse.core.launcher.Main.basicRun(Main.java:280)
+	at org.eclipse.core.launcher.Main.run(Main.java:977)
+	at org.eclipse.core.launcher.Main.main(Main.java:952)
+
+!ENTRY org.eclipse.ui.workbench 4 2 2008-04-30 19:26:40.655
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.ui.workbench".
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 19:26:40.655
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 19:26:40.655
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.ui 4 4 2008-04-30 19:26:40.655
+!MESSAGE Unhandled Exception
+
+!ENTRY com.ibm.celldt.simulator 4 0 2008-04-30 19:26:40.655
+!MESSAGE Unable to execute early startup code for an extension
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 19:26:40.655
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.ui 4 0 2008-04-30 19:26:47.795
+!MESSAGE Unable to create editor ID org.eclipse.cdt.ui.editor.CEditor: Editor could not be initialized.
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.scannerconfig.ManagedBuildCPathEntryContainer.getPathEntries(ManagedBuildCPathEntryContainer.java:169)
+	at org.eclipse.cdt.internal.core.model.PathEntryManager.getResolvedPathEntries(PathEntryManager.java:457)
+	at org.eclipse.cdt.internal.core.model.PathEntryManager.getResolvedPathEntries(PathEntryManager.java:429)
+	at org.eclipse.cdt.core.model.CoreModel.getResolvedPathEntries(CoreModel.java:941)
+	at org.eclipse.cdt.internal.core.model.CProject.getResolvedPathEntries(CProject.java:400)
+	at org.eclipse.cdt.internal.core.model.CProject.computeSourceRoots(CProject.java:595)
+	at org.eclipse.cdt.internal.core.model.CProject.getAllSourceRoots(CProject.java:502)
+	at org.eclipse.cdt.internal.core.model.CModelManager.create(CModelManager.java:287)
+	at org.eclipse.cdt.core.model.CoreModel.create(CoreModel.java:76)
+	at org.eclipse.cdt.internal.ui.editor.CDocumentProvider.createTranslationUnit(CDocumentProvider.java:803)
+	at org.eclipse.cdt.internal.ui.editor.CDocumentProvider.createFileInfo(CDocumentProvider.java:832)
+	at org.eclipse.ui.editors.text.TextFileDocumentProvider.connect(TextFileDocumentProvider.java:482)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.doSetInput(AbstractTextEditor.java:3063)
+	at org.eclipse.ui.texteditor.StatusTextEditor.doSetInput(StatusTextEditor.java:173)
+	at org.eclipse.ui.texteditor.AbstractDecoratedTextEditor.doSetInput(AbstractDecoratedTextEditor.java:1512)
+	at org.eclipse.ui.editors.text.TextEditor.doSetInput(TextEditor.java:178)
+	at org.eclipse.cdt.internal.ui.editor.CEditor.doSetInput(CEditor.java:580)
+	at org.eclipse.ui.texteditor.AbstractTextEditor$17.run(AbstractTextEditor.java:2396)
+	at org.eclipse.jface.operation.ModalContext.runInCurrentThread(ModalContext.java:369)
+	at org.eclipse.jface.operation.ModalContext.run(ModalContext.java:313)
+	at org.eclipse.jface.window.ApplicationWindow$1.run(ApplicationWindow.java:763)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:67)
+	at org.eclipse.jface.window.ApplicationWindow.run(ApplicationWindow.java:760)
+	at org.eclipse.ui.internal.WorkbenchWindow.run(WorkbenchWindow.java:2283)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.internalInit(AbstractTextEditor.java:2414)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.init(AbstractTextEditor.java:2441)
+	at org.eclipse.ui.internal.EditorManager.createSite(EditorManager.java:842)
+	at org.eclipse.ui.internal.EditorReference.createPartHelper(EditorReference.java:583)
+	at org.eclipse.ui.internal.EditorReference.createPart(EditorReference.java:372)
+	at org.eclipse.ui.internal.WorkbenchPartReference.getPart(WorkbenchPartReference.java:566)
+	at org.eclipse.ui.internal.PartPane.setVisible(PartPane.java:290)
+	at org.eclipse.ui.internal.presentations.PresentablePart.setVisible(PresentablePart.java:140)
+	at org.eclipse.ui.internal.presentations.util.PresentablePartFolder.select(PresentablePartFolder.java:268)
+	at org.eclipse.ui.internal.presentations.util.LeftToRightTabOrder.select(LeftToRightTabOrder.java:65)
+	at org.eclipse.ui.internal.presentations.util.TabbedStackPresentation.selectPart(TabbedStackPresentation.java:394)
+	at org.eclipse.ui.internal.PartStack.refreshPresentationSelection(PartStack.java:1144)
+	at org.eclipse.ui.internal.PartStack.handleDeferredEvents(PartStack.java:1112)
+	at org.eclipse.ui.internal.LayoutPart.deferUpdates(LayoutPart.java:400)
+	at org.eclipse.ui.internal.PartSashContainer.handleDeferredEvents(PartSashContainer.java:1369)
+	at org.eclipse.ui.internal.LayoutPart.deferUpdates(LayoutPart.java:400)
+	at org.eclipse.ui.internal.WorkbenchPage.handleDeferredEvents(WorkbenchPage.java:1305)
+	at org.eclipse.ui.internal.WorkbenchPage.deferUpdates(WorkbenchPage.java:1295)
+	at org.eclipse.ui.internal.WorkbenchPage.closeEditors(WorkbenchPage.java:1269)
+	at org.eclipse.ui.internal.WorkbenchPage.closeEditor(WorkbenchPage.java:1324)
+	at org.eclipse.ui.internal.EditorPane.doHide(EditorPane.java:54)
+	at org.eclipse.ui.internal.PartStack.close(PartStack.java:499)
+	at org.eclipse.ui.internal.EditorStack.close(EditorStack.java:205)
+	at org.eclipse.ui.internal.PartStack$1.close(PartStack.java:106)
+	at org.eclipse.ui.internal.presentations.util.TabbedStackPresentation$1.handleEvent(TabbedStackPresentation.java:81)
+	at org.eclipse.ui.internal.presentations.util.AbstractTabFolder.fireEvent(AbstractTabFolder.java:267)
+	at org.eclipse.ui.internal.presentations.util.AbstractTabFolder.fireEvent(AbstractTabFolder.java:276)
+	at org.eclipse.ui.internal.presentations.defaultpresentation.DefaultTabFolder.access$1(DefaultTabFolder.java:1)
+	at org.eclipse.ui.internal.presentations.defaultpresentation.DefaultTabFolder$1.closeButtonPressed(DefaultTabFolder.java:67)
+	at org.eclipse.ui.internal.presentations.PaneFolder.notifyCloseListeners(PaneFolder.java:580)
+	at org.eclipse.ui.internal.presentations.PaneFolder$3.close(PaneFolder.java:187)
+	at org.eclipse.swt.custom.CTabFolder.onMouse(CTabFolder.java:2107)
+	at org.eclipse.swt.custom.CTabFolder$1.handleEvent(CTabFolder.java:292)
+	at org.eclipse.swt.widgets.EventTable.sendEvent(EventTable.java(Compiled Code))
+	at org.eclipse.swt.widgets.Widget.sendEvent(Widget.java:1085)
+	at org.eclipse.swt.widgets.Display.runDeferredEvents(Display.java:3180)
+	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:2856)
+	at org.eclipse.ui.internal.Workbench.runEventLoop(Workbench.java:1930)
+	at org.eclipse.ui.internal.Workbench.runUI(Workbench.java:1894)
+	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:422)
+	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:149)
+	at org.eclipse.ui.internal.ide.IDEApplication.run(IDEApplication.java:95)
+	at org.eclipse.core.internal.runtime.PlatformActivator$1.run(PlatformActivator.java:78)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:92)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:68)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:400)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:177)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:85)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:58)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:60)
+	at java.lang.reflect.Method.invoke(Method.java:391)
+	at org.eclipse.core.launcher.Main.invokeFramework(Main.java:336)
+	at org.eclipse.core.launcher.Main.basicRun(Main.java:280)
+	at org.eclipse.core.launcher.Main.run(Main.java:977)
+	at org.eclipse.core.launcher.Main.main(Main.java:952)
+
+!ENTRY org.eclipse.ui 4 0 2008-04-30 19:26:51.206
+!MESSAGE Unable to create editor ID org.eclipse.cdt.ui.editor.CEditor: Editor could not be initialized.
+!STACK 0
+java.lang.NullPointerException
+	at com.ibm.celldt.utils.platform.Platform.getOSLinuxDistro(Platform.java:202)
+	at com.ibm.celldt.utils.packagemanager.PackageManagementSystemManager.getPackageManager(PackageManagementSystemManager.java:33)
+	at com.ibm.celldt.managedbuilder.gnu.ui.internal.ManagedGNUToolChainSupport.isSupported(ManagedGNUToolChainSupport.java:33)
+	at org.eclipse.cdt.managedbuilder.internal.core.ToolChain.isSupported(ToolChain.java:1507)
+	at org.eclipse.cdt.managedbuilder.internal.core.Configuration.isSupported(Configuration.java:1302)
+	at org.eclipse.cdt.managedbuilder.internal.core.ManagedBuildInfo.getDefaultConfiguration(ManagedBuildInfo.java:259)
+	at org.eclipse.cdt.managedbuilder.internal.scannerconfig.ManagedBuildCPathEntryContainer.getPathEntries(ManagedBuildCPathEntryContainer.java:169)
+	at org.eclipse.cdt.internal.core.model.PathEntryManager.getResolvedPathEntries(PathEntryManager.java:457)
+	at org.eclipse.cdt.internal.core.model.PathEntryManager.getResolvedPathEntries(PathEntryManager.java:429)
+	at org.eclipse.cdt.core.model.CoreModel.getResolvedPathEntries(CoreModel.java:941)
+	at org.eclipse.cdt.internal.core.model.CProject.getResolvedPathEntries(CProject.java:400)
+	at org.eclipse.cdt.internal.core.model.CProject.computeSourceRoots(CProject.java:595)
+	at org.eclipse.cdt.internal.core.model.CProject.getAllSourceRoots(CProject.java:502)
+	at org.eclipse.cdt.internal.core.model.CModelManager.create(CModelManager.java:287)
+	at org.eclipse.cdt.core.model.CoreModel.create(CoreModel.java:76)
+	at org.eclipse.cdt.internal.ui.editor.CDocumentProvider.createTranslationUnit(CDocumentProvider.java:803)
+	at org.eclipse.cdt.internal.ui.editor.CDocumentProvider.createFileInfo(CDocumentProvider.java:832)
+	at org.eclipse.ui.editors.text.TextFileDocumentProvider.connect(TextFileDocumentProvider.java:482)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.doSetInput(AbstractTextEditor.java:3063)
+	at org.eclipse.ui.texteditor.StatusTextEditor.doSetInput(StatusTextEditor.java:173)
+	at org.eclipse.ui.texteditor.AbstractDecoratedTextEditor.doSetInput(AbstractDecoratedTextEditor.java:1512)
+	at org.eclipse.ui.editors.text.TextEditor.doSetInput(TextEditor.java:178)
+	at org.eclipse.cdt.internal.ui.editor.CEditor.doSetInput(CEditor.java:580)
+	at org.eclipse.ui.texteditor.AbstractTextEditor$17.run(AbstractTextEditor.java:2396)
+	at org.eclipse.jface.operation.ModalContext.runInCurrentThread(ModalContext.java:369)
+	at org.eclipse.jface.operation.ModalContext.run(ModalContext.java:313)
+	at org.eclipse.jface.window.ApplicationWindow$1.run(ApplicationWindow.java:763)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:67)
+	at org.eclipse.jface.window.ApplicationWindow.run(ApplicationWindow.java:760)
+	at org.eclipse.ui.internal.WorkbenchWindow.run(WorkbenchWindow.java:2283)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.internalInit(AbstractTextEditor.java:2414)
+	at org.eclipse.ui.texteditor.AbstractTextEditor.init(AbstractTextEditor.java:2441)
+	at org.eclipse.ui.internal.EditorManager.createSite(EditorManager.java:842)
+	at org.eclipse.ui.internal.EditorReference.createPartHelper(EditorReference.java:583)
+	at org.eclipse.ui.internal.EditorReference.createPart(EditorReference.java:372)
+	at org.eclipse.ui.internal.WorkbenchPartReference.getPart(WorkbenchPartReference.java:566)
+	at org.eclipse.ui.internal.PartPane.setVisible(PartPane.java:290)
+	at org.eclipse.ui.internal.presentations.PresentablePart.setVisible(PresentablePart.java:140)
+	at org.eclipse.ui.internal.presentations.util.PresentablePartFolder.select(PresentablePartFolder.java:268)
+	at org.eclipse.ui.internal.presentations.util.LeftToRightTabOrder.select(LeftToRightTabOrder.java:65)
+	at org.eclipse.ui.internal.presentations.util.TabbedStackPresentation.selectPart(TabbedStackPresentation.java:394)
+	at org.eclipse.ui.internal.PartStack.refreshPresentationSelection(PartStack.java:1144)
+	at org.eclipse.ui.internal.PartStack.handleDeferredEvents(PartStack.java:1112)
+	at org.eclipse.ui.internal.LayoutPart.deferUpdates(LayoutPart.java:400)
+	at org.eclipse.ui.internal.PartSashContainer.handleDeferredEvents(PartSashContainer.java:1369)
+	at org.eclipse.ui.internal.LayoutPart.deferUpdates(LayoutPart.java:400)
+	at org.eclipse.ui.internal.WorkbenchPage.handleDeferredEvents(WorkbenchPage.java:1305)
+	at org.eclipse.ui.internal.WorkbenchPage.deferUpdates(WorkbenchPage.java:1295)
+	at org.eclipse.ui.internal.WorkbenchPage.closeEditors(WorkbenchPage.java:1269)
+	at org.eclipse.ui.internal.WorkbenchPage.closeEditor(WorkbenchPage.java:1324)
+	at org.eclipse.ui.internal.EditorPane.doHide(EditorPane.java:54)
+	at org.eclipse.ui.internal.PartStack.close(PartStack.java:499)
+	at org.eclipse.ui.internal.EditorStack.close(EditorStack.java:205)
+	at org.eclipse.ui.internal.PartStack$1.close(PartStack.java:106)
+	at org.eclipse.ui.internal.presentations.util.TabbedStackPresentation$1.handleEvent(TabbedStackPresentation.java:81)
+	at org.eclipse.ui.internal.presentations.util.AbstractTabFolder.fireEvent(AbstractTabFolder.java:267)
+	at org.eclipse.ui.internal.presentations.util.AbstractTabFolder.fireEvent(AbstractTabFolder.java:276)
+	at org.eclipse.ui.internal.presentations.defaultpresentation.DefaultTabFolder.access$1(DefaultTabFolder.java:1)
+	at org.eclipse.ui.internal.presentations.defaultpresentation.DefaultTabFolder$1.closeButtonPressed(DefaultTabFolder.java:67)
+	at org.eclipse.ui.internal.presentations.PaneFolder.notifyCloseListeners(PaneFolder.java:580)
+	at org.eclipse.ui.internal.presentations.PaneFolder$3.close(PaneFolder.java:187)
+	at org.eclipse.swt.custom.CTabFolder.onMouse(CTabFolder.java:2107)
+	at org.eclipse.swt.custom.CTabFolder$1.handleEvent(CTabFolder.java:292)
+	at org.eclipse.swt.widgets.EventTable.sendEvent(EventTable.java(Compiled Code))
+	at org.eclipse.swt.widgets.Widget.sendEvent(Widget.java:1085)
+	at org.eclipse.swt.widgets.Display.runDeferredEvents(Display.java:3180)
+	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:2856)
+	at org.eclipse.ui.internal.Workbench.runEventLoop(Workbench.java:1930)
+	at org.eclipse.ui.internal.Workbench.runUI(Workbench.java:1894)
+	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:422)
+	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:149)
+	at org.eclipse.ui.internal.ide.IDEApplication.run(IDEApplication.java:95)
+	at org.eclipse.core.internal.runtime.PlatformActivator$1.run(PlatformActivator.java:78)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:92)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:68)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:400)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:177)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:85)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:58)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:60)
+	at java.lang.reflect.Method.invoke(Method.java:391)
+	at org.eclipse.core.launcher.Main.invokeFramework(Main.java:336)
+	at org.eclipse.core.launcher.Main.basicRun(Main.java:280)
+	at org.eclipse.core.launcher.Main.run(Main.java:977)
+	at org.eclipse.core.launcher.Main.main(Main.java:952)
+!SESSION 2008-04-30 19:37:58.686 -----------------------------------------------
+eclipse.buildId=M20070212-1330
+java.fullversion=J2RE 1.4.2 IBM build cxia32142-20070708 (SR9) (JIT enabled: jitc)
+BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+Command-line arguments:  -os linux -ws gtk -arch x86
+
+!ENTRY org.eclipse.ui.workbench 4 2 2008-04-30 19:38:17.046
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.ui.workbench".
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 19:38:17.046
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 19:38:17.046
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.ui 4 4 2008-04-30 19:38:17.046
+!MESSAGE Unhandled Exception
+
+!ENTRY com.ibm.celldt.simulator 4 0 2008-04-30 19:38:17.046
+!MESSAGE Unable to execute early startup code for an extension
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 19:38:17.046
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:234)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)

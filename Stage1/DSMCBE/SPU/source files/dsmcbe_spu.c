@@ -48,21 +48,23 @@ void* acquire(GUID id, unsigned long* size) {
 	spu_write_out_mbox(id);
 
 	data = spu_read_in_mbox();
-	//printf(WHERESTR "Message type: %i\n", WHEREARG, (int)data);
+	printf(WHERESTR "Message type: %i\n", WHEREARG, (int)data);
 		
 	data = spu_read_in_mbox();
-	//printf(WHERESTR "Request id: %i\n", WHEREARG, (int)data);
+	printf(WHERESTR "Request id: %i\n", WHEREARG, (int)data);
 		
 	*size = spu_read_in_mbox();
-	//printf(WHERESTR "Data size: %i\n", WHEREARG, (int)*size);
+	printf(WHERESTR "Data size: %i\n", WHEREARG, (int)*size);
 	
 	data = spu_read_in_mbox();
-	//printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)data);
+	printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)data);
 	
 	transfer_size = *size + ((16 - *size) % 16);
 	void* allocation;
 	if ((allocation = _malloc_align(transfer_size, 7)) == NULL)
 		perror("Failed to allocate memory on SPU");		
+
+	printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
 
 	// Make datastructures for later use
 	dataObject object;
@@ -74,13 +76,13 @@ void* acquire(GUID id, unsigned long* size) {
 	object->size = *size;
 	ht_insert(allocatedItems, allocation, object);
 	
-	//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
+	printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
 	StartDMAReadTransfer(allocation, (int)data, transfer_size, 0);
 	
-	//printf(WHERESTR "Waiting for DMA transfer\n", WHEREARG);
+	printf(WHERESTR "Waiting for DMA transfer\n", WHEREARG);
 	WaitForDMATransferByGroup(0);
 	
-	//printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
+	printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
 	printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);
 	
 	return allocation;	

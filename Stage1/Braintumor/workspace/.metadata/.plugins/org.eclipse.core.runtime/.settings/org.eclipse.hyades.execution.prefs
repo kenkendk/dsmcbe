@@ -1,9 +1,9 @@
-#Wed Apr 30 15:58:42 CEST 2008
+#Wed Apr 30 19:27:06 CEST 2008
 CLASSPATH_ORG_ECLIPSE_JFACE=/root/eclipse/plugins/org.eclipse.jface_3.2.2.M20061214-1200.jar\:
 CLASSPATH_ORG_ECLIPSE_HYADES_LOGGING_PARSERS=/root/eclipse/plugins/org.eclipse.hyades.logging.parsers_4.2.2.v200701141614/hparse.jar\:/root/eclipse/plugins/org.eclipse.hyades.logging.parsers_4.2.2.v200701141614/tpglimport.jar\:/root/eclipse/plugins/org.eclipse.hyades.logging.parsers_4.2.2.v200701141614/bin\:
 CLASSPATH_COM_IBM_ICU=/root/eclipse/plugins/com.ibm.icu_3.4.5.20061213.jar\:
 ECLIPSEROOT=/root/eclipse
-CUSTOMPATH_ORG_ECLIPSE_HYADES_PERFMON_AGENTS=\:%RASERVER_HOME%\\extensions\\org.eclipse.hyades.perfmon.agents\:%RASERVER_HOME%\\extensions\\org.eclipse.hyades.perfmon.agents
+CUSTOMPATH_ORG_ECLIPSE_HYADES_PERFMON_AGENTS=\:%RASERVER_HOME%\\extensions\\org.eclipse.hyades.perfmon.agents\:%RASERVER_HOME%\\extensions\\org.eclipse.hyades.perfmon.agents\:%RASERVER_HOME%\\extensions\\org.eclipse.hyades.perfmon.agents\:%RASERVER_HOME%\\extensions\\org.eclipse.hyades.perfmon.agents
 CLASSPATH_ORG_ECLIPSE_TPTP_PLATFORM_COLLECTION_FRAMEWORK=/root/eclipse/plugins/org.eclipse.tptp.platform.collection.framework_4.1.102.v200701141614/hcframe.jar\:/root/eclipse/plugins/org.eclipse.tptp.platform.collection.framework_4.1.102.v200701141614/bin\:
 CLASSPATH_ORG_ECLIPSE_OSGI=/root/eclipse/plugins/org.eclipse.osgi_3.2.2.R32x_v20070118.jar\:
 CLASSPATH_ORG_ECLIPSE_CORE_COMMANDS=/root/eclipse/plugins/org.eclipse.core.commands_3.2.0.I20060605-1400.jar\:
@@ -37,7 +37,7 @@ CLASSPATH_ORG_ECLIPSE_HYADES_PROBEKIT=/root/eclipse/plugins/org.eclipse.hyades.p
 CLASSPATH_ORG_ECLIPSE_HYADES_PERFMON_AGENTS=\:%CUSTOMPATH_ORG_ECLIPSE_HYADES_PERFMON_AGENTS%\\core\\lib\\coreagent.jar
 CLASSPATH_ORG_ECLIPSE_EQUINOX_COMMON=/root/eclipse/plugins/org.eclipse.equinox.common_3.2.0.v20060603.jar\:
 PATH_ORG_ECLIPSE_HYADES_EXECUTION=/root/eclipse/plugins/org.eclipse.hyades.execution_4.2.4.v200701241554
-CLASSPATH=%PATH_ORG_ECLIPSE_TPTP_PLATFORM_COLLECTION_FRAMEWORK%/hcframe.jar\:%PATH_ORG_ECLIPSE_TPTP_PLATFORM_COLLECTION_FRAMEWORK%/hcframe.jar\:\:%CLASSPATH_ORG_ECLIPSE_HYADES_EXECUTION%\:%CLASSPATH_ORG_ECLIPSE_HYADES_EXECUTION%
+CLASSPATH=%PATH_ORG_ECLIPSE_TPTP_PLATFORM_COLLECTION_FRAMEWORK%/hcframe.jar\:%PATH_ORG_ECLIPSE_TPTP_PLATFORM_COLLECTION_FRAMEWORK%/hcframe.jar\:%PATH_ORG_ECLIPSE_TPTP_PLATFORM_COLLECTION_FRAMEWORK%/hcframe.jar\:%PATH_ORG_ECLIPSE_TPTP_PLATFORM_COLLECTION_FRAMEWORK%/hcframe.jar\:\:%CLASSPATH_ORG_ECLIPSE_HYADES_EXECUTION%\:%CLASSPATH_ORG_ECLIPSE_HYADES_EXECUTION%\:%CLASSPATH_ORG_ECLIPSE_HYADES_EXECUTION%\:%CLASSPATH_ORG_ECLIPSE_HYADES_EXECUTION%
 PATH_ORG_ECLIPSE_TPTP_PLATFORM_COLLECTION_FRAMEWORK=/root/eclipse/plugins/org.eclipse.tptp.platform.collection.framework_4.1.102.v200701141614
 PATH_ORG_ECLIPSE_HYADES_TEST_TOOLS_CORE=/root/eclipse/plugins/org.eclipse.hyades.test.tools.core_4.2.3.v200701141614
 LIB_EXTENSION=.so
