@@ -1,6 +1,20 @@
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
 
+struct DMA_LIST_ELEMENT {
+	union {
+		unsigned int all32;
+		struct {
+			unsigned int stall : 1;
+			unsigned int reserved : 15;
+			unsigned int nbytes : 16;
+		} bits;
+	} size;
+	unsigned int ea_low;
+};
+
+struct DMA_LIST_ELEMENT list[16] __attribute__ ((aligned (16)));
+
 void WaitForDMATransferByGroup(int groupid)
 {
 	unsigned int tag_mask = (1 << groupid);
@@ -44,10 +58,34 @@ void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int
 	if ((ea % 128) != 0)
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
-	printf(WHERESTR "DMA write-transfer, source: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
-	mfc_put(buffer, ea, size, groupid, 0, 0);
+	printf(WHERESTR "DMA write-transfer, source: %d, ea: %d, size: %d\n", WHEREARG, (int)buffer, ea, size);
+	
+	if (size < 16384 ) {
+		printf(WHERESTR "Single DMA transfer\n", WHEREARG);
+		mfc_put(buffer, ea, size, groupid, 0, 0);
+	} else {
+		printf(WHERESTR "List DMA transfer\n", WHEREARG);
+		unsigned int i = 0;
+		unsigned int listsize;	
+		
+		if (!size)
+			return;
+		
+		while (size > 0) {
+			unsigned int sz;
+			sz = (size < 16384) ? size : 16384;
+			list[i].size.all32 = sz;
+			list[i].ea_low = ea;
+			size -= sz;
+			ea += sz;
+			i++;
+		}
+		
+		listsize = i * sizeof(struct DMA_LIST_ELEMENT);
+		mfc_putl(buffer, list[0].ea_low, list, listsize, groupid, 0, 0);		
+	}
+	
 }
-
 
 void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid)
 {
@@ -58,5 +96,29 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
 	printf(WHERESTR "DMA read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
-	mfc_get(buffer, ea, size, groupid, 0, 0);
+	
+	if (size < 16384 ) {
+		printf(WHERESTR "Single DMA transfer\n", WHEREARG);
+		mfc_get(buffer, ea, size, groupid, 0, 0);
+	} else {
+		printf(WHERESTR "List DMA transfer\n", WHEREARG);
+		unsigned int i = 0;
+		unsigned int listsize;	
+		
+		if (!size)
+			return;
+		
+		while (size > 0) {
+			unsigned int sz;
+			sz = (size < 16384) ? size : 16384;
+			list[i].size.all32 = sz;
+			list[i].ea_low = ea;
+			size -= sz;
+			ea += sz;
+			i++;
+		}
+		
+		listsize = i * sizeof(struct DMA_LIST_ELEMENT);
+		mfc_getl(buffer, list[0].ea_low, list, listsize, groupid, 0, 0);		
+	}
 }
