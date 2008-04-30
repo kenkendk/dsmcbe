@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<workbench version="2.0" progressCount="31">
+<workbench version="2.0" progressCount="23">
 <workbenchAdvisor/>
-<window x="0" y="19" width="1282" height="755">
+<window x="4" y="25" width="1278" height="728">
 <fastViewData fastViewLocation="1024"/>
 <perspectiveBar>
 <itemSize x="160"/>
@@ -37,7 +37,6 @@
 <part id="5"/>
 <part id="6"/>
 <part id="7"/>
-<part id="8"/>
 </presentation>
 </folder>
 </info>
@@ -48,11 +47,8 @@
 <editor title="Prototein.c" name="Prototein.c" id="org.eclipse.cdt.ui.editor.CEditor" tooltip="SPU/Prototein.c" partName="Prototein.c" workbook="DefaultEditorWorkbook" path="/root/dsmcbe/Stage1/Prototein/SPU/Prototein.c">
 <input factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/SPU/Prototein.c"/>
 </editor>
-<editor title="PrototeinPPC.c" name="PrototeinPPC.c" id="org.eclipse.cdt.ui.editor.CEditor" tooltip="PPU/PrototeinPPC.c" partName="PrototeinPPC.c" workbook="DefaultEditorWorkbook" path="/root/dsmcbe/Stage1/Prototein/PPU/PrototeinPPC.c">
+<editor title="PrototeinPPC.c" name="PrototeinPPC.c" id="org.eclipse.cdt.ui.editor.CEditor" tooltip="PPU/PrototeinPPC.c" partName="PrototeinPPC.c" workbook="DefaultEditorWorkbook" activePart="true" focus="true" path="/root/dsmcbe/Stage1/Prototein/PPU/PrototeinPPC.c">
 <input factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/PPU/PrototeinPPC.c"/>
-</editor>
-<editor title="dsmcbe_spu.c" name="dsmcbe_spu.c" id="org.eclipse.cdt.ui.editor.CEditor" tooltip="dsmcbe_spu/source files/dsmcbe_spu.c" partName="dsmcbe_spu.c" workbook="DefaultEditorWorkbook" activePart="true" focus="true" path="/root/dsmcbe/Stage1/DSMCBE/SPU/source files/dsmcbe_spu.c">
-<input factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/dsmcbe_spu/source files/dsmcbe_spu.c"/>
 </editor>
 <editor title="SPUEventHandler.c" name="SPUEventHandler.c" id="org.eclipse.cdt.ui.editor.CEditor" tooltip="dsmcbe_ppu/source files/SPUEventHandler.c" partName="SPUEventHandler.c" workbook="DefaultEditorWorkbook" path="/root/dsmcbe/Stage1/DSMCBE/PPU/source files/SPUEventHandler.c">
 <input factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/dsmcbe_ppu/source files/SPUEventHandler.c"/>
@@ -87,7 +83,7 @@
 <viewState/>
 </view>
 <view id="org.eclipse.cdt.ui.CView" partName="C/C++ Projects">
-<viewState verticalPosition="191" horizontalPosition="0">
+<viewState verticalPosition="372" horizontalPosition="0">
 <expanded>
 <element path="/root/dsmcbe/Stage1/DSMCBE/PPU"/>
 <element path="/root/dsmcbe/Stage1/DSMCBE/PPU/source files"/>
@@ -97,7 +93,7 @@
 <element path="/root/dsmcbe/Stage1/Prototein/SPU"/>
 </expanded>
 <selection>
-<element path="/root/dsmcbe/Stage1/DSMCBE/SPU/source files/dsmcbe_spu.c"/>
+<element path="/root/dsmcbe/Stage1/Prototein/SPU"/>
 </selection>
 <customFilters userDefinedPatternsEnabled="false">
 <xmlDefinedFilters>
@@ -274,54 +270,39 @@
 <view id="org.eclipse.debug.ui.VariableView"/>
 <view id="org.eclipse.debug.ui.BreakpointView"/>
 <view id="org.eclipse.ui.views.ContentOutline"/>
-<layout>
-<mainWindow>
-<info part="org.eclipse.debug.internal.ui.NavigatorFolderView" folder="true">
-<folder activePageID="org.eclipse.debug.ui.DebugView" expanded="2" appearance="2">
-<page label="Debug" content="org.eclipse.debug.ui.DebugView"/>
+<layout>&#x0A;<mainWindow>&#x0A;<info part="org.eclipse.debug.internal.ui.NavigatorFolderView" folder="true">&#x0A;<folder activePageID="org.eclipse.debug.ui.DebugView" expanded="2" appearance="2">&#x0A;<page label="Debug" content="org.eclipse.debug.ui.DebugView"/>
 <page label="LabelNotFound" content="org.eclipse.ui.views.ResourceNavigator"/>
 <page label="LabelNotFound" content="org.eclipse.jdt.ui.PackageExplorer"/>
 <page label="LabelNotFound" content="org.eclipse.jdt.ui.TypeHierarchy"/>
-<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
-<part id="0"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">&#x0A;<part id="0"/>
 </presentation>
 </folder>
 </info>
-<info part="stickyFolderRight" relative="org.eclipse.debug.internal.ui.NavigatorFolderView" relationship="2" ratioLeft="952" ratioRight="318" ratio="0.7496063" folder="true">
-<folder expanded="2" appearance="2">
-<page label="LabelNotFound" content="org.eclipse.help.ui.HelpView"/>
+<info part="stickyFolderRight" relative="org.eclipse.debug.internal.ui.NavigatorFolderView" relationship="2" ratioLeft="952" ratioRight="318" ratio="0.7496063" folder="true">&#x0A;<folder expanded="2" appearance="2">&#x0A;<page label="LabelNotFound" content="org.eclipse.help.ui.HelpView"/>
 <page label="LabelNotFound" content="org.eclipse.ui.internal.introview"/>
 <page label="LabelNotFound" content="org.eclipse.ui.cheatsheets.views.CheatSheetView"/>
 </folder>
 </info>
-<info part="org.eclipse.debug.internal.ui.ConsoleFolderView" relative="org.eclipse.debug.internal.ui.NavigatorFolderView" relationship="4" ratioLeft="496" ratioRight="166" ratio="0.7492447" folder="true">
-<folder activePageID="org.eclipse.ui.console.ConsoleView" expanded="2" appearance="2">
-<page label="Console" content="org.eclipse.ui.console.ConsoleView"/>
+<info part="org.eclipse.debug.internal.ui.ConsoleFolderView" relative="org.eclipse.debug.internal.ui.NavigatorFolderView" relationship="4" ratioLeft="496" ratioRight="166" ratio="0.7492447" folder="true">&#x0A;<folder activePageID="org.eclipse.ui.console.ConsoleView" expanded="2" appearance="2">&#x0A;<page label="Console" content="org.eclipse.ui.console.ConsoleView"/>
 <page label="Tasks" content="org.eclipse.ui.views.TaskList"/>
 <page label="LabelNotFound" content="org.eclipse.ui.views.BookmarkView"/>
 <page label="LabelNotFound" content="org.eclipse.ui.views.PropertySheet"/>
 <page label="LabelNotFound" content="org.eclipse.jdt.debug.ui.DisplayView"/>
 <page label="LabelNotFound" content="org.eclipse.search.SearchResultView"/>
-<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
-<part id="0"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">&#x0A;<part id="0"/>
 <part id="1"/>
 </presentation>
 </folder>
 </info>
 <info part="org.eclipse.ui.editorss" relative="org.eclipse.debug.internal.ui.NavigatorFolderView" relationship="4" ratioLeft="223" ratioRight="273" ratio="0.44959676"/>
-<info part="org.eclipse.debug.internal.ui.OutlineFolderView" relative="org.eclipse.ui.editorss" relationship="2" ratioLeft="952" ratioRight="318" ratio="0.7496063" folder="true">
-<folder activePageID="org.eclipse.ui.views.ContentOutline" expanded="2" appearance="2">
-<page label="Outline" content="org.eclipse.ui.views.ContentOutline"/>
+<info part="org.eclipse.debug.internal.ui.OutlineFolderView" relative="org.eclipse.ui.editorss" relationship="2" ratioLeft="952" ratioRight="318" ratio="0.7496063" folder="true">&#x0A;<folder activePageID="org.eclipse.ui.views.ContentOutline" expanded="2" appearance="2">&#x0A;<page label="Outline" content="org.eclipse.ui.views.ContentOutline"/>
 <page label="LabelNotFound" content="org.eclipse.ant.ui.views.AntView"/>
 <page label="LabelNotFound" content="org.eclipse.cdt.debug.ui.DisassemblyView"/>
-<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
-<part id="0"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">&#x0A;<part id="0"/>
 </presentation>
 </folder>
 </info>
-<info part="org.eclipse.debug.internal.ui.ToolsFolderView" relative="org.eclipse.debug.internal.ui.NavigatorFolderView" relationship="2" ratioLeft="635" ratioRight="635" ratio="0.5" folder="true">
-<folder activePageID="org.eclipse.debug.ui.VariableView" expanded="2" appearance="2">
-<page label="Variables" content="org.eclipse.debug.ui.VariableView"/>
+<info part="org.eclipse.debug.internal.ui.ToolsFolderView" relative="org.eclipse.debug.internal.ui.NavigatorFolderView" relationship="2" ratioLeft="635" ratioRight="635" ratio="0.5" folder="true">&#x0A;<folder activePageID="org.eclipse.debug.ui.VariableView" expanded="2" appearance="2">&#x0A;<page label="Variables" content="org.eclipse.debug.ui.VariableView"/>
 <page label="Breakpoints" content="org.eclipse.debug.ui.BreakpointView"/>
 <page label="LabelNotFound" content="org.eclipse.debug.ui.ExpressionView"/>
 <page label="LabelNotFound" content="org.eclipse.debug.ui.RegisterView"/>
@@ -332,8 +313,7 @@
 <page label="LabelNotFound" content="com.ibm.celldt.debug.be.ui.views.spu.proxydma.SPUProxyDMAView"/>
 <page label="LabelNotFound" content="org.eclipse.cdt.debug.ui.SignalsView"/>
 <page label="LabelNotFound" content="org.eclipse.cdt.debug.ui.ModulesView"/>
-<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">
-<part id="0"/>
+<presentation id="org.eclipse.ui.presentations.WorkbenchPresentationFactory">&#x0A;<part id="0"/>
 <part id="1"/>
 </presentation>
 </folder>
@@ -353,13 +333,9 @@
 <editor id="org.eclipse.cdt.ui.editor.CEditor" factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/PPU/PrototeinPPC.c"/>
 <editor id="org.eclipse.cdt.ui.editor.CEditor" factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/dsmcbe_ppu/source files/dsmcbe_ppu.c"/>
 <editor id="org.eclipse.cdt.ui.editor.CEditor" factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/dsmcbe_ppu/source files/datastructures.c"/>
+<editor id="org.eclipse.cdt.ui.editor.CEditor" factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/PPU/ppu.c"/>
+<editor id="org.eclipse.cdt.ui.editor.CEditor" factoryID="org.eclipse.ui.part.FileEditorInputFactory" path="/PPU/PrototeinPPC.c"/>
 </editors>
-<item historyLabel="PrototeinPPC.c" index="5">
-<position x="3418" y="0" info="not_deleted"/>
-</item>
-<item historyLabel="Prototein.c" index="3">
-<position x="3999" y="0" info="not_deleted"/>
-</item>
 <item historyLabel="PrototeinPPC.c" index="5">
 <position x="4739" y="0" info="not_deleted"/>
 </item>
@@ -501,8 +477,14 @@
 <item historyLabel="Prototein.c" index="3">
 <position x="5379" y="0" info="not_deleted"/>
 </item>
-<item active="true" historyLabel="dsmcbe_spu.c" index="2">
+<item historyLabel="dsmcbe_spu.c" index="2">
 <position x="3134" y="0" info="not_deleted"/>
+</item>
+<item historyLabel="ppu.c" index="8">
+<position/>
+</item>
+<item active="true" historyLabel="PrototeinPPC.c" index="9">
+<position/>
 </item>
 </navigationHistory>
 <stickyState>
