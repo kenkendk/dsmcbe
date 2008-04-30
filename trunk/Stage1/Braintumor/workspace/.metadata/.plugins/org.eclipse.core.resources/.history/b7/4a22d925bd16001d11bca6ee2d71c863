@@ -1,3 +1,0 @@
-StopWatch.d StopWatch.o: ../StopWatch.c ../../Common/StopWatch.h
-
-../../Common/StopWatch.h:
