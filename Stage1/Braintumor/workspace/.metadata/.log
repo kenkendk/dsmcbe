@@ -1,0 +1,357 @@
+!SESSION 2008-04-30 15:53:35.688 -----------------------------------------------
+eclipse.buildId=M20070212-1330
+java.fullversion=J2RE 1.4.2 IBM build cxia32142-20070708 (SR9) (JIT enabled: jitc)
+BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+Command-line arguments:  -os linux -ws gtk -arch x86
+
+!ENTRY org.eclipse.ui.workbench 4 2 2008-04-30 15:53:51.538
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.ui.workbench".
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 15:53:51.538
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 15:53:51.538
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.ui 4 4 2008-04-30 15:53:51.538
+!MESSAGE Unhandled Exception
+
+!ENTRY com.ibm.celldt.simulator 4 0 2008-04-30 15:53:51.548
+!MESSAGE Unable to execute early startup code for an extension
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 15:53:51.548
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SESSION 2008-04-30 15:54:04.548 -----------------------------------------------
+eclipse.buildId=M20070212-1330
+java.fullversion=J2RE 1.4.2 IBM build cxia32142-20070708 (SR9) (JIT enabled: jitc)
+BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+Command-line arguments:  -data /root/dsmcbe/Stage1/Braintumor/workspace -os linux -ws gtk -arch x86
+
+!ENTRY org.eclipse.ui.workbench 4 2 2008-04-30 15:54:18.918
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.ui.workbench".
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 15:54:18.918
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 15:54:18.918
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.ui 4 4 2008-04-30 15:54:18.918
+!MESSAGE Unhandled Exception
+
+!ENTRY com.ibm.celldt.simulator 4 0 2008-04-30 15:54:18.918
+!MESSAGE Unable to execute early startup code for an extension
+!STACK 1
+org.eclipse.core.runtime.CoreException: Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.throwException(RegistryStrategyOSGI.java:165)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:149)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+org.eclipse.core.runtime.CoreException[1]: java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.equinox.registry 4 1 2008-04-30 15:54:18.918
+!MESSAGE Plug-in com.ibm.celldt.simulator was unable to load class com.ibm.celldt.simulator.TestStartup.
+!STACK 0
+java.lang.ClassNotFoundException: com.ibm.celldt.simulator.TestStartup
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.findClass(BundleLoader.java(Compiled Code))
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java(Compiled Code))
+	at java.lang.ClassLoader.loadClass(ClassLoader.java(Compiled Code))
+	at org.eclipse.osgi.framework.internal.core.BundleLoader.loadClass(BundleLoader.java:278)
+	at org.eclipse.osgi.framework.internal.core.BundleHost.loadClass(BundleHost.java:227)
+	at org.eclipse.osgi.framework.internal.core.AbstractBundle.loadClass(AbstractBundle.java:1245)
+	at org.eclipse.core.internal.registry.osgi.RegistryStrategyOSGI.createExecutableExtension(RegistryStrategyOSGI.java:147)
+	at org.eclipse.core.internal.registry.ExtensionRegistry.createExecutableExtension(ExtensionRegistry.java:759)
+	at org.eclipse.core.internal.registry.ConfigurationElement.createExecutableExtension(ConfigurationElement.java:243)
+	at org.eclipse.core.internal.registry.ConfigurationElementHandle.createExecutableExtension(ConfigurationElementHandle.java:51)
+	at org.eclipse.ui.internal.WorkbenchPlugin$1.run(WorkbenchPlugin.java:242)
+	at org.eclipse.swt.custom.BusyIndicator.showWhile(BusyIndicator.java:49)
+	at org.eclipse.ui.internal.WorkbenchPlugin.createExtension(WorkbenchPlugin.java:238)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.getExecutableExtension(EarlyStartupRunnable.java:117)
+	at org.eclipse.ui.internal.EarlyStartupRunnable.run(EarlyStartupRunnable.java:66)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.ui.internal.Workbench$21.run(Workbench.java:1775)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+
+!ENTRY org.eclipse.core.resources 4 2 2008-04-30 15:55:00.159
+!MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.core.resources".
+!STACK 1
+org.eclipse.core.internal.resources.ResourceException: A resource already exists on disk /root/dsmcbe/Stage1/Braintumor/PPU/spu_objs/SPU.spuo.
+	at org.eclipse.core.internal.resources.File.create(File.java:142)
+	at org.eclipse.core.internal.resources.File.create(File.java:179)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createFile(GnuMakefileGenerator.java:520)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.createSPUObjsDummyFiles(GnuMakefileGenerator.java:456)
+	at com.ibm.celldt.managedbuilder.makegen.gnu.GnuMakefileGenerator.regenerateMakefiles(GnuMakefileGenerator.java:222)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.fullBuild(GeneratedMakefileBuilder.java:679)
+	at org.eclipse.cdt.managedbuilder.internal.core.GeneratedMakefileBuilder.build(GeneratedMakefileBuilder.java:442)
+	at org.eclipse.core.internal.events.BuildManager$2.run(BuildManager.java:603)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:167)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:201)
+	at org.eclipse.core.internal.events.BuildManager$1.run(BuildManager.java:230)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:37)
+	at org.eclipse.core.internal.events.BuildManager.basicBuild(BuildManager.java:233)
+	at org.eclipse.core.internal.events.BuildManager.basicBuildLoop(BuildManager.java:252)
+	at org.eclipse.core.internal.events.BuildManager.build(BuildManager.java:285)
+	at org.eclipse.core.internal.events.AutoBuildJob.doBuild(AutoBuildJob.java:154)
+	at org.eclipse.core.internal.events.AutoBuildJob.run(AutoBuildJob.java:217)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.core.resources 4 272 2008-04-30 15:55:00.159
+!MESSAGE A resource already exists on disk /root/dsmcbe/Stage1/Braintumor/PPU/spu_objs/SPU.spuo.
+!SUBENTRY 1 org.eclipse.core.resources 4 272 2008-04-30 15:55:00.159
+!MESSAGE A resource already exists on disk /root/dsmcbe/Stage1/Braintumor/PPU/spu_objs/SPU.spuo.
+
+!ENTRY org.eclipse.core.resources 4 75 2008-04-30 15:55:00.169
+!MESSAGE Errors during build.
+!SUBENTRY 1 org.eclipse.cdt.managedbuilder.core 2 75 2008-04-30 15:55:00.169
+!MESSAGE Errors running builder "Generated Makefile Builder" on project PPU.
+!SUBENTRY 1 org.eclipse.core.resources 4 272 2008-04-30 15:55:00.169
+!MESSAGE A resource already exists on disk /root/dsmcbe/Stage1/Braintumor/PPU/spu_objs/SPU.spuo.
+
+!ENTRY org.eclipse.core.resources 4 4 2008-04-30 15:55:07.109
+!MESSAGE Exception occurred while saving project preferences: /PPU/.settings/org.eclipse.cdt.core.prefs.
+!STACK 1
+org.eclipse.core.internal.resources.ResourceException: A resource already exists on disk /root/dsmcbe/Stage1/Braintumor/PPU/.settings.
+	at org.eclipse.core.internal.resources.Folder.assertCreateRequirements(Folder.java:45)
+	at org.eclipse.core.internal.resources.Folder.create(Folder.java:88)
+	at org.eclipse.core.internal.resources.ProjectPreferences$2.run(ProjectPreferences.java:566)
+	at org.eclipse.core.internal.resources.Workspace.run(Workspace.java:1737)
+	at org.eclipse.core.internal.resources.ProjectPreferences.save(ProjectPreferences.java:581)
+	at org.eclipse.core.internal.preferences.EclipsePreferences.flush(EclipsePreferences.java:352)
+	at org.eclipse.core.internal.resources.ProjectPreferences.flush(ProjectPreferences.java:379)
+	at org.eclipse.cdt.internal.core.pdom.PDOMManager$SavePrefs.run(PDOMManager.java:225)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:58)
+!SUBENTRY 1 org.eclipse.core.resources 4 272 2008-04-30 15:55:07.109
+!MESSAGE A resource already exists on disk /root/dsmcbe/Stage1/Braintumor/PPU/.settings.

@@ -1,0 +1,23 @@
+spu.d spu.o: ../spu.c \
+  /opt/cell/sysroot/opt/cell/sdk/usr/spu/include/malloc_align.h \
+  /opt/cell/sysroot/opt/cell/sdk/usr/spu/include/free_align.h \
+  /opt/ibm/systemsim-cell/include/callthru/spu/profile.h \
+  /opt/cell/sysroot/opt/cell/sdk/usr/spu/include/libmisc.h \
+  ../../Common/Common.h /root/dsmcbe/Stage1/DSMCBE/dsmcbe_spu.h \
+  /root/dsmcbe/Stage1/DSMCBE/./dsmcbe.h ../../PPU/guids.h
+
+/opt/cell/sysroot/opt/cell/sdk/usr/spu/include/malloc_align.h:
+
+/opt/cell/sysroot/opt/cell/sdk/usr/spu/include/free_align.h:
+
+/opt/ibm/systemsim-cell/include/callthru/spu/profile.h:
+
+/opt/cell/sysroot/opt/cell/sdk/usr/spu/include/libmisc.h:
+
+../../Common/Common.h:
+
+/root/dsmcbe/Stage1/DSMCBE/dsmcbe_spu.h:
+
+/root/dsmcbe/Stage1/DSMCBE/./dsmcbe.h:
+
+../../PPU/guids.h:

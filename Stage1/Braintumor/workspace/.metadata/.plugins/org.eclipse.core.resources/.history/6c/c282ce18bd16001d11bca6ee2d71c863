@@ -1,0 +1,16 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+CP := cp
+
+../spu_objs/SPU.spuo: /root/dsmcbe/Stage1/Braintumor/SPU/spu-gnu-debug/SPU 
+	@echo 'Copying file: $<'
+	@echo 'Invoking: $(CP)'
+	@echo '$(CP) $< $@'
+	@$(CP) $< $@
+	@echo 'Finished building: $@'
+	@echo ' '
+
+
+.PHONY: ../spu_objs/SPU.spuo

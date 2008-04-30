@@ -1,0 +1,4 @@
+PPMReaderWriter.d PPMReaderWriter.o: ../PPMReaderWriter.c \
+  ../../Common/PPMReaderWriter.h
+
+../../Common/PPMReaderWriter.h:
