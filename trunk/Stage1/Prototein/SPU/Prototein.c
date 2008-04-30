@@ -28,18 +28,12 @@ int calc_score_run;
 
 void initialize_map(struct coordinate* place, unsigned int places_length)
 {
-    size_t i; 
-    int z;
+	size_t i;
 	for(i = 0; i< MAP_SIZE; i++)
 		map[i] = ' ';
 
     for (i = 0; i < places_length; i++)
-	{
-		z = place[i].x;
-		z = place[i].y;
-		z = MAP_COORDINATES(place[i].x,place[i].y);
         UPDATE_MAP(place[i].x, place[i].y, prototein[i]);
-	}
 }
 
 
@@ -49,6 +43,7 @@ int FoldPrototein(unsigned long long id)
     struct coordinate* queue;
     struct workblock* work;
     void* prototein_object;
+    void* winner_object;
     unsigned int* synclock;
     unsigned long size;
     GUID itemno;
@@ -68,13 +63,14 @@ int FoldPrototein(unsigned long long id)
     ((unsigned int*)prototein_object)[0]++;
     prototein_length = ((unsigned int*)prototein_object)[1];
     prototein = (char*)malloc(sizeof(char) * prototein_length);
-    memcpy(prototein, prototein_object + sizeof(unsigned int), prototein_length);
-    printf(WHERESTR "SPU read prototein, and got ID: %d\n", WHEREARG, thread_id);
+    memcpy(prototein, prototein_object + (sizeof(unsigned int) * 2), prototein_length);
+    printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
     release(prototein_object);
 
     map = (char*) malloc(MAP_SIZE);
     
-    winner = (struct coordinate*)acquire(WINNER_OFFSET + thread_id, &size);
+    winner_object = (struct coordinate*)acquire(WINNER_OFFSET + thread_id, &size);
+    winner = winner_object + sizeof(int);
     printf(WHERESTR "thread %d acquired winner block\n", WHEREARG, thread_id);
     places = (struct coordinate*)malloc(sizeof(struct coordinate) * prototein_length);
     if (places == NULL)
@@ -99,19 +95,12 @@ int FoldPrototein(unsigned long long id)
 
 		work = (struct workblock*)acquire(itemno, &size);	    
 	    queue = (struct coordinate*)(((void*)work) + sizeof(struct workblock));
-    
-    	//This reduces copying of the winner
-    	if ((*work).winner_score < bestscore)
-    		bestscore = (*work).winner_score;
-    		  
+   		  
 	   	//printf("SPU recieved a work block with %d items\n", (*work).worksize);
 	    for(i = 0; i < (*work).worksize; i++)
 	    {
 	    	if (i == (*work).worksize_delta)
-	    	{
 	    		(*work).item_length--;
-	    		//printf("Decreasing item length to: %d\n", (*work).item_length);
-	    	}
 	    		
 	        calc_score_run = 0;
 	        memcpy(places, queue, sizeof(struct coordinate) * (*work).item_length);
@@ -120,6 +109,7 @@ int FoldPrototein(unsigned long long id)
 			{
 				printf("SPU is folding: (%d)\n", i);
 				printmap(places, (*work).item_length);
+				//sleep(5);
 			}*/
 			
 			initialize_map(places, (*work).item_length);
@@ -137,7 +127,8 @@ int FoldPrototein(unsigned long long id)
     }
 
     printf(WHERESTR "thread %d is writing back results\n", WHEREARG, thread_id);
-	release(winner);
+    ((int*)winner_object)[0] = bestscore;
+	release(winner_object);
 	
     free(prototein);
     free(places);
@@ -161,8 +152,8 @@ inline void recurse(int newx, int newy, struct coordinate* place, int places_len
 
 void calc_score(struct coordinate* place, unsigned int places_length)
 {
-	size_t i;
 	int score, x, y;	
+	size_t i;
 	score = 0;
 	
 	calc_score_run++;
@@ -198,7 +189,6 @@ void calc_score(struct coordinate* place, unsigned int places_length)
 
 		//printf("New winner: (%d)\n", bestscore);
 		//printmap(winner, winner_length);
-		//i++;
 	}
 	
 }
