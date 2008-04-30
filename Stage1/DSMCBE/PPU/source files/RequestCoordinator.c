@@ -30,7 +30,7 @@ struct dataObjectStruct{
 	GUID id;
 	void* EA;
 	unsigned long size;
-	queue waitqueue;
+	dqueue waitqueue;
 };
 
 //This is used for sorting inside the hashtables
@@ -190,7 +190,6 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 {
 	unsigned long size;
 	void* data;
-	queue prevWaiters;
 	dataObject object;
 	
 	//Check that the item is not already created
@@ -218,21 +217,18 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		object->id = request->dataItem;
 		object->EA = data;
 		object->size = size;
-		object->waitqueue = queue_create();
-		
-		//Acquire the item
-		queue_enq(object->waitqueue, NULL);
-		
+
 		//If there are pending acquires, add them to the list
 		if (ht_member(waiters, (void*)object->id))
 		{
-			prevWaiters = ht_get(waiters, (void*)object->id);
-			while(!queue_empty(prevWaiters))
-				queue_enq(object->waitqueue, queue_deq(prevWaiters));
-			
-			//queue_free(prevWaiters);	
+			object->waitqueue = ht_get(waiters, (void*)object->id);
 			ht_delete(waiters, (void*)object->id);
 		}
+		else
+			object->waitqueue = dq_create();
+		
+		//Acquire the item for the creator
+		dq_enq_front(object->waitqueue, NULL);
 		
 		//Register this item as created
 		ht_insert(allocatedItems, (void*)object->id, object);
@@ -246,7 +242,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 //Performs all actions releated to an acquire request
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
-	queue q;
+	dqueue q;
 	dataObject obj;
 	
 	//Check that the item exists
@@ -256,24 +252,24 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 		q = obj->waitqueue;
 		
 		//If the object is not locked, register as locked and respond
-		if (queue_empty(q))
+		if (dq_empty(q))
 		{
-			queue_enq(q, NULL);
+			dq_enq_front(q, NULL);
 			RespondAcquire(item, obj);
 		}
 		else //Otherwise add the request to the wait list
-			queue_enq(q, item);
+			dq_enq_back(q, item);
 	}
 	else
 	{
 		printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
 		//Create a list if none exists
 		if (!ht_member(waiters, (void*)request->dataItem))
-			ht_insert(waiters, (void*)request->dataItem, queue_create());
+			ht_insert(waiters, (void*)request->dataItem, dq_create());
 		
 		//Append the request to the waiters, for use when the object gets created
-		q = (queue)ht_get(waiters, (void*)request->dataItem);
-		queue_enq(q, item);		
+		q = (dqueue)ht_get(waiters, (void*)request->dataItem);
+		dq_enq_back(q, item);		
 	}
 	
 }
@@ -281,18 +277,21 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 //Performs all actions releated to a release
 void DoRelease(QueueableItem item, struct releaseRequest* request)
 {
-	queue q;
+	dqueue q;
 	dataObject obj;
 	QueueableItem next;
 	
+	//printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
 	//Ensure that the item exists
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
 		q = obj->waitqueue;
 		
+		//printf(WHERESTR "%d queue pointer: %d\n", WHEREARG, request->dataItem, (int)q);
+		
 		//Ensure that the item was actually locked
-		if (queue_empty(q))
+		if (dq_empty(q))
 		{
 			perror("Bad release, item was not locked!");
 			RespondNACK(item);
@@ -300,22 +299,22 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		else
 		{
 			//Get the next pending request
-			next = queue_deq(q);
+			next = dq_deq_front(q);
 			if (next != NULL)
 			{
 				perror("Bad queue, the top entry was not a locker!");
-				queue_enq(q, next);
+				dq_enq_front(q, next);
 				RespondNACK(item);
 			}
 			else
 			{
 				//Respond to the releaser
 				RespondRelease(item);
-				if (!queue_empty(q))
+				if (!dq_empty(q))
 				{
 					//Acquire for the next in the queue
-					next = queue_deq(q);
-					queue_enq(q, NULL);
+					next = dq_deq_front(q);
+					dq_enq_front(q, NULL);
 					RespondAcquire(next, obj);
 				}
 			}
