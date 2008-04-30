@@ -35,8 +35,11 @@ pthread_t* simpleInitialize(unsigned int thread_count)
 	spe_context_ptr_t* spe_ids;
 	pthread_t* spu_threads;
 	
-	spe_ids = (spe_context_ptr_t*)malloc(thread_count * sizeof(spe_context_ptr_t));
-	spu_threads = (pthread_t*)malloc(thread_count * sizeof(pthread_t));
+	if ((spe_ids = (spe_context_ptr_t*)malloc(thread_count * sizeof(spe_context_ptr_t))) == NULL)
+		perror("dsmcbe.c: malloc error");
+	
+	if ((spu_threads = (pthread_t*)malloc(thread_count * sizeof(pthread_t))) == NULL)
+			perror("dsmcbe.c: malloc error");
 
 	mustrelease_spe_id = 1;
 	
