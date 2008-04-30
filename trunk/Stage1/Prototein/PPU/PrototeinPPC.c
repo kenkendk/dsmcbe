@@ -75,6 +75,8 @@ void FoldPrototein(char* proto, int spu_count)
 	memcpy(prototein_object + (sizeof(unsigned int) * 2), proto, prototein_length);
 	release(prototein_object);
 
+	sleep(10);
+
     printf(WHERESTR "PPU is setting up result buffers\n", WHEREARG);
 	//Allocate result buffers
 	winners = malloc(sizeof(GUID) * spu_count);
