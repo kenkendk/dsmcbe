@@ -1,0 +1,44 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+# Add inputs and outputs from these tool invocations to the build variables 
+C_SRCS += \
+../source\ files/DMATransfer.c \
+../source\ files/datastructures.c \
+../source\ files/dsmcbe_spu.c 
+
+OBJS += \
+./source\ files/DMATransfer.o \
+./source\ files/datastructures.o \
+./source\ files/dsmcbe_spu.o 
+
+C_DEPS += \
+./source\ files/DMATransfer.d \
+./source\ files/datastructures.d \
+./source\ files/dsmcbe_spu.d 
+
+
+# Each subdirectory must supply rules for building sources it contributes
+source\ files/DMATransfer.o: ../source\ files/DMATransfer.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: GCC C Compiler'
+	/opt/cell/toolchain/bin/spu-gcc -I/opt/ibm/systemsim-cell/include/callthru/spu -I/opt/cell/sysroot/opt/cell/sdk/usr/include -O0 -g3 -Wall -c -fmessage-length=0 -Winline -Wextra -fno-inline -mtune=cell -mfloat=fast -mdouble=fast -Wno-main -march=cell -mea32 -MMD -MP -MF"$(@:%.o=%.d)" -MT"source\ files/DMATransfer.d" -o"$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+source\ files/datastructures.o: ../source\ files/datastructures.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: GCC C Compiler'
+	/opt/cell/toolchain/bin/spu-gcc -I/opt/ibm/systemsim-cell/include/callthru/spu -I/opt/cell/sysroot/opt/cell/sdk/usr/include -O0 -g3 -Wall -c -fmessage-length=0 -Winline -Wextra -fno-inline -mtune=cell -mfloat=fast -mdouble=fast -Wno-main -march=cell -mea32 -MMD -MP -MF"$(@:%.o=%.d)" -MT"source\ files/datastructures.d" -o"$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+source\ files/dsmcbe_spu.o: ../source\ files/dsmcbe_spu.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: GCC C Compiler'
+	/opt/cell/toolchain/bin/spu-gcc -I/opt/ibm/systemsim-cell/include/callthru/spu -I/opt/cell/sysroot/opt/cell/sdk/usr/include -O0 -g3 -Wall -c -fmessage-length=0 -Winline -Wextra -fno-inline -mtune=cell -mfloat=fast -mdouble=fast -Wno-main -march=cell -mea32 -MMD -MP -MF"$(@:%.o=%.d)" -MT"source\ files/dsmcbe_spu.d" -o"$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+

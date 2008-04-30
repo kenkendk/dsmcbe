@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<libraryInfos>
+<libraryInfo home="/opt/IBMJava2-142/jre" version="1.4.2">
+<bootpath>
+<entry path="/opt/IBMJava2-142/jre/lib/core.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/graphics.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/security.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/server.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/xml.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/charsets.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmorbapi.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjsseprovider.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjssefips.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjaaslm.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjcefw.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmcertpathprovider.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmpkcs.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmorb.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjgssprovider.jar"/>
+</bootpath>
+<extensionDirs>
+<entry path="/opt/IBMJava2-142/jre/lib/ext"/>
+</extensionDirs>
+<endorsedDirs>
+<entry path="/opt/IBMJava2-142/jre/lib/endorsed"/>
+</endorsedDirs>
+</libraryInfo>
+<libraryInfo home="/opt/IBMJava2-142" version="1.4.2">
+<bootpath>
+<entry path="/opt/IBMJava2-142/jre/lib/core.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/graphics.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/security.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/server.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/xml.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/charsets.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmorbapi.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjsseprovider.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjssefips.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjaaslm.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjcefw.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmcertpathprovider.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmpkcs.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmorb.jar"/>
+<entry path="/opt/IBMJava2-142/jre/lib/ibmjgssprovider.jar"/>
+</bootpath>
+<extensionDirs>
+<entry path="/opt/IBMJava2-142/jre/lib/ext"/>
+</extensionDirs>
+<endorsedDirs>
+<entry path="/opt/IBMJava2-142/jre/lib/endorsed"/>
+</endorsedDirs>
+</libraryInfo>
+</libraryInfos>

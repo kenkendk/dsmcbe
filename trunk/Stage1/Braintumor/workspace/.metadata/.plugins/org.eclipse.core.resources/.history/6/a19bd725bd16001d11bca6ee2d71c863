@@ -1,0 +1,64 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+# Add inputs and outputs from these tool invocations to the build variables 
+C_SRCS += \
+../source\ files/PPUEventHandler.c \
+../source\ files/RequestCoordinator.c \
+../source\ files/SPUEventHandler.c \
+../source\ files/datastructures.c \
+../source\ files/dsmcbe_ppu.c 
+
+OBJS += \
+./source\ files/PPUEventHandler.o \
+./source\ files/RequestCoordinator.o \
+./source\ files/SPUEventHandler.o \
+./source\ files/datastructures.o \
+./source\ files/dsmcbe_ppu.o 
+
+C_DEPS += \
+./source\ files/PPUEventHandler.d \
+./source\ files/RequestCoordinator.d \
+./source\ files/SPUEventHandler.d \
+./source\ files/datastructures.d \
+./source\ files/dsmcbe_ppu.d 
+
+
+# Each subdirectory must supply rules for building sources it contributes
+source\ files/PPUEventHandler.o: ../source\ files/PPUEventHandler.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: GCC C Compiler'
+	/opt/cell/toolchain/bin/ppu-gcc -I/opt/cell/sysroot/opt/cell/sdk/usr/include -O0 -g3 -Wall -c -fmessage-length=0 -Winline -Wextra -fno-inline -m32 -mabi=altivec -maltivec -MMD -MP -MF"$(@:%.o=%.d)" -MT"source\ files/PPUEventHandler.d" -o"$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+source\ files/RequestCoordinator.o: ../source\ files/RequestCoordinator.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: GCC C Compiler'
+	/opt/cell/toolchain/bin/ppu-gcc -I/opt/cell/sysroot/opt/cell/sdk/usr/include -O0 -g3 -Wall -c -fmessage-length=0 -Winline -Wextra -fno-inline -m32 -mabi=altivec -maltivec -MMD -MP -MF"$(@:%.o=%.d)" -MT"source\ files/RequestCoordinator.d" -o"$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+source\ files/SPUEventHandler.o: ../source\ files/SPUEventHandler.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: GCC C Compiler'
+	/opt/cell/toolchain/bin/ppu-gcc -I/opt/cell/sysroot/opt/cell/sdk/usr/include -O0 -g3 -Wall -c -fmessage-length=0 -Winline -Wextra -fno-inline -m32 -mabi=altivec -maltivec -MMD -MP -MF"$(@:%.o=%.d)" -MT"source\ files/SPUEventHandler.d" -o"$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+source\ files/datastructures.o: ../source\ files/datastructures.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: GCC C Compiler'
+	/opt/cell/toolchain/bin/ppu-gcc -I/opt/cell/sysroot/opt/cell/sdk/usr/include -O0 -g3 -Wall -c -fmessage-length=0 -Winline -Wextra -fno-inline -m32 -mabi=altivec -maltivec -MMD -MP -MF"$(@:%.o=%.d)" -MT"source\ files/datastructures.d" -o"$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+source\ files/dsmcbe_ppu.o: ../source\ files/dsmcbe_ppu.c
+	@echo 'Building file: $<'
+	@echo 'Invoking: GCC C Compiler'
+	/opt/cell/toolchain/bin/ppu-gcc -I/opt/cell/sysroot/opt/cell/sdk/usr/include -O0 -g3 -Wall -c -fmessage-length=0 -Winline -Wextra -fno-inline -m32 -mabi=altivec -maltivec -MMD -MP -MF"$(@:%.o=%.d)" -MT"source\ files/dsmcbe_ppu.d" -o"$@" "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
+

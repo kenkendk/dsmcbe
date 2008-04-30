@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Environments>
+<Type Name="Cell Box"/>
+<Type Name="Local Cell Simulator">
+<Configuration CfgName="MySim" architecture-id="com.ibm.celldt.simulator.architecture.singlecell.singlecell" console-show-linux="true" console-show-simulator="false" console-socket-port="40012" core-environmentid="1209563843591" customization-script="" extra-command-line-switches="-q" extra-image-journal-path="" extra-image-mountpoint="/mnt/extra" extra-image-path="" extra-image-persistence="discard" extra-image-type="ext2" ip-host="172.20.20.1" ip-simulator="172.20.20.2" java-api-socket-port="40010" kernel-image-path="/opt/ibm/systemsim-cell/images/cell/vmlinux" mac-simulator="02:00:00:00:00:00" memory-size="256" profile-id="com.ibm.celldt.simulator.profile.default.default" root-image-journal-path="" root-image-path="/opt/ibm/systemsim-cell/images/cell/sysroot_disk" root-image-persistence="discard" show-simulator-gui="true" simulator-base-directory="/opt/ibm/systemsim-cell" simulator-cipher-type="blowfish-cbc" system-workspace-dir="/tmp/IBM/CellIDE" timeout="30" username="user" work-directory="/opt/ibm/systemsim-cell/run/cell/linux"/>
+</Type>
+<Type Name="Attached Cell Simulator"/>
+<Type Name="Remote Cell Simulator"/>
+</Environments>

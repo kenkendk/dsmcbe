@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launchConfiguration type="com.ibm.celldt.environment.launcher.cellLaunch">
+<stringAttribute key="com.ibm.celldt.launch.AFTER_COMMAND" value=""/>
+<intAttribute key="com.ibm.celldt.environment.core.TARGET_RLAUNCH" value="1"/>
+<listAttribute key="com.ibm.celldt.launch.SYNC_RULES">
+<listEntry value="upload&#10;overwrite-policy always&#10;flags default-remote-directory&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT00.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT01.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT02.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT10.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT11.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT12.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT20.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT21.ppm&#10;local-path /root/dsmcbe/Stage1/Braintumor/CT22.ppm"/>
+<listEntry value="download&#10;overwrite-policy always&#10;remote-path CTresult.ppm"/>
+</listAttribute>
+<booleanAttribute key="org.eclipse.cdt.debug.mi.core.STOP_ON_SOLIB_EVENTS" value="false"/>
+<stringAttribute key="org.eclipse.cdt.launch.protocol" value="mi"/>
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+<listEntry value="4"/>
+</listAttribute>
+<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_STOP_AT_MAIN_SYMBOL" value="main"/>
+<booleanAttribute key="org.eclipse.cdt.debug.mi.core.verboseMode" value="false"/>
+<booleanAttribute key="org.eclipse.cdt.launch.ENABLE_REGISTER_BOOKKEEPING" value="false"/>
+<booleanAttribute key="org.eclipse.cdt.debug.mi.core.AUTO_SOLIB" value="true"/>
+<booleanAttribute key="com.ibm.celldt.launch.FORWARD_X11" value="false"/>
+<booleanAttribute key="org.eclipse.cdt.launch.DEBUGGER_STOP_AT_MAIN" value="true"/>
+<stringAttribute key="org.eclipse.cdt.debug.mi.core.protocol" value="mi"/>
+<stringAttribute key="com.ibm.celldt.environment.core.TARGET_RLAUNCH_SELECTED_BINARY" value="ppu32-gdbserver"/>
+<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_ARGUMENTS" value="CT.ppm CTresult.ppm 1"/>
+<booleanAttribute key="com.ibm.celldt.launch.SYNC_CLEANUP" value="true"/>
+<listAttribute key="org.eclipse.cdt.debug.mi.core.AUTO_SOLIB_LIST"/>
+<booleanAttribute key="com.ibm.celldt.launch.SYNC_AFTER" value="true"/>
+<intAttribute key="com.ibm.celldt.environment.core.TARGET_RLAUNCH_CAPABLE" value="1"/>
+<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_ID" value="com.ibm.celldt.debug.be.cdi.combinedGDBServerCDIDebugger"/>
+<stringAttribute key="com.ibm.celldt.environment.core.TARGET_RLAUNCH_SELECTED_CFG" value="Cell BE 32bit gdbserver"/>
+<booleanAttribute key="org.eclipse.cdt.debug.mi.core.REMOTE_TCP" value="true"/>
+<stringAttribute key="org.eclipse.cdt.debug.mi.core.DEV" value="/dev/ttyS0"/>
+<booleanAttribute key="com.ibm.celldt.launch.SYNC_BEFORE" value="true"/>
+<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_START_MODE" value="run"/>
+<stringAttribute key="org.eclipse.cdt.debug.mi.core.commandFactory" value="com.ibm.celldt.debug.be.cdi.combinedStandardCellCommandFactory"/>
+<booleanAttribute key="org.eclipse.debug.core.appendEnvironmentVariables" value="true"/>
+<stringAttribute key="com.ibm.celldt.environment.core.TARGET_RLAUNCH_SELECTED_DBGID" value="com.ibm.celldt.debug.be.cdi.combinedGDBServerCDIDebugger"/>
+<listAttribute key="org.eclipse.cdt.debug.mi.core.SOLIB_PATH"/>
+<stringAttribute key="org.eclipse.cdt.debug.mi.core.DEV_SPEED" value="115200"/>
+<stringAttribute key="com.ibm.celldt.launch.REMOTE_DIRECTORY" value="${system_workspace}/${user_workspace}/${project_name}/${timestamp}"/>
+<stringAttribute key="com.ibm.celldt.environment.core.TARGET_RLAUNCH_SELECTED_PORT" value="10000"/>
+<stringAttribute key="com.ibm.celldt.launch.BEFORE_COMMAND" value=""/>
+<booleanAttribute key="org.eclipse.cdt.launch.use_terminal" value="true"/>
+<stringAttribute key="com.ibm.celldt.environment.launcher.cellbe.CELL_TARGET" value="MySim"/>
+<stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value="PPU"/>
+<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value="ppu-gnu32-debug/PPU"/>
+<booleanAttribute key="org.eclipse.cdt.launch.ENABLE_VARIABLE_BOOKKEEPING" value="false"/>
+<stringAttribute key="org.eclipse.cdt.debug.mi.core.DEBUG_NAME" value="/opt/cell/toolchain/bin/ppu-gdb"/>
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+<listEntry value="/SPU"/>
+</listAttribute>
+<booleanAttribute key="com.ibm.celldt.launch.AUTO_REMOTE_DIRECTORY" value="true"/>
+<stringAttribute key="org.eclipse.cdt.debug.mi.core.GDB_INIT" value=".gdbinit"/>
+</launchConfiguration>

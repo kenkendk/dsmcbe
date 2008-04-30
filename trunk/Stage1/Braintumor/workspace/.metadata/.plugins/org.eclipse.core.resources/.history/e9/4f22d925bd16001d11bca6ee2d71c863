@@ -1,0 +1,23 @@
+ppu.d ppu.o: ../ppu.c \
+  /opt/cell/sysroot/opt/cell/sdk/usr/include/malloc_align.h \
+  /opt/cell/sysroot/opt/cell/sdk/usr/include/free_align.h \
+  ../../Common/PPMReaderWriter.h ../../Common/Common.h \
+  ../../Common/StopWatch.h ../guids.h \
+  /root/dsmcbe/Stage1/DSMCBE/dsmcbe_ppu.h \
+  /root/dsmcbe/Stage1/DSMCBE/./dsmcbe.h
+
+/opt/cell/sysroot/opt/cell/sdk/usr/include/malloc_align.h:
+
+/opt/cell/sysroot/opt/cell/sdk/usr/include/free_align.h:
+
+../../Common/PPMReaderWriter.h:
+
+../../Common/Common.h:
+
+../../Common/StopWatch.h:
+
+../guids.h:
+
+/root/dsmcbe/Stage1/DSMCBE/dsmcbe_ppu.h:
+
+/root/dsmcbe/Stage1/DSMCBE/./dsmcbe.h:
