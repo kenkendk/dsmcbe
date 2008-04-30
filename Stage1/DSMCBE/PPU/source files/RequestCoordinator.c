@@ -137,7 +137,10 @@ void RespondAny(QueueableItem item, void* resp)
 //Responds with NACK to a request
 void RespondNACK(QueueableItem item)
 {
-	struct NACK* resp = (struct NACK*)malloc(sizeof(struct NACK));
+	struct NACK* resp;
+	if ((resp = (struct NACK*)malloc(sizeof(struct NACK))) == NULL)
+		perror("RequestCoordinator.c: malloc error");
+			
 	resp->packageCode = PACKAGE_NACK;
 	resp->hint = 0;
 	
@@ -147,7 +150,10 @@ void RespondNACK(QueueableItem item)
 //Responds to an acquire request
 void RespondAcquire(QueueableItem item, dataObject obj)
 {
-	struct acquireResponse* resp = (struct acquireResponse*)malloc(sizeof(struct acquireResponse));
+	struct acquireResponse* resp;
+	if ((resp = (struct acquireResponse*)malloc(sizeof(struct acquireResponse))) == NULL)
+		perror("RequestCoordinator.c: malloc error");
+
 	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
 	resp->dataSize = obj->size;
 	resp->data = obj->EA;
@@ -158,7 +164,10 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 //Responds to a release request
 void RespondRelease(QueueableItem item)
 {
-	struct releaseResponse* resp = (struct releaseResponse*)malloc(sizeof(struct releaseResponse));
+	struct releaseResponse* resp;
+	if ((resp = (struct releaseResponse*)malloc(sizeof(struct releaseResponse))) == NULL)
+		perror("RequestCoordinator.c: malloc error");
+	
 	resp->packageCode = PACKAGE_RELEASE_RESPONSE;
 
 	RespondAny(item, resp);	
@@ -167,7 +176,10 @@ void RespondRelease(QueueableItem item)
 //Responds to an invalidate request
 void RespondInvalidate(QueueableItem item)
 {
-	struct invalidateResponse* resp = (struct invalidateResponse*)malloc(sizeof(struct invalidateResponse));
+	struct invalidateResponse* resp;
+	if ((resp = (struct invalidateResponse*)malloc(sizeof(struct invalidateResponse))) == NULL)
+		perror("RequestCoordinator.c: malloc error");
+	
 	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
 
 	RespondAny(item, resp);	
@@ -200,7 +212,9 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 			
 
 		// Make datastructures for later use
-		object = (dataObject)malloc(sizeof(struct dataObjectStruct));
+		if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
+			perror("RequestCoordinator.c: malloc error");
+		
 		object->id = request->dataItem;
 		object->EA = data;
 		object->size = size;

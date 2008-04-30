@@ -54,7 +54,8 @@ void* forwardRequest(void* data)
 	
 	//printf(WHERESTR "creating item\n", WHEREARG);
 	//Create the entry, this will be released by the coordinator
-	q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
+	if ((q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct))) == NULL)
+		perror("PPUEventHandler.c: malloc error");
 	
 	dummy = queue_create();
 	pthread_mutex_init(&m, NULL);
@@ -98,7 +99,8 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 	if (retval != NULL)
 	{
 		//printf(WHERESTR "recording entry\n", WHEREARG);
-		ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct));
+		if ((ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct))) == NULL)
+			perror("PPUEventHandler.c: malloc error");
 		ent->data = retval;
 		ent->id = id;
 		ent->offset = offset;
@@ -119,12 +121,13 @@ void* threadCreate(GUID id, unsigned long size)
 	
 	//printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
-	cr = (struct createRequest*)malloc(sizeof(struct createRequest));
+	if ((cr = (struct createRequest*)malloc(sizeof(struct createRequest))) == NULL)
+		perror("PPUEventHandler.c: malloc error");
 	cr->packageCode = PACKAGE_CREATE_REQUEST;
 	cr->requestID = 0;
 	cr->dataItem = id;
 	cr->dataSize = size;
-
+	
 	retval = NULL;
 	
 	//Perform the request and await the response
@@ -162,7 +165,8 @@ void* threadAcquire(GUID id, unsigned long* size)
 	struct acquireResponse* ar;
 
 	//Create the request, this will be released by the coordinator	
-	cr = (struct acquireRequest*)malloc(sizeof(struct acquireRequest));
+	if ((cr = (struct acquireRequest*)malloc(sizeof(struct acquireRequest))) == NULL)
+		perror("PPUEventHandler.c: malloc error");
 	cr->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
 	cr->requestID = 0;
 	cr->dataItem = id;
@@ -211,7 +215,8 @@ void threadRelease(void* data)
 		pthread_mutex_unlock(&pointer_mutex);
 		
 		//Create a request, this will be released by the coordinator
-		re = (struct releaseRequest*)malloc(sizeof(struct releaseRequest));
+		if ((re = (struct releaseRequest*)malloc(sizeof(struct releaseRequest))) == NULL)
+			perror("PPUEventHandler.c: malloc error");
 		re->packageCode = PACKAGE_RELEASE_REQUEST;
 		re->requestID = 0;
 		re->dataItem = pe->id;

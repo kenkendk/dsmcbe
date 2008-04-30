@@ -60,13 +60,15 @@ void* acquire(GUID id, unsigned long* size) {
 	//printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)data);
 	
 	transfer_size = *size + ((16 - *size) % 16);
-	void* allocation = _malloc_align(transfer_size, 7);
-	if (allocation == NULL)
-		perror("Failed to allocate memory on SPU");
-	//printf(WHERESTR "Memory allocated\n", WHEREARG);
+	void* allocation;
+	if ((allocation = _malloc_align(transfer_size, 7)) == NULL)
+		perror("Failed to allocate memory on SPU");		
 
 	// Make datastructures for later use
-	dataObject object = malloc(sizeof(struct dataObjectStruct));
+	dataObject object;
+	if ((object = malloc(sizeof(struct dataObjectStruct))) == NULL)
+			perror("Failed to allocate memory on SPU");		
+			
 	object->id = id;
 	object->EA = (void*)data;
 	object->size = *size;
@@ -107,6 +109,9 @@ void release(void* data){
 		//lwsync();	
 		spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
 		spu_write_out_mbox(2);
+
+		printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
+
 		spu_write_out_mbox(object->id);
 		spu_write_out_mbox(object->size);
 		

@@ -59,8 +59,13 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	spe_threads = threads;
 
 	/* Setup queues */
-	requestQueues = (queue*)malloc(sizeof(queue) * spe_thread_count);
-	mailboxQueues = (queue*)malloc(sizeof(queue) * spe_thread_count);
+
+	if((requestQueues = (queue*)malloc(sizeof(queue) * spe_thread_count)) == NULL)
+		perror("SPUEventHandler.c: malloc error");
+		
+	if((mailboxQueues = (queue*)malloc(sizeof(queue) * spe_thread_count)) == NULL)
+		perror("SPUEventHandler.c: malloc error");;
+	
 	for(i = 0; i < spe_thread_count; i++)
 	{
 		requestQueues[i] = queue_create();

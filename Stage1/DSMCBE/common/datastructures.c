@@ -1,5 +1,6 @@
 #include "../../common/datastructures.h"
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
   
 /*********************/
@@ -8,7 +9,10 @@
 
 keylist key_cons(void *key, void* data, keylist l)
 {
-	keylist temp = malloc(sizeof(struct keycell));
+	keylist temp;
+	if ((temp = malloc(sizeof(struct keycell))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	temp->data = data;
 	temp->key = key; 
 	temp->next = l;
@@ -25,7 +29,10 @@ keylist key_cdr_and_free(keylist l)
 
 list cons(void *element, list l)
 {
-	list temp = malloc(sizeof(struct cell));
+	list temp;
+	if ((temp = malloc(sizeof(struct cell))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	temp -> element = element;
 	temp -> next = l;
 	return temp;
@@ -40,7 +47,10 @@ list cdr_and_free(list l)
 
 list list_create()
 {
-	list l = malloc(sizeof(struct cell));
+	list l;
+	if ((l = malloc(sizeof(struct cell))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	l->next = NULL;
 	return l;
 }
@@ -61,7 +71,10 @@ void list_remove(list* l)
 
 stack stack_create(void)
 {
-	stack temp = malloc(sizeof(struct stack));
+	stack temp;
+	if ((temp = malloc(sizeof(struct stack))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	temp -> elements = NULL;
 	return temp;
 }
@@ -96,7 +109,10 @@ void * stack_top(stack s)
 
 ulset ulset_create(int (*equal)(void *, void *))
 {
-	ulset l = malloc(sizeof(struct ulset));
+	ulset l;
+	if ((l = malloc(sizeof(struct ulset))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	l -> elements = NULL;
 	l -> equal = equal;
 	return l;
@@ -145,7 +161,10 @@ void ulset_delete(ulset l, void *key)
 
 slset slset_create(int (*less)(void *, void *))
 {
-	slset l = malloc(sizeof(struct slset));
+	slset l;
+	if ((l = malloc(sizeof(struct slset))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	l->elements = NULL;
 	l->less = less;
 	return l;
@@ -203,7 +222,10 @@ void slset_delete(slset l, void *key)
 
 queue queue_create(void)
 {
-	queue q = malloc(sizeof(struct queue));
+	queue q;
+	if ((q = malloc(sizeof(struct queue))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	q -> head = q -> tail = cons(NULL, NULL);
 	return q;
 }
@@ -236,7 +258,9 @@ void * queue_deq(queue q)
 
 dlist dcons(void *element, dlist prev, dlist next)
 {
-	dlist temp = malloc(sizeof(struct dcell));
+	dlist temp;
+	if ((temp = malloc(sizeof(struct dcell))) == NULL)
+		perror("datastructures.c: malloc error");
 	temp -> element = element;
 	temp -> prev = prev;
 	temp -> next = next;
@@ -268,7 +292,10 @@ void * unlink_and_free(dlist l)
 
 dqueue dq_create(void)
 {
-	dqueue q = malloc(sizeof(struct dqueue));
+	dqueue q;
+	if ((q = malloc(sizeof(struct dqueue))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	q -> sentinel = dcons(NULL, NULL, NULL);
 	q -> sentinel -> next = q -> sentinel -> prev = q -> sentinel;
 	return q;
@@ -313,13 +340,17 @@ hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(
 	if (size < 2)
 		size = 2;
 
-	ht = malloc(sizeof(struct hashtable));
+	if ((ht = malloc(sizeof(struct hashtable))) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	ht->count = size;
 	ht->fill = 0;
 	ht->less = less;
 	ht->hash = hash;
 
-	ht->buffer = malloc(sizeof(void*) * size);
+	if ((ht->buffer = malloc(sizeof(void*) * size)) == NULL)
+		perror("datastructures.c: malloc error");
+		
 	for(i = 0; i < size; i++)
 		ht->buffer[i] = slset_create(ht->less);
 
