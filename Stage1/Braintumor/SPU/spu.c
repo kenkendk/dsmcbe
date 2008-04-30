@@ -229,11 +229,11 @@ int main()
 	
 	float* canonAX;
 	float* canonAY;
-		
+
 	// Make points buffer
 	struct POINTS* points;
 
-	printf("\n\n\nSPU: Ready to start\n\n\n");
+	printf("SPU: Ready to start\n");
 
 	initialize();
 	
@@ -245,13 +245,13 @@ int main()
 
 	while(1)
 	{
-		printf("\n\n\nSPU: Ready to start\n\n\n");	
-			
 		unsigned char* current_buffer = buffer0;
 		unsigned char* next_buffer = buffer1;
 	
-		int size;
+		printf("spu.c: Trying to acquire RESULT\n");
+		unsigned long size;
 		points = acquire(RESULT, &size);
+		printf("spu.c: Finished acquiring RESULT\n");
 				
 		do
 		{			
@@ -272,9 +272,11 @@ int main()
 			}
 			
 			int id = (1000 + (current_grid.y * 10) + current_grid.x);
-			int size;
+			unsigned long size;
 			
+			printf("spu.c: Trying to acquire %i\n", id);
 			current_buffer = acquire(id, &size);
+			printf("spu.c: Finished acquiring %i\n", id);
 			
 			while(1)
 			{	
@@ -301,9 +303,11 @@ int main()
 				}
 				
 				int id = (1000 + (current_grid.y * 10) + current_grid.x);	
-					
+
+				printf("spu.c: Trying to acquire %i\n", id);					
 				next_buffer = acquire(id, &size);
-								
+				printf("spu.c: Finished acquiring %i\n", id);
+											
 				more_to_do = canon(points, (*canonAX), (*canonAY), canonS, current_buffer, current_grid);
 				
 				release(current_buffer);

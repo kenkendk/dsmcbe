@@ -20,7 +20,7 @@ extern spe_program_handle_t SPU;
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #define SHOTS_SPU 2048
-#define SHOTS (SHOTS_SPU * 480)
+#define SHOTS (SHOTS_SPU * 1)
 
 int WIDTH;
 int HEIGTH;
@@ -54,8 +54,10 @@ void canon(int shots, int shots_spu, int canonX, int canonY, float canonAX, floa
 	float spu_data[2] = {0x0, 0x0};
 	
 	struct POINTS* points = create(RESULT, sizeof(struct POINTS) * shots);
-	release(points);
+	printf("ppu.c: Points is at location: %i and size: %i\n", points, sizeof(struct POINTS) * shots);
 	
+	release(points);
+
 	int sendmessages = 0;
 	int shotsspu = SHOTS_SPU;
 
@@ -156,7 +158,7 @@ int main(int argc, char* argv[])
 
 	threads = simpleInitialize(SPU_THREADS);
 
-	printf("Staring loading images!\n");
+	printf("Starting loading images!\n");
 	
 	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey("CT00.ppm", malloc_align7, grid00);
@@ -226,6 +228,7 @@ int main(int argc, char* argv[])
 	canon(SHOTS, SHOTS_SPU, 85, 75, 1.0, 0.8, spe_ids, energy, img);
 	printf("Stopped firering canon #1\n");
 
+/*
 	for(i = 0; i < SPU_THREADS; i++)
 	{
  		spe_in_mbox_write(spe_ids[i], stop, 1, SPE_MBOX_ALL_BLOCKING);
@@ -265,7 +268,7 @@ int main(int argc, char* argv[])
 	printf("Start firering canon #5\n");
 	canon(SHOTS, SHOTS_SPU, 280, 0, 0.0, 1.0, spe_ids, energy, img);
 	printf("Stopped firering canon #5\n");
-
+*/
 	// Stop timer!
 	sw_stop();
 	sw_timeString(timer_buffer);
