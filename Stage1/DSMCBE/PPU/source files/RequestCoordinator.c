@@ -109,14 +109,14 @@ void EnqueItem(QueueableItem item)
  	pthread_cond_signal(&queue_ready);
  	pthread_mutex_unlock(&queue_mutex);
 
-	printf(WHERESTR "item added to queue\n", WHEREARG);
+	//printf(WHERESTR "item added to queue\n", WHEREARG);
 }
 
 //Helper method with common code for responding
 //It sets the requestID on the response, and frees the data structures
 void RespondAny(QueueableItem item, void* resp)
 {
-	printf(WHERESTR "responding to %i\n", WHEREARG, (int)item);
+	//printf(WHERESTR "responding to %i\n", WHEREARG, (int)item);
 	//The actual type is not important, since the first two fields are 
 	// layed out the same way for all packages
 	((struct acquireResponse*)resp)->requestID = ((struct acquireRequest*)item->dataRequest)->requestID;
@@ -128,7 +128,7 @@ void RespondAny(QueueableItem item, void* resp)
 	pthread_cond_signal(item->event);
 	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
 	pthread_mutex_unlock(item->mutex);
-	printf(WHERESTR "responding, done\n", WHEREARG);
+	//printf(WHERESTR "responding, done\n", WHEREARG);
 	
 	free(item->dataRequest);
 	free(item);
@@ -190,7 +190,14 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	else
 	{
 		size = request->dataSize;
-		data = _malloc_align(size, 7);
+		data = _malloc_align(size + ((16 - size) % 16), 7);
+		if (data == NULL)
+		{
+			perror("Failed to allocate buffer for create");
+			RespondNACK(item);
+			return;
+		}
+			
 
 		// Make datastructures for later use
 		object = (dataObject)malloc(sizeof(struct dataObjectStruct));
@@ -245,6 +252,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	}
 	else
 	{
+		printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
 		//Create a list if none exists
 		if (!ht_member(waiters, (void*)request->dataItem))
 			ht_insert(waiters, (void*)request->dataItem, queue_create());
@@ -333,7 +341,7 @@ void* ProccessWork(void* data)
 		if (terminate)
 			break;
 
-		printf(WHERESTR "fetching event\n", WHEREARG);
+		//printf(WHERESTR "fetching event\n", WHEREARG);
 		item = (QueueableItem)queue_deq(bagOfTasks);
 		pthread_mutex_unlock(&queue_mutex);
 		

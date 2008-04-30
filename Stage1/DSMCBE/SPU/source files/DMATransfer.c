@@ -44,6 +44,7 @@ void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int
 	if ((ea % 128) != 0)
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
+	printf(WHERESTR "DMA write-transfer, source: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
 	mfc_put(buffer, ea, size, groupid, 0, 0);
 }
 
@@ -56,5 +57,6 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 	if ((ea % 128) != 0)
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
+	printf(WHERESTR "DMA read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
 	mfc_get(buffer, ea, size, groupid, 0, 0);
 }

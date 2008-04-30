@@ -34,7 +34,13 @@ int hashfc(void* a, unsigned int count){
 void* acquire(GUID id, unsigned long* size) {
 	
 	int data;
-	unsigned int tmp[2];
+	unsigned int transfer_size;
+	
+	if (allocatedItems == NULL)
+	{
+		printf(WHERESTR "Initialize must be called\n", WHEREARG);
+		return NULL;
+	}
 	
 	printf(WHERESTR "Starting acquiring id: %i\n", WHEREARG, id);
 	spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_WRITE);
@@ -42,21 +48,22 @@ void* acquire(GUID id, unsigned long* size) {
 	spu_write_out_mbox(id);
 
 	data = spu_read_in_mbox();
-	printf(WHERESTR "Message type: %i\n", WHEREARG, (int)data);
+	//printf(WHERESTR "Message type: %i\n", WHEREARG, (int)data);
 		
 	data = spu_read_in_mbox();
-	printf(WHERESTR "Request id: %i\n", WHEREARG, (int)data);
+	//printf(WHERESTR "Request id: %i\n", WHEREARG, (int)data);
 		
-	tmp[0] = spu_read_in_mbox();
-	tmp[1] = spu_read_in_mbox();
-	*size = *((unsigned long*)tmp);
-	printf(WHERESTR "Data size: %i\n", WHEREARG, (int)size);
+	*size = spu_read_in_mbox();
+	//printf(WHERESTR "Data size: %i\n", WHEREARG, (int)*size);
 	
 	data = spu_read_in_mbox();
-	printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)data);
+	//printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)data);
 	
-	void* allocation = _malloc_align(*size, 7);
-	printf(WHERESTR "Memory allocated\n", WHEREARG);
+	transfer_size = *size + ((16 - *size) % 16);
+	void* allocation = _malloc_align(transfer_size, 7);
+	if (allocation == NULL)
+		perror("Failed to allocate memory on SPU");
+	//printf(WHERESTR "Memory allocated\n", WHEREARG);
 
 	// Make datastructures for later use
 	dataObject object = malloc(sizeof(struct dataObjectStruct));
@@ -65,42 +72,51 @@ void* acquire(GUID id, unsigned long* size) {
 	object->size = *size;
 	ht_insert(allocatedItems, allocation, object);
 	
+	//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
+	StartDMAReadTransfer(allocation, (int)data, transfer_size, 0);
 	
-	printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
-	StartDMAReadTransfer(allocation, (int)data, *size, 0);
-	
-	printf(WHERESTR "Waiting for DMA transfer\n", WHEREARG);
+	//printf(WHERESTR "Waiting for DMA transfer\n", WHEREARG);
 	WaitForDMATransferByGroup(0);
 	
-	printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
+	//printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
+	printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);
 	
 	return allocation;	
 }
 
 void release(void* data){
 	
+	unsigned int transfersize;
+	
+	if (allocatedItems == NULL)
+	{
+		printf(WHERESTR "Initialize must be called\n", WHEREARG);
+		return;
+	}
+
 	if (ht_member(allocatedItems, data)) {
 		
 		dataObject object = ht_get(allocatedItems, data);
 		
-		StartDMAWriteTransfer(data, (int)object->EA, object->size, 1);
+		transfersize = object->size + ((16 - object->size) % 16);
+		printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
+		StartDMAWriteTransfer(data, (int)object->EA, transfersize, 1);
 		WaitForDMATransferByGroup(1);
 	
+		//printf(WHERESTR "Release DMA completed\n", WHEREARG);
+		//lwsync();	
 		spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
 		spu_write_out_mbox(2);
-		printf("spu.c: Release for id: %i\n", object->id);
 		spu_write_out_mbox(object->id);
-		
-		spu_write_out_mbox(((unsigned int*)&object->size)[0]);
-		spu_write_out_mbox(((unsigned int*)&object->size)[1]);
+		spu_write_out_mbox(object->size);
 		
 		spu_write_out_mbox((int)data);
 		
 		int result = spu_read_in_mbox();
-		printf(WHERESTR "Message type: %i\n", WHEREARG, result);
+		//printf(WHERESTR "Message type: %i\n", WHEREARG, result);
 			
 		result = spu_read_in_mbox();
-		printf(WHERESTR "Request id: %i\n", WHEREARG, result);
+		//printf(WHERESTR "Request id: %i\n", WHEREARG, result);
 		
 		ht_delete(allocatedItems, data);
 	}

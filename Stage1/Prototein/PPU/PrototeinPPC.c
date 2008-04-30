@@ -5,6 +5,9 @@
 #include <malloc_align.h>
 #include <free_align.h>
 #include <memory.h>
+#include <dsmcbe_ppu.h>
+#include <pthread.h>
+#include <common/debug.h>
 
 #define JOBS_PR_PROCESSOR 10
 #define REQUIRED_JOB_COUNT (spu_count * 1000)
@@ -19,32 +22,6 @@ unsigned int job_queue_tree_depth;
 unsigned int job_queue_tree_break;
 int bestscore;
 struct coordinate* winner;
-
-int GetWaitingSPU(speid_t* ids, int spu_count, struct coordinate** winners, unsigned int* incomplete)
-{
-	int res, i, score;
-	while(1)
-		for(i = 0; i < spu_count; i++)
-		{
-			if (incomplete[i] > 0)
-			{
-				res = spe_out_mbox_status(ids[i]);
-				if (res != 0)
-				{
-					spe_out_mbox_read(ids[i], (unsigned int*)&score, 1);
-					printf("Read a score %d\n", score);	        
-					
-					if (score > bestscore)
-					{
-						winner = winners[i];
-						bestscore = score;
-					}
-					incomplete[i]--;
-					return i;
-				}
-			}
-		}
-}
 
 void PrepareWorkBlock(struct workblock* w, unsigned int current_job)
 {
@@ -71,107 +48,102 @@ void PrepareWorkBlock(struct workblock* w, unsigned int current_job)
 	memcpy(((void*)w) + sizeof(struct workblock), &job_queue[joboffset], trn_size);
 }
 
-void FoldPrototein(char* proto, speid_t* ids, pthread_t* threads, int spu_count)
+void FoldPrototein(char* proto, int spu_count)
 {
-	int i, j, score, remainder;
-	unsigned int current_spu, prototein_buffer_length, winner_buffer_length;
-	struct workblock** workblocks; 
+	int i;
+	GUID* winners;
+	void* prototein_object;
+	void* tempobj;
+	unsigned int* work_counter;
+	unsigned long size;
 	struct coordinate cord;
-	struct coordinate** winners;
-	unsigned int* inprogress;
+	pthread_t* threads;
+	struct workblock* wb;
 
 	bestscore = -9999999;
 	
 	prototein_length = strlen(proto);
-	prototein_buffer_length = prototein_length + (16 - prototein_length % 16);
-	prototein = (char*)_malloc_align(sizeof(char) * prototein_buffer_length, 7);
-	prototein = memcpy(prototein, proto, prototein_length);
-	winners = malloc(sizeof(struct coordinate*) * spu_count);
-	workblocks = malloc(sizeof(struct workblock*));
-	inprogress = (unsigned int*)malloc(sizeof(unsigned int) * spu_count);
-	memset(inprogress, 0, sizeof(unsigned int) * spu_count);
-	current_spu = 0;
+	prototein = proto;
 	
+	threads = simpleInitialize(spu_count);
+	
+    printf(WHERESTR "PPU is broadcasting Prototein info\n", WHEREARG);
+	//Broadcast info about the prototein
+	prototein_object = create(PROTOTEIN, (sizeof(unsigned int) * 2) + prototein_length);
+	((unsigned int*)prototein_object)[0] = 0;
+	((unsigned int*)prototein_object)[1] = prototein_length;
+	memcpy(prototein_object + (sizeof(unsigned int) * 2), proto, prototein_length);
+	release(prototein_object);
+
+    printf(WHERESTR "PPU is setting up result buffers\n", WHEREARG);
+	//Allocate result buffers
+	winners = malloc(sizeof(GUID) * spu_count);
+	for(i = 0; i < spu_count; i++)
+	{
+		winners[i] = WINNER_OFFSET + i;
+		release(create(winners[i], sizeof(int) + (sizeof(struct coordinate) * prototein_length))); 
+	}
+	
+    printf(WHERESTR "PPU is building work tree\n", WHEREARG);
+	//Allocate the consumer syncroniation primitive
+	work_counter = (unsigned int*)create(PACKAGE_ITEM, sizeof(unsigned int) * 2);
+	work_counter[0] = 0;
+	
+	//Make a bag of tasks
 	cord.x = cord.y = prototein_length;
 	fold_broad(cord, REQUIRED_JOB_COUNT);
-	winner_buffer_length = (sizeof(struct coordinate) * prototein_length);
-	winner_buffer_length += 16 - winner_buffer_length % 16;
-		
-	for(i = 0; i < spu_count ; i++)
-	{
-		send_mailbox_message_to_spe(ids[i], 1, &prototein_length);
-		send_mailbox_message_to_spe(ids[i], 1, (unsigned int*)&prototein);
-		winners[i] = (struct coordinate*)_malloc_align(winner_buffer_length, 7);
-		workblocks[i] = (struct workblock*)_malloc_align(sizeof(struct workblock), 7);
-		send_mailbox_message_to_spe(ids[i], 1, (unsigned int*)&winners[i]);
-	}
 
-	//Fill up with two jobs for async processing
-	for(i = 0; i < spu_count * 2; i++)
-	{
-		PrepareWorkBlock(workblocks[i % spu_count], current_job);
-	
-		current_job += (*workblocks[i % spu_count]).worksize;		 		
-		send_mailbox_message_to_spe(ids[i % spu_count], 1, (unsigned int*)&workblocks[i % spu_count]);
-		inprogress[i % spu_count]++;
-		
-		if (current_job > job_queue_length)
-			break;
-	}
-
+    printf(WHERESTR "PPU is building tasks\n", WHEREARG);
+	//Now create all actual tasks, this is a bit wastefull in terms of memory usage
+	i = 0;
 	while(current_job < job_queue_length)
 	{
-		i = GetWaitingSPU(ids, spu_count, winners, inprogress);
-		PrepareWorkBlock(workblocks[i], current_job);
+		wb = (struct workblock*)create(WORKITEM_OFFSET + i, BUFFER_SIZE);
+		PrepareWorkBlock(wb, current_job);
+		current_job += wb->worksize;
+		release(wb);
+		i++;
+	}
 
-		current_job += (*workblocks[i]).worksize;		 		
-		send_mailbox_message_to_spe(ids[i], 1,(unsigned int*) &workblocks[i]);
-		inprogress[i]++;
+    printf(WHERESTR "PPU has completed building tasks\n", WHEREARG);
+	free(job_queue);
+	
+	//Let the SPU's begin their work
+	work_counter[1] = i;
+	release(work_counter);
+
+    printf(WHERESTR "PPU is waiting for SPU completion\n", WHEREARG);
+	//Just wait for them all to complete
+	for(i = 0; i < spu_count; i++)
+	{
+	    printf(WHERESTR "waiting for SPU %i\n", WHEREARG, i);
+		pthread_join(threads[i], NULL);
 	}
 	
-	//Tell the rest to die after the current work
-	j = 0;
+	winner = (struct coordinate*)malloc(sizeof(struct coordinate) * prototein_length);
+    printf(WHERESTR "PPU is reading results\n", WHEREARG);
+	//Pick up the results
 	for(i = 0; i < spu_count; i++)
-		send_mailbox_message_to_spe(ids[i], 1, (unsigned int *)&j);
-		
-	printf("Written stop for all, harvesting remaining results\n");
+	{
+	    printf(WHERESTR "PPU is reading result for %i\n", WHEREARG, i);
+		tempobj = acquire(winners[i], &size);
+		if (tempobj == NULL)
+			printf(WHERESTR "winner buffer failed\n", WHEREARG);
+		else
+		{
+			printf(WHERESTR "SPU %d result was %d\n", WHEREARG,i, ((int*)tempobj)[0]); 
+			if (((int*)tempobj)[0] > bestscore)
+			{
+				bestscore = ((int*)tempobj)[0];
+				memcpy(winner, tempobj + sizeof(int), prototein_length * sizeof(struct coordinate));
+			}
+			release(tempobj);
+		}
+	}
 	
-	remainder = 0;
-	for(i = 0; i < spu_count; i++)
-		remainder += inprogress[i];
-
-	while(remainder > 0)
-		for(i = 0; i < spu_count; i++)
-			if(inprogress[i] > 0)
-				while(spe_out_mbox_status(ids[i]) > 0)
-				{
-					spe_out_mbox_read(ids[i], (unsigned int*)&score, 1);
-					printf("Read a score %d\n", score);
-					if (score > bestscore)
-					{
-						bestscore = score;
-						winner = winners[i];
-					}
-					inprogress[i]--;
-					remainder--;
-				}
-
-	WaitForSPUCompletion(threads, spu_count);
-
 	printf("Optimal folding is (%d):\n", bestscore);
 	printmap(winner, prototein_length);
 	
-
-	for(i = 0; i < spu_count; i++)
-	{
-		_free_align(workblocks[i]);
-		_free_align(winners[i]);
-	}
-	
-	free(workblocks);
-	free(winners);
-	_free_align(prototein);
-		
 }
 
 void fold_broad(struct coordinate place, unsigned int required_jobs)
@@ -280,12 +252,12 @@ void fold_broad(struct coordinate place, unsigned int required_jobs)
         if ((prev_place_length - i) + new_place_length >= required_jobs)
         {
             job_queue = (struct coordinate*) 
-                _malloc_align(
+                malloc(
                     sizeof(struct coordinate) * (
                         ((prev_place_length - i) * (tree_depth)) 
                         + 
                         (new_place_length * (tree_depth+1))
-                        ), 7);
+                        ));
           if (job_queue == NULL)
 		  {
 			  printf("Memory error\n");

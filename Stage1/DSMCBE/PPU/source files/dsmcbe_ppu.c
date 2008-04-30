@@ -18,7 +18,7 @@ void* ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
 	unsigned int entry = SPE_DEFAULT_ENTRY;
 	ctx = *((spe_context_ptr_t *)arg);
-	printf(WHERESTR "Starting SPU\n", WHEREARG);
+	//printf(WHERESTR "Starting SPU\n", WHEREARG);
 	if (spe_context_run(ctx, &entry, 0, NULL, NULL, NULL) < 0)
 	{
 		perror ("Failed running context");

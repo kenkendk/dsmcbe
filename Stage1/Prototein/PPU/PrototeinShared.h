@@ -3,6 +3,18 @@
 
 #include <stdio.h>
 
+/* These 4 defines are the constants used for data communication */ 
+//This is the SYNC lock
+#define PACKAGE_ITEM 1
+//This is the initial Prototein info
+#define PROTOTEIN 2 
+
+//This is the buffer where each SPU will write data into
+#define WINNER_OFFSET 100
+
+//This is the actual workblock ID
+#define WORKITEM_OFFSET 200
+
 //remove annoying warnings
 void exit(int);
 
