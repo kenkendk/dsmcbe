@@ -10,7 +10,7 @@
 #include <common/debug.h>
 
 #define JOBS_PR_PROCESSOR 10
-#define REQUIRED_JOB_COUNT (spu_count * 1000)
+#define REQUIRED_JOB_COUNT (10000 * prototein_length)
 
 void fold_broad(struct coordinate place, unsigned int required_jobs);
 
@@ -34,18 +34,29 @@ void PrepareWorkBlock(struct workblock* w, unsigned int current_job)
 	trn_size = sizeof(struct coordinate) * (*w).item_length;
 	//Estimate the maxsize
 	(*w).worksize = ((BUFFER_SIZE - sizeof(struct workblock)) / trn_size);
+	//printf("current_job: %d, worksize: %d, job_queue_length: %d\n", current_job, (*w).worksize, job_queue_length);
+	if ((current_job + (*w).worksize) > job_queue_length)
+		(*w).worksize = job_queue_length - current_job;
 	
 	if (current_job > job_queue_tree_break)
-		joboffset = (job_queue_tree_depth) * current_job + ((current_job - job_queue_tree_break));
+		joboffset = ((job_queue_tree_depth) * current_job) - ((current_job - job_queue_tree_break));
 	else
-		joboffset = (job_queue_tree_depth - 1) * current_job;
+		joboffset = (job_queue_tree_depth) * current_job;
 		
-	if (current_job < job_queue_tree_break && (current_job + (*w).worksize) < job_queue_tree_break)
+	if (current_job < job_queue_tree_break && (current_job + (*w).worksize) > job_queue_tree_break)
 		(*w).worksize_delta = job_queue_tree_break - current_job;
 	else
 		(*w).worksize_delta = (*w).worksize + 1;
-
-	memcpy(((void*)w) + sizeof(struct workblock), &job_queue[joboffset], trn_size);
+		
+	memcpy(((void*)w) + sizeof(struct workblock), &job_queue[joboffset], trn_size * (*w).worksize);
+	
+	/*printf("Made a new workblock with %d elements and break at %d\n", (*w).worksize, (*w).worksize_delta);
+	for(i = 0; i < 4; i++)
+		printmap(&job_queue[joboffset+((*w).item_length*i)], (*w).item_length, 0);
+	printf("memdump: ");
+	for(i = 80; i < 120; i++)
+		printf("%x ", ((unsigned char*)w)[i]);
+	printf("\n");*/
 }
 
 void FoldPrototein(char* proto, int spu_count)
@@ -74,8 +85,6 @@ void FoldPrototein(char* proto, int spu_count)
 	((unsigned int*)prototein_object)[1] = prototein_length;
 	memcpy(prototein_object + (sizeof(unsigned int) * 2), proto, prototein_length);
 	release(prototein_object);
-
-	sleep(10);
 
     printf(WHERESTR "PPU is setting up result buffers\n", WHEREARG);
 	//Allocate result buffers
@@ -150,7 +159,6 @@ void FoldPrototein(char* proto, int spu_count)
 
 void fold_broad(struct coordinate place, unsigned int required_jobs)
 {
-
     struct coordinate* prev_places;
     struct coordinate* new_places;
     
@@ -253,13 +261,14 @@ void fold_broad(struct coordinate place, unsigned int required_jobs)
         //If we are done, gather a complete list        
         if ((prev_place_length - i) + new_place_length >= required_jobs)
         {
+        	//was _malloc_align
             job_queue = (struct coordinate*) 
                 malloc(
                     sizeof(struct coordinate) * (
                         ((prev_place_length - i) * (tree_depth)) 
                         + 
                         (new_place_length * (tree_depth+1))
-                        ));
+                        )/*, 7*/);
           if (job_queue == NULL)
 		  {
 			  printf("Memory error\n");

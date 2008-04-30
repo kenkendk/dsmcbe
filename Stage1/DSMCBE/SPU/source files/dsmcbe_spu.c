@@ -104,6 +104,8 @@ void release(void* data){
 		printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
 		StartDMAWriteTransfer(data, (int)object->EA, transfersize, 1);
 		WaitForDMATransferByGroup(1);
+		
+		free_align(data);
 	
 		//printf(WHERESTR "Release DMA completed\n", WHEREARG);
 		//lwsync();	
