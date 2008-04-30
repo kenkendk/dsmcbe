@@ -46,17 +46,22 @@
         <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe" id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1768895588" name="PPU GNU 32 bit C Linker">
           <option superClass="cell.ppu.gnu.c.linker.option.libs" id="cell.ppu.gnu.c.linker.option.libs.12898704" valueType="libs">
             <listOptionValue value="m" builtIn="false"/>
+            <listOptionValue value="dsmcbe_ppu" builtIn="false"/>
             <listOptionValue value="pthread" builtIn="false"/>
             <listOptionValue value="spe2" builtIn="false"/>
           </option>
           <option superClass="cell.ppu.gnu.c.linker.option.libs.lm" id="cell.ppu.gnu.c.linker.option.libs.lm.2026392350" value="true" valueType="boolean"/>
           <option superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" id="cell.ppu.gnu.c.linker.option.libs.lpthread.402308484" value="true" valueType="boolean"/>
           <option superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" id="cell.ppu.gnu.c.linker.option.libs.lspe2.254560922" value="true" valueType="boolean"/>
+          <option superClass="gnu.c.link.option.paths" id="gnu.c.link.option.paths.1750447987" valueType="stringList">
+            <listOptionValue value="/root/dsmcbe/Stage1/DSMCBE/PPU/ppu-gnu32-release" builtIn="false"/>
+          </option>
         </tool>
         <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe" id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.1407086872" name="PPU GNU 32 bit C++ Linker"/>
         <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release" id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.2030717983" name="PPU GNU 32 bit C Compiler with Release Options">
           <option superClass="gnu.c.compiler.option.include.paths" id="gnu.c.compiler.option.include.paths.1840750511" valueType="includePath">
             <listOptionValue value="/opt/cell/sysroot/opt/cell/sdk/usr/include" builtIn="false"/>
+            <listOptionValue value="/root/dsmcbe/Stage1/DSMCBE" builtIn="false"/>
           </option>
         </tool>
         <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release" id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release.1005052427" name="PPU GNU 32 bit C++ Compiler with Release Options"/>

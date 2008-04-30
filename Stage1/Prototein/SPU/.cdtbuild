@@ -33,13 +33,18 @@
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe" id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.1067033767" name="SPU GNU C Linker">
           <option superClass="cell.gnu.c.linker.option.libs" id="cell.gnu.c.linker.option.libs.1239366705" valueType="libs">
             <listOptionValue value="m" builtIn="false"/>
+            <listOptionValue value="dsmcbe_spu" builtIn="false"/>
           </option>
           <option superClass="cell.gnu.c.linker.option.libs.lm" id="cell.gnu.c.linker.option.libs.lm.1070498920" value="true" valueType="boolean"/>
+          <option superClass="gnu.c.link.option.paths" id="gnu.c.link.option.paths.1308407453" valueType="stringList">
+            <listOptionValue value="/root/dsmcbe/Stage1/DSMCBE/SPU/spu-gnu-release" builtIn="false"/>
+          </option>
         </tool>
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe" id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.1000726393" name="SPU GNU C++ Linker"/>
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release" id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.650137299" name="SPU GNU C Compiler with Release Options">
           <option superClass="gnu.c.compiler.option.include.paths" id="gnu.c.compiler.option.include.paths.377195531" valueType="includePath">
             <listOptionValue value="/opt/ibm/systemsim-cell/include/callthru/spu" builtIn="false"/>
+            <listOptionValue value="/root/dsmcbe/Stage1/DSMCBE" builtIn="false"/>
             <listOptionValue value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include" builtIn="false"/>
           </option>
         </tool>
