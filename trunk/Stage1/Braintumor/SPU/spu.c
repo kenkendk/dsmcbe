@@ -152,10 +152,9 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 			}
 		}
 	}
-/*
-	printf("Canon finished firering %i shots in grid(%i,%i)\n", pcnt, current_grid.x, current_grid.y);
-	printf("Counter: %i\n\n", counter);
-*/	
+
+	printf("Canon firered %i shots in grid(%i,%i)\n", pcnt, current_grid.x, current_grid.y);
+
 	return more;
 }
 
@@ -168,137 +167,120 @@ int main()
 	unsigned int i;
 
 	initialize();
-	
-	struct PACKAGE* package;
-	unsigned long size;
-	printf("spu.c: Trying to acquire JOB\n");
-	package = acquire(JOB, &size);
-	printf("spu.c: Finished acquiring JOB\n");
-	// Get canon information
-	// Position(x,y) Angel(ax,ay), Shots(S)	
-	unsigned int canonS = package->shots_spu;
-	unsigned int canonX = package->canonX;
-	unsigned int canonY = package->canonY;
-	
-	float canonAX = package->canonAX;
-	float canonAY = package->canonAY;
-	
-	printf("spu.c: canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f\n", canonS, canonX, canonY, canonAX, canonAY);
-
-	// Make points buffer
-	struct POINTS* points;
-
-	printf("SPU: Ready to start\n");
-
-	
-	CTWIDTH = 576;
-	CTHEIGTH = 708;
 		
-	unsigned char* buffer0;
-	unsigned char* buffer1;
+	while(1) {
+		
+		unsigned char* buffer;
+		
+		// Make points buffer
+		struct POINTS* points;
+		struct PACKAGE* package;
 
-	while(1)
-	{
-		unsigned char* current_buffer = buffer0;
-		unsigned char* next_buffer = buffer1;
+		printf("SPU: Ready to start\n");
+		
 	
-		printf("spu.c: Trying to acquire RESULT\n");
 		unsigned long size;
-		points = acquire(RESULT, &size);
+		printf("spu.c: Trying to acquire JOB\n");
+		package = acquire(JOB, &size);
+		printf("spu.c: Finished acquiring JOB\n");
+		// Get canon information
+		// Position(x,y) Angel(ax,ay), Shots(S)	
+		unsigned int id = package->id;
+		unsigned int canonS = package->shots_spu;
+		unsigned int canonX = package->canonX;
+		unsigned int canonY = package->canonY;
+		
+		float canonAX = package->canonAX;
+		float canonAY = package->canonAY;
+			
+		CTWIDTH = package->width;
+		CTHEIGTH = package->heigth;			
+	
+		printf("spu.c: id: %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", id, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);		
+	
+		package->id = id + 1;
+		release(package);
+		_free_align(package);
+		
+		printf("spu.c: Trying to acquire RESULT\n");
+		points = acquire(RESULT + id, &size);
 		printf("spu.c: Finished acquiring RESULT\n");
+
+		// Set current_grid
+		struct CURRENT_GRID current_grid;
+		current_grid.x = 0;
+		current_grid.y = 0;
+		
+		struct CURRENT_GRID next_grid;
+		next_grid.x = 0;
+		next_grid.y = 0;
+				
+		for(i = 0; i < canonS; i++)
+		{
+			points[i].alive = TRUE;
+			points[i].x = canonX;
+			points[i].y = canonY;
+		}
 				
 		do
 		{			
-			// Set current_grid
-			struct CURRENT_GRID current_grid;
-			current_grid.x = 0;
-			current_grid.y = 0;
-			
-			struct CURRENT_GRID next_grid;
-			next_grid.x = 0;
-			next_grid.y = 0;
-					
-			for(i = 0; i < canonS; i++)
-			{
-				points[i].alive = TRUE;
-				points[i].x = canonX;
-				points[i].y = canonY;
-			}
 			
 			int id = (1000 + (current_grid.y * 10) + current_grid.x);
 			unsigned long size;
 			
-			printf("spu.c: Trying to acquire %i\n", id);
-			current_buffer = acquire(id, &size);
-			printf("spu.c: Finished acquiring %i\n", id);
+			printf("spu.c: Trying to acquire BUFFER\n");
+			buffer = acquire(id, &size);
+			printf("spu.c: Finished acquiring BUFFER\n");
 			
-			while(1)
-			{	
-				int more_to_do = TRUE;
-				
-				next_grid.x = current_grid.x + 1;
-				if(next_grid.x == 3)
+			int more_to_do = TRUE;
+			
+			next_grid.x = current_grid.x + 1;
+			if(next_grid.x == 3)
+			{
+				next_grid.y = (current_grid.y + 1);
+				next_grid.x = 0;
+				i = 0;
+				if(next_grid.y == 3)
 				{
-					next_grid.y = (current_grid.y + 1);
-					next_grid.x = 0;
-					i = 0;
-					if(next_grid.y == 3)
+					more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
+					printf("spu.c: Trying to release BUFFER\n");
+					release(buffer);
+					printf("spu.c: Finished releasing BUFFER\n");
+					if(!more_to_do)
 					{
-						more_to_do = canon(points, canonAX, canonAY, canonS, current_buffer, current_grid);			
-						if(!more_to_do)
-						{
-							printf("All points in POINTS are dead!!\n");
-							break;
-						}
-						next_grid.x = 0;
-						next_grid.y = 0;
-						printf("Starting all over because there is more work to do!\n");				
-					}				
-				}
-				
-				id = (1000 + (next_grid.y * 10) + next_grid.x);	
-
-				printf("spu.c: Trying to acquire next %i\n", id);					
-				next_buffer = acquire(id, &size);
-				printf("spu.c: Finished acquiring next %i\n", id);
-											
-				more_to_do = canon(points, canonAX, canonAY, canonS, current_buffer, current_grid);
-				
-				release(current_buffer);
-						
-				if(!more_to_do)
-				{
-					printf("All points in POINTS are dead!!\n");
-					break;
-				}
-				
-				// Swap current_buffer and next_buffer
-				current_buffer = (current_buffer == buffer0 ? buffer1 : buffer0);
-				next_buffer = (next_buffer == buffer0 ? buffer1 : buffer0);
-													
-				current_grid.x = next_grid.x;
-				current_grid.y = next_grid.y;	
+						printf("All points in POINTS are dead!!\n");
+						break;
+					}
+					next_grid.x = 0;
+					next_grid.y = 0;
+					current_grid.x = next_grid.x;
+					current_grid.y = next_grid.y;						
+					printf("Starting all over because there is more work to do!\n");
+					continue;
+				}				
 			}
-				
-			// Send points to energyEA
-			release(points);
-			
-			unsigned int tag_mask = (1 << 10);
-			mfc_write_tag_mask(tag_mask);
-			mfc_read_tag_status_any();
-			
-			// Signal done with assignment
-			spu_write_out_mbox(1);		
-		}while(1);
+													
+			more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
+								
+			if(!more_to_do)
+			{
+				printf("All points in POINTS are dead!!\n");
+				break;
+			}
+															
+			current_grid.x = next_grid.x;
+			current_grid.y = next_grid.y;	
+			printf("More work to do");
+			printf("spu.c: Trying to release BUFFER\n");			
+			release(buffer);
+			printf("spu.c: Finished releasing BUFFER\n");
+		} while(1);
 		
-		// Continue with new canon or 
-		if (spu_read_in_mbox() == 0)
-		{
-			//free(points);
-			break;
-		}
-		//free(points);
- 	}
+		// Send points to energyEA
+		printf("spu.c: Finished releasing RESULT\n");
+		release(points);
+		printf("spu.c: Finished releasing RESULT\n");	
+	}
 	
 	prof_stop();
  	
