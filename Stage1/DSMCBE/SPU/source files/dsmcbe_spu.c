@@ -118,7 +118,7 @@ void release(void* data){
 		spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
 		spu_write_out_mbox(2);
 
-		printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
+		//printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
 
 		spu_write_out_mbox(object->id);
 		spu_write_out_mbox(object->size);

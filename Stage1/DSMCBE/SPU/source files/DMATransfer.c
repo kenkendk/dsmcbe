@@ -58,13 +58,13 @@ void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int
 	if ((ea % 128) != 0)
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
-	printf(WHERESTR "DMA write-transfer, source: %d, ea: %d, size: %d\n", WHEREARG, (int)buffer, ea, size);
+	//printf(WHERESTR "DMA write-transfer, source: %d, ea: %d, size: %d\n", WHEREARG, (int)buffer, ea, size);
 	
 	if (size < 16384 ) {
-		printf(WHERESTR "Single DMA transfer\n", WHEREARG);
+		//printf(WHERESTR "Single DMA transfer\n", WHEREARG);
 		mfc_put(buffer, ea, size, groupid, 0, 0);
 	} else {
-		printf(WHERESTR "List DMA transfer\n", WHEREARG);
+		//printf(WHERESTR "List DMA transfer\n", WHEREARG);
 		unsigned int i = 0;
 		unsigned int listsize;	
 		
@@ -95,13 +95,13 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 	if ((ea % 128) != 0)
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
-	printf(WHERESTR "DMA read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
+	//printf(WHERESTR "DMA read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
 	
 	if (size < 16384 ) {
-		printf(WHERESTR "Single DMA transfer\n", WHEREARG);
+		//printf(WHERESTR "Single DMA transfer\n", WHEREARG);
 		mfc_get(buffer, ea, size, groupid, 0, 0);
 	} else {
-		printf(WHERESTR "List DMA transfer\n", WHEREARG);
+		//printf(WHERESTR "List DMA transfer\n", WHEREARG);
 		unsigned int i = 0;
 		unsigned int listsize;	
 		
