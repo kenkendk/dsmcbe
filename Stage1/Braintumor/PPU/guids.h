@@ -10,7 +10,9 @@
 #define GRID20 1020
 #define GRID21 1021
 #define GRID22 1022
-#define RESULT 2000
-#define JOB 3000
+
+#define RESULT 10000
+
+#define JOB 20000
 
 #endif /*GUIDS_H_*/

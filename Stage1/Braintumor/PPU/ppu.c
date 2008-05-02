@@ -20,7 +20,7 @@ extern spe_program_handle_t SPU;
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #define SHOTS_SPU 2048
-#define SHOTS (SHOTS_SPU * 1)
+#define SHOTS (SHOTS_SPU * 480)
 
 int WIDTH;
 int HEIGTH;
@@ -51,67 +51,40 @@ void canon(int shots, int shots_spu, int canonX, int canonY, float canonAX, floa
 	int i;
 	unsigned char max_integer = (unsigned char)pow(2, sizeof(unsigned char)*8);
 	
-	struct POINTS* points = create(RESULT, sizeof(struct POINTS) * shots);
+	for(i = 0; i < (shots / shots_spu); i++)
+	{
+		struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * shots_spu);
+		release(points);	
+	}
 	
-	release(points);
-
-	int sendmessages = 0;
 	int shotsspu = SHOTS_SPU;
 
-	for(i = 0; i < SPU_THREADS; i++)
-	{
-		struct PACKAGE* package;
-		package = create(JOB, sizeof(struct PACKAGE));
-		package->shots_spu = shotsspu;
-		package->canonX = canonX;
-		package->canonY = canonY;
-		package->canonAX = canonAX;
-		package->canonAY = canonAY;
-		release(package);
- 		
-		sendmessages++;
-	}
+	struct PACKAGE* package;
+	package = create(JOB, sizeof(struct PACKAGE));
+	package->id = 0;
+	package->heigth = HEIGTH;
+	package->width = WIDTH;
+	package->shots_spu = shotsspu;
+	package->canonX = canonX;
+	package->canonY = canonY;
+	package->canonAX = canonAX;
+	package->canonAY = canonAY;
+	release(package);
 	
-	//Waiting to recieved message from SPE
-	int total_reads = shots / shots_spu;
-	int change = total_reads-((total_reads / SPU_THREADS) * SPU_THREADS);
-	//int last = (shots - ((total_reads - change) / SPU_THREADS) * SPU_THREADS);
+	while(1);
 	
-	if (change > 0)
-		total_reads += SPU_THREADS; 
-	
-	while (total_reads > 0)
-	{
-		// Vi har nået sidste runde og nu skal der kun skydes 
-		// "last" antal skud / spe istedet for SHOTS_SPU!			
-		//if (total_reads == change)
-		//	shotsspu = last;
+	for(i = 0; i < (shots / shots_spu); i++) {
+		unsigned long size;
+		struct POINTS* points = acquire(RESULT + i, &size);
 			
-		for(i=0;i<SPU_THREADS; i++)
-		{
-			if (spe_out_mbox_status(spe_ids[i]) != 0)
-			{
-				unsigned int data;
-				spe_out_mbox_read(spe_ids[i], &data, 1);
-				//printf("Read value %d from (0x%dx)\n", data, (int)spe_ids[i]);
-				total_reads--;
-									
-				if(sendmessages >= (shots / shots_spu))
-					break;
+		// Save results to energy
+		for(i = 0; i < shots_spu; i++) {
+			if(points[i].alive == FALSE)
+				energy[MAPOFFSET((int)(points[i].x), (int)(points[i].y))] =  MIN(energy[MAPOFFSET((int)(points[i].x),(int)(points[i].y))] + 1, max_integer);
 				
-				sendmessages++;
-			}
 		}
+		release(points);
 	}
-	
-	// Save results to energy
-	for(i = 0; i < SHOTS; i++)
-	{
-		if(points[i].alive == FALSE)
-			energy[MAPOFFSET((int)(points[i].x), (int)(points[i].y))] =  MIN(energy[MAPOFFSET((int)(points[i].x),(int)(points[i].y))] + 1, max_integer);
-	}
-	
-	_free_align(points);
 }
 
 int main(int argc, char* argv[])

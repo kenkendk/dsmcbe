@@ -7,7 +7,10 @@ struct POINTS
 
 struct PACKAGE {
 	
-	int shots_spu; 
+	unsigned int id;
+	unsigned int heigth; 
+	unsigned int width; 
+	unsigned int shots_spu; 
 	int canonX; 
 	int canonY; 
 	float canonAX; 
