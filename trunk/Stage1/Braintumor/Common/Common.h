@@ -8,6 +8,7 @@ struct POINTS
 struct PACKAGE {
 	
 	unsigned int id;
+	unsigned int maxid;
 	unsigned int heigth; 
 	unsigned int width; 
 	unsigned int shots_spu; 

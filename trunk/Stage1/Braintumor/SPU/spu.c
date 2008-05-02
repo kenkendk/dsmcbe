@@ -186,6 +186,7 @@ int main()
 		// Get canon information
 		// Position(x,y) Angel(ax,ay), Shots(S)	
 		unsigned int id = package->id;
+		unsigned int maxid = package->maxid;
 		unsigned int canonS = package->shots_spu;
 		unsigned int canonX = package->canonX;
 		unsigned int canonY = package->canonY;
@@ -196,11 +197,16 @@ int main()
 		CTWIDTH = package->width;
 		CTHEIGTH = package->heigth;			
 	
-		printf("spu.c: id: %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", id, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);		
+		printf("spu.c: id: %i, maxid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", id, maxid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);		
 	
+		if(id >= maxid) {
+			printf("SPU finished, waiting for new package");
+			sleep(5);
+			continue;
+		}
+			
 		package->id = id + 1;
 		release(package);
-		_free_align(package);
 		
 		printf("spu.c: Trying to acquire RESULT\n");
 		points = acquire(RESULT + id, &size);
@@ -222,7 +228,8 @@ int main()
 			points[i].y = canonY;
 		}
 				
-		do
+		int more_to_do = TRUE;
+		while(more_to_do)
 		{			
 			
 			int id = (1000 + (current_grid.y * 10) + current_grid.x);
@@ -230,9 +237,7 @@ int main()
 			
 			printf("spu.c: Trying to acquire BUFFER\n");
 			buffer = acquire(id, &size);
-			printf("spu.c: Finished acquiring BUFFER\n");
-			
-			int more_to_do = TRUE;
+			printf("spu.c: Finished acquiring BUFFER\n");		
 			
 			next_grid.x = current_grid.x + 1;
 			if(next_grid.x == 3)
@@ -261,25 +266,19 @@ int main()
 			}
 													
 			more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
-								
-			if(!more_to_do)
-			{
-				printf("All points in POINTS are dead!!\n");
-				break;
-			}
-															
+																						
 			current_grid.x = next_grid.x;
-			current_grid.y = next_grid.y;	
-			printf("More work to do");
+			current_grid.y = next_grid.y;
+			if(more_to_do)	
+				printf("More work to do\n");
+			else
+				printf("No more work to do\n");
+			
 			printf("spu.c: Trying to release BUFFER\n");			
 			release(buffer);
 			printf("spu.c: Finished releasing BUFFER\n");
-		} while(1);
-		
-		// Send points to energyEA
-		printf("spu.c: Finished releasing RESULT\n");
-		release(points);
-		printf("spu.c: Finished releasing RESULT\n");	
+		}
+		release(points);	
 	}
 	
 	prof_stop();

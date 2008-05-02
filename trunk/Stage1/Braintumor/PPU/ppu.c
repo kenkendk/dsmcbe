@@ -20,7 +20,8 @@ extern spe_program_handle_t SPU;
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #define SHOTS_SPU 2048
-#define SHOTS (SHOTS_SPU * 480)
+//#define SHOTS (SHOTS_SPU * 480)
+#define SHOTS (SHOTS_SPU * 10)
 
 int WIDTH;
 int HEIGTH;
@@ -51,17 +52,12 @@ void canon(int shots, int shots_spu, int canonX, int canonY, float canonAX, floa
 	int i;
 	unsigned char max_integer = (unsigned char)pow(2, sizeof(unsigned char)*8);
 	
-	for(i = 0; i < (shots / shots_spu); i++)
-	{
-		struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * shots_spu);
-		release(points);	
-	}
-	
 	int shotsspu = SHOTS_SPU;
 
 	struct PACKAGE* package;
 	package = create(JOB, sizeof(struct PACKAGE));
 	package->id = 0;
+	package->maxid = (shots / shots_spu);
 	package->heigth = HEIGTH;
 	package->width = WIDTH;
 	package->shots_spu = shotsspu;
@@ -71,11 +67,18 @@ void canon(int shots, int shots_spu, int canonX, int canonY, float canonAX, floa
 	package->canonAY = canonAY;
 	release(package);
 	
-	while(1);
-	
+	for(i = 0; i < (shots / shots_spu); i++)
+	{
+		struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * shots_spu);
+		release(points);	
+	}
+		
 	for(i = 0; i < (shots / shots_spu); i++) {
+		sleep(2);
 		unsigned long size;
 		struct POINTS* points = acquire(RESULT + i, &size);
+		
+		printf("\n\n\n ERROR ppu.c \n\n\n");
 			
 		// Save results to energy
 		for(i = 0; i < shots_spu; i++) {
@@ -109,9 +112,6 @@ int main(int argc, char* argv[])
 	int scale_size = 9;
 	char timer_buffer[256];
 	int y, x;
-	int i = 0;
-	unsigned int stop[1] = {0x0};		
-	unsigned int cont[1] = {0x1};
 
 	WIDTH = 576;
 	HEIGTH = 708;
