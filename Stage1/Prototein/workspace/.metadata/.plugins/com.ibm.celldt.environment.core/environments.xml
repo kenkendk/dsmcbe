@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<Environments>
-<Type Name="Attached Cell Simulator"/>
-<Type Name="Local Cell Simulator">
-<Configuration CfgName="Local Cell Simulator" console-socket-port="40012" console-show-simulator="false" java-api-socket-port="40010" mac-simulator="02:00:00:00:00:00" ip-simulator="172.20.20.2" root-image-path="/opt/ibm/systemsim-cell/images/cell/sysroot_disk" simulator-base-directory="/opt/ibm/systemsim-cell" work-directory="/opt/ibm/systemsim-cell/run/cell/linux" kernel-image-path="/opt/ibm/systemsim-cell/images/cell/vmlinux" system-workspace-dir="/tmp/IBM/CellIDE" ip-host="172.20.20.1" console-show-linux="true" show-simulator-gui="true" core-environmentid="1209548110217"/>
-</Type>
-<Type Name="Cell Box"/>
-<Type Name="Remote Cell Simulator"/>
-</Environments>
