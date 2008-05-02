@@ -173,12 +173,6 @@ int main(int argc, char* argv[])
 	
 	srand(1);
 
-	for(i=0;i<SPU_THREADS;i++)
-	{
-		unsigned int data[2] = {WIDTH, HEIGTH};
-		spe_in_mbox_write(spe_ids[i], data, 2, SPE_MBOX_ALL_BLOCKING);				
-	}
-	
 	//Start timer!
 	sw_init();
 	sw_start();
@@ -188,58 +182,30 @@ int main(int argc, char* argv[])
 	canon(SHOTS, SHOTS_SPU, 85, 75, 1.0, 0.8, spe_ids, energy, img);
 	printf("Stopped firering canon #1\n");
 
-/*
-	for(i = 0; i < SPU_THREADS; i++)
-	{
- 		spe_in_mbox_write(spe_ids[i], stop, 1, SPE_MBOX_ALL_BLOCKING);
- 		spe_in_mbox_write(spe_ids[i], cont, 1, SPE_MBOX_ALL_BLOCKING);
-	}
 
 	printf("Start firering canon #2\n");
 	canon(SHOTS, SHOTS_SPU, 10, 230, 1.0, 0.0, spe_ids, energy, img);
 	printf("Stopped firering canon #2\n");
 
-	for(i = 0; i < SPU_THREADS; i++)
-	{
- 		spe_in_mbox_write(spe_ids[i], stop, 1, SPE_MBOX_ALL_BLOCKING);
- 		spe_in_mbox_write(spe_ids[i], cont, 1, SPE_MBOX_ALL_BLOCKING);
-	}
 
 	printf("Start firering canon #3\n");
 	canon(SHOTS, SHOTS_SPU, 550, 230, -1.0, 0.0, spe_ids, energy, img);
 	printf("Stopped firering canon #3\n");
 
-	for(i = 0; i < SPU_THREADS; i++)
-	{
- 		spe_in_mbox_write(spe_ids[i], stop, 1, SPE_MBOX_ALL_BLOCKING);
- 		spe_in_mbox_write(spe_ids[i], cont, 1, SPE_MBOX_ALL_BLOCKING);
-	}
 
 	printf("Start firering canon #4\n");
 	canon(SHOTS, SHOTS_SPU, 475, 90, -1.0, 0.75, spe_ids, energy, img);
 	printf("Stopped firering canon #4\n");
 
-	for(i = 0; i < SPU_THREADS; i++)
-	{
- 		spe_in_mbox_write(spe_ids[i], stop, 1, SPE_MBOX_ALL_BLOCKING);
- 		spe_in_mbox_write(spe_ids[i], cont, 1, SPE_MBOX_ALL_BLOCKING);
-	}
-
 	printf("Start firering canon #5\n");
 	canon(SHOTS, SHOTS_SPU, 280, 0, 0.0, 1.0, spe_ids, energy, img);
 	printf("Stopped firering canon #5\n");
-*/
+
 	// Stop timer!
 	sw_stop();
 	sw_timeString(timer_buffer);
 	printf("Time used: %s\n", timer_buffer);
 
-	for(i = 0; i < SPU_THREADS; i++)
-	{
- 		spe_in_mbox_write(spe_ids[i], stop, 1, SPE_MBOX_ALL_BLOCKING);
- 		spe_in_mbox_write(spe_ids[i], stop, 1, SPE_MBOX_ALL_BLOCKING);
-	}
-	
 	readimage_rgb(input, malloc, &result);
 		
 	// Save energy map to image
