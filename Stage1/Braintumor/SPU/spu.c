@@ -256,11 +256,11 @@ int main()
 					}				
 				}
 				
-				int id = (1000 + (current_grid.y * 10) + current_grid.x);	
+				id = (1000 + (next_grid.y * 10) + next_grid.x);	
 
-				printf("spu.c: Trying to acquire %i\n", id);					
+				printf("spu.c: Trying to acquire next %i\n", id);					
 				next_buffer = acquire(id, &size);
-				printf("spu.c: Finished acquiring %i\n", id);
+				printf("spu.c: Finished acquiring next %i\n", id);
 											
 				more_to_do = canon(points, canonAX, canonAY, canonS, current_buffer, current_grid);
 				
@@ -268,7 +268,7 @@ int main()
 						
 				if(!more_to_do)
 				{
-					//printf("All points in POINTS are dead!!\n");
+					printf("All points in POINTS are dead!!\n");
 					break;
 				}
 				
@@ -294,10 +294,10 @@ int main()
 		// Continue with new canon or 
 		if (spu_read_in_mbox() == 0)
 		{
-			free(points);
+			//free(points);
 			break;
 		}
-		free(points);
+		//free(points);
  	}
 	
 	prof_stop();
