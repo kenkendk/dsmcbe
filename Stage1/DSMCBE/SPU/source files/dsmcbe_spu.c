@@ -42,7 +42,7 @@ void* acquire(GUID id, unsigned long* size) {
 		return NULL;
 	}
 	
-	printf(WHERESTR "Starting acquiring id: %i\n", WHEREARG, id);
+	//printf(WHERESTR "Starting acquiring id: %i\n", WHEREARG, id);
 	spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_WRITE);
 	spu_write_out_mbox(2);
 	spu_write_out_mbox(id);
@@ -87,7 +87,7 @@ void* acquire(GUID id, unsigned long* size) {
 	WaitForDMATransferByGroup(0);
 	
 	//printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
-	printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);
+	//printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);
 	
 	return allocation;	
 }
@@ -107,7 +107,7 @@ void release(void* data){
 		dataObject object = ht_get(allocatedItems, data);
 		
 		transfersize = object->size + ((16 - object->size) % 16);
-		printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
+		//printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
 		
 		//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
 		StartDMAWriteTransfer(data, (int)object->EA, transfersize, 1);
