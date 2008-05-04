@@ -21,8 +21,13 @@
         <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler" id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.721226084" name="PPU GNU 32 bit Assembler"/>
         <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu" id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.1265717484" name="PPU GNU 32 bit Embed SPU"/>
         <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.archiver.lib" id="celldt.managedbuild.tool.cell.ppu.gnu32.archiver.lib.910631837" name="PPU GNU Archiver"/>
-        <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.release" id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.release.355282827" name="PPU GNU 32 bit C Compiler with Release Options"/>
+        <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.release" id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.release.355282827" name="PPU GNU 32 bit C Compiler with Release Options">
+          <option superClass="gnu.c.compiler.option.include.paths" id="gnu.c.compiler.option.include.paths.1858114284" valueType="includePath">
+            <listOptionValue value="/opt/cell/sysroot/opt/cell/sdk/usr/include" builtIn="false"/>
+          </option>
+        </tool>
         <tool superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.lib.release" id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.lib.release.449816798" name="PPU GNU 32 bit C++ Compiler with Release Options"/>
+        <macros/>
       </toolChain>
     </configuration>
     <configuration id="celldt.managedbuild.config.cell.ppu.gnu64.lib.debug.398305433" name="ppu-gnu64-debug" description="" parent="celldt.managedbuild.config.cell.ppu.gnu64.lib.debug" artifactName="dsmcbe_ppu" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" artifactExtension="a" cleanCommand="rm -fr">

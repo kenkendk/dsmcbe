@@ -166,6 +166,10 @@ void* ProcessMessages(void* data)
 						((struct releaseRequest*)dataItem)->requestID = requestID;
 						((struct releaseRequest*)dataItem)->dataSize = datasize;
 						((struct releaseRequest*)dataItem)->data = datapointer;
+						
+						//We must call LWSYNC here, perhaps it is more performance friendly
+						//To place it elsewhere?
+						__asm__ __volatile__("lwsync" : : : "memory");
 						break;
 			
 					case PACKAGE_INVALIDATE_REQUEST:

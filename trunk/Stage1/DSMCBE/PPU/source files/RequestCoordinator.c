@@ -353,9 +353,12 @@ void* ProccessWork(void* data)
 		}
 		if (terminate)
 			break;
-
+		
+		if (queue_empty(bagOfTasks))
+			perror("Very bad MUTEX!!!");
 		//printf(WHERESTR "fetching event\n", WHEREARG);
 		item = (QueueableItem)queue_deq(bagOfTasks);
+		//printf(WHERESTR "fetched event\n", WHEREARG);
 		pthread_mutex_unlock(&queue_mutex);
 		
 		//Get the type of the package and perform the corresponding action

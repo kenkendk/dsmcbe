@@ -49,9 +49,13 @@ void* acquire(GUID id, unsigned long* size) {
 
 	data = spu_read_in_mbox();
 	//printf(WHERESTR "Message type: %i\n", WHEREARG, (int)data);
+	if (data != PACKAGE_ACQUIRE_RESPONSE)
+		perror("Response to SPU had bad type!");
 		
 	data = spu_read_in_mbox();
 	//printf(WHERESTR "Request id: %i\n", WHEREARG, (int)data);
+	if (data != 2)
+		perror("RequestID for SPU was incorrect");
 		
 	*size = spu_read_in_mbox();
 	//printf(WHERESTR "Data size: %i\n", WHEREARG, (int)*size);
@@ -124,14 +128,19 @@ void release(void* data){
 		spu_write_out_mbox(object->size);
 		
 		spu_write_out_mbox((int)data);
-		
+
 		int result = spu_read_in_mbox();
 		//printf(WHERESTR "Message type: %i\n", WHEREARG, result);
+		if (result != PACKAGE_RELEASE_RESPONSE)
+			perror("Release response for SPU had incorrect type");
 			
 		result = spu_read_in_mbox();
 		//printf(WHERESTR "Request id: %i\n", WHEREARG, result);
+		if (result != 2)
+			perror("RequestID for SPU was incorrect");
 		
 		ht_delete(allocatedItems, data);
+		free(object);
 	}
 }
 
