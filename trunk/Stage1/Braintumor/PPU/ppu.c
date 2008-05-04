@@ -23,7 +23,6 @@ extern spe_program_handle_t SPU;
 
 #define SHOTS_SPU 2048
 #define SHOTS (SHOTS_SPU * 480)
-//#define SHOTS (SHOTS_SPU * 10)
 
 int WIDTH;
 int HEIGTH;
@@ -69,14 +68,14 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	package->canonAY = canonAY;
 	release(package);
 	
-	int* count = create(COUNT, sizeof(int));
+	int* count = create(COUNT+id, sizeof(int));
 	*count = 0;
 	release(count);
 	
 	unsigned long size;
 	do {
 		sleep(1);
-		count = acquire(COUNT, &size);
+		count = acquire(COUNT+id, &size);
 		release(count); 
 	}while(*count < SPU_THREADS);
 				
@@ -223,16 +222,13 @@ int main(int argc, char* argv[])
 	canon(0, SHOTS, SHOTS_SPU, 85, 75, 1.0, 0.8, energy);
 	printf("Stopped firering canon #1\n");
 
-/*
 	printf("Start firering canon #2\n");
 	canon(1, SHOTS, SHOTS_SPU, 10, 230, 1.0, 0.0, energy);
 	printf("Stopped firering canon #2\n");
 
-
 	printf("Start firering canon #3\n");
 	canon(2, SHOTS, SHOTS_SPU, 550, 230, -1.0, 0.0, energy);
 	printf("Stopped firering canon #3\n");
-
 
 	printf("Start firering canon #4\n");
 	canon(3, SHOTS, SHOTS_SPU, 475, 90, -1.0, 0.75, energy);
@@ -241,7 +237,7 @@ int main(int argc, char* argv[])
 	printf("Start firering canon #5\n");
 	canon(4, SHOTS, SHOTS_SPU, 280, 0, 0.0, 1.0, energy);
 	printf("Stopped firering canon #5\n");
-*/
+
 	// Stop timer!
 	sw_stop();
 	sw_timeString(timer_buffer);
