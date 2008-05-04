@@ -1,8 +1,10 @@
 #include "../Common/PPMReaderWriter.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <math.h>
+#include <unistd.h>
 
 #ifdef WIN32
 #include <windows.h>
@@ -52,10 +54,16 @@ void readimage_grey(char* filename, void* allocator(size_t), struct IMAGE_FORMAT
 	//Read whitespace
 	fscanf(fh, " ");
 	image_size = imageinfo->width * imageinfo->height;
-	memory_width = imageinfo->width + (128 - imageinfo->width % 128);
+	memory_width = imageinfo->width + ((128 - imageinfo->width) % 128);
+	printf("memory_width: %i\n", memory_width);
 
-	imageinfo->image = (unsigned char*)allocator(memory_width * imageinfo->height * sizeof(unsigned char));
-	
+	if (imageinfo->image == NULL) {
+		//printf("PPMReaderWriter.c: image is undefined\n");
+		imageinfo->image = (unsigned char*)allocator(memory_width * imageinfo->height * sizeof(unsigned char));
+	} else {
+		//printf("PPMReaderWriter.c: image is defined\n"); 
+	}
+		
 	for(y = 0; y < imageinfo->height; y++)
 	{
 		for(x = 0; x < imageinfo->width; x++)
