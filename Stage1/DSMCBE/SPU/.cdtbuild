@@ -20,8 +20,14 @@
       <toolChain superClass="celldt.managedbuild.config.cell.spu.gnu.lib.release.toolchain" id="celldt.managedbuild.config.cell.spu.gnu.lib.release.toolchain.526536574" name="SPU GNU Release Tool Chain">
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic" id="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic.1112714540" name="SPU GNU Assembler"/>
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib" id="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib.247339324" name="SPU GNU Archiver"/>
-        <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release" id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release.277799167" name="SPU GNU C Compiler with Release Options"/>
+        <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release" id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release.277799167" name="SPU GNU C Compiler with Release Options">
+          <option superClass="gnu.c.compiler.option.include.paths" id="gnu.c.compiler.option.include.paths.1366298173" valueType="includePath">
+            <listOptionValue value="/opt/ibm/systemsim-cell/include/callthru/spu" builtIn="false"/>
+            <listOptionValue value="/opt/cell/sysroot/opt/cell/sdk/usr/include" builtIn="false"/>
+          </option>
+        </tool>
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.lib.release" id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.lib.release.3550169" name="SPU GNU C++ Compiler with Release Options"/>
+        <macros/>
       </toolChain>
     </configuration>
     <configuration id="celldt.managedbuild.config.cell.spu.xl.lib.debug.895587061" name="spu-xl-debug" description="" parent="celldt.managedbuild.config.cell.spu.xl.lib.debug" artifactName="dsmcbe_spu" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;com.ibm.celldt.core.XLCErrorParser;org.eclipse.cdt.core.GASErrorParser" artifactExtension="a" cleanCommand="rm -fr">

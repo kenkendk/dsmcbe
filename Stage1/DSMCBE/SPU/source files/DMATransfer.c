@@ -13,7 +13,7 @@ struct DMA_LIST_ELEMENT {
 	unsigned int ea_low;
 };
 
-struct DMA_LIST_ELEMENT list[16] __attribute__ ((aligned (16)));
+static struct DMA_LIST_ELEMENT list[16] __attribute__ ((aligned (16)));
 
 void WaitForDMATransferByGroup(int groupid)
 {
@@ -58,13 +58,11 @@ void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int
 	if ((ea % 128) != 0)
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 
-	//printf(WHERESTR "DMA write-transfer, source: %d, ea: %d, size: %d\n", WHEREARG, (int)buffer, ea, size);
-	
 	if (size < 16384 ) {
-		//printf(WHERESTR "Single DMA transfer\n", WHEREARG);
+		//printf(WHERESTR "Single DMA write-transfer, source: %d, ea: %d, size: %d\n", WHEREARG, (int)buffer, ea, size);
 		mfc_put(buffer, ea, size, groupid, 0, 0);
 	} else {
-		//printf(WHERESTR "List DMA transfer\n", WHEREARG);
+		//printf(WHERESTR "DMA list write-transfer, source: %d, ea: %d, size: %d\n", WHEREARG, (int)buffer, ea, size);
 		unsigned int i = 0;
 		unsigned int listsize;	
 		
@@ -82,7 +80,10 @@ void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int
 		}
 		
 		listsize = i * sizeof(struct DMA_LIST_ELEMENT);
+
+		//printf(WHERESTR "List DMA args %d, %d, %d, %d, %d\n", WHEREARG, buffer, list[0].ea_low, list, listsize, groupid);
 		mfc_putl(buffer, list[0].ea_low, list, listsize, groupid, 0, 0);		
+		//printf(WHERESTR "List DMA with %d segments\n", WHEREARG, i);
 	}
 	
 }
@@ -94,14 +95,12 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 
 	if ((ea % 128) != 0)
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
-
-	//printf(WHERESTR "DMA read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
 	
 	if (size < 16384 ) {
-		//printf(WHERESTR "Single DMA transfer\n", WHEREARG);
+		//printf(WHERESTR "Single DMA read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
 		mfc_get(buffer, ea, size, groupid, 0, 0);
 	} else {
-		//printf(WHERESTR "List DMA transfer\n", WHEREARG);
+		//printf(WHERESTR "DMA list read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
 		unsigned int i = 0;
 		unsigned int listsize;	
 		
