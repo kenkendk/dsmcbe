@@ -262,7 +262,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	}
 	else
 	{
-		printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
+		//printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
 		//Create a list if none exists
 		if (!ht_member(waiters, (void*)request->dataItem))
 			ht_insert(waiters, (void*)request->dataItem, dq_create());

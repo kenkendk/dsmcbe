@@ -1,15 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc_align.h>
 #include <spu_intrinsics.h>
 #include <spu_mfcio.h>
 #include <profile.h>
 #include <math.h>
 #include <libmisc.h>
-#include "../Common/Common.h"
 #include <dsmcbe_spu.h>
 #include <unistd.h>
 #include "../PPU/guids.h"
+#include "../Common/Common.h"
 
 #define BLOCKSIZE (GRIDWIDTH * GRIDHEIGTH) // In bytes
 #define NUM_OF_BUFFERS 2
@@ -28,20 +27,6 @@ struct CURRENT_GRID
 	unsigned char x;
 	unsigned char y;
 };
-
-struct DMA_LIST_ELEMENT {
-	union {
-		unsigned int all32;
-		struct {
-			unsigned int stall : 1;
-			unsigned int reserved : 15;
-			unsigned int nbytes : 16;
-		} bits;
-	} size;
-	unsigned int ea_low;
-};
-
-struct DMA_LIST_ELEMENT list[GRIDHEIGTH] __attribute__ ((aligned (16)));
 
 unsigned int CTWIDTH;
 unsigned int CTHEIGTH;
@@ -75,8 +60,10 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 							
 	//printf("Canon firering %i shots in grid(%i,%i)\n", pcnt, current_grid.x, current_grid.y);
 		
-	int width = MIN(GRIDWIDTH, CTWIDTH-(current_grid.x * GRIDWIDTH));
+	int width = MIN(GRIDWIDTH, CTWIDTH-(current_grid.x * GRIDWIDTH));	
 	int heigth = MIN(GRIDHEIGTH, CTHEIGTH-(current_grid.y * GRIDHEIGTH));
+	
+	int memory_width = width + ((128 - width) % 128);
 
 	int minx = current_grid.x * GRIDWIDTH;		
 	int maxx = minx + width; 
@@ -108,7 +95,7 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 			
 			while(xx >= minx && yy >= miny && xx < maxx && yy < maxy)
 			{					
-				if ((RANDOM(10) * (256-buffer[((yy-miny)*width)+(xx-minx)])) > (float)1700.0)
+				if ((RANDOM(10) * (256-buffer[((yy-miny)*memory_width)+(xx-minx)])) > (float)1700.0)
 				{				
 					points[i].alive = FALSE;
 					points[i].x = xx;
@@ -215,7 +202,6 @@ int main()
 			int* count = acquire(COUNT+jobID, &size);
 			*count += 1;
 			release(count);
-			printf("SPU finished, waiting for new package\n");
 			jobID++;
 			continue;
 		}
@@ -255,7 +241,7 @@ int main()
 			unsigned char* buffer;
 			buffer = acquire(id, &size);			
 			//printf("spu.c: Finished acquiring BUFFER\n");
-			
+					
 			next_grid.x = current_grid.x + 1;
 			if(next_grid.x == 3)
 			{
