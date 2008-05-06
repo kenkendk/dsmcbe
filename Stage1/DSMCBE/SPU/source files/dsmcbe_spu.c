@@ -78,6 +78,7 @@ void* acquire(GUID id, unsigned long* size) {
 	object->id = id;
 	object->EA = (void*)data;
 	object->size = *size;
+	
 	ht_insert(allocatedItems, allocation, object);
 	
 	//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
@@ -140,11 +141,12 @@ void release(void* data){
 			perror("RequestID for SPU was incorrect");
 		
 		ht_delete(allocatedItems, data);
+		
 		free(object);
 	}
 }
 
 void initialize(){
-	allocatedItems = ht_create(10, lessint, hashfc);
+	allocatedItems = ht_create(5, lessint, hashfc);
 }
 

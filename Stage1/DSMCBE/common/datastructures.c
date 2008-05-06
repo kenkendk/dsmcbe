@@ -359,8 +359,8 @@ hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(
 
 void ht_insert(hashtable ht, void* key, void* data)
 {
-	if (((ht->fill + 1) * 2) > ht->count)
-		ht_resize(ht, ht->count * 2);
+//	if (((ht->fill + 1) * 2) > ht->count)
+//		ht_resize(ht, ht->count * 2);
 
 	slset_insert(ht->buffer[ht->hash(key, ht->count)], key, data);
 	ht->fill++;
@@ -370,8 +370,8 @@ void ht_delete(hashtable ht, void* key)
 {
 	slset_delete(ht->buffer[ht->hash(key, ht->count)], key);
 	ht->fill--;
-	if (ht->fill * 3 < ht->count)
-		ht_resize(ht, ht->count / 2);
+//	if (ht->fill * 3 < ht->count)
+//		ht_resize(ht, ht->count / 2);
 }
 
 int ht_member(hashtable ht, void* key)

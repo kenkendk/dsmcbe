@@ -79,7 +79,7 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 		release(count); 
 	}while(*count < SPU_THREADS);
 				
-	printf("\n\n\n\n\nStart working on results\n\n\n\n\n");				
+	printf("\n\nStart working on results\n\n");				
 				
 	for(i = 0; i < (shots / shots_spu); i++) {
 		unsigned long size;
@@ -134,55 +134,37 @@ int main(int argc, char* argv[])
 	threads = simpleInitialize(SPU_THREADS);
 
 	printf("Starting loading images!\n");
-	int memory_width = GRIDWIDTH + ((128 - GRIDHEIGTH) % 128);
-	
+
+			
 	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
-	grid00->image = create(GRID00IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT00.ppm", malloc_align7, grid00);
-	release(grid00->image);		
+	readimage_grey_DSMCBE("CT00.ppm", grid00, GRID00IMAGE);
 	release(grid00);			
 	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY));
-	grid01->image = create(GRID01IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT01.ppm", malloc_align7, grid01);
-	release(grid01->image);	
-	release(grid01);	
+	readimage_grey_DSMCBE("CT01.ppm", grid01, GRID01IMAGE);
+	release(grid01);			
 	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY));
-	grid02->image = create(GRID02IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT02.ppm", malloc_align7, grid02);
-	release(grid02->image);
-	release(grid02);
+	readimage_grey_DSMCBE("CT02.ppm", grid02, GRID02IMAGE);
+	release(grid02);			
 
 	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY));
-	grid10->image = create(GRID10IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT10.ppm", malloc_align7, grid10);
-	release(grid10->image);
-	release(grid10);
+	readimage_grey_DSMCBE("CT10.ppm", grid10, GRID10IMAGE);
+	release(grid10);			
 	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY));
-	grid11->image = create(GRID11IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT11.ppm", malloc_align7, grid11);
-	release(grid11->image);
-	release(grid11);
+	readimage_grey_DSMCBE("CT11.ppm", grid11, GRID11IMAGE);
+	release(grid11);			
 	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY));
-	grid12->image = create(GRID12IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT12.ppm", malloc_align7, grid12);
-	release(grid12->image);
-	release(grid12);
+	readimage_grey_DSMCBE("CT12.ppm", grid12, GRID12IMAGE);
+	release(grid12);			
 
 	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY));
-	grid20->image = create(GRID20IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT20.ppm", malloc_align7, grid20);
-	release(grid20->image);
-	release(grid20);
+	readimage_grey_DSMCBE("CT20.ppm", grid20, GRID20IMAGE);
+	release(grid20);			
 	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY));
-	grid21->image = create(GRID21IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT21.ppm", malloc_align7, grid21);
-	release(grid21->image);
-	release(grid21);
+	readimage_grey_DSMCBE("CT21.ppm", grid21, GRID21IMAGE);
+	release(grid21);			
 	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY));
-	grid22->image = create(GRID22IMAGE, memory_width * GRIDHEIGTH * sizeof(unsigned char));
-	readimage_grey("CT22.ppm", malloc_align7, grid22);
-	release(grid22->image);
-	release(grid22);
+	readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
+	release(grid22);			
 	
 	printf("Finished loading images!\n");
 	
