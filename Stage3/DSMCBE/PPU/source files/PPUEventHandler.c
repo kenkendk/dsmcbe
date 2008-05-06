@@ -168,6 +168,8 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 
 		struct acquireResponse* ar;
 	
+		printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
+		
 		//Create the request, this will be released by the coordinator	
 		if ((cr = (struct acquireRequest*)malloc(sizeof(struct acquireRequest))) == NULL)
 			perror("PPUEventHandler.c: malloc error");
@@ -200,7 +202,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		
 		free(ar);
 	} else if (type == READ) {
-		
+		printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		retval = NULL;
 	}
 	return retval;	

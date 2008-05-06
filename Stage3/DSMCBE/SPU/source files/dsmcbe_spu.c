@@ -45,7 +45,7 @@ void* acquire(GUID id, unsigned long* size, int type) {
 			return NULL;
 		}
 		
-		printf(WHERESTR "Starting acquiring id: %i in mode: WR\n", WHEREARG, id);
+		printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
 		spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_WRITE);
 		spu_write_out_mbox(2);
 		spu_write_out_mbox(id);
