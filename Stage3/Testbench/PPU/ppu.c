@@ -9,33 +9,36 @@
 int main(int argc, char **argv) {
 	
 	unsigned long size;
-
+	int i;
+	int* data;
+	
 	printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
 	spu_threads = simpleInitialize(SPU_THREADS);
 
-	/*printf("ppu.c: Going to sleep\n");
-	sleep(1);*/
-	
 	printf(WHERESTR "Creating\n", WHEREARG);
-	int* data = create(ETTAL, sizeof(int));
+	data = create(ETTAL, sizeof(int));
 	(*data) = 928;
 	
-	printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
-	
+	printf(WHERESTR "Data location is %u\n", WHEREARG, (unsigned int)data);
+	printf(WHERESTR "Data value is %i\n", WHEREARG, *data);	
 	printf(WHERESTR "Releasing\n", WHEREARG);
 	release(data);
 	
-	printf(WHERESTR "Released, waiting for SPU to complete\n", WHEREARG);
-	pthread_join(spu_threads[SPU_THREADS - 1], NULL);
-	
-	data = acquire(ETTAL, &size, WRITE);
-	printf(WHERESTR "ppu.c: Data location is %i\n", WHEREARG, (unsigned int)data);
-	printf(WHERESTR "ppu.c: Value is %i\n", WHEREARG, *data);
-	
+	data = acquire(ETTAL, &size, READ);				
+	printf(WHERESTR "Data location is %u\n", WHEREARG, (unsigned int)data);
+	printf(WHERESTR "Data value is %i\n", WHEREARG, *data);		
 	release(data);
+
+	for (i = 0; i < SPU_THREADS; i++)
+		pthread_join(spu_threads[i], NULL);
 	
+	data = acquire(ETTAL, &size, READ);				
+	printf(WHERESTR "Data location is %u\n", WHEREARG, (unsigned int)data);
+	printf(WHERESTR "Data value is %i\n", WHEREARG, *data);		
+	release(data);
+				
 	printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);
 	
 	return 0;

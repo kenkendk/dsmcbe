@@ -31,6 +31,7 @@ struct dataObjectStruct{
 	void* EA;
 	unsigned long size;
 	dqueue waitqueue;
+	queue readersqueue;
 };
 
 //This is used for sorting inside the hashtables
@@ -139,7 +140,7 @@ void RespondNACK(QueueableItem item)
 {
 	struct NACK* resp;
 	if ((resp = (struct NACK*)malloc(sizeof(struct NACK))) == NULL)
-		perror("RequestCoordinator.c: malloc error");
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 			
 	resp->packageCode = PACKAGE_NACK;
 	resp->hint = 0;
@@ -152,7 +153,7 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 {
 	struct acquireResponse* resp;
 	if ((resp = (struct acquireResponse*)malloc(sizeof(struct acquireResponse))) == NULL)
-		perror("RequestCoordinator.c: malloc error");
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 
 	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
 	resp->dataSize = obj->size;
@@ -166,7 +167,7 @@ void RespondRelease(QueueableItem item)
 {
 	struct releaseResponse* resp;
 	if ((resp = (struct releaseResponse*)malloc(sizeof(struct releaseResponse))) == NULL)
-		perror("RequestCoordinator.c: malloc error");
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 	
 	resp->packageCode = PACKAGE_RELEASE_RESPONSE;
 
@@ -178,7 +179,7 @@ void RespondInvalidate(QueueableItem item)
 {
 	struct invalidateResponse* resp;
 	if ((resp = (struct invalidateResponse*)malloc(sizeof(struct invalidateResponse))) == NULL)
-		perror("RequestCoordinator.c: malloc error");
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 	
 	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
 
@@ -195,7 +196,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	//Check that the item is not already created
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
-		perror("RequestCoordinator.c: Create request for already existing item");
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: Create request for already existing item\n", WHEREARG);
 		RespondNACK(item);
 	}
 	else
@@ -204,7 +205,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		data = _malloc_align(size + ((16 - size) % 16), 7);
 		if (data == NULL)
 		{
-			perror("Failed to allocate buffer for create");
+			fprintf(stderr, WHERESTR "Failed to allocate buffer for create\n", WHEREARG);
 			RespondNACK(item);
 			return;
 		}
@@ -212,7 +213,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 
 		// Make datastructures for later use
 		if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
-			perror("RequestCoordinator.c: malloc error");
+			fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 		
 		object->id = request->dataItem;
 		object->EA = data;
@@ -226,6 +227,9 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		}
 		else
 			object->waitqueue = dq_create();
+			
+		// Create queue for readers
+		object->readersqueue = queue_create();
 		
 		//Acquire the item for the creator
 		dq_enq_front(object->waitqueue, NULL);
@@ -239,10 +243,20 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	
 }
 
+//Perform all actions related to an invalidate
+void DoInvalidate(QueueableItem item, struct invalidateRequest* request)
+{
+	RespondInvalidate(item);
+}
+
+
+
+
 //Performs all actions releated to an acquire request
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
 	dqueue q;
+	queue r;
 	dataObject obj;
 	
 	//Check that the item exists
@@ -250,15 +264,35 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	{
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
 		q = obj->waitqueue;
+		r = obj->readersqueue;
 		
 		//If the object is not locked, register as locked and respond
 		if (dq_empty(q))
 		{
-			dq_enq_front(q, NULL);
-			RespondAcquire(item, obj);
+			printf(WHERESTR "Object not looked\n", WHEREARG);
+			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
+				printf(WHERESTR "Acquiring READ on not looked object\n", WHEREARG);
+				queue_enq(r, item);
+				RespondAcquire(item, obj);		
+			} else {			
+				printf(WHERESTR "Acquiring WRITE on not looked object\n", WHEREARG);
+				dq_enq_front(q, NULL);
+				RespondAcquire(item, obj);
+				
+				// Invalidate all in readersqueue (r)
+				while (!queue_empty(r)) {
+					// Invalidate
+					printf(WHERESTR "Must invalidate\n", WHEREARG);
+					QueueableItem next = queue_deq(r);
+					DoInvalidate(next, NULL);					
+				}
+			}
 		}
-		else //Otherwise add the request to the wait list
+		else {
+			//Otherwise add the request to the wait list
+			printf(WHERESTR "Object looked\n", WHEREARG);
 			dq_enq_back(q, item);
+		}
 	}
 	else
 	{
@@ -278,6 +312,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 void DoRelease(QueueableItem item, struct releaseRequest* request)
 {
 	dqueue q;
+	queue r;
 	dataObject obj;
 	QueueableItem next;
 	
@@ -287,13 +322,18 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 	{
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
 		q = obj->waitqueue;
+		r = obj->readersqueue;
 		
 		//printf(WHERESTR "%d queue pointer: %d\n", WHEREARG, request->dataItem, (int)q);
 		
 		//Ensure that the item was actually locked
 		if (dq_empty(q))
 		{
-			perror("Bad release, item was not locked!");
+			if (!queue_empty(r)) {				
+				printf(WHERESTR "Bad release, maybe item was a READ\n", WHEREARG);
+			} else {
+				fprintf(stderr, WHERESTR "Bad release, item was not locked!\n", WHEREARG);
+			}
 			RespondNACK(item);
 		}
 		else
@@ -302,7 +342,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 			next = dq_deq_front(q);
 			if (next != NULL)
 			{
-				perror("Bad queue, the top entry was not a locker!");
+				fprintf(stderr, WHERESTR "Bad queue, the top entry was not a locker!\n", WHEREARG);
 				dq_enq_front(q, next);
 				RespondNACK(item);
 			}
@@ -314,23 +354,16 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				{
 					//Acquire for the next in the queue
 					next = dq_deq_front(q);
-					dq_enq_front(q, NULL);
-					RespondAcquire(next, obj);
+					DoAcquire(next, (struct acquireRequest*)next->dataRequest);
 				}
 			}
 		}
 	}
 	else
 	{
-		perror("Tried to release a non-existing item!");
+		fprintf(stderr, WHERESTR "Tried to release a non-existing item!\n", WHEREARG);
 		RespondNACK(item);		
 	}
-}
-
-//Perform all actions related to an invalidate
-void DoInvalidate(QueueableItem item, struct invalidateRequest* request)
-{
-	RespondInvalidate(item);
 }
 
 //This is the main thread function
@@ -380,7 +413,7 @@ void* ProccessWork(void* data)
 			
 			default:
 				printf(WHERESTR "Unknown package code: %i\n", WHEREARG, datatype);
-				perror("Unknown package recieved");
+				fprintf(stderr, WHERESTR "Unknown package recieved\n", WHEREARG);
 				RespondNACK(item);
 		};	
 		
