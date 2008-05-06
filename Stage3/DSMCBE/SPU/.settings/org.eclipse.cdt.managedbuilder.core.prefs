@@ -1,0 +1,3 @@
+#Fri Apr 25 16:09:41 CEST 2008
+eclipse.preferences.version=1
+environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.spu.gnu.lib.debug.4496948=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
