@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "../guids.h"
 #include <common/debug.h>
+#include <unistd.h>
 
 #define SPU_THREADS 1
 

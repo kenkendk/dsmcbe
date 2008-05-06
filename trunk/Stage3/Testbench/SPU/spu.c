@@ -6,6 +6,8 @@
 #include <spu_mfcio.h> 
 #include "../guids.h"
 #include <common/debug.h>
+#include <unistd.h>
+
 
 
 int main(int argc, char **argv) {
@@ -18,7 +20,7 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Hello World\n", WHEREARG);
 		unsigned long size;
 		
-		int* allocation = acquire(ETTAL, &size, WRITE);
+		int* allocation = acquire(ETTAL, &size, READ);
 	
 		printf(WHERESTR "Value read from acquire is: %i\n", WHEREARG, *allocation);
 		
