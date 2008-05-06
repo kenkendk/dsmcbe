@@ -162,49 +162,53 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 {
 	void* retval;
 	
-	if (type == WRITE) {
-	
-		struct acquireRequest* cr;
+	struct acquireRequest* cr;
 
-		struct acquireResponse* ar;
-	
+	struct acquireResponse* ar;
+		
+	//Create the request, this will be released by the coordinator	
+	if ((cr = (struct acquireRequest*)malloc(sizeof(struct acquireRequest))) == NULL)
+		perror("PPUEventHandler.c: malloc error");
+
+	if (type == WRITE) {
 		printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
-		
-		//Create the request, this will be released by the coordinator	
-		if ((cr = (struct acquireRequest*)malloc(sizeof(struct acquireRequest))) == NULL)
-			perror("PPUEventHandler.c: malloc error");
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
-		cr->requestID = 0;
-		cr->dataItem = id;
-	
-		retval = NULL;
-			
-		//Perform the request and await the response
-		ar = (struct acquireResponse*)forwardRequest(cr);
-		if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
-		{
-			if (ar->packageCode != PACKAGE_NACK)
-				perror("Unexcepted response for a Create request");
-		}
-		else
-		{
-			//The request was positive
-			retval = ar->data;
-			(*size) = ar->dataSize;
-			
-			#if DEBUG
-			if (ar->requestID != 0)
-				perror("Bad request ID returned in create");
-			#endif
-		}	
-		
-		recordPointer(retval, id, *size, 0);	
-		
-		free(ar);
-	} else if (type == READ) {
-		printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
-		retval = NULL;
 	}
+	else if (type == READ) {
+		printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
+		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
+	}
+	else
+		perror("Starting acquiring in unknown mode");
+		
+	cr->requestID = 0;
+	cr->dataItem = id;
+
+	retval = NULL;
+		
+	//Perform the request and await the response
+	ar = (struct acquireResponse*)forwardRequest(cr);
+	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
+	{
+		if (ar->packageCode != PACKAGE_NACK)
+			perror("Unexcepted response for a Create request");
+	}
+	else
+	{
+		//The request was positive
+		retval = ar->data;
+		(*size) = ar->dataSize;
+		
+		#if DEBUG
+		if (ar->requestID != 0)
+			perror("Bad request ID returned in create");
+		#endif
+	}
+	
+	recordPointer(retval, id, *size, 0);	
+	
+	free(ar);
+
 	return retval;	
 }
 
