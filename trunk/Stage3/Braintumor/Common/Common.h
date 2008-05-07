@@ -1,3 +1,6 @@
+#define GRIDWIDTH 256 // Number of pixels
+#define GRIDHEIGTH 256 // Number of pixels
+
 struct POINTS
 {
 	unsigned int x;

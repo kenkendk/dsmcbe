@@ -10,15 +10,15 @@
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
 
-static hashtable allocatedItemsWrite;
-static hashtable allocatedItemsRead;
+static hashtable allocatedItemsWrite, allocatedItemsRead, allocatedItemsOld;
+static queue allocatedID;
 
 typedef struct dataObjectStruct *dataObject;
 
 struct dataObjectStruct{	
 	GUID id;
 	void* EA;
-	int data;
+	void* data;
 	unsigned long size;
 };
 
@@ -30,6 +30,22 @@ int lessint(void* a, void* b){
 int hashfc(void* a, unsigned int count){
 	
 	return ((int)a % count);
+}
+
+int clear() {	
+	int id = (int)queue_deq(allocatedID);
+	//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);
+	if(ht_member(allocatedItemsOld, (void*)id)) {
+		dataObject object = ht_get(allocatedItemsOld, (void*)id);		
+		ht_delete(allocatedItemsOld, (void*)id);
+		free_align(object->data);
+		free(object);
+		//printf(WHERESTR "Item removed\n", WHEREARG);
+		return 1;				
+	} else
+		//printf(WHERESTR "Item not found\n", WHEREARG);
+	
+	return 0;
 }
 
 void sendMailbox(void* dataItem, int packagetype) {
@@ -144,6 +160,26 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	void* allocation;
 	unsigned int transfer_size;
 	
+	if (type == READ && ht_member(allocatedItemsOld, (void*)id)) {
+		dataObject object = ht_get(allocatedItemsOld, (void*)id);		
+		//printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
+
+		ht_delete(allocatedItemsOld, (void*)id);
+		ht_insert(allocatedItemsRead, object->data, object);	
+		
+		queue temp = queue_create();
+		GUID value;
+		while(!queue_empty(allocatedID)) {
+			value = (GUID)queue_deq(allocatedID);
+			if(id != value) 
+				queue_enq(temp, (void*)value);
+		}
+		queue_destroy(allocatedID);
+		allocatedID = temp;
+		
+		return object->data;
+	}
+	
 	struct acquireRequest* request;
 	if ((request = malloc(sizeof(struct acquireRequest))) == NULL)
 		perror("SPUEventHandler.c: malloc error");
@@ -155,11 +191,11 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	}
 	
 	if (type == WRITE) {
-		printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
+		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
 		//spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_WRITE);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
 	} else if (type == READ) {
-		printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
+		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		//spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_READ);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	} else {
@@ -183,19 +219,28 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	
 	transfer_size = *size + ((16 - *size) % 16);
 
-	if ((allocation = _malloc_align(transfer_size, 7)) == NULL)
-		perror("Failed to allocate memory on SPU");		
-
+	while((allocation = _malloc_align(transfer_size, 7)) == NULL) {
+		if (clear() == 0) {
+			fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
+			break;
+		}
+	}
+	
 	//printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
 
 	// Make datastructures for later use
 	dataObject object;
-	if ((object = malloc(sizeof(struct dataObjectStruct))) == NULL)
-			perror("Failed to allocate memory on SPU");		
+	while((object = malloc(sizeof(struct dataObjectStruct))) == NULL) {
+		if (clear() == 0) {
+			fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
+			break;
+		}
+	}
 			
 	object->id = id;
 	object->EA = resp->data;
 	object->size = *size;
+	object->data = allocation;
 	if (type == WRITE)
 		ht_insert(allocatedItemsWrite, allocation, object);
 	else
@@ -208,7 +253,7 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	WaitForDMATransferByGroup(0);
 	
 	//printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
-	printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);		
+	//printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);		
 	
 	free(resp);
 	
@@ -230,7 +275,7 @@ void release(void* data){
 		dataObject object = ht_get(allocatedItemsWrite, data);
 		
 		transfersize = object->size + ((16 - object->size) % 16);
-		printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
+		//printf(WHERESTR "Release for WRITE id: %i\n", WHEREARG, object->id);
 		
 		//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
 		StartDMAWriteTransfer(data, (int)object->EA, transfersize, 1);
@@ -264,19 +309,33 @@ void release(void* data){
 		
 		struct releaseResponse* resp = readMailbox();
 		free(resp);
-		
+	
 //		printf(WHERESTR "Message type: %i\n", WHEREARG, resp->packageCode);
 //		printf(WHERESTR "Request id: %i\n", WHEREARG, resp->requestID);
 		
 		ht_delete(allocatedItemsWrite, data);
+		free(object);
 	} else if (ht_member(allocatedItemsRead, data)) {
+
+		dataObject object = ht_get(allocatedItemsRead, data);		
+		//printf(WHERESTR "Release for READ id: %i\n", WHEREARG, object->id);
+
+		ht_delete(allocatedItemsRead, data);
+		ht_insert(allocatedItemsOld, (void*)object->id, object);
+		queue_enq(allocatedID, (void*)object->id);
 		
-		printf(WHERESTR "Cannot release data when allocated en READ mode\n", WHEREARG);
+		// Later we will move data to list containing release read objects, instead
+		// of freeing them. This can be used to make it possible to reacquire read data, 		 
+		// whitout transfering data from main memory.
+		//free_align(data);
 	}
 }
+
 
 void initialize(){
 	allocatedItemsWrite = ht_create(10, lessint, hashfc);
 	allocatedItemsRead = ht_create(10, lessint, hashfc);
+	allocatedItemsOld = ht_create(10, lessint, hashfc);
+	allocatedID = queue_create();
 }
 

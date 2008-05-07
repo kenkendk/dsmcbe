@@ -10,21 +10,24 @@
 
 int main(int argc, char **argv) {
 	
-	initialize();
+	int i,j,k;
+	unsigned long space;
+	unsigned char* data; 
+	int size = 200;
 	
+	initialize();	
 	printf(WHERESTR "Hello World\n", WHEREARG);
-	unsigned long size;
 	
-	sleep(2.0);
-	
-	int* allocation = acquire(ETTAL, &size, WRITE);
-
-	printf(WHERESTR "Value read from acquire is: %i\n", WHEREARG, *allocation);
-	
-	*allocation = 210;
-			
-	release(allocation);
-	printf(WHERESTR "Release completed\n", WHEREARG);
+	for(i = 0; i < 1; i++) {
+		data = acquire(ETTAL + i, &space, WRITE);
+		for(j = 0; j < size; j++)
+			for(k = 0; k < size; k++)
+				if (data[(j * size) + k] != 1)
+					printf(WHERESTR "Error in ETTAL with id; %i at position (%i,%i) value was: %i\n", WHEREARG, i, j, k, data[(j * size) + k]);			
+				
+		printf(WHERESTR "Releasing\n", WHEREARG);
+		release(data);
+	}
 	
 	printf(WHERESTR "Done\n", WHEREARG);
 	

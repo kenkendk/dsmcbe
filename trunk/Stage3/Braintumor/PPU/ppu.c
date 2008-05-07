@@ -16,14 +16,14 @@
 
 extern spe_program_handle_t SPU;
 
+#define DEAD 2
 #define FALSE 0
 #define TRUE 1
 #define RANDOM(max) ((((float)rand() / (float)RAND_MAX) * (float)(max)))
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #define SHOTS_SPU 2048
-//#define SHOTS (SHOTS_SPU * 480)
-#define SHOTS (SHOTS_SPU * 10)
+#define SHOTS (SHOTS_SPU * 480)
 
 int WIDTH;
 int HEIGTH;
@@ -51,8 +51,7 @@ void* malloc_align7(unsigned int size)
 
 void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canonAX, float canonAY, unsigned char* energy)
 {
-	int i;
-	unsigned char max_integer = (unsigned char)pow(2, sizeof(unsigned char)*8);
+	int i, j;
 	
 	int shotsspu = SHOTS_SPU;
 
@@ -69,22 +68,43 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	package->canonAY = canonAY;
 	release(package);
 	
-	//sleep(2);
-		
+	int* count = create(COUNT+id, sizeof(int));
+	*count = 0;
+	release(count);
+	
+	unsigned long size;
+	do {
+		sleep(1);
+		count = acquire(COUNT+id, &size, WRITE);
+		release(count); 
+	}while(*count < SPU_THREADS);
+				
+	printf("\n\nStart working on results\n\n");
+	
 	for(i = 0; i < (shots / shots_spu); i++) {
-		//sleep(1);
 		unsigned long size;
-		struct POINTS* points = acquire(RESULT + i, &size);
-		
-		printf("Start working on results");
+		struct POINTS* points = acquire(RESULT + i, &size, WRITE);	
 			
 		// Save results to energy
-		for(i = 0; i < shots_spu; i++) {
-			if(points[i].alive == FALSE)
-				energy[MAPOFFSET((int)(points[i].x), (int)(points[i].y))] =  MIN(energy[MAPOFFSET((int)(points[i].x),(int)(points[i].y))] + 1, max_integer);			
+		for(j = 0; j < shots_spu; j++) {
+			if(points[j].alive == FALSE)
+				energy[MAPOFFSET((int)(points[j].x), (int)(points[j].y))] =  MIN(energy[MAPOFFSET((int)(points[j].x),(int)(points[j].y))] + 1, 255);
 		}
 		release(points);
 	}
+}
+
+void calc(int id, struct IMAGE_FORMAT_GREY* grid) {
+
+	int x, y;
+	int sum = 0;
+					
+	for(y = 0; y < GRIDHEIGTH; y++) {
+		for(x = 0; x < GRIDWIDTH; x++) {
+			sum += grid->image[(y * GRIDWIDTH)+x];
+		}
+	}
+	printf("PPU: Buffer with id: %i value is: %i\n", id, sum);
 }
 
 int main(int argc, char* argv[])
@@ -114,37 +134,38 @@ int main(int argc, char* argv[])
 	threads = simpleInitialize(SPU_THREADS);
 
 	printf("Starting loading images!\n");
-	
+
+			
 	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT00.ppm", malloc_align7, grid00);
-	release(grid00);	
+	readimage_grey_DSMCBE("CT00.ppm", grid00, GRID00IMAGE);
+	release(grid00);			
 	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT01.ppm", malloc_align7, grid01);
-	release(grid01);
+	readimage_grey_DSMCBE("CT01.ppm", grid01, GRID01IMAGE);
+	release(grid01);			
 	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT02.ppm", malloc_align7, grid02);
-	release(grid02);
+	readimage_grey_DSMCBE("CT02.ppm", grid02, GRID02IMAGE);
+	release(grid02);			
 
 	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT10.ppm", malloc_align7, grid10);
-	release(grid10);
+	readimage_grey_DSMCBE("CT10.ppm", grid10, GRID10IMAGE);
+	release(grid10);			
 	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT11.ppm", malloc_align7, grid11);
-	release(grid11);
+	readimage_grey_DSMCBE("CT11.ppm", grid11, GRID11IMAGE);
+	release(grid11);			
 	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT12.ppm", malloc_align7, grid12);
-	release(grid12);
+	readimage_grey_DSMCBE("CT12.ppm", grid12, GRID12IMAGE);
+	release(grid12);			
 
 	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT20.ppm", malloc_align7, grid20);
-	release(grid20);
+	readimage_grey_DSMCBE("CT20.ppm", grid20, GRID20IMAGE);
+	release(grid20);			
 	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT21.ppm", malloc_align7, grid21);
-	release(grid21);
+	readimage_grey_DSMCBE("CT21.ppm", grid21, GRID21IMAGE);
+	release(grid21);			
 	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey("CT22.ppm", malloc_align7, grid22);
-	release(grid22);
-
+	readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
+	release(grid22);			
+	
 	printf("Finished loading images!\n");
 	
 	for(i = 0; i < (SHOTS / SHOTS_SPU); i++)
@@ -183,16 +204,13 @@ int main(int argc, char* argv[])
 	canon(0, SHOTS, SHOTS_SPU, 85, 75, 1.0, 0.8, energy);
 	printf("Stopped firering canon #1\n");
 
-
 	printf("Start firering canon #2\n");
 	canon(1, SHOTS, SHOTS_SPU, 10, 230, 1.0, 0.0, energy);
 	printf("Stopped firering canon #2\n");
 
-
 	printf("Start firering canon #3\n");
 	canon(2, SHOTS, SHOTS_SPU, 550, 230, -1.0, 0.0, energy);
 	printf("Stopped firering canon #3\n");
-
 
 	printf("Start firering canon #4\n");
 	canon(3, SHOTS, SHOTS_SPU, 475, 90, -1.0, 0.75, energy);
