@@ -16,7 +16,6 @@ int main(int argc, char **argv) {
 	pthread_t* spu_threads;
 	spu_threads = simpleInitialize(SPU_THREADS);
 
-	/*
 	//printf("ppu.c: Going to sleep\n");
 	//sleep(1);
 	
@@ -30,8 +29,8 @@ int main(int argc, char **argv) {
 	release(data);
 	
 	data = acquire(ETTAL, &size);
-	printf(WHERESTR "ppu.c: Data location is %i\n", WHEREARG, (unsigned int)data);
-	printf(WHERESTR "ppu.c: Value is %i\n", WHEREARG, *data);
+	printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
+	printf(WHERESTR "Value is %i. The expected value is 210.\n", WHEREARG, *data);
 	
 	release(data);
 
@@ -51,7 +50,7 @@ int main(int argc, char **argv) {
 	
 	printf(WHERESTR "Re-acquire\n", WHEREARG);
 	largeblock = acquire(LARGE_ITEM, &size);
-	printf(WHERESTR "Acquired large block at %d (%d)\n", WHEREARG, (unsigned int)largeblock, size);
+	printf(WHERESTR "Acquired large block at %d (%d)\n", WHEREARG, (unsigned int)largeblock, (unsigned int)size);
 	items = size / sizeof(unsigned int);
 	
 	for(i = 0; i < items; i++)
@@ -61,7 +60,7 @@ int main(int argc, char **argv) {
 	}
 		
 	release(largeblock);
-	printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);*/
+	printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);
 	
 	printf(WHERESTR "Released, waiting for SPU to complete\n", WHEREARG);
 	pthread_join(spu_threads[SPU_THREADS - 1], NULL);

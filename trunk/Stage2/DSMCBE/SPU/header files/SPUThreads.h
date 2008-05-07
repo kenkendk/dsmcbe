@@ -5,7 +5,7 @@
 #include <setjmp.h>
 
 //Stack must be multiple of 128 bits
-#define STACK_SIZE ((1024 * 16) % 16)
+#define STACK_SIZE (1024 * 16)
 
 //SP is in register 1
 #define SP 1

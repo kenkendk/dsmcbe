@@ -54,20 +54,95 @@ thread_struct* getNextWaitingThread()
 */
 void TerminateThread(void) {
 
-	printf(WHERESTR "In terminate for thread %d, finding next thread\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
+	//printf(WHERESTR "In terminate for thread %d, finding next thread\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
 	thread_struct* nextThread = getNextWaitingThread();
 	if (nextThread == NULL) {
-		printf(WHERESTR "In terminate, no more waiting threads, return to main\n", WHEREARG);
+		//printf(WHERESTR "In terminate, no more waiting threads, return to main\n", WHEREARG);
 		free(threads);
 		threads = NULL;
 		current_thread = NULL;
 		longjmp(main_env->env, 1);
 	} else {
-		printf(WHERESTR "In terminate, flagging thread %d, as dead and resuming %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id, nextThread->id);
+		//printf(WHERESTR "In terminate, flagging thread %d, as dead and resuming %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id, nextThread->id);
 		current_thread->id = -1; //Flag it as dead
 		current_thread = nextThread;
 		longjmp(current_thread->env, 1);
 	}
+}
+
+/*void PrintRegisters(jmp_buf env)
+{
+	unsigned int* temp;
+	printf("R0: %d, %d, %d, %d\n", ((unsigned int *)env)[0], ((unsigned int *)env)[1], ((unsigned int *)env)[2], ((unsigned int *)env)[3]);
+	printf("R1: %d, %d, %d, %d\n", ((unsigned int *)env)[4], ((unsigned int *)env)[5], ((unsigned int *)env)[6], ((unsigned int *)env)[7]);
+	temp = (unsigned int *)(((unsigned int*)env)[SP * INTS_PR_REGISTER]);
+	while(temp != NULL)
+	{
+		printf(WHERESTR "Backtracing stack, SP is %d, avalible space is %d \n", WHEREARG, temp[0], temp[1]);
+		temp = (unsigned int*)temp[0];
+	}
+	printf("\n");
+
+}*/
+
+void CopyStack(jmp_buf env, void* newstack)
+{
+	void* begin;
+	void* end;
+	unsigned int* temp;
+	unsigned int* temp2;
+	unsigned int size;
+	unsigned int remainsize;
+	unsigned int extraspace;
+	int offset;
+	void* newsp;
+	
+	begin = (void*)(((unsigned int*)env)[4]);
+	temp = (unsigned int*)begin;
+	extraspace = ((unsigned int*)temp[0])[0]- temp[0];
+
+	while(temp != NULL)
+	{	
+		if (temp[0] != 0)
+			end = (void*)temp[0];
+		temp = (unsigned int*)temp[0];
+	}
+	
+	size = (end - begin);
+	newsp = (newstack + STACK_SIZE) - size;
+	memcpy(newsp, begin, size);
+	remainsize = STACK_SIZE - size;
+	
+	offset = newsp - begin; 
+	temp = (unsigned int*)(((unsigned int*)env)[4]);
+	temp2 = (unsigned int *)newsp;
+	//temp = (unsigned int*)temp[0]; //Skip the first
+	
+	while(temp != NULL)
+	{
+		if (temp[0] != 0)
+		{
+			temp2[0] = temp[0] + offset;
+			temp2[1] = remainsize;
+			temp2[2] = temp[0] + offset;
+			temp2[3] = temp[0] + offset;
+			
+			remainsize += ((unsigned int*)temp[0])[0] - temp[0];
+		}
+		else
+			((int*)temp2)[1] = -3200;
+
+		//printf(WHERESTR "Assignment, SP %d (%d), To SP %d (%d) \n", WHEREARG, temp[0], temp[1], temp2[0], temp2[1]);
+		
+		temp = (unsigned int*)temp[0];
+		temp2 = (unsigned int*)temp2[0];
+	}
+	
+	((unsigned int*)env)[4] = (unsigned int) newsp;
+	((unsigned int*)env)[5] = STACK_SIZE - size - extraspace;
+	((unsigned int*)env)[6] = (unsigned int) newsp;
+	((unsigned int*)env)[7] = (unsigned int) newsp;
+	
 }
 
 /*
@@ -78,7 +153,6 @@ void TerminateThread(void) {
 */
 int CreateThreads(int threadCount)
 {
-	int test = 4;
 	if (main_env != NULL)
 	{
 			printf("Cannot re-enter this function\n");
@@ -101,98 +175,47 @@ int CreateThreads(int threadCount)
 	current_thread = NULL;
 	no_of_threads = threadCount;
 
-	printf(WHERESTR "Before setjmp w/ main\n", WHEREARG);
-
+	//printf(WHERESTR "Before setjmp w/ main\n", WHEREARG);
+	
 	if (setjmp(main_env->env) == 0) 
 	{
-		void* newstack;
-		
-		unsigned int *temp;
-		unsigned int *temp2;
-		void* stackbegin;
-		void* stackend;
-		unsigned int stacksize;
-		int offset;
-		unsigned int* target;
-		
-		printf(WHERESTR "After setjmp NOT main\n", WHEREARG);
-		
+		//printf(WHERESTR "After setjmp NOT main\n", WHEREARG);
+	
 		//Create the treads
 		threads = (thread_struct*) malloc(sizeof(thread_struct) * no_of_threads);
 		if (threads == NULL)
 			perror("SPU malloc failed for thread storage");
 
-		printf(WHERESTR "Creating threads\n", WHEREARG);
+		//printf(WHERESTR "Creating threads\n", WHEREARG);
 			
 		for(loop_counter = 0; loop_counter < no_of_threads; loop_counter++)
 		{
-			printf(WHERESTR "Creating thread %d\n", WHEREARG, loop_counter);
+			//printf(WHERESTR "Creating thread %d\n", WHEREARG, loop_counter);
 			threads[loop_counter].id = loop_counter;
 			//current_thread = &threads[loop_counter];
 			if (setjmp(threads[loop_counter].env) == 0)
 			{
-				printf(WHERESTR "Created thread %d\n", WHEREARG, loop_counter);
-				newstack = (unsigned int*)threads[loop_counter].stack;
+				//printf(WHERESTR "Created thread %d\n", WHEREARG, loop_counter);
+				//PrintRegisters(threads[loop_counter].env);
 
-				temp = (unsigned int *)(((unsigned int*)threads[loop_counter].env)[SP * INTS_PR_REGISTER]);
-				target = (unsigned int *)(((unsigned int*)threads[loop_counter].env)[SP * INTS_PR_REGISTER]);
-				
-				stackbegin = (void*)temp[0];
-				
-				printf(WHERESTR "Copy target %d, source %d, size %d\n\n", WHEREARG, target, temp, REGISTER_WIDTH);
+				CopyStack(threads[loop_counter].env, threads[loop_counter].stack);				
 
-				memcpy(target, temp, REGISTER_WIDTH);
-				
-				while(temp != NULL)
-				{
-					printf(WHERESTR "Backtracing stack, SP is %d, avalible space is %d \n", WHEREARG, temp[0], temp[1]);
-					if (temp[0] != 0)
-						stackend = (void*)temp[0];
-					temp = (unsigned int*)temp[0];
-				}
-				
-				stacksize = (stackend - stackbegin);
-				newstack = (newstack + STACK_SIZE) - stacksize;
-				printf(WHERESTR "Stacksize is determined to be %d (%d - %d)\n", WHEREARG, stacksize, stackend, stackbegin);
-				memcpy(newstack, stackbegin, stacksize);
-
-				offset = newstack - stackbegin; 
-				temp = (unsigned int *)(((unsigned int*)threads[loop_counter].env)[SP * INTS_PR_REGISTER]);
-				temp2 = (unsigned int *)newstack;
-				
-				while(temp != NULL)
-				{
-					if (temp[0] != 0)
-						temp2[0] = temp[0] + offset;
-					temp = (unsigned int*)temp[0];
-					temp2 = (unsigned int*)temp2[0];
-				}
-				
-			
-				
-				//(((unsigned int*)threads[loop_counter].env)[SP * INTS_PR_REGISTER]) = ((unsigned int)newstack); 
-				temp = (unsigned int *)(((unsigned int*)threads[loop_counter].env)[SP * INTS_PR_REGISTER]);
-			
-				while(temp != NULL)
-				{
-					printf(WHERESTR "Backtracing new stack, SP is %d, avalible space is %d\n", WHEREARG, temp[0], temp[1]);
-					temp = (unsigned int*)temp[0];
-				}
+				//PrintRegisters(threads[loop_counter].env);
 		
-				printf(WHERESTR "Assigned stack for %d\n", WHEREARG, loop_counter);
+				//printf(WHERESTR "Assigned stack for %d\n", WHEREARG, loop_counter);
 			}
 			else
 			{
-				printf(WHERESTR "Returning from a thread, threadid %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
+				//printf(WHERESTR "Returning from a thread, threadid %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
 				break;
 			}
 		}
 
-		printf(WHERESTR "Done creating threads, threadid: %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
+		//printf(WHERESTR "Done creating threads, threadid: %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
 
 		if (current_thread == NULL)
 		{
-			printf(WHERESTR "Initial create, setting thread to #0\n", WHEREARG);
+			//printf(WHERESTR "Initial create, setting thread to #0\n", WHEREARG);
 			current_thread = &threads[0];
 			longjmp(current_thread->env, 1);
 		}
@@ -201,13 +224,13 @@ int CreateThreads(int threadCount)
 			return -2;
 		else
 		{
-			printf(WHERESTR "Returning, test is %d\n", WHEREARG, test);
+			//printf(WHERESTR "Returning\n", WHEREARG);
 			return current_thread->id;
 		}
 	}
 	else
 	{
-		printf(WHERESTR "After setjmp w/ main\n", WHEREARG);
+		//printf(WHERESTR "After setjmp w/ main\n", WHEREARG);
 		
 		free(main_env);
 		return -1;
@@ -225,30 +248,30 @@ int YieldThread(void)
 
 	if (main_env == NULL || threads == NULL || current_thread == NULL)
 	{
-		printf("Yield called before mainenv was initialized");
+		//printf("Yield called before mainenv was initialized");
 		return -2;
 	}
 
-	printf(WHERESTR "In yield, setting return value\n", WHEREARG);
+	//printf(WHERESTR "In yield, setting return value\n", WHEREARG);
 	if (setjmp(current_thread->env) != 0)
 	{
-		printf(WHERESTR "In yield, return from longjmp\n", WHEREARG);
+		//printf(WHERESTR "In yield, return from longjmp\n", WHEREARG);
 		return 0;
 	}
 	else
 	{
-		printf(WHERESTR "In yield, selecting next thread\n", WHEREARG);
+		//printf(WHERESTR "In yield, selecting next thread\n", WHEREARG);
 	}
 
-	printf(WHERESTR "In yield, getting next thread\n", WHEREARG);
+	//printf(WHERESTR "In yield, getting next thread\n", WHEREARG);
 	nextThread = getNextWaitingThread();
-	printf(WHERESTR "In yield, next thread is %d\n", WHEREARG, nextThread == NULL ? -1 : nextThread->id);
+	//printf(WHERESTR "In yield, next thread is %d\n", WHEREARG, nextThread == NULL ? -1 : nextThread->id);
 
 	if (nextThread == NULL)
 		return 0;
 	else
 	{
-		printf(WHERESTR "In yield, resuming thread %d from thread %d\n", WHEREARG, nextThread->id, current_thread->id);
+		//printf(WHERESTR "In yield, resuming thread %d from thread %d\n", WHEREARG, nextThread->id, current_thread->id);
 		current_thread = nextThread;
 		longjmp(current_thread->env ,1);
 	}

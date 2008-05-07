@@ -24,7 +24,7 @@ void* ppu_pthread_function(void* arg) {
 		perror ("Failed running context");
 		return NULL;
 	}
-	printf(WHERESTR "Terminated SPU\n", WHEREARG);
+	//printf(WHERESTR "Terminated SPU\n", WHEREARG);
 	pthread_exit(NULL);
 }
 
@@ -59,7 +59,7 @@ pthread_t* simpleInitialize(unsigned int thread_count)
 			return NULL;
 		}
 
-		printf(WHERESTR "Starting SPU thread\n", WHEREARG);
+		//printf(WHERESTR "Starting SPU thread\n", WHEREARG);
 		// Create thread for each SPE context
 		if (pthread_create (&spu_threads[i], NULL,	&ppu_pthread_function, &spe_ids[i])) 
 		{
