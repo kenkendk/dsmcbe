@@ -52,12 +52,10 @@ void readimage_grey_DSMCBE(char* filename, struct IMAGE_FORMAT_GREY* imageinfo, 
 		}
 	} while(fscanf(fh, "%d %d\n%d", &imageinfo->width, &imageinfo->height, &maxval) != 3);
 
-	printf("width: %i, heigth: %i\n", imageinfo->width, imageinfo->height);
 	//Read whitespace
 	fscanf(fh, " ");
 	image_size = imageinfo->width * imageinfo->height;
 	memory_width = imageinfo->width + ((128 - imageinfo->width) % 128);
-	printf("memory_width: %i\n", memory_width);
 
 	imageinfo->image = create(imageID, memory_width * imageinfo->height * sizeof(unsigned char));
 	

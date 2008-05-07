@@ -246,7 +246,9 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 //Perform all actions related to an invalidate
 void DoInvalidate(QueueableItem item, struct invalidateRequest* request)
 {
+	printf(WHERESTR "Before: Responsd to Invalidate\n", WHEREARG);	
 	RespondInvalidate(item);
+	printf(WHERESTR "After: Responsd to Invalidate\n", WHEREARG);
 }
 
 
