@@ -246,9 +246,9 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 //Perform all actions related to an invalidate
 void DoInvalidate(QueueableItem item, struct invalidateRequest* request)
 {
-	printf(WHERESTR "Before: Responsd to Invalidate\n", WHEREARG);	
+	//printf(WHERESTR "Before: Responsd to Invalidate\n", WHEREARG);	
 	RespondInvalidate(item);
-	printf(WHERESTR "After: Responsd to Invalidate\n", WHEREARG);
+	//printf(WHERESTR "After: Responsd to Invalidate\n", WHEREARG);
 }
 
 
@@ -264,20 +264,29 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	//Check that the item exists
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
+		/*
+		if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
+			printf(WHERESTR "Recieved READ request for object with id %i\n", WHEREARG, request->dataItem);
+		else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+			printf(WHERESTR "Recieved WRITE request for object with id %i\n", WHEREARG, request->dataItem);
+		else
+			printf(WHERESTR "Recieved UNKNOWN request for object with id %i\n", WHEREARG, request->dataItem);
+		*/
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
-		q = obj->waitqueue;
+
 		r = obj->readersqueue;
-		
+		q = obj->waitqueue;
+						
 		//If the object is not locked, register as locked and respond
 		if (dq_empty(q))
 		{
-			printf(WHERESTR "Object not looked\n", WHEREARG);
+			//printf(WHERESTR "Object not looked\n", WHEREARG);
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
-				printf(WHERESTR "Acquiring READ on not looked object\n", WHEREARG);
+				//printf(WHERESTR "Acquiring READ on not looked object\n", WHEREARG);
 				queue_enq(r, item);
 				RespondAcquire(item, obj);		
 			} else {			
-				printf(WHERESTR "Acquiring WRITE on not looked object\n", WHEREARG);
+				//printf(WHERESTR "Acquiring WRITE on not looked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
 				RespondAcquire(item, obj);
 				
@@ -285,14 +294,14 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				while (!queue_empty(r)) {
 					// Invalidate
 					printf(WHERESTR "Must invalidate\n", WHEREARG);
-					QueueableItem next = queue_deq(r);
-					DoInvalidate(next, NULL);					
+					queue_deq(r);
+					//DoInvalidate(next, NULL);					
 				}
 			}
 		}
 		else {
 			//Otherwise add the request to the wait list
-			printf(WHERESTR "Object looked\n", WHEREARG);
+			//printf(WHERESTR "Object looked\n", WHEREARG);
 			dq_enq_back(q, item);
 		}
 	}
@@ -351,14 +360,17 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 			else
 			{
 				//Respond to the releaser
+				//printf(WHERESTR "Respond to the releaser\n", WHEREARG);
 				RespondRelease(item);
 				if (!dq_empty(q))
 				{
 					//Acquire for the next in the queue
+					//printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
 					next = dq_deq_front(q);
-					DoAcquire(next, (struct acquireRequest*)next->dataRequest);
+					dq_enq_front(q, NULL);
+					RespondAcquire(next, obj);
 				}
-			}
+			}					
 		}
 	}
 	else

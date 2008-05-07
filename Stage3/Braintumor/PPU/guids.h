@@ -2,17 +2,36 @@
 #define GUIDS_H_
 
 #define GRID00 1000
-#define GRID01 1001
-#define GRID02 1002
-#define GRID10 1010
-#define GRID11 1011
-#define GRID12 1012
-#define GRID20 1020
-#define GRID21 1021
-#define GRID22 1022
+#define GRID00IMAGE 1001
 
-#define RESULT 10000
+#define GRID01 1010
+#define GRID01IMAGE 1011
+
+#define GRID02 1020
+#define GRID02IMAGE 1021
+
+#define GRID10 1100
+#define GRID10IMAGE 1101
+
+#define GRID11 1110
+#define GRID11IMAGE 1111
+
+#define GRID12 1120
+#define GRID12IMAGE 1121
+
+#define GRID20 1200
+#define GRID20IMAGE 1201
+
+#define GRID21 1210
+#define GRID21IMAGE 1211
+
+#define GRID22 1220
+#define GRID22IMAGE 1221
+
+#define RESULT 100000
 
 #define JOB 20000
+
+#define COUNT 30000
 
 #endif /*GUIDS_H_*/
