@@ -55,6 +55,13 @@ list list_create()
 	return l;
 }
 
+void list_destroy(list l)
+{
+	while(l->next != NULL)
+		l = cdr_and_free(l);
+	free(l);
+}
+
 void list_add(void* element, list* l)
 {
 	*l = cons(element, *l);
@@ -77,6 +84,13 @@ stack stack_create(void)
 		
 	temp -> elements = NULL;
 	return temp;
+}
+
+void stack_destroy(stack s)
+{
+	while(!stack_empty(s))
+		stack_pop(s);
+	free(s);
 }
 
 void stack_push(stack s, void *element)
@@ -116,6 +130,18 @@ ulset ulset_create(int (*equal)(void *, void *))
 	l -> elements = NULL;
 	l -> equal = equal;
 	return l;
+}
+
+void ulset_destroy(ulset l)
+{
+	while(!ulset_empty(l))
+		ulset_delete(l, l->elements->key);
+	free(l);
+}
+
+int ulset_empty(ulset l)
+{
+	return l -> elements == NULL;
 }
 
 keylist * ulset_find(keylist *lp, void *key, int (*equal)(void *, void *))
@@ -168,6 +194,18 @@ slset slset_create(int (*less)(void *, void *))
 	l->elements = NULL;
 	l->less = less;
 	return l;
+}
+
+void slset_destroy(slset l)
+{
+	while(!slset_empty(l))
+		slset_delete(l, l->elements->key);
+	free(l);
+}
+
+int slset_empty(slset l)
+{
+	return l -> elements == NULL;
 }
 
 keylist* slset_find(keylist *lp, void *key, int (*less)(void *, void *))
@@ -228,6 +266,14 @@ queue queue_create(void)
 		
 	q -> head = q -> tail = cons(NULL, NULL);
 	return q;
+}
+
+void queue_destroy(queue q)
+{
+	while(!queue_empty(q))
+		queue_deq(q);
+	cdr_and_free(q->head);
+	free(q);
 }
 
 int queue_empty(queue q)
@@ -301,6 +347,14 @@ dqueue dq_create(void)
 	return q;
 }
 
+void dq_destroy(dqueue q)
+{
+	while(!dq_empty(q))
+		dq_deq_front(q);
+	unlink_and_free(q->sentinel);
+	free(q);
+}
+
 int dq_empty(dqueue q)
 {
 	return q -> sentinel -> next == q -> sentinel;
@@ -344,6 +398,7 @@ hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(
 		perror("datastructures.c: malloc error");
 		
 	ht->count = size;
+	ht->minsize = size;
 	ht->fill = 0;
 	ht->less = less;
 	ht->hash = hash;
@@ -357,10 +412,16 @@ hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(
 	return ht;
 }
 
+void ht_destroy(hashtable ht)
+{
+	ht_resize(ht, 0);
+	free(ht);
+}
+
 void ht_insert(hashtable ht, void* key, void* data)
 {
 	if (((ht->fill + 1) * 2) > ht->count)
-		ht_resize(ht, ht->count * 2);
+		ht_resize(ht, (ht->count + 1) * 2);
 
 	slset_insert(ht->buffer[ht->hash(key, ht->count)], key, data);
 	ht->fill++;
@@ -370,8 +431,8 @@ void ht_delete(hashtable ht, void* key)
 {
 	slset_delete(ht->buffer[ht->hash(key, ht->count)], key);
 	ht->fill--;
-	if (ht->fill * 3 < ht->count)
-		ht_resize(ht, ht->count / 2);
+	if (ht->fill * 3 < ht->count && ht->count != ht->minsize)
+		ht_resize(ht, (ht->count / 2) > ht->minsize ?  (ht->count / 2) : ht->minsize);
 }
 
 int ht_member(hashtable ht, void* key)
@@ -400,7 +461,7 @@ void ht_resize(hashtable ht, unsigned int newsize)
 			ht_insert(newtable, kl->key, kl->data);
 			kl = kl->next;
 		}
-		free(ht->buffer[i]);
+		slset_destroy(ht->buffer[i]);
 	}
 	free(ht->buffer);
 

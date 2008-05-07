@@ -1,12 +1,4 @@
 #include "spu.h"
-#include <stdio.h>
-#include <spu_intrinsics.h>
-#include <malloc_align.h>
-#include <free_align.h>
-#include <spu_mfcio.h> 
-#include "../guids.h"
-#include <common/debug.h>
-
 
 int main(int argc, char **argv) {
 	
@@ -16,7 +8,24 @@ int main(int argc, char **argv) {
 	unsigned long size;
 	unsigned int i;
 	unsigned int items;
+	int threadNo;
+	unsigned int myno;
+
+	myno = -1;
 	
+	threadNo = CreateThreads(2);
+	if (threadNo != -1)
+	{
+		printf(WHERESTR "Running in thread %d (%d).\n", WHEREARG, threadNo, myno);
+		YieldThread();
+		printf(WHERESTR "Running after yield in thread %d (%d).\n", WHEREARG, threadNo, myno);
+		TerminateThread();
+		printf(WHERESTR "!!! After terminate in thread %d (%d).\n", WHEREARG, threadNo, myno);
+	}
+
+	printf(WHERESTR "Main thread returned, continuing basic run.\n", WHEREARG);
+	
+	/*
 	int* allocation = acquire(ETTAL, &size);
 
 	printf(WHERESTR "Value read from acquire is: %i\n", WHEREARG, *allocation);
@@ -43,7 +52,7 @@ int main(int argc, char **argv) {
 	printf(WHERESTR "Releasing large value\n", WHEREARG);
 	release(largeblock);
 	printf(WHERESTR "Released large value\n", WHEREARG);
-	
+	*/
 	printf(WHERESTR "Done\n", WHEREARG);
 	
 	return 0;

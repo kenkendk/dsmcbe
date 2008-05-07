@@ -16,6 +16,7 @@ extern list cons(void *element, list l);
 extern list cdr_and_free(list l);
 
 extern list list_create();
+extern void list_destroy(list l);
 extern void list_add(void* element, list* l);
 extern void list_remove(list* l);
 
@@ -48,6 +49,7 @@ typedef struct stack *stack;
 
 /* create a new, empty stack */
 extern stack stack_create(void);
+extern void stack_destroy(stack s);
 
 /* push a new element on top of the stack */
 extern void stack_push(stack s, void *element);
@@ -81,6 +83,9 @@ typedef struct ulset *ulset;
 /* create an empty ulset */
 extern ulset ulset_create(int (*equal)(void *, void *));
 
+extern void ulset_destroy(ulset l);
+extern int ulset_empty(ulset l);
+
 /* return a true value iff the element is a member of the ulset */
 extern int ulset_member(ulset l, void *key);
 
@@ -112,6 +117,8 @@ typedef struct slset *slset;
 
 /* create an empty slset */
 extern slset slset_create(int (*less)(void *, void *));
+extern void slset_destroy(slset l);
+extern int slset_empty(slset l);
 
 /* return a true value iff the element is a member of the slset */
 extern int slset_member(slset l, void *key);
@@ -150,6 +157,7 @@ typedef struct queue *queue;
 
 /* create an empty queue */
 extern queue queue_create(void);
+extern void queue_destroy(queue q);
 
 /* insert an element at the end of the queue */
 extern void queue_enq(queue q, void *element);
@@ -190,6 +198,7 @@ typedef struct dqueue *dqueue;
 
 /* create an empty dqueue */
 extern dqueue dq_create(void);
+extern void dq_destroy(dqueue q);
 
 /* insert an element at the front of the dqueue */
 extern void dq_enq_front(dqueue q, void *element);
@@ -215,6 +224,7 @@ struct hashtable
 {
 	unsigned int count;
 	unsigned int fill;
+	unsigned int minsize;
 	slset* buffer;
 	int (*less)(void*, void*);
 	int (*hash)(void*, unsigned int count);
@@ -223,6 +233,7 @@ struct hashtable
 typedef struct hashtable* hashtable;
 
 extern hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(void *, unsigned int count));
+extern void ht_destroy(hashtable ht);
 extern void ht_insert(hashtable ht, void* key, void* data);
 extern void ht_delete(hashtable ht, void* key);
 extern int ht_member(hashtable ht, void* key);

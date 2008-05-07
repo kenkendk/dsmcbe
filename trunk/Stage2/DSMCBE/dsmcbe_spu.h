@@ -4,4 +4,8 @@
 #include "./dsmcbe.h"
 extern void initialize();
 
+void TerminateThread(void);
+int CreateThreads(int threadCount);
+int YieldThread(void);
+
 #endif /*DSMCBE_SPU_H_*/

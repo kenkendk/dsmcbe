@@ -17,7 +17,7 @@ typedef struct dataObjectStruct *dataObject;
 struct dataObjectStruct{	
 	GUID id;
 	void* EA;
-	int data;
+	void* data;
 	unsigned long size;
 };
 
@@ -66,7 +66,10 @@ void* acquire(GUID id, unsigned long* size) {
 	transfer_size = *size + ((16 - *size) % 16);
 	void* allocation;
 	if ((allocation = _malloc_align(transfer_size, 7)) == NULL)
-		perror("Failed to allocate memory on SPU");		
+	{
+		perror("Failed to allocate memory on SPU");
+		printf(WHERESTR "Data size was: %i, and transfer size was: %d\n", WHEREARG, (int)*size, transfer_size);
+	}		
 
 	//printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
 
@@ -78,7 +81,8 @@ void* acquire(GUID id, unsigned long* size) {
 	object->id = id;
 	object->EA = (void*)data;
 	object->size = *size;
-	
+	object->data = allocation;
+
 	ht_insert(allocatedItems, allocation, object);
 	
 	//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);

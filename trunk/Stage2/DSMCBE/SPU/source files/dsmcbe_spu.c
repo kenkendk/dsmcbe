@@ -17,7 +17,7 @@ typedef struct dataObjectStruct *dataObject;
 struct dataObjectStruct{	
 	GUID id;
 	void* EA;
-	int data;
+	void* data;
 	unsigned long size;
 };
 
@@ -78,6 +78,7 @@ void* acquire(GUID id, unsigned long* size) {
 	object->id = id;
 	object->EA = (void*)data;
 	object->size = *size;
+	object->data = allocation;
 	ht_insert(allocatedItems, allocation, object);
 	
 	//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
