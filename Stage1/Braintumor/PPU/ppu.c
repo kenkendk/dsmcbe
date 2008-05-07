@@ -16,6 +16,7 @@
 
 extern spe_program_handle_t SPU;
 
+#define DEAD 2
 #define FALSE 0
 #define TRUE 1
 #define RANDOM(max) ((((float)rand() / (float)RAND_MAX) * (float)(max)))
@@ -50,8 +51,7 @@ void* malloc_align7(unsigned int size)
 
 void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canonAX, float canonAY, unsigned char* energy)
 {
-	int i;
-	unsigned char max_integer = (unsigned char)pow(2, sizeof(unsigned char)*8);
+	int i, j;
 	
 	int shotsspu = SHOTS_SPU;
 
@@ -79,16 +79,16 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 		release(count); 
 	}while(*count < SPU_THREADS);
 				
-	printf("\n\nStart working on results\n\n");				
-				
+	printf("\n\nStart working on results\n\n");
+	
 	for(i = 0; i < (shots / shots_spu); i++) {
 		unsigned long size;
 		struct POINTS* points = acquire(RESULT + i, &size);	
 			
 		// Save results to energy
-		for(i = 0; i < shots_spu; i++) {
-			if(points[i].alive == FALSE)
-				energy[MAPOFFSET((int)(points[i].x), (int)(points[i].y))] =  MIN(energy[MAPOFFSET((int)(points[i].x),(int)(points[i].y))] + 1, max_integer);			
+		for(j = 0; j < shots_spu; j++) {
+			if(points[j].alive == FALSE)
+				energy[MAPOFFSET((int)(points[j].x), (int)(points[j].y))] =  MIN(energy[MAPOFFSET((int)(points[j].x),(int)(points[j].y))] + 1, 255);
 		}
 		release(points);
 	}
