@@ -7,6 +7,7 @@
 #include "../guids.h"
 #include <common/debug.h>
 
+#define MAXRUN 1000000
 
 int main(int argc, char **argv) {
 	
@@ -43,6 +44,15 @@ int main(int argc, char **argv) {
 	printf(WHERESTR "Releasing large value\n", WHEREARG);
 	release(largeblock);
 	printf(WHERESTR "Released large value\n", WHEREARG);
+	
+	printf(WHERESTR "Starting long memory test\n", WHEREARG);
+	
+	for(i = 0; i < MAXRUN; i++)
+	{
+		release(acquire(LARGE_ITEM, &size));
+		if (i % 100 == 0)
+			printf(WHERESTR "At itteration %d of %d\n", WHEREARG, i, MAXRUN);
+	}
 	
 	printf(WHERESTR "Done\n", WHEREARG);
 	

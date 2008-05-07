@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 	release(largeblock);
 	
 	printf(WHERESTR "Sleeping\n", WHEREARG);
-	sleep(1);
+	sleep(10);
 	
 	printf(WHERESTR "Re-acquire\n", WHEREARG);
 	largeblock = acquire(LARGE_ITEM, &size);

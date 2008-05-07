@@ -16,8 +16,9 @@ int main(int argc, char **argv) {
 	pthread_t* spu_threads;
 	spu_threads = simpleInitialize(SPU_THREADS);
 
-	/*printf("ppu.c: Going to sleep\n");
-	sleep(1);*/
+	/*
+	//printf("ppu.c: Going to sleep\n");
+	//sleep(1);
 	
 	printf(WHERESTR "Creating\n", WHEREARG);
 	int* data = create(ETTAL, sizeof(int));
@@ -60,7 +61,7 @@ int main(int argc, char **argv) {
 	}
 		
 	release(largeblock);
-	printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);
+	printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);*/
 	
 	printf(WHERESTR "Released, waiting for SPU to complete\n", WHEREARG);
 	pthread_join(spu_threads[SPU_THREADS - 1], NULL);
