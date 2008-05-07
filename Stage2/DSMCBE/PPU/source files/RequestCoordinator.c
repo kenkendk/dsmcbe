@@ -11,7 +11,7 @@
 
 #include "../../common/debug.h"
 
-volatile int terminate;
+static volatile int terminateCoordinator;
 
 pthread_mutex_t queue_mutex;
 pthread_cond_t queue_ready;
@@ -52,25 +52,41 @@ void TerminateCoordinator(int force)
 	int queueEmpty;
 	
 	if (force)
-		terminate = 1;
+		terminateCoordinator = 1;
 		
 	queueEmpty = 0;
 	while(!queueEmpty)
 	{
+		//printf(WHERESTR "Acquire mutex\n", WHEREARG);
 	 	pthread_mutex_lock(&queue_mutex);
+		
+		//printf(WHERESTR "Read state\n", WHEREARG);
 	 	queueEmpty = queue_empty(bagOfTasks);
 	 	if (queueEmpty)
 	 	{
-	 		terminate = 1;
+			//printf(WHERESTR "Signal terminate\n", WHEREARG);
+	 		terminateCoordinator = 1;
+			
+			//printf(WHERESTR "Setting cond\n", WHEREARG);
 	 		pthread_cond_signal(&queue_ready);
 	 	}
+		
+		//printf(WHERESTR "Unlock mutex\n", WHEREARG);
 	 	pthread_mutex_unlock(&queue_mutex);
 	}
 		
+	//printf(WHERESTR "Joining\n", WHEREARG);
 	pthread_join(workthread, NULL);
+	pthread_detach(workthread);
 	
+	//printf(WHERESTR "Destroy\n", WHEREARG);
 	pthread_mutex_destroy(&queue_mutex);
 	pthread_cond_destroy(&queue_ready);
+	
+	//TODO: Also release stuff in these, if any
+	queue_destroy(bagOfTasks);
+	ht_destroy(waiters);
+	ht_destroy(allocatedItems);
 }
 
 //This method initializes all items related to the coordinator and starts the handler thread
@@ -81,7 +97,7 @@ void InitializeCoordinator()
 	if (bagOfTasks == NULL)
 	{
 		bagOfTasks = queue_create();
-		terminate = 0;
+		terminateCoordinator = 0;
 	
 		/* Initialize mutex and condition variable objects */
 		pthread_mutex_init(&queue_mutex, NULL);
@@ -191,6 +207,8 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	unsigned long size;
 	void* data;
 	dataObject object;
+	
+	//printf(WHERESTR "Performing create for %d\n", WHEREARG, request->dataItem);
 	
 	//Check that the item is not already created
 	if (ht_member(allocatedItems, (void*)request->dataItem))
@@ -339,19 +357,19 @@ void* ProccessWork(void* data)
 	QueueableItem item;
 	unsigned int datatype;
 	
-	while(!terminate)
+	while(!terminateCoordinator)
 	{
 
 		//Get the next item, or sleep until it arrives	
 		//printf(WHERESTR "fetching job\n", WHEREARG);
 			
 		pthread_mutex_lock(&queue_mutex);
-		while (queue_empty(bagOfTasks) && !terminate) {
+		while (queue_empty(bagOfTasks) && !terminateCoordinator) {
 			//printf(WHERESTR "waiting for event\n", WHEREARG);
 			pthread_cond_wait(&queue_ready, &queue_mutex);
 			//printf(WHERESTR "event recieved\n", WHEREARG);
 		}
-		if (terminate)
+		if (terminateCoordinator)
 			break;
 		
 		if (queue_empty(bagOfTasks))
@@ -390,7 +408,7 @@ void* ProccessWork(void* data)
 		//All responses ensure that the QueueableItem and request structures are free'd
 		//It is the obligation of the requestor to free the response
 	}
-	
+
 	//Returning the unused argument removes a warning
 	return data;
 }

@@ -40,7 +40,9 @@ void InitializePPUHandler()
 //Terminate the PPUHandler and release all resources
 void TerminatePPUHandler()
 {
-	//ht_free(pointers);
+	/*if (!ht_empty(pointers))
+		perror("Warning, some items were not released, memory will not be correctly free'd");*/
+	ht_destroy(pointers);
 	pthread_mutex_destroy(&pointer_mutex);
 }
 

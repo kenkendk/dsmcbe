@@ -9,5 +9,6 @@
 #include <spu_mfcio.h> 
 #include "../guids.h"
 #include <common/debug.h>
+#include <malloc.h>
 
 #endif /*DSMCBE_SPU_LOCAL_H_*/

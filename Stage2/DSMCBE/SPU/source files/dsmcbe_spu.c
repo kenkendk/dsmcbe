@@ -10,7 +10,7 @@
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
 
-static hashtable allocatedItems;
+static hashtable allocatedItems = NULL;
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -31,21 +31,10 @@ int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
-void* acquire(GUID id, unsigned long* size) {
-	
+void* handleAcquireResponse(GUID id, unsigned long* size) {
+
 	int data;
 	unsigned int transfer_size;
-	
-	if (allocatedItems == NULL)
-	{
-		printf(WHERESTR "Initialize must be called\n", WHEREARG);
-		return NULL;
-	}
-	
-	//printf(WHERESTR "Starting acquiring id: %i\n", WHEREARG, id);
-	spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_WRITE);
-	spu_write_out_mbox(2);
-	spu_write_out_mbox(id);
 
 	data = spu_read_in_mbox();
 	//printf(WHERESTR "Message type: %i\n", WHEREARG, (int)data);
@@ -56,7 +45,7 @@ void* acquire(GUID id, unsigned long* size) {
 	//printf(WHERESTR "Request id: %i\n", WHEREARG, (int)data);
 	if (data != 2)
 		perror("RequestID for SPU was incorrect");
-		
+	
 	*size = spu_read_in_mbox();
 	//printf(WHERESTR "Data size: %i\n", WHEREARG, (int)*size);
 	
@@ -91,6 +80,22 @@ void* acquire(GUID id, unsigned long* size) {
 	//printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);
 	
 	return allocation;	
+}
+
+void* acquire(GUID id, unsigned long* size) {
+	
+	if (allocatedItems == NULL)
+	{
+		printf(WHERESTR "Initialize must be called\n", WHEREARG);
+		return NULL;
+	}
+	
+	//printf(WHERESTR "Starting acquiring id: %i\n", WHEREARG, id);
+	spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_WRITE);
+	spu_write_out_mbox(2);
+	spu_write_out_mbox(id);
+
+	return handleAcquireResponse(id, size);
 }
 
 void release(void* data){
@@ -149,3 +154,24 @@ void initialize(){
 	allocatedItems = ht_create(10, lessint, hashfc);
 }
 
+void terminate() {
+	ht_destroy(allocatedItems);
+	allocatedItems = NULL;
+}
+
+void* create(GUID id, unsigned long size)
+{
+	if (allocatedItems == NULL)
+	{
+		printf(WHERESTR "Initialize must be called\n", WHEREARG);
+		return NULL;
+	}
+	
+	//printf(WHERESTR "Starting acquiring id: %i\n", WHEREARG, id);
+	spu_write_out_mbox(PACKAGE_CREATE_REQUEST);
+	spu_write_out_mbox(2);
+	spu_write_out_mbox(id);
+	spu_write_out_mbox(size);
+
+	return handleAcquireResponse(id, &size);
+}

@@ -14,6 +14,11 @@
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
 
+static spe_context_ptr_t* spe_ids;
+static pthread_t* spu_threads;
+static size_t threadcount;
+
+
 void* ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
 	unsigned int entry = SPE_DEFAULT_ENTRY;
@@ -28,12 +33,35 @@ void* ppu_pthread_function(void* arg) {
 	pthread_exit(NULL);
 }
 
+void terminate()
+{
+	size_t i;
+
+	//printf(WHERESTR "Terminating coordinator\n", WHEREARG);
+	TerminateCoordinator(0);
+
+	//printf(WHERESTR "Terminating SPU handler\n", WHEREARG);
+	TerminateSPUHandler(0);
+
+	//printf(WHERESTR "Terminating PPU handler\n", WHEREARG);
+	TerminatePPUHandler();
+
+	if (mustrelease_spe_id)
+	{
+		//printf(WHERESTR "Terminating, releasing resources\n", WHEREARG);
+		for(i = 0; i < threadcount; i++){
+			pthread_detach(spu_threads[i]);
+			spe_context_destroy(spe_ids[i]);
+		}
+		free(spe_ids);
+		free(spu_threads);
+	}
+	
+}
 
 pthread_t* simpleInitialize(unsigned int thread_count)
 {
 	size_t i;
-	spe_context_ptr_t* spe_ids;
-	pthread_t* spu_threads;
 	
 	if ((spe_ids = (spe_context_ptr_t*)malloc(thread_count * sizeof(spe_context_ptr_t))) == NULL)
 		perror("dsmcbe.c: malloc error");
@@ -42,6 +70,7 @@ pthread_t* simpleInitialize(unsigned int thread_count)
 			perror("dsmcbe.c: malloc error");
 
 	mustrelease_spe_id = 1;
+	threadcount = thread_count;
 	
 	// Create several SPE-threads to execute 'SPU'.
 	for(i = 0; i < thread_count; i++){
@@ -69,7 +98,6 @@ pthread_t* simpleInitialize(unsigned int thread_count)
 	}
 	
 	initialize(spe_ids, thread_count);
-	
 	return spu_threads;
 }
 

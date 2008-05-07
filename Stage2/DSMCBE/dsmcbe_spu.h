@@ -3,6 +3,7 @@
 
 #include "./dsmcbe.h"
 extern void initialize();
+extern void terminate();
 
 void TerminateThread(void);
 int CreateThreads(int threadCount);

@@ -233,6 +233,7 @@ int CreateThreads(int threadCount)
 		//printf(WHERESTR "After setjmp w/ main\n", WHEREARG);
 		
 		free(main_env);
+		main_env = NULL;
 		return -1;
 	}
 }
