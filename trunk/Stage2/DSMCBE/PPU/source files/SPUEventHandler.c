@@ -12,7 +12,7 @@
 
 #include "../../common/debug.h"
 
-volatile int terminate;
+static volatile int terminateSPU;
 pthread_t workthread;
 pthread_mutex_t work_mutex;
 pthread_cond_t work_ready;
@@ -29,21 +29,21 @@ void* ProcessMessages(void* data);
 
 void TerminateSPUHandler(int force)
 {
-	//size_t i;
+	size_t i;
 	
-	terminate = 1;
+	terminateSPU = 1;
 	pthread_join(workthread, NULL);
+	pthread_detach(workthread);
 	
 	pthread_mutex_destroy(&work_mutex);
 	pthread_cond_destroy(&work_ready);
 	
-	/*
+	
 	for(i = 0; i < spe_thread_count; i++)
 	{
-		queue_free(mailboxQueues[i]);
-		queue_free(requestQueues[i]);
+		queue_destroy(mailboxQueues[i]);
+		queue_destroy(requestQueues[i]);
 	}
-	*/
 	
 	free(requestQueues);
 }
@@ -53,7 +53,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	size_t i;
 	
 	pthread_attr_t attr;
-	terminate = 0;
+	terminateSPU = 0;
 
 	spe_thread_count = thread_count;
 	spe_threads = threads;
@@ -109,7 +109,7 @@ void* ProcessMessages(void* data)
 	void* dataItem;
 	QueueableItem queueItem;
 	
-	while(!terminate)
+	while(!terminateSPU)
 	{
 		//printf(WHERESTR "Inside loop\n", WHEREARG);
 		//Step 1, process SPU mailboxes
@@ -129,12 +129,13 @@ void* ProcessMessages(void* data)
 							perror("SPUEventHandler.c: malloc error");;
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
 						ReadMBOXBlocking(spe_threads[i], &itemid, 1);
-						ReadMBOXBlocking(spe_threads[i], (unsigned int*)&datasize, 2);
+						ReadMBOXBlocking(spe_threads[i], (unsigned int*)&datasize, 1);
 												
 						((struct createRequest*)dataItem)->dataItem = itemid;
 						((struct createRequest*)dataItem)->packageCode = datatype;
 						((struct createRequest*)dataItem)->requestID = requestID;
 						((struct createRequest*)dataItem)->dataSize = datasize;
+						//printf(WHERESTR "Create read\n", WHEREARG);
 						break;
 						
 					case PACKAGE_ACQUIRE_REQUEST_READ:

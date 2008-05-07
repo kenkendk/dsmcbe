@@ -10,49 +10,92 @@ int main(int argc, char **argv) {
 	unsigned int items;
 	int threadNo;
 	unsigned int myno;
+	int* allocation;
+	void* test;
+	struct mallinfo mi;
 
-	myno = -1;
+	myno = 7;
 	
-	threadNo = CreateThreads(2);
+		test = malloc(sizeof(int));
+		if (test == NULL)
+			perror("1 SPU malloc failed for thread storage");
+	
+	
+	/*threadNo = CreateThreads(2);
 	if (threadNo != -1)
 	{
 		printf(WHERESTR "Running in thread %d (%d).\n", WHEREARG, threadNo, myno);
+		test = malloc(sizeof(int));
+		if (test == NULL)
+			perror("2 SPU malloc failed for thread storage");
 		YieldThread();
 		printf(WHERESTR "Running after yield in thread %d (%d).\n", WHEREARG, threadNo, myno);
+		test = malloc(sizeof(int));
+		if (test == NULL)
+			perror("3 SPU malloc failed for thread storage");
 		TerminateThread();
 		printf(WHERESTR "!!! After terminate in thread %d (%d).\n", WHEREARG, threadNo, myno);
+	}*/
+
+	printf(WHERESTR "Main thread returned, restarting threads.\n", WHEREARG);
+	test = malloc(sizeof(int));
+	if (test == NULL)
+		perror("4 SPU malloc failed for thread storage");
+	
+	threadNo = CreateThreads(2);
+	if (threadNo != -1)
+	{	
+		printf(WHERESTR "Thread #: %d.\n", WHEREARG, threadNo);
+		allocation = acquire(ETTAL, &size);
+		YieldThread();
+				
+		printf(WHERESTR "Thread #: %d.\n", WHEREARG, threadNo);
+		printf(WHERESTR "Value read from acquire is: %i. The value is supposed to be 928.\n", WHEREARG, *allocation);
+		
+		*allocation = 210;
+				
+		release(allocation);
+		YieldThread();
+		
+		printf(WHERESTR "Thread #: %d.\n", WHEREARG, threadNo);
+		printf(WHERESTR "Release completed\n", WHEREARG);
+		
+		
+		printf(WHERESTR "Reading large value\n", WHEREARG);
+		unsigned int* largeblock = acquire(LARGE_ITEM, &size);
+		YieldThread();
+		
+		printf(WHERESTR "Thread #: %d.\n", WHEREARG, threadNo);
+		items = size / sizeof(unsigned int);
+		printf(WHERESTR "Read large value (%d, %d)\n", WHEREARG, (int)size, items);
+		
+		
+		for(i = 0; i < items; i++)
+		{
+			if (largeblock[i] != i)
+				printf(WHERESTR "Ivalid value at %d\n", WHEREARG, i);
+			largeblock[i] = i + 2;
+		}
+		
+		printf(WHERESTR "Releasing large value\n", WHEREARG);
+		release(largeblock);
+		YieldThread();
+				
+		printf(WHERESTR "Thread #: %d.\n", WHEREARG, threadNo);
+		printf(WHERESTR "Released large value\n", WHEREARG);
+		TerminateThread();
 	}
-
-	printf(WHERESTR "Main thread returned, continuing basic run.\n", WHEREARG);
 	
-	
-	int* allocation = acquire(ETTAL, &size);
-
-	printf(WHERESTR "Value read from acquire is: %i. The value is supposed to be 928.\n", WHEREARG, *allocation);
-	
-	*allocation = 210;
-			
+	printf(WHERESTR "Creating new item\n", WHEREARG);
+	allocation = create(SPUITEM, sizeof(unsigned int));
+	printf(WHERESTR "Created new item\n", WHEREARG);
+	*allocation = 4;
+	printf(WHERESTR "Releasing new item\n", WHEREARG);
 	release(allocation);
-	printf(WHERESTR "Release completed\n", WHEREARG);
+	printf(WHERESTR "Released new item\n", WHEREARG);
 	
 	
-	printf(WHERESTR "Reading large value\n", WHEREARG);
-	unsigned int* largeblock = acquire(LARGE_ITEM, &size);
-	items = size / sizeof(unsigned int);
-	printf(WHERESTR "Read large value (%d, %d)\n", WHEREARG, size, items);
-	
-	
-	for(i = 0; i < items; i++)
-	{
-		if (largeblock[i] != i)
-			printf(WHERESTR "Ivalid value at %d\n", WHEREARG, i);
-		largeblock[i] = i + 2;
-	}
-	
-	printf(WHERESTR "Releasing large value\n", WHEREARG);
-	release(largeblock);
-	printf(WHERESTR "Released large value\n", WHEREARG);
-	
+	terminate();
 	printf(WHERESTR "Done\n", WHEREARG);
 	
 	return 0;
