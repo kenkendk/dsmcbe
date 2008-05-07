@@ -25,10 +25,10 @@ int main(int argc, char **argv) {
 
 	printf(WHERESTR "Main thread returned, continuing basic run.\n", WHEREARG);
 	
-	/*
+	
 	int* allocation = acquire(ETTAL, &size);
 
-	printf(WHERESTR "Value read from acquire is: %i\n", WHEREARG, *allocation);
+	printf(WHERESTR "Value read from acquire is: %i. The value is supposed to be 928.\n", WHEREARG, *allocation);
 	
 	*allocation = 210;
 			
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
 	printf(WHERESTR "Releasing large value\n", WHEREARG);
 	release(largeblock);
 	printf(WHERESTR "Released large value\n", WHEREARG);
-	*/
+	
 	printf(WHERESTR "Done\n", WHEREARG);
 	
 	return 0;
