@@ -4,29 +4,34 @@
 #include <common/debug.h>
 #include <unistd.h>
 
-#define SPU_THREADS 2
+#define SPU_THREADS 1
 
 int main(int argc, char **argv) {
 	
-	int i, j, k;
-	unsigned char* data;
-	int size = 200;
+	int i;
+	int* data;
+	unsigned long size;
 	
 	printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
 	spu_threads = simpleInitialize(SPU_THREADS);
 
-	for(i = 0; i < 1; i++) {
-		printf(WHERESTR "Creating\n", WHEREARG);
-		data = create(ETTAL + i, size * size * sizeof(unsigned char));
-		for(j = 0; j < size; j++)
-			for(k = 0; k < size; k++)
-				data[(j*size)+k] = 1;
-				
-		printf(WHERESTR "Releasing\n", WHEREARG);
-		release(data);
-	}
+	printf(WHERESTR "Creating data with id: %i\n", WHEREARG, ETTAL);
+	data = create(ETTAL, sizeof(int));
+	*data = 928;			
+	printf(WHERESTR "Value of data with id: %i, is now set to: %i\n", WHEREARG, ETTAL, 928);
+	release(data);
+	printf(WHERESTR "Data with id: %i released\n", WHEREARG, ETTAL);	
+	
+	sleep(3);
+	
+	printf(WHERESTR "Acquiring data with id: %i\n", WHEREARG, ETTAL);
+	data = acquire(ETTAL, &size, WRITE);
+	*data = 153;
+	printf(WHERESTR "Value of data with id: %i, is now set to: %i\n", WHEREARG, ETTAL, 153);
+	release(data);
+	printf(WHERESTR "Data with id: %i released\n", WHEREARG, ETTAL);
 	
 	for (i = 0; i < SPU_THREADS; i++)
 		pthread_join(spu_threads[i], NULL);

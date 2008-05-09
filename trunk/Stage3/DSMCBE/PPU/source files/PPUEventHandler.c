@@ -182,7 +182,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	
 	pthread_mutex_lock(&pointer_mutex_Old);
 	if (type == READ && ht_member(pointersOld, (void*)id)) {
-		//printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
+		printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
 		PointerEntry pe = ht_get(pointersOld, (void*)id);
 		ht_delete(pointersOld, (void*)id);
 		pthread_mutex_unlock(&pointer_mutex_Old);	
