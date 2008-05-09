@@ -62,7 +62,6 @@ void PrepareWorkBlock(struct workblock* w, unsigned int current_job)
 void FoldPrototein(char* proto, int spu_count)
 {
 	int i;
-	GUID* winners;
 	void* prototein_object;
 	void* tempobj;
 	unsigned int* work_counter;
@@ -78,7 +77,7 @@ void FoldPrototein(char* proto, int spu_count)
 	
 	threads = simpleInitialize(spu_count);
 	
-    printf(WHERESTR "PPU is broadcasting Prototein info\n", WHEREARG);
+    //printf(WHERESTR "PPU is broadcasting Prototein info\n", WHEREARG);
 	//Broadcast info about the prototein
 	prototein_object = create(PROTOTEIN, (sizeof(unsigned int) * 2) + prototein_length);
 	((unsigned int*)prototein_object)[0] = 0;
@@ -86,16 +85,10 @@ void FoldPrototein(char* proto, int spu_count)
 	memcpy(prototein_object + (sizeof(unsigned int) * 2), proto, prototein_length);
 	release(prototein_object);
 
-    printf(WHERESTR "PPU is setting up result buffers\n", WHEREARG);
+    //printf(WHERESTR "PPU is setting up result buffers\n", WHEREARG);
 	//Allocate result buffers
-	winners = malloc(sizeof(GUID) * spu_count);
-	for(i = 0; i < spu_count; i++)
-	{
-		winners[i] = WINNER_OFFSET + i;
-		release(create(winners[i], sizeof(int) + (sizeof(struct coordinate) * prototein_length))); 
-	}
 	
-    printf(WHERESTR "PPU is building work tree\n", WHEREARG);
+    //printf(WHERESTR "PPU is building work tree\n", WHEREARG);
 	//Allocate the consumer syncroniation primitive
 	work_counter = (unsigned int*)create(PACKAGE_ITEM, sizeof(unsigned int) * 2);
 	work_counter[0] = 0;
@@ -104,7 +97,7 @@ void FoldPrototein(char* proto, int spu_count)
 	cord.x = cord.y = prototein_length;
 	fold_broad(cord, REQUIRED_JOB_COUNT);
 
-    printf(WHERESTR "PPU is building tasks\n", WHEREARG);
+    //printf(WHERESTR "PPU is building tasks\n", WHEREARG);
 	//Now create all actual tasks, this is a bit wastefull in terms of memory usage
 	i = 0;
 	while(current_job < job_queue_length)
@@ -116,33 +109,33 @@ void FoldPrototein(char* proto, int spu_count)
 		i++;
 	}
 
-    printf(WHERESTR "PPU has completed building tasks\n", WHEREARG);
+    //printf(WHERESTR "PPU has completed building tasks\n", WHEREARG);
 	free(job_queue);
 	
 	//Let the SPU's begin their work
 	work_counter[1] = i;
 	release(work_counter);
 
-    printf(WHERESTR "PPU is waiting for SPU completion\n", WHEREARG);
+    //printf(WHERESTR "PPU is waiting for SPU completion\n", WHEREARG);
 	//Just wait for them all to complete
 	for(i = 0; i < spu_count; i++)
 	{
-	    printf(WHERESTR "waiting for SPU %i\n", WHEREARG, i);
+	    //printf(WHERESTR "waiting for SPU %i\n", WHEREARG, i);
 		pthread_join(threads[i], NULL);
 	}
 	
 	winner = (struct coordinate*)malloc(sizeof(struct coordinate) * prototein_length);
-    printf(WHERESTR "PPU is reading results\n", WHEREARG);
+    //printf(WHERESTR "PPU is reading results\n", WHEREARG);
 	//Pick up the results
 	for(i = 0; i < spu_count; i++)
 	{
-	    printf(WHERESTR "PPU is reading result for %i\n", WHEREARG, i);
-		tempobj = acquire(winners[i], &size);
+	    //printf(WHERESTR "PPU is reading result for %i\n", WHEREARG, i);
+		tempobj = acquire(WINNER_OFFSET + i, &size);
 		if (tempobj == NULL)
 			printf(WHERESTR "winner buffer failed\n", WHEREARG);
 		else
 		{
-			printf(WHERESTR "SPU %d result was %d\n", WHEREARG,i, ((int*)tempobj)[0]); 
+			//printf(WHERESTR "SPU %d result was %d\n", WHEREARG,i, ((int*)tempobj)[0]); 
 			if (((int*)tempobj)[0] > bestscore)
 			{
 				bestscore = ((int*)tempobj)[0];
@@ -152,7 +145,7 @@ void FoldPrototein(char* proto, int spu_count)
 		}
 	}
 	
-	printf("Optimal folding is (%d):\n", bestscore);
+	//printf("Optimal folding is (%d):\n", bestscore);
 	printmap(winner, prototein_length);
 	
 }

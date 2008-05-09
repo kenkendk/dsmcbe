@@ -15,6 +15,9 @@
 //This is the actual workblock ID
 #define WORKITEM_OFFSET 200
 
+//The number of lightweight threads on the SPU
+#define SPU_FIBERS 2
+
 //remove annoying warnings
 void exit(int);
 

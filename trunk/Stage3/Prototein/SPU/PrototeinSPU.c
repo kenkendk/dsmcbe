@@ -8,6 +8,7 @@
 #include <string.h>
 #include <dsmcbe_spu.h>
 #include <common/debug.h>
+#include <common/datastructures.h>
 
 #define MAP_WIDTH (prototein_length * 2 + 1) 
 #define MAP_HEIGTH (prototein_length * 2 + 1)
@@ -19,12 +20,9 @@ void fold(struct coordinate* place, unsigned int places_length);
 #define GET_MAP_CHAR(x,y) (map[MAP_COORDINATES((x),(y))])
 #define UPDATE_MAP(x,y,c) (GET_MAP_CHAR((x),(y)) = (c))
 
-int bestscore;
-int winner_length;
+char* map = NULL;
 struct coordinate* winner;
-char* map;
-
-int calc_score_run;
+int bestscore;
 
 void initialize_map(struct coordinate* place, unsigned int places_length)
 {
@@ -48,93 +46,99 @@ int FoldPrototein(unsigned long long id)
     unsigned long size;
     GUID itemno;
     unsigned int thread_id;
+    int threadNo;
     
     size_t i;
     
     bestscore = -9999999;
+    prototein = NULL;
     
     //printf(WHERESTR "Started SPU\n", WHEREARG);
     initialize();
     
     prototein_object = acquire(PROTOTEIN, &size);
-    printf(WHERESTR "SPU got prototein\n", WHEREARG);
+    //printf(WHERESTR "SPU got prototein\n", WHEREARG);
     
     thread_id = ((unsigned int*)prototein_object)[0];
     ((unsigned int*)prototein_object)[0]++;
     prototein_length = ((unsigned int*)prototein_object)[1];
-    prototein = (char*)malloc(sizeof(char) * prototein_length);
-    memcpy(prototein, prototein_object + (sizeof(unsigned int) * 2), prototein_length);
-    printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
-    release(prototein_object);
+	prototein = (char*)MALLOC(sizeof(char) * prototein_length);
+	memcpy(prototein, prototein_object + (sizeof(unsigned int) * 2), prototein_length);
 
-    map = (char*) malloc(MAP_SIZE);
+    map = (char*) MALLOC(MAP_SIZE);
+    winner = MALLOC((sizeof(struct coordinate) * prototein_length));
+
+	places = (struct coordinate*)MALLOC(sizeof(struct coordinate) * prototein_length);
+    //printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
+    release(prototein_object);
     
-    winner_object = (struct coordinate*)acquire(WINNER_OFFSET + thread_id, &size);
-    winner = winner_object + sizeof(int);
-    printf(WHERESTR "thread %d acquired winner block\n", WHEREARG, thread_id);
-    places = (struct coordinate*)malloc(sizeof(struct coordinate) * prototein_length);
     if (places == NULL)
     	printf("Failed to allocate memory %d\n", errno);
-    
-    while(1)
+
+    threadNo = CreateThreads(SPU_FIBERS);
+    if (threadNo >= 0)
     {
-	    printf(WHERESTR "thread %d is waiting for work\n", WHEREARG, thread_id);
-    	
-	    synclock = acquire(PACKAGE_ITEM, &size);
-	    if (synclock[0] >= synclock[1])
+	    while(1)
 	    {
-		    printf(WHERESTR "thread %d is terminating\n", WHEREARG, thread_id);
-	    	release(synclock);
-	    	break;
-	    }
+		    //printf(WHERESTR "thread %d:%d is waiting for work\n", WHEREARG, thread_id, threadNo);
 	    	
-	    itemno = WORKITEM_OFFSET + synclock[0];
-	    printf(WHERESTR "thread %d acquired work %d of %d\n", WHEREARG, thread_id, synclock[0], synclock[1]);
-	    synclock[0]++;
-    	release(synclock);
-
-		work = (struct workblock*)acquire(itemno, &size);	    
-	    queue = (struct coordinate*)(((void*)work) + sizeof(struct workblock));
-   		  
-	   	//printf("SPU recieved a work block with %d items\n", (*work).worksize);
-	    for(i = 0; i < (*work).worksize; i++)
-	    {
-	    	if (i == (*work).worksize_delta)
-	    		(*work).item_length--;
-	    		
-	        calc_score_run = 0;
-	        memcpy(places, queue, sizeof(struct coordinate) * (*work).item_length);
+		    synclock = acquire(PACKAGE_ITEM, &size);
+		    if (synclock[0] >= synclock[1])
+		    {
+			    //printf(WHERESTR "thread %d:%d is terminating\n", WHEREARG, thread_id, threadNo);
+		    	release(synclock);
+		    	break;
+		    }
+		    	
+		    itemno = WORKITEM_OFFSET + synclock[0];
+		    //printf(WHERESTR "thread %d:%d acquired work %d of %d\n", WHEREARG, thread_id, threadNo, synclock[0], synclock[1]);
+		    synclock[0]++;
+	    	release(synclock);
 	
-			/*if (((i % 20) == 0) || (i >= 220))
-			{
-				printf("SPU is folding: (%d)\n", i);
-				printmap(places, (*work).item_length);
-				//sleep(5);
-			}*/
-			
-			initialize_map(places, (*work).item_length);
-	        fold(places, (*work).item_length);
-	        queue += (*work).item_length;
-    	}
-    	
-    	release(work);
-	    printf(WHERESTR "thread %d is completed work %d\n", WHEREARG, thread_id, itemno);
-    	
-    	//printf("Done folding work block at SPU, score: %d\n", bestscore);
-    	//printmap(winner, prototein_length);
+			work = (struct workblock*)acquire(itemno, &size);	    
+		    queue = (struct coordinate*)(((void*)work) + sizeof(struct workblock));
+		   	//printf("SPU recieved a work block with %d items\n", (*work).worksize);
+		    for(i = 0; i < (*work).worksize; i++)
+		    {
+		    	if (i == (*work).worksize_delta)
+		    		(*work).item_length--;
+		    		
+		        memcpy(places, queue, sizeof(struct coordinate) * (*work).item_length);
+		
+				/*if (((i % 20) == 0) || (i >= 220))
+				{
+					printf("SPU is folding: (%d)\n", i);
+					printmap(places, (*work).item_length);
+					//sleep(5);
+				}*/
+				
+				initialize_map(places, (*work).item_length);
+		        fold(places, (*work).item_length);
+		        queue += (*work).item_length;
+	    	}
+	    	release(work);
+		    //printf(WHERESTR "thread %d:%d has completed work %d\n", WHEREARG, thread_id, threadNo, itemno);
+	    	
+	    	//printf("Done folding work block at SPU, score: %d\n", bestscore);
+	    	//printmap(winner, prototein_length);
+	
+			//printf("Writing a score %d\n", bestscore);	        
+	    }
+	
+		TerminateThread();
+	}
 
-		//printf("Writing a score %d\n", bestscore);	        
-    }
-
-    printf(WHERESTR "thread %d is writing back results\n", WHEREARG, thread_id);
+    //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
+    winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + sizeof(int));
+    memcpy(winner_object + sizeof(int), winner, sizeof(struct coordinate) * prototein_length);
     ((int*)winner_object)[0] = bestscore;
 	release(winner_object);
 	
-    free(prototein);
-    free(places);
-    free(map);
+   	FREE(prototein);
+    FREE(places);
+   	FREE(map);
 
-    printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
+    //printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
 	return 0;
 }
 
@@ -155,8 +159,6 @@ void calc_score(struct coordinate* place, unsigned int places_length)
 	int score, x, y;	
 	size_t i;
 	score = 0;
-	
-	calc_score_run++;
 	
 	for(i = 0; i < prototein_length; i++)
 	{
@@ -183,7 +185,6 @@ void calc_score(struct coordinate* place, unsigned int places_length)
 		//printmap(winner, winner_length);
 	
         bestscore=score;
-		winner_length = places_length;
 		for(i = 0; i<places_length; i++)
 			winner[i] = place[i];
 
