@@ -5,13 +5,13 @@
 #include <stdlib.h>
 #include "../header files/SPUThreads.h"
 #include "../../common/debug.h"
+#include "../../dsmcbe_spu.h"
 
 static thread_struct* threads = NULL; //The threads
 static thread_struct* current_thread = NULL; //The currently executing thread
 static thread_struct* main_env = NULL; //The main entry point
 static int no_of_threads; //Keep number of threads on the heap
 static int loop_counter; //Keep the loop counter on the heap
-	
 
 /*
 	Returns the index of the given thread, or -1 if the given thread was invalid
@@ -238,6 +238,13 @@ int CreateThreads(int threadCount)
 	}
 }
 
+/*
+	Returns true if a thread switch is possible
+*/
+int IsThreaded(void)
+{
+	return main_env != NULL;
+}
 
 /*
 	Selects another process to run, if any.
