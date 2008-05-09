@@ -1,4 +1,5 @@
 #include "../../common/datastructures.h"
+#include "../../common/debug.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,8 +11,8 @@
 keylist key_cons(void *key, void* data, keylist l)
 {
 	keylist temp;
-	if ((temp = malloc(sizeof(struct keycell))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((temp = MALLOC(sizeof(struct keycell))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	temp->data = data;
 	temp->key = key; 
@@ -22,7 +23,7 @@ keylist key_cons(void *key, void* data, keylist l)
 keylist key_cdr_and_free(keylist l)
 {
 	keylist temp = l->next; 
-	free(l);
+	FREE(l);
 	return temp;
 }
 
@@ -30,8 +31,8 @@ keylist key_cdr_and_free(keylist l)
 list cons(void *element, list l)
 {
 	list temp;
-	if ((temp = malloc(sizeof(struct cell))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((temp = MALLOC(sizeof(struct cell))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	temp -> element = element;
 	temp -> next = l;
@@ -41,15 +42,15 @@ list cons(void *element, list l)
 list cdr_and_free(list l)
 {
 	list temp = l -> next; 
-	free(l);
+	FREE(l);
 	return temp;
 }
 
 list list_create()
 {
 	list l;
-	if ((l = malloc(sizeof(struct cell))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((l = MALLOC(sizeof(struct cell))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	l->next = NULL;
 	return l;
@@ -59,7 +60,7 @@ void list_destroy(list l)
 {
 	while(l->next != NULL)
 		l = cdr_and_free(l);
-	free(l);
+	FREE(l);
 }
 
 void list_add(void* element, list* l)
@@ -79,8 +80,8 @@ void list_remove(list* l)
 stack stack_create(void)
 {
 	stack temp;
-	if ((temp = malloc(sizeof(struct stack))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((temp = MALLOC(sizeof(struct stack))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	temp -> elements = NULL;
 	return temp;
@@ -90,7 +91,7 @@ void stack_destroy(stack s)
 {
 	while(!stack_empty(s))
 		stack_pop(s);
-	free(s);
+	FREE(s);
 }
 
 void stack_push(stack s, void *element)
@@ -124,8 +125,8 @@ void * stack_top(stack s)
 ulset ulset_create(int (*equal)(void *, void *))
 {
 	ulset l;
-	if ((l = malloc(sizeof(struct ulset))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((l = MALLOC(sizeof(struct ulset))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	l -> elements = NULL;
 	l -> equal = equal;
@@ -136,7 +137,7 @@ void ulset_destroy(ulset l)
 {
 	while(!ulset_empty(l))
 		ulset_delete(l, l->elements->key);
-	free(l);
+	FREE(l);
 }
 
 int ulset_empty(ulset l)
@@ -188,8 +189,8 @@ void ulset_delete(ulset l, void *key)
 slset slset_create(int (*less)(void *, void *))
 {
 	slset l;
-	if ((l = malloc(sizeof(struct slset))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((l = MALLOC(sizeof(struct slset))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	l->elements = NULL;
 	l->less = less;
@@ -200,7 +201,7 @@ void slset_destroy(slset l)
 {
 	while(!slset_empty(l))
 		slset_delete(l, l->elements->key);
-	free(l);
+	FREE(l);
 }
 
 int slset_empty(slset l)
@@ -261,8 +262,8 @@ void slset_delete(slset l, void *key)
 queue queue_create(void)
 {
 	queue q;
-	if ((q = malloc(sizeof(struct queue))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((q = MALLOC(sizeof(struct queue))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	q -> head = q -> tail = cons(NULL, NULL);
 	return q;
@@ -273,7 +274,7 @@ void queue_destroy(queue q)
 	while(!queue_empty(q))
 		queue_deq(q);
 	cdr_and_free(q->head);
-	free(q);
+	FREE(q);
 }
 
 int queue_empty(queue q)
@@ -305,8 +306,8 @@ void * queue_deq(queue q)
 dlist dcons(void *element, dlist prev, dlist next)
 {
 	dlist temp;
-	if ((temp = malloc(sizeof(struct dcell))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((temp = MALLOC(sizeof(struct dcell))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 	temp -> element = element;
 	temp -> prev = prev;
 	temp -> next = next;
@@ -326,7 +327,7 @@ void * unlink_and_free(dlist l)
 	void *temp = l -> element;
 	l -> next -> prev = l -> prev;
 	l -> prev -> next = l -> next;
-	free(l);
+	FREE(l);
 	return temp;
 }
 
@@ -339,8 +340,8 @@ void * unlink_and_free(dlist l)
 dqueue dq_create(void)
 {
 	dqueue q;
-	if ((q = malloc(sizeof(struct dqueue))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((q = MALLOC(sizeof(struct dqueue))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	q -> sentinel = dcons(NULL, NULL, NULL);
 	q -> sentinel -> next = q -> sentinel -> prev = q -> sentinel;
@@ -352,7 +353,7 @@ void dq_destroy(dqueue q)
 	while(!dq_empty(q))
 		dq_deq_front(q);
 	unlink_and_free(q->sentinel);
-	free(q);
+	FREE(q);
 }
 
 int dq_empty(dqueue q)
@@ -394,8 +395,8 @@ hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(
 	if (size < 2)
 		size = 2;
 
-	if ((ht = malloc(sizeof(struct hashtable))) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((ht = MALLOC(sizeof(struct hashtable))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	ht->count = size;
 	ht->minsize = size;
@@ -403,8 +404,8 @@ hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(
 	ht->less = less;
 	ht->hash = hash;
 
-	if ((ht->buffer = malloc(sizeof(void*) * size)) == NULL)
-		perror("datastructures.c: malloc error");
+	if ((ht->buffer = MALLOC(sizeof(void*) * size)) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	for(i = 0; i < size; i++)
 		ht->buffer[i] = slset_create(ht->less);
@@ -415,7 +416,7 @@ hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(
 void ht_destroy(hashtable ht)
 {
 	ht_resize(ht, 0);
-	free(ht);
+	FREE(ht);
 }
 
 void ht_insert(hashtable ht, void* key, void* data)
@@ -463,12 +464,12 @@ void ht_resize(hashtable ht, unsigned int newsize)
 		}
 		slset_destroy(ht->buffer[i]);
 	}
-	free(ht->buffer);
+	FREE(ht->buffer);
 
 	ht->buffer = newtable->buffer;
 	ht->count = newtable->count;
 	ht->fill = newtable->fill;
 	
-	free(newtable);
+	FREE(newtable);
 }
 

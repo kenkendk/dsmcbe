@@ -1,6 +1,19 @@
 #ifndef DATASTRUCTURES_H
 #define DATASTRUCTURES_H
 
+#ifdef DSMCBE_SPU
+#define MALLOC(x) thread_malloc(x)
+#define FREE(x) thread_free(x)
+#define MALLOC_ALIGN(x,y) thread_malloc_align(x,y)
+#define FREE_ALIGN(x) thread_free_align(x);
+#else
+#define MALLOC(x) malloc(x)
+#define FREE(x) free(x)
+#define MALLOC_ALIGN(x,y) malloc_align(x,y)
+#define FREE_ALIGN(x) free_align(x);
+#endif
+
+
 /*********************/
 /* list implementation */
 /*********************/

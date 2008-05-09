@@ -57,8 +57,8 @@ int main(int argc, char **argv) {
 	
 	for(i = 0; i < items; i++)
 	{
-		if (largeblock[i] != (i + 2))
-			printf(WHERESTR "Ivalid value at %d\n", WHEREARG, i);
+		if (largeblock[i] != (i + (2 * SPU_FIBERS)))
+			printf(WHERESTR "Invalid value at %d\n", WHEREARG, i);
 	}
 		
 	release(largeblock);
