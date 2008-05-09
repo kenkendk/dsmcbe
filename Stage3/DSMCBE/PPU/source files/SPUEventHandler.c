@@ -168,19 +168,18 @@ void* ProcessMessages(void* data)
 						((struct releaseRequest*)dataItem)->data = datapointer;
 						break;
 			
-					case PACKAGE_INVALIDATE_REQUEST:
-						//printf(WHERESTR "Invalidate recieved\n", WHEREARG);
-						if ((dataItem = malloc(sizeof(struct invalidateRequest))) == NULL)
-							perror("SPUEventHandler.c: malloc error");;
+					case PACKAGE_INVALIDATE_RESPONSE:
+						printf(WHERESTR "Invalidate Response\n", WHEREARG);
+						if ((dataItem = malloc(sizeof(struct invalidateResponse))) == NULL)
+							perror("SPUEventHandler.c: malloc failed");
+
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
-						ReadMBOXBlocking(spe_threads[i], &itemid, 1);
 					
-						((struct invalidateRequest*)dataItem)->dataItem = itemid;
-						((struct invalidateRequest*)dataItem)->packageCode = datatype;
-						((struct invalidateRequest*)dataItem)->requestID = requestID;
+						((struct invalidateResponse*)dataItem)->packageCode = datatype;
+						((struct invalidateResponse*)dataItem)->requestID = requestID;
 						break;
 					default:
-						perror("Bad SPU request!");
+						fprintf(stderr, WHERESTR "Bad SPU request, ID was: %i\n", WHEREARG, datatype);
 						break;
 				}
 				
@@ -240,13 +239,13 @@ void* ProcessMessages(void* data)
 						queue_enq(mailboxQueues[i], (void*)((struct NACK*)dataItem)->requestID);
 						queue_enq(mailboxQueues[i], (void*)((struct NACK*)dataItem)->hint);
 						break;
-					case PACKAGE_INVALIDATE_RESPONSE:
-						//printf(WHERESTR "Got acquire invalidate message, converting to MBOX messages\n", WHEREARG);
+					case PACKAGE_INVALIDATE_REQUEST:
+						printf(WHERESTR "Got \"invalidateRequest\" message, converting to MBOX messages\n", WHEREARG);
 						queue_enq(mailboxQueues[i], (void*)datatype);
-						queue_enq(mailboxQueues[i], (void*)((struct invalidateResponse*)dataItem)->requestID);
+						queue_enq(mailboxQueues[i], (void*)((struct invalidateRequest*)dataItem)->requestID);
+						queue_enq(mailboxQueues[i], (void*)((struct invalidateRequest*)dataItem)->dataItem);
 						break;
-					default:
-						
+					default:						
 						perror("SPUEventHandler.c: Bad Coordinator response");
 						break;
 				}

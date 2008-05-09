@@ -7,6 +7,7 @@
  
 #include <stdio.h>
 #include <pthread.h>
+#include <string.h>
 #include "../header files/RequestCoordinator.h"
 
 #include "../../common/debug.h"
@@ -175,15 +176,29 @@ void RespondRelease(QueueableItem item)
 }
 
 //Responds to an invalidate request
-void RespondInvalidate(QueueableItem item)
+void RequestInvalidate(QueueableItem item, GUID dataItem)
 {
-	struct invalidateResponse* resp;
-	if ((resp = (struct invalidateResponse*)malloc(sizeof(struct invalidateResponse))) == NULL)
+	struct invalidateRequest* requ;
+	if ((requ = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
 		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 	
-	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
+	requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
+	requ->requestID = ((struct acquireRequest*)item->dataRequest)->requestID;
+	requ->dataItem = dataItem;
 
-	RespondAny(item, resp);	
+	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
+	pthread_mutex_lock(item->mutex);
+	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
+	queue_enq(*(item->queue), requ);
+	pthread_cond_signal(item->event);
+	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
+	pthread_mutex_unlock(item->mutex);
+	
+	printf(WHERESTR "Invalidate request send\n", WHEREARG);
+	
+	//free(item->dataRequest);
+	//free(item);
+	
 }
 
 //Performs all actions releated to a create request
@@ -244,15 +259,11 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 }
 
 //Perform all actions related to an invalidate
-void DoInvalidate(QueueableItem item, struct invalidateRequest* request)
+void DoInvalidate(QueueableItem item, GUID dataItem)
 {
-	//printf(WHERESTR "Before: Responsd to Invalidate\n", WHEREARG);	
-	RespondInvalidate(item);
-	//printf(WHERESTR "After: Responsd to Invalidate\n", WHEREARG);
+	printf(WHERESTR "Sending invalidate request\n", WHEREARG);
+	RequestInvalidate(item, dataItem);	
 }
-
-
-
 
 //Performs all actions releated to an acquire request
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
@@ -283,19 +294,28 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 			//printf(WHERESTR "Object not looked\n", WHEREARG);
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
 				//printf(WHERESTR "Acquiring READ on not looked object\n", WHEREARG);
-				queue_enq(r, item);
-				RespondAcquire(item, obj);		
+				QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
+				memcpy(queueItem, item, sizeof(struct QueueableItemStruct));
+				queue_enq(r, queueItem);
+				printf(WHERESTR "\nREAD lock has value: %i\n\n", WHEREARG, (int)item->mutex);			
+				RespondAcquire(item, obj);
 			} else {			
 				//printf(WHERESTR "Acquiring WRITE on not looked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
 				RespondAcquire(item, obj);
+
+				if(!queue_empty(r)) {
+					
+					QueueableItem next;
 				
-				// Invalidate all in readersqueue (r)
-				while (!queue_empty(r)) {
-					// Invalidate
-					printf(WHERESTR "Must invalidate\n", WHEREARG);
-					queue_deq(r);
-					//DoInvalidate(next, NULL);					
+					// Invalidate all in readersqueue (r)
+					while (!queue_empty(r)) {
+						// Invalidate
+						printf(WHERESTR "Must invalidate\n", WHEREARG);
+						
+						next = queue_deq(r);
+						DoInvalidate(next, request->dataItem);					
+					}
 				}
 			}
 		}
@@ -307,7 +327,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	}
 	else
 	{
-		printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
+		//printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
 		//Create a list if none exists
 		if (!ht_member(waiters, (void*)request->dataItem))
 			ht_insert(waiters, (void*)request->dataItem, dq_create());
@@ -362,13 +382,23 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				//Respond to the releaser
 				//printf(WHERESTR "Respond to the releaser\n", WHEREARG);
 				RespondRelease(item);
-				if (!dq_empty(q))
+				while (!dq_empty(q))
 				{
 					//Acquire for the next in the queue
-					//printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
+					printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
 					next = dq_deq_front(q);
-					dq_enq_front(q, NULL);
-					RespondAcquire(next, obj);
+					if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
+						dq_enq_front(q, NULL);
+						RespondAcquire(next, obj);						
+						break;
+					} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
+						queue_enq(r, next);
+						printf(WHERESTR "\nREAD lock has value: %i\n\n", WHEREARG, (int)next->mutex);
+						RespondAcquire(next, obj);
+						continue;
+					}
+					else
+						fprintf(stderr, WHERESTR "Error: packageCode where neither WRITE or READ", WHEREARG);						 
 				}
 			}					
 		}

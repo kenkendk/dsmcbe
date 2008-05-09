@@ -10,26 +10,29 @@
 
 int main(int argc, char **argv) {
 	
-	int i,j,k;
-	unsigned long space;
-	unsigned char* data; 
-	int size = 200;
+	unsigned long size;
+	int* data; 
 	
 	initialize();	
 	printf(WHERESTR "Hello World\n", WHEREARG);
 	
-	for(i = 0; i < 1; i++) {
-		data = acquire(ETTAL + i, &space, WRITE);
-		for(j = 0; j < size; j++)
-			for(k = 0; k < size; k++)
-				if (data[(j * size) + k] != 1)
-					printf(WHERESTR "Error in ETTAL with id; %i at position (%i,%i) value was: %i\n", WHEREARG, i, j, k, data[(j * size) + k]);			
-				
-		printf(WHERESTR "Releasing\n", WHEREARG);
-		release(data);
-	}
+	sleep(1);
 	
+	printf(WHERESTR "Acquiring data with id: %i\n", WHEREARG, ETTAL);
+	data = acquire(ETTAL, &size, READ);
+	printf(WHERESTR "Data with id: %i has value: %i\n", WHEREARG, ETTAL, *data);					
+	release(data);
+	printf(WHERESTR "Data with id: %i released\n", WHEREARG, ETTAL);
+	
+	sleep(7);
+	
+	printf(WHERESTR "Acquiring data with id: %i\n", WHEREARG, ETTAL);
+	data = acquire(ETTAL, &size, READ);
+	printf(WHERESTR "Data with id: %i has value: %i\n", WHEREARG, ETTAL, *data);					
+	release(data);
+	printf(WHERESTR "Data with id: %i released\n", WHEREARG, ETTAL);
+
 	printf(WHERESTR "Done\n", WHEREARG);
-	
+
 	return 0;
 }

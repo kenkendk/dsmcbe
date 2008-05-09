@@ -10,7 +10,7 @@
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
 
-static hashtable allocatedItemsWrite, allocatedItemsRead, allocatedItemsOld;
+static hashtable allocatedItemsWrite, allocatedItemsRead, allocatedItemsOld, invalidateIDs;  
 static queue allocatedID;
 
 typedef struct dataObjectStruct *dataObject;
@@ -32,20 +32,28 @@ int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
-int clear() {	
-	int id = (int)queue_deq(allocatedID);
-	//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);
-	if(ht_member(allocatedItemsOld, (void*)id)) {
-		dataObject object = ht_get(allocatedItemsOld, (void*)id);		
-		ht_delete(allocatedItemsOld, (void*)id);
-		free_align(object->data);
-		free(object);
-		//printf(WHERESTR "Item removed\n", WHEREARG);
-		return 1;				
-	} else
-		//printf(WHERESTR "Item not found\n", WHEREARG);
+int clear(unsigned long size) {	
 	
-	return 0;
+	//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);
+	unsigned long freedmemory = 0;
+
+	while(freedmemory < size) {
+		int id;
+		if (!queue_empty(allocatedID))
+			id = (int)queue_deq(allocatedID);
+		else
+			return 0;
+
+		if(ht_member(allocatedItemsOld, (void*)id)) {
+			dataObject object = ht_get(allocatedItemsOld, (void*)id);		
+			ht_delete(allocatedItemsOld, (void*)id);
+			freedmemory += object->size;
+			free_align(object->data);
+			free(object);				
+		}
+	}
+	
+	return 1;
 }
 
 void sendMailbox(void* dataItem, int packagetype) {
@@ -77,9 +85,8 @@ void sendMailbox(void* dataItem, int packagetype) {
 	free(dataItem);	
 }
 
-void invalidate(struct invalidateRequest* item) {
-	
-	// Insert code here	
+void sendInvalidateResponse(struct invalidateRequest* item) {
+	printf(WHERESTR "Sending validateResponse on data with id: %i", WHEREARG, item->dataItem);
 	struct invalidateResponse* resp;
 	
 	if ((resp = malloc(sizeof(struct invalidateResponse))) == NULL)
@@ -91,6 +98,49 @@ void invalidate(struct invalidateRequest* item) {
 	sendMailbox(resp, PACKAGE_INVALIDATE_RESPONSE);
 	
 	free(resp);
+}
+
+void invalidate(struct invalidateRequest* item) {
+	
+	printf(WHERESTR "Trying to invalidate data with id: %i", WHEREARG, item->dataItem);
+	
+	GUID id = item->dataItem;
+	
+	if(ht_member(allocatedItemsOld, (void*)id)) {
+		printf(WHERESTR "Data with id: %i is allocated but has been released", WHEREARG, id);
+		dataObject object = ht_get(allocatedItemsOld, (void*)id);
+		//printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
+
+		ht_delete(allocatedItemsOld, (void*)id);
+		
+		queue temp = queue_create();
+		GUID value;
+		while(!queue_empty(allocatedID)) {
+			value = (GUID)queue_deq(allocatedID);
+			if(id != value) 
+				queue_enq(temp, (void*)value);
+		}
+		queue_destroy(allocatedID);
+		allocatedID = temp;
+		
+		free_align(object->data);
+		free(object);			
+	} else if(ht_member(invalidateIDs, (void*)id)) {
+		printf(WHERESTR "Data with id: %i is allocated and acquired", WHEREARG, id);
+
+		// Put in list and don't send reponse to invalidate, before release has been called.
+				
+		ht_delete(invalidateIDs, (void*)id);
+		ht_insert(invalidateIDs, (void*)id, item);
+		
+		return;
+	}
+	else {
+		printf(WHERESTR "Data with id: %i not allocated anymore", WHEREARG, id);
+	}
+	
+	// Ready to send response!
+	sendInvalidateResponse(item);
 }
 
 void* readMailbox() {
@@ -105,6 +155,7 @@ void* readMailbox() {
 	switch(packagetype)
 	{
 		case PACKAGE_ACQUIRE_RESPONSE:
+			printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
 			if ((dataItem = malloc(sizeof(struct acquireResponse))) == NULL)
 				perror("SPUEventHandler.c: malloc error");;
 
@@ -162,10 +213,11 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	
 	if (type == READ && ht_member(allocatedItemsOld, (void*)id)) {
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);		
-		//printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
+		printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
 
 		ht_delete(allocatedItemsOld, (void*)id);
-		ht_insert(allocatedItemsRead, object->data, object);	
+		ht_insert(allocatedItemsRead, object->data, object);
+		ht_insert(invalidateIDs, (void*)id, NULL);	
 		
 		queue temp = queue_create();
 		GUID value;
@@ -219,23 +271,17 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	
 	transfer_size = *size + ((16 - *size) % 16);
 
-	while((allocation = _malloc_align(transfer_size, 7)) == NULL) {
-		if (clear() == 0) {
+	if((allocation = _malloc_align(transfer_size, 7)) == NULL)
+		if (clear(transfer_size) == 0)
 			fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
-			break;
-		}
-	}
-	
+
 	//printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
 
 	// Make datastructures for later use
 	dataObject object;
-	while((object = malloc(sizeof(struct dataObjectStruct))) == NULL) {
-		if (clear() == 0) {
+	if((object = malloc(sizeof(struct dataObjectStruct))) == NULL)
+		if (clear(sizeof(struct dataObjectStruct)) == 0)
 			fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
-			break;
-		}
-	}
 			
 	object->id = id;
 	object->EA = resp->data;
@@ -254,6 +300,8 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	
 	//printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
 	//printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);		
+	
+	ht_insert(invalidateIDs, (void*)id, NULL);
 	
 	free(resp);
 	
@@ -314,20 +362,33 @@ void release(void* data){
 //		printf(WHERESTR "Request id: %i\n", WHEREARG, resp->requestID);
 		
 		ht_delete(allocatedItemsWrite, data);
+		ht_delete(invalidateIDs, (void*)object->id);
 		free(object);
 	} else if (ht_member(allocatedItemsRead, data)) {
 
 		dataObject object = ht_get(allocatedItemsRead, data);		
 		//printf(WHERESTR "Release for READ id: %i\n", WHEREARG, object->id);
 
-		ht_delete(allocatedItemsRead, data);
-		ht_insert(allocatedItemsOld, (void*)object->id, object);
-		queue_enq(allocatedID, (void*)object->id);
+		if (ht_member(invalidateIDs, (void*)object->id)) {
+			struct invalidateRequest* item;
+			if ((item = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
+				fprintf(stderr, WHERESTR "SPUEventHandler.c: malloc error\n", WHEREARG);
+			
+			if ((item = ht_get(invalidateIDs, (void*)object->id)) != NULL)
+				sendInvalidateResponse(item);
+			else {
+				// Move object to old allocated items.
+				ht_insert(allocatedItemsOld, (void*)object->id, object);
+				queue_enq(allocatedID, (void*)object->id);				
+			}
+			free(item);						
+		} else {
+			fprintf(stderr, WHERESTR "Error occoured: allocatedItem is not in ht \"incalidateIDs\"", WHEREARG);
+		}
 		
-		// Later we will move data to list containing release read objects, instead
-		// of freeing them. This can be used to make it possible to reacquire read data, 		 
-		// whitout transfering data from main memory.
-		//free_align(data);
+		// Clean up
+		ht_delete(allocatedItemsRead, data);
+		ht_delete(invalidateIDs, (void*)object->id);
 	}
 }
 
@@ -336,6 +397,7 @@ void initialize(){
 	allocatedItemsWrite = ht_create(10, lessint, hashfc);
 	allocatedItemsRead = ht_create(10, lessint, hashfc);
 	allocatedItemsOld = ht_create(10, lessint, hashfc);
+	invalidateIDs = ht_create(10, lessint, hashfc);
 	allocatedID = queue_create();
 }
 
