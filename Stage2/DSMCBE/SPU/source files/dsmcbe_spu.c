@@ -98,12 +98,8 @@ void StartDMATransfer(struct acquireResponse* resp)
 		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
 	}
 		
-	//printf(WHERESTR "Poping ID response for %d \n", WHEREARG, resp->requestID); 
-		
 	GUID id = (GUID)ht_get(memoryList, (void*)resp->requestID);
 	ht_delete(memoryList, (void*)resp->requestID);
-
-	//printf(WHERESTR "Poping ID response for %d -> %d\n", WHEREARG, resp->requestID, id); 
 	
 	ht_insert(memoryList, (void*)resp->requestID, allocation);
 	//printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
@@ -145,9 +141,6 @@ void readMailbox() {
 			datasize = spu_read_in_mbox();
 			datapointer = (void*)spu_read_in_mbox();
 
-			//printf(WHERESTR "Acquire response for %d \n", WHEREARG, requestID); 
-
-			//printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)data);			
 			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
 			((struct acquireResponse*)dataItem)->requestID = requestID; 
 			((struct acquireResponse*)dataItem)->dataSize = datasize;
@@ -169,8 +162,6 @@ void readMailbox() {
 				perror("SPUEventHandler.c: malloc error");;
 
 			requestID = spu_read_in_mbox();
-			//printf(WHERESTR "Release response for %d \n", WHEREARG, requestID); 
-
 			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
 			((struct acquireResponse*)dataItem)->requestID = requestID;
 			
@@ -231,7 +222,7 @@ unsigned int beginCreate(GUID id, unsigned long size)
 	return nextId;
 }
 
-unsigned int beginAcquire(GUID id)
+unsigned int beginAcquire(GUID id, int type)
 {
 	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
 	

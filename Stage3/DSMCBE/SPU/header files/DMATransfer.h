@@ -11,12 +11,12 @@
 #define malloc_align _malloc_align
 #define free_align _free_align
 
-inline int GetDMAGroupID(void* b0, void* b1, void* current);
-void StartDMAReadTransferOfNext(void* b0, void* b1, void* current, unsigned int* ea, unsigned int* size, unsigned int *last_size, unsigned int buffersize);
-void WaitForDMATransfer(void* b0, void* b1, void* current);
 void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid);
 void WaitForDMATransferByGroup(int groupid);
 void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid);
+int IsDMATransferGroupCompleted(int groupid);
+
+#define ALIGNED_SIZE(x) (x + ((16 - x) % 16))
 
 #endif /*DMATRANSFER_H_*/
 
