@@ -10,7 +10,27 @@
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
 
-static hashtable allocatedItemsWrite, allocatedItemsRead, allocatedItemsOld, invalidateIDs;  
+#define ASYNC_STATUS_ERROR -1
+#define ASYNC_STATUS_REQUEST_SENT 1
+#define ASYNC_STATUS_DMA_PENDING 2
+#define ASYNC_STATUS_COMPLETE 3
+
+//There are only 32 DMA tags avalible
+#define MAX_DMA_GROUPS 32
+//The SPU cannot hold more than a few unserviced requests
+#define MAX_REQ_NO 100000
+
+static hashtable allocatedItemsWrite
+static hashtable allocatedItemsRead;
+static hashtable allocatedItemsOld;
+static hashtable invalidateIDs;  
+
+static unsigned int requestNo = 1;
+static int DMAGroupNo = 0;
+static hashtable pending;
+static hashtable memoryList;
+static hashtable cached;
+
 static queue allocatedID;
 
 typedef struct dataObjectStruct *dataObject;
@@ -56,11 +76,20 @@ int clear(unsigned long size) {
 	return 1;
 }
 
-void sendMailbox(void* dataItem, int packagetype) {
-	switch(packagetype)
+void sendMailbox(void* dataItem) {
+	switch(((struct releaseRequest*)dataItem)->packageCode)
 	{
+		case PACKAGE_CREATE_REQUEST:
+			ht_insert(memoryList, (void*)((struct createRequest*)dataItem)->requestID, (void*)((struct createRequest*)dataItem)->dataItem);
+			spu_write_out_mbox(((struct createRequest*)dataItem)->packageCode);
+			spu_write_out_mbox(((struct createRequest*)dataItem)->requestID);
+			spu_write_out_mbox(((struct createRequest*)dataItem)->dataItem);
+			spu_write_out_mbox(((struct createRequest*)dataItem)->dataSize);
+			break;			
+		
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			ht_insert(memoryList, (void*)((struct acquireRequest*)dataItem)->requestID, (void*)((struct acquireRequest*)dataItem)->dataItem);
 			spu_write_out_mbox(((struct acquireRequest*)dataItem)->packageCode);
 			spu_write_out_mbox(((struct acquireRequest*)dataItem)->requestID);
 			spu_write_out_mbox(((struct acquireRequest*)dataItem)->dataItem);
@@ -80,13 +109,13 @@ void sendMailbox(void* dataItem, int packagetype) {
 			break;
 		
 		default:
-			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, packagetype);
+			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, ((struct releaseRequest*)dataItem)->packageCode);
 	}
-	free(dataItem);	
+	FREE(dataItem);	
 }
 
 void sendInvalidateResponse(struct invalidateRequest* item) {
-	printf(WHERESTR "Sending validateResponse on data with id: %i\n", WHEREARG, item->dataItem);
+	printf(WHERESTR "Sending invalidateResponse on data with id: %i\n", WHEREARG, item->dataItem);
 	struct invalidateResponse* resp;
 	
 	if ((resp = malloc(sizeof(struct invalidateResponse))) == NULL)
@@ -95,9 +124,9 @@ void sendInvalidateResponse(struct invalidateRequest* item) {
 	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
 	resp->requestID = item->requestID;
 	
-	sendMailbox(resp, PACKAGE_INVALIDATE_RESPONSE);
+	sendMailbox(resp);
 	
-	free(resp);
+	FREE(item);
 }
 
 void invalidate(struct invalidateRequest* item) {
@@ -143,6 +172,61 @@ void invalidate(struct invalidateRequest* item) {
 	//sendInvalidateResponse(item);
 }
 
+void StartDMATransfer(struct acquireResponse* resp)
+{
+	void* allocation;
+	unsigned int transfer_size;
+	int dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
+
+	GUID id = (GUID)ht_get(memoryList, (void*)resp->requestID);
+	ht_delete(memoryList, (void*)resp->requestID);
+	
+	if (ht_member(allocatedItemsOld, id)) {
+		ht_insert(cached, (void*)nextId, ht_get(allocatedItemsOld, id));
+		ht_delete(allocatedItemsOld, id);
+
+		if (type == WRITE)
+			ht_insert(allocatedItemsWrite, object->data, object);
+		else
+			ht_insert(allocatedItemsRead, object->data, object);
+		ht_insert(invalidateIDs, (void*)id, NULL);
+		return;
+	}
+
+	transfer_size = ALIGNED_SIZE(resp->dataSize);
+
+	allocation = MALLOC_ALIGN(transfer_size, 7);
+	if (allocation == NULL)
+	{
+		printf(WHERESTR "Pending fill: %d, memoryList fill: %d, allocated fill: %d\n", WHEREARG, pending->fill, memoryList->fill, allocatedItems->fill);
+		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
+	}
+		
+	ht_insert(memoryList, (void*)resp->requestID, allocation);
+	//printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
+
+	// Make datastructures for later use
+	dataObject object;
+	object = MALLOC(sizeof(struct dataObjectStruct));
+	if (object == NULL)
+		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
+
+	resp->requestID = dmaNo;
+
+	object->id = id;
+	object->EA = resp->data;
+	object->size = resp->dataSize;
+	object->data = allocation;
+
+	if (type == WRITE)
+		ht_insert(allocatedItemsWrite, allocation, object);
+	else
+		ht_insert(allocatedItemsRead, allocation, object);
+	ht_insert(invalidateIDs, (void*)id, NULL);
+
+	StartDMAReadTransfer(allocation, (unsigned int)resp->data, transfer_size, dmaNo);
+}
+
 void* readMailbox(int recallIfinvalidate) {
 	void* dataItem;
 	unsigned int datatype;
@@ -155,29 +239,45 @@ void* readMailbox(int recallIfinvalidate) {
 	switch(packagetype)
 	{
 		case PACKAGE_ACQUIRE_RESPONSE:
-			printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
-			if ((dataItem = malloc(sizeof(struct acquireResponse))) == NULL)
+			if ((dataItem = MALLOC(sizeof(struct acquireResponse))) == NULL)
 				perror("SPUEventHandler.c: malloc error");;
 
 			requestID = spu_read_in_mbox();
 			datasize = spu_read_in_mbox();
 			datapointer = (void*)spu_read_in_mbox();
 
-			//printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)data);			
 			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
 			((struct acquireResponse*)dataItem)->requestID = requestID; 
 			((struct acquireResponse*)dataItem)->dataSize = datasize;
 			((struct acquireResponse*)dataItem)->data = datapointer;
+
+			if (ht_member(pending, (void*)((struct acquireResponse*)dataItem)->requestID))
+			{
+				ht_delete(pending, (void*)((struct acquireResponse*)dataItem)->requestID);
+				ht_insert(pending, (void*)((struct acquireResponse*)dataItem)->requestID, dataItem);
+			}
+			else
+				fprintf(stderr, WHERESTR "Recieved a request with an unexpected requestID\n", WHEREARG);
+			
+			StartDMATransfer((struct acquireResponse*)dataItem);
 			break;
 		
 		case PACKAGE_RELEASE_RESPONSE:
-			if ((dataItem = malloc(sizeof(struct releaseResponse))) == NULL)
+			if ((dataItem = MALLOC(sizeof(struct releaseResponse))) == NULL)
 				perror("SPUEventHandler.c: malloc error");;
 
 			requestID = spu_read_in_mbox();
 			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
 			((struct acquireResponse*)dataItem)->requestID = requestID; 
-			
+
+			if (ht_member(pending, (void*)((struct acquireResponse*)dataItem)->requestID))
+			{
+				ht_delete(pending, (void*)((struct acquireResponse*)dataItem)->requestID);
+				ht_insert(pending, (void*)((struct acquireResponse*)dataItem)->requestID, dataItem);
+			}
+			else
+				fprintf(stderr, WHERESTR "Recieved a request with an unexpected requestID\n", WHEREARG);
+
 			break;
 		
 		case PACKAGE_INVALIDATE_REQUEST:			
@@ -207,171 +307,134 @@ void* readMailbox(int recallIfinvalidate) {
 	return dataItem;
 }
 
-void* acquire(GUID id, unsigned long* size, int type) {
-	
-	void* allocation;
-	unsigned int transfer_size;
-	
-	if (type == READ && ht_member(allocatedItemsOld, (void*)id)) {
-		if(spu_stat_in_mbox() > 1) {
-			readMailbox(0);
-			
-		}
-		
-		if (ht_member(allocatedItemsOld, (void*)id)) {
-			dataObject object = ht_get(allocatedItemsOld, (void*)id);		
-			printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
-	
-			ht_delete(allocatedItemsOld, (void*)id);
-			ht_insert(allocatedItemsRead, object->data, object);
-			ht_insert(invalidateIDs, (void*)id, NULL);	
-			
-			queue temp = queue_create();
-			GUID value;
-			while(!queue_empty(allocatedID)) {
-				value = (GUID)queue_deq(allocatedID);
-				if(id != value) 
-					queue_enq(temp, (void*)value);
-			}
-			queue_destroy(allocatedID);
-			allocatedID = temp;
-			
-			return object->data;
-		}
-	}
-	
-	struct acquireRequest* request;
-	if ((request = malloc(sizeof(struct acquireRequest))) == NULL)
-		perror("SPUEventHandler.c: malloc error");
+unsigned int beginCreate(GUID id, unsigned long size)
+{
+	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
 
-	if (allocatedItemsWrite == NULL || allocatedItemsRead == NULL)
+	if (allocatedItems == NULL)
 	{
 		printf(WHERESTR "Initialize must be called\n", WHEREARG);
-		return NULL;
+		return 0;
 	}
+
+	struct createRequest* request;
+	if ((request = MALLOC(sizeof(struct createRequest))) == NULL)
+		perror("SPUEventHandler.c: malloc error");
 	
-	if (type == WRITE) {
-		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
-		//spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_WRITE);
+	request->packageCode = PACKAGE_CREATE_REQUEST;
+	request->requestID = nextId;
+	request->dataSize = size;
+	request->dataItem = id;
+	
+	sendMailbox(request);
+
+	//printf(WHERESTR "Issued an create for %d, with req %d\n", WHEREARG, id, nextId); 
+	
+	ht_insert(pending, (void*)nextId, NULL);
+	
+	return nextId;
+}
+
+unsigned int beginAcquire(GUID id, int type)
+{
+	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
+	
+	if (allocatedItems == NULL)
+	{
+		printf(WHERESTR "Initialize must be called\n", WHEREARG);
+		return 0;
+	}
+
+	if (spu_stat_in_mbox() > 0)
+		readMailbox();
+
+	if (type == READ && ht_member(allocatedItemsOld, (void*)id)) {
+		dataObject object = ht_get(allocatedItemsOld, (void*)id);		
+		printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
+
+		ht_delete(allocatedItemsOld, (void*)id);
+		ht_insert(allocatedItemsRead, object->data, object);
+		ht_insert(invalidateIDs, (void*)id, NULL);	
+		
+		queue temp = queue_create();
+		GUID value;
+		while(!queue_empty(allocatedID)) {
+			value = (GUID)queue_deq(allocatedID);
+			if(id != value) 
+				queue_enq(temp, (void*)value);
+		}
+		queue_destroy(allocatedID);
+		allocatedID = temp;
+
+		ht_insert(cached, (void*)nextId, object);
+	
+		return object->data;
+	}
+
+	struct acquireRequest* request;
+	if ((request = MALLOC(sizeof(struct acquireRequest))) == NULL)
+		perror("SPUEventHandler.c: malloc error");
+	
+	if (type == WRITE)
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
-	} else if (type == READ) {
-		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
-		//spu_write_out_mbox(PACKAGE_ACQUIRE_REQUEST_READ);
+	else if (type == READ)
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
-	} else {
+	else {
 		perror("Starting acquiring in unknown mode");
 		return NULL;
 	}
-	
-	request->requestID = 2;
+	request->requestID = nextId;
 	request->dataItem = id;
 	
-	sendMailbox(request, request->packageCode);
+	sendMailbox(request);
 
-	struct acquireResponse* resp = readMailbox(1);
-	
-//	printf(WHERESTR "Message type: %i\n", WHEREARG, (int)resp->packageCode);		
-//	printf(WHERESTR "Request id: %i\n", WHEREARG, (int)resp->requestID);		
-//	printf(WHERESTR "Data size: %i\n", WHEREARG, (int)resp->dataSize);	
-//	printf(WHERESTR "Data EA: %i\n", WHEREARG, (int)resp->data);
-	
-	*size = resp->dataSize;
-	
-	transfer_size = *size + ((16 - *size) % 16);
-
-	if((allocation = _malloc_align(transfer_size, 7)) == NULL)
-		if (clear(transfer_size) == 0)
-			fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
-
-	//printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
-
-	// Make datastructures for later use
-	dataObject object;
-	if((object = malloc(sizeof(struct dataObjectStruct))) == NULL)
-		if (clear(sizeof(struct dataObjectStruct)) == 0)
-			fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
-			
-	object->id = id;
-	object->EA = resp->data;
-	object->size = *size;
-	object->data = allocation;
-	if (type == WRITE)
-		ht_insert(allocatedItemsWrite, allocation, object);
-	else
-		ht_insert(allocatedItemsRead, allocation, object);
-	
-	//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
-	StartDMAReadTransfer(allocation, (unsigned int)resp->data, transfer_size, 0);
-	
-	//printf(WHERESTR "Waiting for DMA transfer\n", WHEREARG);
-	WaitForDMATransferByGroup(0);
-	
-	//printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
-	//printf(WHERESTR "Acquire completed id: %i\n", WHEREARG, id);		
-	
-	ht_insert(invalidateIDs, (void*)id, NULL);
-	
-	free(resp);
-	
-	return allocation;	
+	ht_insert(pending, (void*)nextId, NULL);
+	return nextId;
 }
 
-void release(void* data){
-	
+unsigned int beginRelease(void* data)
+{
+	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
 	unsigned int transfersize;
+	int dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 	
-	if (allocatedItemsWrite == NULL)
+	if (allocatedItems == NULL)
 	{
-		printf(WHERESTR "Initialize must be called\n", WHEREARG);
-		return;
+		fprintf(stderr, WHERESTR "Initialize must be called\n", WHEREARG);
+		return 0;
 	}
 
 	if (ht_member(allocatedItemsWrite, data)) {
 		
-		dataObject object = ht_get(allocatedItemsWrite, data);
+		dataObject object = ht_get(allocatedItems, data);
 		
-		transfersize = object->size + ((16 - object->size) % 16);
+		transfersize = ALIGNED_SIZE(object->size);
 		//printf(WHERESTR "Release for WRITE id: %i\n", WHEREARG, object->id);
 		
 		//printf(WHERESTR "Starting DMA transfer\n", WHEREARG);
-		StartDMAWriteTransfer(data, (int)object->EA, transfersize, 1);
+		StartDMAWriteTransfer(data, (int)object->EA, transfersize, dmaNo);
 		//printf(WHERESTR "Waiting for DMA transfer\n", WHEREARG);
-		WaitForDMATransferByGroup(1);
-		//printf(WHERESTR "Finished DMA transfer\n", WHEREARG);
 		
-		free_align(data);
-	
 		struct releaseRequest* request;
-		if ((request = malloc(sizeof(struct releaseRequest))) == NULL)
+		if ((request = MALLOC(sizeof(struct releaseRequest))) == NULL)
 			perror("SPUEventHandler.c: malloc error");
 
-		//printf(WHERESTR "Release DMA completed\n", WHEREARG);
-		//lwsync();	
-		//spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
 		request->packageCode = PACKAGE_RELEASE_REQUEST; 
-		//spu_write_out_mbox(2);
-		request->requestID = 2;
-		
-		//printf(WHERESTR "Release for id: %i\n", WHEREARG, object->id);
-
-		//spu_write_out_mbox(object->id);
-		request->dataItem = object->id;		
-		//spu_write_out_mbox(object->size);
+		request->requestID = dmaNo;
+		request->dataItem = object->id;
 		request->dataSize = object->size;
+		request->offset = 0;
 		
-		//spu_write_out_mbox((int)data);
-		request->data = data;
-		sendMailbox(request, request->packageCode);
+		ht_insert(pending, (void*)nextId, request);
+		ht_insert(memoryList, (void*)nextId, object->data);
+
+		//printf(WHERESTR "Issued a release for %d, with req %d\n", WHEREARG, object->id, nextId); 
+
+		ht_delete(allocatedItems, data);
+		FREE(object);
 		
-		struct releaseResponse* resp = readMailbox(1);
-		free(resp);
-	
-//		printf(WHERESTR "Message type: %i\n", WHEREARG, resp->packageCode);
-//		printf(WHERESTR "Request id: %i\n", WHEREARG, resp->requestID);
 		
-		ht_delete(allocatedItemsWrite, data);
-		ht_delete(invalidateIDs, (void*)object->id);
-		free(object);
+		return nextId;
 	} else if (ht_member(allocatedItemsRead, data)) {
 
 		dataObject object = ht_get(allocatedItemsRead, data);		
@@ -398,8 +461,13 @@ void release(void* data){
 		ht_delete(allocatedItemsRead, data);
 		ht_delete(invalidateIDs, (void*)object->id);
 	}
-}
+	else
+	{
+		fprintf(stderr, WHERESTR "Tried to release non allocated item\n", WHEREARG);
+		return 0;
+	}
 
+}
 
 void initialize(){
 	allocatedItemsWrite = ht_create(10, lessint, hashfc);
@@ -407,5 +475,178 @@ void initialize(){
 	allocatedItemsOld = ht_create(10, lessint, hashfc);
 	invalidateIDs = ht_create(10, lessint, hashfc);
 	allocatedID = queue_create();
+	pending = ht_create(10, lessint, hashfc);
+	memoryList = ht_create(10, lessint, hashfc);
+	cached = ht_create(10, lessint, hashfc);
 }
 
+void terminate() {
+	ht_destroy(allocatedItemsWrite);
+	ht_destroy(allocatedItemsRead);
+	ht_destroy(allocatedItemsOld);
+	ht_destroy(invalidateIDs);
+	queue_destroy(allocatedID);
+	ht_destroy(pending);
+	ht_destroy(memoryList);
+	ht_destroy(cached);
+	allocatedItemsWrite = allocatedItemsRead = allocatedItemsOld = pending = memoryList = cached = NULL;
+}
+
+
+int getAsyncStatus(unsigned int requestNo)
+{
+	if (!ht_member(pending, (void*)requestNo))
+		return ASYNC_STATUS_ERROR;
+	else
+	{
+		while (spu_stat_in_mbox() != 0)
+			readMailbox();
+
+		if (ht_member(cached, (void*)requestNo))
+			return ASYNC_STATUS_COMPLETE;
+
+		void* state = ht_get(pending, (void*)requestNo);
+		if (state == NULL)
+			return ASYNC_STATUS_REQUEST_SENT;
+		else
+		{
+			if (((struct acquireRequest*)state)->packageCode == PACKAGE_RELEASE_RESPONSE)
+				return ASYNC_STATUS_COMPLETE;
+				
+			if (!IsDMATransferGroupCompleted(((struct acquireRequest*)state)->requestID))
+				return ASYNC_STATUS_DMA_PENDING;
+			else
+			{
+				if (((struct acquireRequest*)state)->packageCode == PACKAGE_RELEASE_REQUEST)
+				{
+					//printf(WHERESTR "DMA transfer completed for %d\n", WHEREARG, requestNo); 
+			
+					ht_delete(pending, (void*)requestNo);
+					FREE_ALIGN(ht_get(memoryList, (void*)requestNo));
+					ht_delete(memoryList, (void*)requestNo);
+					ht_insert(pending, (void*)requestNo, NULL);
+					
+					((struct acquireRequest*)state)->requestID = requestNo;
+					sendMailbox(state);
+					return ASYNC_STATUS_REQUEST_SENT;
+				}
+				else
+				{
+					return ASYNC_STATUS_COMPLETE;
+				}
+			}
+		}
+	}
+}
+
+void* endAsync(unsigned int requestNo, unsigned long* size)
+{
+	int state;
+	void* dataItem;
+
+	void* alloc;
+	
+	state = getAsyncStatus(requestNo);
+	//printf(WHERESTR "Status for %d is %d\n", WHEREARG, requestNo, state); 
+
+	while(state != ASYNC_STATUS_COMPLETE)
+	{
+		if (state == ASYNC_STATUS_ERROR)
+		{
+			size = NULL;
+			return NULL;
+		}
+		else if(state == ASYNC_STATUS_REQUEST_SENT)
+		{
+			if (IsThreaded())
+			{
+				while(state == ASYNC_STATUS_REQUEST_SENT)
+				{
+					YieldThread();
+					state = getAsyncStatus(requestNo);
+				}
+				//Avoid the extra read
+				continue;
+			}
+			//Non-threaded, just block
+			else
+				readMailbox();
+		}
+		else if (state == ASYNC_STATUS_DMA_PENDING)
+		{
+			if (IsThreaded())
+			{
+				while(state == ASYNC_STATUS_DMA_PENDING)
+				{
+					YieldThread();
+					state = getAsyncStatus(requestNo);
+				}
+				//Avoid the extra read
+				continue;
+			}
+			//Non-threaded, just block
+			else
+			{
+				//printf(WHERESTR "Waiting for a DMA transfer...\n", WHEREARG);
+				WaitForDMATransferByGroup(((struct acquireRequest*)ht_get(pending, (void*)requestNo))->requestID);
+			}
+		}
+
+		state = getAsyncStatus(requestNo);
+		//printf(WHERESTR "Status for %d is %d\n", WHEREARG, requestNo, state); 
+		
+	}
+
+	dataItem = ht_get(pending, (void*)requestNo);
+	ht_delete(pending, (void*)requestNo);
+
+	if (ht_member(cached, (void*)requestNo))
+	{
+		dataItem = ht_get(cached, (void*)requestNo));
+		ht_delete(cached, (void*)requestNo);
+		return ((dataObject)dataItem)->data;
+	}
+
+	switch(((struct acquireResponse*)dataItem)->packageCode)
+	{
+		case PACKAGE_ACQUIRE_RESPONSE:
+			//printf(WHERESTR "Acquire response for %d \n", WHEREARG, requestNo); 
+			alloc = ht_get(memoryList, (void*)requestNo);
+			ht_delete(memoryList, (void*)requestNo);
+			*size = ((struct acquireResponse*)dataItem)->dataSize;
+			FREE(dataItem);
+			if (!ht_member(allocatedItems, alloc))
+				fprintf(stderr, WHERESTR "Newly acquired item was not registered\n", WHEREARG);
+			return alloc;
+			break;
+			
+		case PACKAGE_RELEASE_RESPONSE:
+			//printf(WHERESTR "Release response for %d \n", WHEREARG, requestNo); 
+			FREE(dataItem);
+			return 0;
+			break;
+		default:
+			fprintf(stderr, WHERESTR "Invalid package response\n", WHEREARG);
+			FREE(dataItem);
+			size = NULL;
+			return NULL;
+			break;
+	}
+		
+}
+ 
+void* acquire(GUID id, unsigned long* size) {
+	unsigned int req = beginAcquire(id);
+	return (void*)endAsync(req, size);
+}
+
+void release(void* data){
+	unsigned int req = beginRelease(data);
+	endAsync(req, NULL);
+}
+
+void* create(GUID id, unsigned long size)
+{
+	unsigned int req = beginCreate(id, size);
+	return (void*)endAsync(req, &size);
+}
