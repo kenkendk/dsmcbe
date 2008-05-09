@@ -4,7 +4,7 @@
 #include <common/debug.h>
 #include <unistd.h>
 
-#define SPU_THREADS 1
+#define SPU_THREADS 2
 
 int main(int argc, char **argv) {
 	
