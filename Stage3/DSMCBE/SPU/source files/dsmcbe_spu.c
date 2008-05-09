@@ -20,18 +20,42 @@
 //The SPU cannot hold more than a few unserviced requests
 #define MAX_REQ_NO 100000
 
+//This table keeps all items active in write mode
 static hashtable allocatedItemsWrite;
+
+//This table keeps all items active in read mode
 static hashtable allocatedItemsRead;
+
+//This table keeps all items that have been loaded, but is not active
 static hashtable allocatedItemsOld;
+
+//List of items can can be invalidated
 static hashtable invalidateIDs;  
 
+//A running number to distinguish requests
 static unsigned int requestNo = 1;
+//A running number to distinguish DMA transfers
 static int DMAGroupNo = 0;
+
+//A list of pending requests. 
+//If value is NULL a mailbox communication is expected
+//If value is not NULL, the value is the package with a pending DMA transfer  
 static hashtable pending;
+
+//This list contains the acquire type
+static hashtable pendingType;
+
+//This maps requestId to either GUID or data pointer.
+//It is used to keep track of more data than that avalible in the transferede packages
 static hashtable memoryList;
+
+//Some requests are completed locally.
+//If the requestNo is in this table, it contains the corresponding dataObject
 static hashtable cached;
 
+//This is all IDs kept after release, sorted with last used first
 static queue allocatedID;
+
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -178,9 +202,13 @@ void StartDMATransfer(struct acquireResponse* resp)
 	unsigned int transfer_size;
 	int dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 	dataObject object;
+	int type;
 
 	GUID id = (GUID)ht_get(memoryList, (void*)resp->requestID);
 	ht_delete(memoryList, (void*)resp->requestID);
+
+	type = ht_get(pendingType, (void*)id);
+	ht_delete(pendingType, (void*)id);
 	
 	if (ht_member(allocatedItemsOld, (void*)id)) {
 		object = (dataObject)ht_get(allocatedItemsOld, (void*)id);
@@ -329,6 +357,7 @@ unsigned int beginCreate(GUID id, unsigned long size)
 	//printf(WHERESTR "Issued an create for %d, with req %d\n", WHEREARG, id, nextId); 
 	
 	ht_insert(pending, (void*)nextId, NULL);
+	ht_insert(pendingType, (void*)nextId, (void*)WRITE);
 	
 	return nextId;
 }
@@ -387,6 +416,7 @@ unsigned int beginAcquire(GUID id, int type)
 	sendMailbox(request);
 
 	ht_insert(pending, (void*)nextId, NULL);
+	ht_insert(pendingType, (void*)nextId, (void*)type);
 	return nextId;
 }
 
@@ -459,13 +489,13 @@ unsigned int beginRelease(void* data)
 		ht_delete(allocatedItemsRead, data);
 		ht_delete(invalidateIDs, (void*)object->id);
 		ht_insert(cached, (void*)nextId, NULL);
+		return nextId;
 	}
 	else
 	{
 		fprintf(stderr, WHERESTR "Tried to release non allocated item\n", WHEREARG);
 		return 0;
 	}
-
 }
 
 void initialize(){
@@ -475,6 +505,7 @@ void initialize(){
 	invalidateIDs = ht_create(10, lessint, hashfc);
 	allocatedID = queue_create();
 	pending = ht_create(10, lessint, hashfc);
+	pendingType = ht_create(10, lessint, hashfc);
 	memoryList = ht_create(10, lessint, hashfc);
 	cached = ht_create(10, lessint, hashfc);
 }
@@ -488,7 +519,8 @@ void terminate() {
 	ht_destroy(pending);
 	ht_destroy(memoryList);
 	ht_destroy(cached);
-	allocatedItemsWrite = allocatedItemsRead = allocatedItemsOld = pending = memoryList = cached = NULL;
+	ht_destroy(pendingType);
+	allocatedItemsWrite = allocatedItemsRead = allocatedItemsOld = pending = memoryList = cached = pendingType = NULL;
 }
 
 
