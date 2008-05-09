@@ -92,8 +92,8 @@ int clear(unsigned long size) {
 			dataObject object = ht_get(allocatedItemsOld, (void*)id);		
 			ht_delete(allocatedItemsOld, (void*)id);
 			freedmemory += object->size;
-			free_align(object->data);
-			free(object);				
+			FREE_ALIGN(object->data);
+			FREE(object);				
 		}
 	}
 	
@@ -142,7 +142,7 @@ void sendInvalidateResponse(struct invalidateRequest* item) {
 	printf(WHERESTR "Sending invalidateResponse on data with id: %i\n", WHEREARG, item->dataItem);
 	struct invalidateResponse* resp;
 	
-	if ((resp = malloc(sizeof(struct invalidateResponse))) == NULL)
+	if ((resp = MALLOC(sizeof(struct invalidateResponse))) == NULL)
 		perror("SPUEventHandler.c: malloc error");;
 	
 	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
@@ -176,8 +176,8 @@ void invalidate(struct invalidateRequest* item) {
 		queue_destroy(allocatedID);
 		allocatedID = temp;
 		
-		free_align(object->data);
-		free(object);			
+		FREE_ALIGN(object->data);
+		FREE(object);			
 	} else if(ht_member(invalidateIDs, (void*)id)) {
 		printf(WHERESTR "Data with id: %i is allocated and acquired\n", WHEREARG, id);
 
@@ -312,7 +312,7 @@ void* readMailbox() {
 		case PACKAGE_INVALIDATE_REQUEST:			
 			printf(WHERESTR "INVALIDATE package recieved\n", WHEREARG);
 
-			if ((dataItem = malloc(sizeof(struct invalidateRequest))) == NULL)
+			if ((dataItem = MALLOC(sizeof(struct invalidateRequest))) == NULL)
 				perror("SPUEventHandler.c: malloc error");;
 
 			requestID = spu_read_in_mbox();
@@ -470,7 +470,7 @@ unsigned int beginRelease(void* data)
 
 		if (ht_member(invalidateIDs, (void*)object->id)) {
 			struct invalidateRequest* item;
-			if ((item = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
+			if ((item = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
 				fprintf(stderr, WHERESTR "SPUEventHandler.c: malloc error\n", WHEREARG);
 			
 			if ((item = ht_get(invalidateIDs, (void*)object->id)) != NULL)
