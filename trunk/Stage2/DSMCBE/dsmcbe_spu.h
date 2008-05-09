@@ -5,8 +5,8 @@
 extern void initialize();
 extern void terminate();
 
-void TerminateThread(void);
-int CreateThreads(int threadCount);
-int YieldThread(void);
+#include "dsmcbe_spu_threads.h"
+#include "dsmcbe_spu_async.h"
+
 
 #endif /*DSMCBE_SPU_H_*/

@@ -10,6 +10,8 @@
 
 #include "../dsmcbe.h"
 
+#define NEXT_SEQ_NO(current, max) (current = (current+1) % (max)) 
+
 #define PACKAGE_CREATE_REQUEST 1
 #define PACKAGE_ACQUIRE_REQUEST_READ 2
 #define PACKAGE_ACQUIRE_REQUEST_WRITE 3
