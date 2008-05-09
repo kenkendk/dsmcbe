@@ -80,7 +80,7 @@ void sendMailbox(void* dataItem) {
 		default:
 			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, ((struct releaseRequest*)dataItem)->packageCode);
 	}
-	free(dataItem);	
+	FREE(dataItem);	
 }
 
 void StartDMATransfer(struct acquireResponse* resp)
@@ -91,7 +91,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
-	allocation = _malloc_align(transfer_size, 7);
+	allocation = MALLOC_ALIGN(transfer_size, 7);
 	if (allocation == NULL)
 	{
 		printf(WHERESTR "Pending fill: %d, memoryList fill: %d, allocated fill: %d\n", WHEREARG, pending->fill, memoryList->fill, allocatedItems->fill);
@@ -110,7 +110,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 
 	// Make datastructures for later use
 	dataObject object;
-	object = malloc(sizeof(struct dataObjectStruct));
+	object = MALLOC(sizeof(struct dataObjectStruct));
 	if (object == NULL)
 		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
 
@@ -138,7 +138,7 @@ void readMailbox() {
 	switch(packagetype)
 	{
 		case PACKAGE_ACQUIRE_RESPONSE:
-			if ((dataItem = malloc(sizeof(struct acquireResponse))) == NULL)
+			if ((dataItem = MALLOC(sizeof(struct acquireResponse))) == NULL)
 				perror("SPUEventHandler.c: malloc error");;
 
 			requestID = spu_read_in_mbox();
@@ -165,7 +165,7 @@ void readMailbox() {
 			break;
 		
 		case PACKAGE_RELEASE_RESPONSE:
-			if ((dataItem = malloc(sizeof(struct releaseResponse))) == NULL)
+			if ((dataItem = MALLOC(sizeof(struct releaseResponse))) == NULL)
 				perror("SPUEventHandler.c: malloc error");;
 
 			requestID = spu_read_in_mbox();
@@ -214,7 +214,7 @@ unsigned int beginCreate(GUID id, unsigned long size)
 	}
 
 	struct createRequest* request;
-	if ((request = malloc(sizeof(struct createRequest))) == NULL)
+	if ((request = MALLOC(sizeof(struct createRequest))) == NULL)
 		perror("SPUEventHandler.c: malloc error");
 	
 	request->packageCode = PACKAGE_CREATE_REQUEST;
@@ -242,7 +242,7 @@ unsigned int beginAcquire(GUID id)
 	}
 
 	struct acquireRequest* request;
-	if ((request = malloc(sizeof(struct acquireRequest))) == NULL)
+	if ((request = MALLOC(sizeof(struct acquireRequest))) == NULL)
 		perror("SPUEventHandler.c: malloc error");
 	
 	//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
@@ -283,7 +283,7 @@ unsigned int beginRelease(void* data)
 		//printf(WHERESTR "Waiting for DMA transfer\n", WHEREARG);
 		
 		struct releaseRequest* request;
-		if ((request = malloc(sizeof(struct releaseRequest))) == NULL)
+		if ((request = MALLOC(sizeof(struct releaseRequest))) == NULL)
 			perror("SPUEventHandler.c: malloc error");
 
 		request->packageCode = PACKAGE_RELEASE_REQUEST; 
@@ -298,7 +298,7 @@ unsigned int beginRelease(void* data)
 		//printf(WHERESTR "Issued a release for %d, with req %d\n", WHEREARG, object->id, nextId); 
 
 		ht_delete(allocatedItems, data);
-		free(object);
+		FREE(object);
 		
 		
 		return nextId;
@@ -337,7 +337,7 @@ int getAsyncStatus(unsigned int requestNo)
 					//printf(WHERESTR "DMA transfer completed for %d\n", WHEREARG, requestNo); 
 			
 					ht_delete(pending, (void*)requestNo);
-					free_align(ht_get(memoryList, (void*)requestNo));
+					FREE_ALIGN(ht_get(memoryList, (void*)requestNo));
 					ht_delete(memoryList, (void*)requestNo);
 					ht_insert(pending, (void*)requestNo, NULL);
 					
@@ -423,7 +423,7 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 			alloc = ht_get(memoryList, (void*)requestNo);
 			ht_delete(memoryList, (void*)requestNo);
 			*size = ((struct acquireResponse*)dataItem)->dataSize;
-			free(dataItem);
+			FREE(dataItem);
 			if (!ht_member(allocatedItems, alloc))
 				fprintf(stderr, WHERESTR "Newly acquired item was not registered\n", WHEREARG);
 			return alloc;
@@ -431,12 +431,12 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 			
 		case PACKAGE_RELEASE_RESPONSE:
 			//printf(WHERESTR "Release response for %d \n", WHEREARG, requestNo); 
-			free(dataItem);
+			FREE(dataItem);
 			return 0;
 			break;
 		default:
 			fprintf(stderr, WHERESTR "Invalid package response\n", WHEREARG);
-			free(dataItem);
+			FREE(dataItem);
 			size = NULL;
 			return NULL;
 			break;

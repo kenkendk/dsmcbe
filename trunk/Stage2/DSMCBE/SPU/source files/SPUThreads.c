@@ -6,12 +6,23 @@
 #include "../header files/SPUThreads.h"
 #include "../../common/debug.h"
 #include "../../dsmcbe_spu.h"
+#include <malloc_align.h>
+#include <free_align.h>
+
 
 static thread_struct* threads = NULL; //The threads
 static thread_struct* current_thread = NULL; //The currently executing thread
-static thread_struct* main_env = NULL; //The main entry point
+static jmp_buf* main_env = NULL; //The main entry point
 static int no_of_threads; //Keep number of threads on the heap
 static int loop_counter; //Keep the loop counter on the heap
+
+static unsigned int malloc_size;
+static void* malloc_result;
+
+#define JMP_MALLOC 3
+#define JMP_MALLOC_ALIGN 4
+#define JMP_FREE 5
+#define JMP_FREE_ALIGN 6
 
 /*
 	Returns the index of the given thread, or -1 if the given thread was invalid
@@ -61,7 +72,7 @@ void TerminateThread(void) {
 		free(threads);
 		threads = NULL;
 		current_thread = NULL;
-		longjmp(main_env->env, 1);
+		longjmp(*main_env, 1);
 	} else {
 		//printf(WHERESTR "In terminate, flagging thread %d, as dead and resuming %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id, nextThread->id);
 		current_thread->id = -1; //Flag it as dead
@@ -165,7 +176,7 @@ int CreateThreads(int threadCount)
 			return -2;
 	}
 
-	main_env = (thread_struct*) malloc(sizeof(thread_struct));
+	main_env = (jmp_buf*) malloc(sizeof(jmp_buf));
 	if (main_env == NULL)
 	{
 			printf("Out of memory\n");
@@ -176,67 +187,149 @@ int CreateThreads(int threadCount)
 	no_of_threads = threadCount;
 
 	//printf(WHERESTR "Before setjmp w/ main\n", WHEREARG);
-	
-	if (setjmp(main_env->env) == 0) 
+	switch(setjmp(*main_env))
 	{
-		//printf(WHERESTR "After setjmp NOT main\n", WHEREARG);
-	
-		//Create the treads
-		threads = (thread_struct*) malloc(sizeof(thread_struct) * no_of_threads);
-		if (threads == NULL)
-			perror("SPU malloc failed for thread storage");
-
-		//printf(WHERESTR "Creating threads\n", WHEREARG);
-			
-		for(loop_counter = 0; loop_counter < no_of_threads; loop_counter++)
-		{
-			//printf(WHERESTR "Creating thread %d\n", WHEREARG, loop_counter);
-			threads[loop_counter].id = loop_counter;
-			//current_thread = &threads[loop_counter];
-			if (setjmp(threads[loop_counter].env) == 0)
-			{
-				//printf(WHERESTR "Created thread %d\n", WHEREARG, loop_counter);
-				//PrintRegisters(threads[loop_counter].env);
-
-				CopyStack(threads[loop_counter].env, threads[loop_counter].stack);				
-
-				//PrintRegisters(threads[loop_counter].env);
-		
-				//printf(WHERESTR "Assigned stack for %d\n", WHEREARG, loop_counter);
-			}
-			else
-			{
-				//printf(WHERESTR "Returning from a thread, threadid %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
-				break;
-			}
-		}
-
-		//printf(WHERESTR "Done creating threads, threadid: %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
-
-		if (current_thread == NULL)
-		{
-			//printf(WHERESTR "Initial create, setting thread to #0\n", WHEREARG);
-			current_thread = &threads[0];
+		case 1:
+			//printf(WHERESTR "After setjmp w/ main\n", WHEREARG);
+			free(main_env);
+			main_env = NULL;
+			return -1;
+		case JMP_MALLOC:
+			//Special malloc case
+			malloc_result = malloc(malloc_size);
 			longjmp(current_thread->env, 1);
+			break;
+		case JMP_MALLOC_ALIGN:
+			//Special malloc_align case
+			malloc_result = _malloc_align(malloc_size, 7);
+			longjmp(current_thread->env, 1);
+			break;
+		case JMP_FREE:
+			//Special free case
+			free(malloc_result);
+			longjmp(current_thread->env, 1);
+			break;
+		case JMP_FREE_ALIGN:
+			//Special free case
+			_free_align(malloc_result);
+			longjmp(current_thread->env, 1);
+			break;
+	}
+	
+	//printf(WHERESTR "After setjmp NOT main\n", WHEREARG);
+
+	//Create the treads
+	threads = (thread_struct*) malloc(sizeof(thread_struct) * no_of_threads);
+	if (threads == NULL)
+		perror("SPU malloc failed for thread storage");
+
+	//printf(WHERESTR "Creating threads\n", WHEREARG);
+		
+	for(loop_counter = 0; loop_counter < no_of_threads; loop_counter++)
+	{
+		//printf(WHERESTR "Creating thread %d\n", WHEREARG, loop_counter);
+		threads[loop_counter].id = loop_counter;
+		//current_thread = &threads[loop_counter];
+		if (setjmp(threads[loop_counter].env) == 0)
+		{
+			//printf(WHERESTR "Created thread %d\n", WHEREARG, loop_counter);
+			//PrintRegisters(threads[loop_counter].env);
+
+			CopyStack(threads[loop_counter].env, threads[loop_counter].stack);				
+
+			//PrintRegisters(threads[loop_counter].env);
+	
+			//printf(WHERESTR "Assigned stack for %d\n", WHEREARG, loop_counter);
 		}
-			
-		if (current_thread == NULL)
-			return -2;
 		else
 		{
-			//printf(WHERESTR "Returning\n", WHEREARG);
-			return current_thread->id;
+			//printf(WHERESTR "Returning from a thread, threadid %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
+			break;
 		}
 	}
+
+	//printf(WHERESTR "Done creating threads, threadid: %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
+
+	if (current_thread == NULL)
+	{
+		//printf(WHERESTR "Initial create, setting thread to #0\n", WHEREARG);
+		current_thread = &threads[0];
+		longjmp(current_thread->env, 1);
+	}
+		
+	if (current_thread == NULL)
+		return -2;
 	else
 	{
-		//printf(WHERESTR "After setjmp w/ main\n", WHEREARG);
-		
-		free(main_env);
-		main_env = NULL;
-		return -1;
+		//printf(WHERESTR "Returning\n", WHEREARG);
+		return current_thread->id;
 	}
 }
+
+void thread_free(void* data)
+{
+	if (main_env == NULL)
+		free(data);
+	else
+	{
+		if (setjmp(current_thread->env) == 0)
+		{
+			malloc_result = data;
+			longjmp(*main_env, JMP_FREE);
+		}
+	}
+}
+
+void* thread_malloc(unsigned int size)
+{
+	if (main_env == NULL)
+		return malloc(size);
+	else
+	{
+		if (setjmp(current_thread->env) == 0)
+		{
+			malloc_result = NULL;
+			malloc_size = size;
+			longjmp(*main_env, JMP_MALLOC);
+		}
+		return malloc_result;
+	}
+}
+
+void thread_free_align(void* data)
+{
+	if (main_env == NULL)
+		_free_align(data);
+	else
+	{
+		if (setjmp(current_thread->env) == 0)
+		{
+			malloc_result = data;
+			longjmp(*main_env, JMP_FREE_ALIGN);
+		}
+	}
+}
+
+void* thread_malloc_align(unsigned int size, int base)
+{
+	if (base != 7)
+		perror("Malloc align is not supported with other base than 7!");
+	
+	if (main_env == NULL)
+		return _malloc_align(size, base);
+	else
+	{
+		if (setjmp(current_thread->env) == 0)
+		{
+			malloc_result = NULL;
+			malloc_size = size;
+			longjmp(*main_env, JMP_MALLOC_ALIGN);
+		}
+		return malloc_result;
+	}
+}
+
+
 
 /*
 	Returns true if a thread switch is possible

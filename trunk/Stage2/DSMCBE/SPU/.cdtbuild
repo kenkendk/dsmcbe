@@ -11,6 +11,9 @@
             <listOptionValue value="/opt/ibm/systemsim-cell/include/callthru/spu" builtIn="false"/>
             <listOptionValue value="/opt/cell/sysroot/opt/cell/sdk/usr/include" builtIn="false"/>
           </option>
+          <option superClass="gnu.c.compiler.option.preprocessor.def.symbols" id="gnu.c.compiler.option.preprocessor.def.symbols.2071687736" valueType="definedSymbols">
+            <listOptionValue value="DSMCBE_SPU" builtIn="false"/>
+          </option>
         </tool>
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.lib.debug" id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.lib.debug.2050546860" name="SPU GNU C++ Compiler with Debug Options"/>
         <macros/>
