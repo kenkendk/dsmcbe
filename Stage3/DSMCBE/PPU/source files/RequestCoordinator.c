@@ -183,7 +183,7 @@ void RequestInvalidate(QueueableItem item, GUID dataItem)
 		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 	
 	requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
-	requ->requestID = ((struct acquireRequest*)item->dataRequest)->requestID;
+	requ->requestID = ((struct invalidateRequest*)item->dataRequest)->requestID;
 	requ->dataItem = dataItem;
 
 	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
@@ -195,10 +195,9 @@ void RequestInvalidate(QueueableItem item, GUID dataItem)
 	pthread_mutex_unlock(item->mutex);
 	
 	printf(WHERESTR "Invalidate request send\n", WHEREARG);
-	
-	//free(item->dataRequest);
-	//free(item);
-	
+
+	free(item->dataRequest);
+	free(item);
 }
 
 //Performs all actions releated to a create request
@@ -294,10 +293,13 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 			//printf(WHERESTR "Object not looked\n", WHEREARG);
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
 				//printf(WHERESTR "Acquiring READ on not looked object\n", WHEREARG);
+				// Make copy of item into ququeItem.
 				QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
 				memcpy(queueItem, item, sizeof(struct QueueableItemStruct));
+				struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
+				memcpy(temp, item->dataRequest, sizeof(struct invalidateRequest));
+				queueItem->dataRequest = temp;
 				queue_enq(r, queueItem);
-				printf(WHERESTR "\nREAD lock has value: %i\n\n", WHEREARG, (int)item->mutex);			
 				RespondAcquire(item, obj);
 			} else {			
 				//printf(WHERESTR "Acquiring WRITE on not looked object\n", WHEREARG);
@@ -314,7 +316,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 						printf(WHERESTR "Must invalidate\n", WHEREARG);
 						
 						next = queue_deq(r);
-						DoInvalidate(next, request->dataItem);					
+						DoInvalidate(next, request->dataItem);	
 					}
 				}
 			}
@@ -452,7 +454,7 @@ void* ProccessWork(void* data)
 				break;
 			
 			case PACKAGE_INVALIDATE_REQUEST:
-				DoInvalidate(item, (struct invalidateRequest*)item->dataRequest);
+				//DoInvalidate(item, (struct invalidateRequest*)item->dataRequest);
 				break;
 			
 			default:

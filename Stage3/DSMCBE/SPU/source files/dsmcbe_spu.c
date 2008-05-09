@@ -86,7 +86,7 @@ void sendMailbox(void* dataItem, int packagetype) {
 }
 
 void sendInvalidateResponse(struct invalidateRequest* item) {
-	printf(WHERESTR "Sending validateResponse on data with id: %i", WHEREARG, item->dataItem);
+	printf(WHERESTR "Sending validateResponse on data with id: %i\n", WHEREARG, item->dataItem);
 	struct invalidateResponse* resp;
 	
 	if ((resp = malloc(sizeof(struct invalidateResponse))) == NULL)
@@ -102,12 +102,12 @@ void sendInvalidateResponse(struct invalidateRequest* item) {
 
 void invalidate(struct invalidateRequest* item) {
 	
-	printf(WHERESTR "Trying to invalidate data with id: %i", WHEREARG, item->dataItem);
+	printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
 	
 	GUID id = item->dataItem;
 	
 	if(ht_member(allocatedItemsOld, (void*)id)) {
-		printf(WHERESTR "Data with id: %i is allocated but has been released", WHEREARG, id);
+		printf(WHERESTR "Data with id: %i is allocated but has been released\n", WHEREARG, id);
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
 		//printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
 
@@ -126,7 +126,7 @@ void invalidate(struct invalidateRequest* item) {
 		free_align(object->data);
 		free(object);			
 	} else if(ht_member(invalidateIDs, (void*)id)) {
-		printf(WHERESTR "Data with id: %i is allocated and acquired", WHEREARG, id);
+		printf(WHERESTR "Data with id: %i is allocated and acquired\n", WHEREARG, id);
 
 		// Put in list and don't send reponse to invalidate, before release has been called.
 				
@@ -136,14 +136,14 @@ void invalidate(struct invalidateRequest* item) {
 		return;
 	}
 	else {
-		printf(WHERESTR "Data with id: %i not allocated anymore", WHEREARG, id);
+		printf(WHERESTR "Data with id: %i not allocated anymore\n", WHEREARG, id);
 	}
 	
 	// Ready to send response!
-	sendInvalidateResponse(item);
+	//sendInvalidateResponse(item);
 }
 
-void* readMailbox() {
+void* readMailbox(int recallIfinvalidate) {
 	void* dataItem;
 	unsigned int datatype;
 	unsigned int requestID;
@@ -189,13 +189,14 @@ void* readMailbox() {
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
 			
-			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
-			((struct acquireResponse*)dataItem)->requestID = requestID;
-			((struct acquireResponse*)dataItem)->requestID = itemid; 
+			((struct invalidateRequest*)dataItem)->packageCode = packagetype;									
+			((struct invalidateRequest*)dataItem)->requestID = requestID;
+			((struct invalidateRequest*)dataItem)->dataItem = itemid; 
 
 			invalidate(dataItem);
 			
-			dataItem = readMailbox();			
+			if (recallIfinvalidate == 1)
+				dataItem = readMailbox(1);			
 			break;
 		
 		default:
@@ -212,24 +213,31 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	unsigned int transfer_size;
 	
 	if (type == READ && ht_member(allocatedItemsOld, (void*)id)) {
-		dataObject object = ht_get(allocatedItemsOld, (void*)id);		
-		printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
-
-		ht_delete(allocatedItemsOld, (void*)id);
-		ht_insert(allocatedItemsRead, object->data, object);
-		ht_insert(invalidateIDs, (void*)id, NULL);	
-		
-		queue temp = queue_create();
-		GUID value;
-		while(!queue_empty(allocatedID)) {
-			value = (GUID)queue_deq(allocatedID);
-			if(id != value) 
-				queue_enq(temp, (void*)value);
+		if(spu_stat_in_mbox() > 1) {
+			readMailbox(0);
+			
 		}
-		queue_destroy(allocatedID);
-		allocatedID = temp;
 		
-		return object->data;
+		if (ht_member(allocatedItemsOld, (void*)id)) {
+			dataObject object = ht_get(allocatedItemsOld, (void*)id);		
+			printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
+	
+			ht_delete(allocatedItemsOld, (void*)id);
+			ht_insert(allocatedItemsRead, object->data, object);
+			ht_insert(invalidateIDs, (void*)id, NULL);	
+			
+			queue temp = queue_create();
+			GUID value;
+			while(!queue_empty(allocatedID)) {
+				value = (GUID)queue_deq(allocatedID);
+				if(id != value) 
+					queue_enq(temp, (void*)value);
+			}
+			queue_destroy(allocatedID);
+			allocatedID = temp;
+			
+			return object->data;
+		}
 	}
 	
 	struct acquireRequest* request;
@@ -260,7 +268,7 @@ void* acquire(GUID id, unsigned long* size, int type) {
 	
 	sendMailbox(request, request->packageCode);
 
-	struct acquireResponse* resp = readMailbox();
+	struct acquireResponse* resp = readMailbox(1);
 	
 //	printf(WHERESTR "Message type: %i\n", WHEREARG, (int)resp->packageCode);		
 //	printf(WHERESTR "Request id: %i\n", WHEREARG, (int)resp->requestID);		
@@ -355,7 +363,7 @@ void release(void* data){
 		request->data = data;
 		sendMailbox(request, request->packageCode);
 		
-		struct releaseResponse* resp = readMailbox();
+		struct releaseResponse* resp = readMailbox(1);
 		free(resp);
 	
 //		printf(WHERESTR "Message type: %i\n", WHEREARG, resp->packageCode);
