@@ -20,7 +20,7 @@
 //The SPU cannot hold more than a few unserviced requests
 #define MAX_REQ_NO 100000
 
-static hashtable allocatedItemsWrite
+static hashtable allocatedItemsWrite;
 static hashtable allocatedItemsRead;
 static hashtable allocatedItemsOld;
 static hashtable invalidateIDs;  
@@ -177,13 +177,15 @@ void StartDMATransfer(struct acquireResponse* resp)
 	void* allocation;
 	unsigned int transfer_size;
 	int dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
+	dataObject object;
 
 	GUID id = (GUID)ht_get(memoryList, (void*)resp->requestID);
 	ht_delete(memoryList, (void*)resp->requestID);
 	
-	if (ht_member(allocatedItemsOld, id)) {
-		ht_insert(cached, (void*)nextId, ht_get(allocatedItemsOld, id));
-		ht_delete(allocatedItemsOld, id);
+	if (ht_member(allocatedItemsOld, (void*)id)) {
+		object = (dataObject)ht_get(allocatedItemsOld, (void*)id);
+		ht_insert(cached, (void*)resp->requestID, object);
+		ht_delete(allocatedItemsOld, (void*)id);
 
 		if (type == WRITE)
 			ht_insert(allocatedItemsWrite, object->data, object);
@@ -198,7 +200,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	allocation = MALLOC_ALIGN(transfer_size, 7);
 	if (allocation == NULL)
 	{
-		printf(WHERESTR "Pending fill: %d, memoryList fill: %d, allocated fill: %d\n", WHEREARG, pending->fill, memoryList->fill, allocatedItems->fill);
+		printf(WHERESTR "Pending fill: %d, memoryList fill: %d, allocated old fill: %d\n", WHEREARG, pending->fill, memoryList->fill, allocatedItemsOld->fill);
 		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
 	}
 		
@@ -206,7 +208,6 @@ void StartDMATransfer(struct acquireResponse* resp)
 	//printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
 
 	// Make datastructures for later use
-	dataObject object;
 	object = MALLOC(sizeof(struct dataObjectStruct));
 	if (object == NULL)
 		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
@@ -227,7 +228,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	StartDMAReadTransfer(allocation, (unsigned int)resp->data, transfer_size, dmaNo);
 }
 
-void* readMailbox(int recallIfinvalidate) {
+void* readMailbox() {
 	void* dataItem;
 	unsigned int datatype;
 	unsigned int requestID;
@@ -294,9 +295,6 @@ void* readMailbox(int recallIfinvalidate) {
 			((struct invalidateRequest*)dataItem)->dataItem = itemid; 
 
 			invalidate(dataItem);
-			
-			if (recallIfinvalidate == 1)
-				dataItem = readMailbox(1);			
 			break;
 		
 		default:
@@ -311,7 +309,7 @@ unsigned int beginCreate(GUID id, unsigned long size)
 {
 	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
 
-	if (allocatedItems == NULL)
+	if (allocatedItemsOld == NULL)
 	{
 		printf(WHERESTR "Initialize must be called\n", WHEREARG);
 		return 0;
@@ -339,7 +337,7 @@ unsigned int beginAcquire(GUID id, int type)
 {
 	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
 	
-	if (allocatedItems == NULL)
+	if (allocatedItemsOld == NULL)
 	{
 		printf(WHERESTR "Initialize must be called\n", WHEREARG);
 		return 0;
@@ -368,7 +366,7 @@ unsigned int beginAcquire(GUID id, int type)
 
 		ht_insert(cached, (void*)nextId, object);
 	
-		return object->data;
+		return nextId;
 	}
 
 	struct acquireRequest* request;
@@ -381,7 +379,7 @@ unsigned int beginAcquire(GUID id, int type)
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	else {
 		perror("Starting acquiring in unknown mode");
-		return NULL;
+		return 0;
 	}
 	request->requestID = nextId;
 	request->dataItem = id;
@@ -396,9 +394,9 @@ unsigned int beginRelease(void* data)
 {
 	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
 	unsigned int transfersize;
-	int dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
+	int dmaNo;
 	
-	if (allocatedItems == NULL)
+	if (allocatedItemsOld == NULL)
 	{
 		fprintf(stderr, WHERESTR "Initialize must be called\n", WHEREARG);
 		return 0;
@@ -406,7 +404,8 @@ unsigned int beginRelease(void* data)
 
 	if (ht_member(allocatedItemsWrite, data)) {
 		
-		dataObject object = ht_get(allocatedItems, data);
+		dataObject object = ht_get(allocatedItemsWrite, data);
+		dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 		
 		transfersize = ALIGNED_SIZE(object->size);
 		//printf(WHERESTR "Release for WRITE id: %i\n", WHEREARG, object->id);
@@ -430,9 +429,8 @@ unsigned int beginRelease(void* data)
 
 		//printf(WHERESTR "Issued a release for %d, with req %d\n", WHEREARG, object->id, nextId); 
 
-		ht_delete(allocatedItems, data);
+		ht_delete(allocatedItemsWrite, data);
 		FREE(object);
-		
 		
 		return nextId;
 	} else if (ht_member(allocatedItemsRead, data)) {
@@ -452,14 +450,15 @@ unsigned int beginRelease(void* data)
 				ht_insert(allocatedItemsOld, (void*)object->id, object);
 				queue_enq(allocatedID, (void*)object->id);				
 			}
-			free(item);						
+			FREE(item);						
 		} else {
-			fprintf(stderr, WHERESTR "Error occoured: allocatedItem is not in ht \"incalidateIDs\"", WHEREARG);
+			fprintf(stderr, WHERESTR "Error occoured: allocatedItem is not in ht \"invalidateIDs\"", WHEREARG);
 		}
 		
 		// Clean up
 		ht_delete(allocatedItemsRead, data);
 		ht_delete(invalidateIDs, (void*)object->id);
+		ht_insert(cached, (void*)nextId, NULL);
 	}
 	else
 	{
@@ -602,9 +601,12 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 
 	if (ht_member(cached, (void*)requestNo))
 	{
-		dataItem = ht_get(cached, (void*)requestNo));
+		dataItem = ht_get(cached, (void*)requestNo);
 		ht_delete(cached, (void*)requestNo);
-		return ((dataObject)dataItem)->data;
+		if (dataItem == NULL)
+			return NULL;
+		else
+			return ((dataObject)dataItem)->data;
 	}
 
 	switch(((struct acquireResponse*)dataItem)->packageCode)
@@ -615,7 +617,7 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 			ht_delete(memoryList, (void*)requestNo);
 			*size = ((struct acquireResponse*)dataItem)->dataSize;
 			FREE(dataItem);
-			if (!ht_member(allocatedItems, alloc))
+			if (!ht_member(allocatedItemsRead, alloc) && !ht_member(allocatedItemsWrite, alloc))
 				fprintf(stderr, WHERESTR "Newly acquired item was not registered\n", WHEREARG);
 			return alloc;
 			break;
@@ -635,8 +637,8 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 		
 }
  
-void* acquire(GUID id, unsigned long* size) {
-	unsigned int req = beginAcquire(id);
+void* acquire(GUID id, unsigned long* size, int type) {
+	unsigned int req = beginAcquire(id, type);
 	return (void*)endAsync(req, size);
 }
 
