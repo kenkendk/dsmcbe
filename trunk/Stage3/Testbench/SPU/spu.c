@@ -1,38 +1,92 @@
 #include "spu.h"
-#include <stdio.h>
-#include <spu_intrinsics.h>
-#include <malloc_align.h>
-#include <free_align.h>
-#include <spu_mfcio.h> 
-#include "../guids.h"
-#include <common/debug.h>
-#include <unistd.h>
+#include <common/datastructures.h>
+
+//We need the counter on the heap so the threads share it
+static int counter = 0;
 
 int main(int argc, char **argv) {
 	
-	unsigned long size;
-	int* data; 
+	initialize();
 	
-	initialize();	
 	printf(WHERESTR "Hello World\n", WHEREARG);
+	unsigned long size;
+	unsigned int i;
+	unsigned int items;
+	int threadNo;
+	int* allocation;
 	
-	sleep(1);
-	
-	printf(WHERESTR "Acquiring data with id: %i\n", WHEREARG, ETTAL);
-	data = acquire(ETTAL, &size, READ);
-	printf(WHERESTR "Data with id: %i has value: %i\n", WHEREARG, ETTAL, *data);					
-	release(data);
-	printf(WHERESTR "Data with id: %i released\n", WHEREARG, ETTAL);
-	
-	sleep(7);
-	
-	printf(WHERESTR "Acquiring data with id: %i\n", WHEREARG, ETTAL);
-	data = acquire(ETTAL, &size, READ);
-	printf(WHERESTR "Data with id: %i has value: %i\n", WHEREARG, ETTAL, *data);					
-	release(data);
-	printf(WHERESTR "Data with id: %i released\n", WHEREARG, ETTAL);
+	/*threadNo = CreateThreads(SPU_FIBERS);
+	if (threadNo != -1)
+	{	*/
+		printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
+		allocation = acquire(ETTAL, &size, WRITE);
+				
+		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
+		
+		*allocation = 210;
+				
+		printf(WHERESTR "Thread #%d, modified value, relasing.\n", WHEREARG, threadNo);
+		release(allocation);
+		printf(WHERESTR "Thread #%d, release completed\n", WHEREARG, threadNo);
+		
+		printf(WHERESTR "Thread #%d, reading large value\n", WHEREARG, threadNo);
+		unsigned int* largeblock = acquire(LARGE_ITEM, &size, WRITE);
+		
+		items = size / sizeof(unsigned int);
+		printf(WHERESTR "Thread #%d, read large value (%d, %d) (ls: %d)\n", WHEREARG, threadNo, (int)size, items, (int)largeblock);
 
+	
+		//The first to get here has counter == 0	
+		for(i = 0; i < items; i++)
+		{
+			if (largeblock[i] != (i + (counter * 2)))
+				printf(WHERESTR "Thread #%d, Invalid value at %d\n", WHEREARG, threadNo, i);
+			largeblock[i] = i + ((counter + 1) * 2);
+		}
+		counter++;
+		
+		printf(WHERESTR "Thread #%d, releasing large value\n", WHEREARG, threadNo);
+		release(largeblock);
+				
+		printf(WHERESTR "Thread #%d, released large value\n", WHEREARG, threadNo);
+
+		printf(WHERESTR "Thread #%d, (read) re-acquire value\n", WHEREARG, threadNo);
+		allocation = acquire(ETTAL, &size, READ);
+		printf(WHERESTR "Thread #%d, re-acquired value (ls: %d)\n", WHEREARG, threadNo, (int)allocation);
+		release(allocation);
+		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
+
+		printf(WHERESTR "Thread #%d, (write) re-acquire value\n", WHEREARG, threadNo);
+		allocation = acquire(ETTAL, &size, WRITE);
+		printf(WHERESTR "Thread #%d, re-acquired value (ls: %d)\n", WHEREARG, threadNo, (int)allocation);
+		release(allocation);
+		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
+
+		//Memory leak testing, the SPU memory is very limited so a million runs usually reveal the problem
+		for(i = 0; i < 1000000; i++)
+		{
+			//if (i % 1000 == 0)
+				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
+			release(acquire(LARGE_ITEM, &size, WRITE));
+		}
+
+		//TerminateThread();
+	//}
+	
+	printf(WHERESTR "Creating new item\n", WHEREARG);
+	allocation = create(SPUITEM, sizeof(unsigned int));
+	printf(WHERESTR "Created new item\n", WHEREARG);
+	*allocation = 4;
+	printf(WHERESTR "Releasing new item\n", WHEREARG);
+	release(allocation);
+	printf(WHERESTR "Released new item\n", WHEREARG);
+	
+	
+	terminate();
 	printf(WHERESTR "Done\n", WHEREARG);
-
+	
+	
+	
 	return 0;
 }
+

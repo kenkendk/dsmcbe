@@ -175,31 +175,6 @@ void RespondRelease(QueueableItem item)
 	RespondAny(item, resp);	
 }
 
-//Responds to an invalidate request
-void RequestInvalidate(QueueableItem item, GUID dataItem)
-{
-	struct invalidateRequest* requ;
-	if ((requ = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
-		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
-	
-	requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
-	requ->requestID = ((struct invalidateRequest*)item->dataRequest)->requestID;
-	requ->dataItem = dataItem;
-
-	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
-	pthread_mutex_lock(item->mutex);
-	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
-	queue_enq(*(item->queue), requ);
-	pthread_cond_signal(item->event);
-	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
-	pthread_mutex_unlock(item->mutex);
-	
-	printf(WHERESTR "Invalidate request send\n", WHEREARG);
-
-	free(item->dataRequest);
-	free(item);
-}
-
 //Performs all actions releated to a create request
 void DoCreate(QueueableItem item, struct createRequest* request)
 {
@@ -260,8 +235,21 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 //Perform all actions related to an invalidate
 void DoInvalidate(QueueableItem item, GUID dataItem)
 {
+	struct invalidateRequest* resp;
+	if ((resp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+	
+	resp->packageCode =  PACKAGE_INVALIDATE_REQUEST;
+	resp->requestID = 0; //TODO: Should we await this?
+	resp->dataItem = dataItem;
+
 	printf(WHERESTR "Sending invalidate request\n", WHEREARG);
-	RequestInvalidate(item, dataItem);	
+	RespondAny(item, resp);
+
+	printf(WHERESTR "Invalidate request send\n", WHEREARG);
+
+	free(item->dataRequest);
+	free(item);
 }
 
 //Performs all actions releated to an acquire request
@@ -290,10 +278,10 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 		//If the object is not locked, register as locked and respond
 		if (dq_empty(q))
 		{
-			//printf(WHERESTR "Object not looked\n", WHEREARG);
+			printf(WHERESTR "Object not looked\n", WHEREARG);
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
-				//printf(WHERESTR "Acquiring READ on not looked object\n", WHEREARG);
-				// Make copy of item into ququeItem.
+				printf(WHERESTR "Acquiring READ on not looked object\n", WHEREARG);
+				// Make copy of item into queueItem.
 				QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
 				memcpy(queueItem, item, sizeof(struct QueueableItemStruct));
 				struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
@@ -302,7 +290,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				queue_enq(r, queueItem);
 				RespondAcquire(item, obj);
 			} else {			
-				//printf(WHERESTR "Acquiring WRITE on not looked object\n", WHEREARG);
+				printf(WHERESTR "Acquiring WRITE on not looked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
 				RespondAcquire(item, obj);
 
