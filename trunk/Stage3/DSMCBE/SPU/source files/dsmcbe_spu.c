@@ -213,6 +213,9 @@ void StartDMATransfer(struct acquireResponse* resp)
 		object->mode = req->mode;
 		req->state = ASYNC_STATUS_COMPLETE;
 		
+		if (ht_member(allocatedItems, object->data))
+			fprintf(stderr, WHERESTR "Re-acquried existing item %d\n", WHEREARG, req->id);
+			
 		ht_insert(allocatedItems, object->data, object);
 		printf(WHERESTR "Item %d is now inserted into allocatedItems\n", WHEREARG, req->id);
 		return;
@@ -393,7 +396,7 @@ unsigned int beginAcquire(GUID id, int type)
 	if (ht_member(allocatedItemsOld, (void*)id))
 	{
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
-		if (object->mode == READ)
+		if (type == READ)
 		{	
 			printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
 	
@@ -685,7 +688,7 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 	
 	FREE(req);
 	
-	printf(WHERESTR "In endAsync for %d, returning %d\n", WHEREARG, requestNo, retval);	
+	printf(WHERESTR "In endAsync for %d, returning %d\n", WHEREARG, requestNo, (int)retval);	
 	return retval;
 }
  
