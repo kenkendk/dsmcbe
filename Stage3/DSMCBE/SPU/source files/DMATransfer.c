@@ -76,10 +76,10 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
 	
 	if (size < 16384 ) {
-		//printf(WHERESTR "Single DMA read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
+		printf(WHERESTR "Single DMA read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
 		mfc_get(buffer, ea, size, groupid, 0, 0);
 	} else {
-		//printf(WHERESTR "DMA list read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
+		printf(WHERESTR "DMA list read-transfer, target: %d, ea: %d, size: %d\n", WHEREARG, buffer, ea, size);
 		unsigned int i = 0;
 		unsigned int listsize;	
 		
