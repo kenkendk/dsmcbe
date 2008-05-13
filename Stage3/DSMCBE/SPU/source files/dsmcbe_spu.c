@@ -241,7 +241,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	dataObject object;
 	pendingRequest req = (pendingRequest)ht_get(pending, (void*)resp->requestID);
 	
-	printf(WHERESTR "Processing ACQUIRE package for %d\n", WHEREARG, req->id);
+	printf(WHERESTR "Processing ACQUIRE package for %d (IsThreaded: %d)\n", WHEREARG, req->id, IsThreaded());
 	
 	if (ht_member(allocatedItemsOld, (void*)(req->id))) {
 		printf(WHERESTR "Item %d was known, returning local copy\n", WHEREARG, req->id);
@@ -334,7 +334,7 @@ void readMailbox() {
 			break;
 		
 		case PACKAGE_RELEASE_RESPONSE:
-			printf(WHERESTR "RELEASE package recieved\n", WHEREARG);
+			//printf(WHERESTR "RELEASE package recieved\n", WHEREARG);
 			if ((dataItem = MALLOC(sizeof(struct releaseResponse))) == NULL)
 				fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
 
@@ -424,7 +424,7 @@ unsigned int beginAcquire(GUID id, int type)
 		return 0;
 	}
 
-	if (spu_stat_in_mbox() > 0)
+	while (spu_stat_in_mbox() > 0)
 		readMailbox();
 
 	if ((req = MALLOC(sizeof(struct pendingRequestStruct))) == NULL)
@@ -500,7 +500,7 @@ unsigned int beginRelease(void* data)
 	dataObject object;
 	pendingRequest req;
 	
-	printf(WHERESTR "Starting a release\n", WHEREARG); 
+	//printf(WHERESTR "Starting a release\n", WHEREARG); 
 	
 	if (allocatedItemsOld == NULL)
 	{
@@ -515,7 +515,7 @@ unsigned int beginRelease(void* data)
 		object = ht_get(allocatedItems, data);
 
 		if (object->mode == WRITE) {	
-			printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
+			//printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 			req->id = object->id;
 			req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 			req->object = object;
@@ -525,7 +525,7 @@ unsigned int beginRelease(void* data)
 			transfersize = ALIGNED_SIZE(object->size);
 			StartDMAWriteTransfer(data, (int)object->EA, transfersize, dmaNo);
 
-			printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, object->id); 
+			//printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, object->id); 
 
 			struct releaseRequest* request;
 			if ((request = MALLOC(sizeof(struct releaseRequest))) == NULL)
@@ -542,7 +542,7 @@ unsigned int beginRelease(void* data)
 			ht_delete(allocatedItems, data);
 			ht_insert(allocatedItemsOld, (void*)object->id, object);
 		} else if (object->mode == READ) {
-			printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
+			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 
 			ht_delete(allocatedItems, data);
 			
@@ -553,7 +553,7 @@ unsigned int beginRelease(void* data)
 				FREE(item);
 				ht_delete(pendingInvalidate, (void*)object->id);
 			} else {
-				printf(WHERESTR "Local release for %d in read mode\n", WHEREARG, object->id); 
+				//printf(WHERESTR "Local release for %d in read mode\n", WHEREARG, object->id); 
 				ht_insert(allocatedItemsOld, (void*)object->id, object);
 			}
 			
@@ -596,7 +596,7 @@ int getAsyncStatus(unsigned int requestNo)
 {
 	pendingRequest req;
 	
-	printf(WHERESTR "In AsyncStatus for %d\n", WHEREARG, requestNo);
+	//printf(WHERESTR "In AsyncStatus for %d\n", WHEREARG, requestNo);
 	
 	if (!ht_member(pending, (void*)requestNo))
 		return ASYNC_STATUS_ERROR;
@@ -604,7 +604,7 @@ int getAsyncStatus(unsigned int requestNo)
 	{
 		while (spu_stat_in_mbox() != 0)
 		{
-			printf(WHERESTR "Processing pending mailbox messages, in %d\n", WHEREARG, requestNo);
+			//printf(WHERESTR "Processing pending mailbox messages, in %d\n", WHEREARG, requestNo);
 			readMailbox();
 		}
 	
@@ -620,7 +620,7 @@ int getAsyncStatus(unsigned int requestNo)
 					req->state = ASYNC_STATUS_REQUEST_SENT;
 					((struct acquireRequest*)req->request)->requestID = requestNo;
 					sendMailbox(req->request);
-					printf(WHERESTR "Handling release status for %d\n", WHEREARG, requestNo);
+					//printf(WHERESTR "Handling release status for %d\n", WHEREARG, requestNo);
 				}		
 		}	
 		return req->state;
@@ -639,7 +639,7 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 	}
 		
 	req = ht_get(pending, (void*)requestNo);
-	printf(WHERESTR "In endAsync for: %d, initial state was: %d\n", WHEREARG, requestNo, req->state);
+	//printf(WHERESTR "In endAsync for: %d, initial state was: %d\n", WHEREARG, requestNo, req->state);
 	
 	while(req->state != ASYNC_STATUS_COMPLETE)
 	{
@@ -650,7 +650,7 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 		}
 		else if(req->state == ASYNC_STATUS_REQUEST_SENT)
 		{
-			printf(WHERESTR "Awaiting mailbox response\n", WHEREARG); 
+			//printf(WHERESTR "Awaiting mailbox response\n", WHEREARG); 
 			if (IsThreaded())
 			{
 				while(req->state == ASYNC_STATUS_REQUEST_SENT)
@@ -664,16 +664,16 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 			//Non-threaded, just block
 			else
 			{
-				printf(WHERESTR "Blocking on mailbox response\n", WHEREARG); 
+				//printf(WHERESTR "Blocking on mailbox response\n", WHEREARG); 
 				readMailbox();
-				printf(WHERESTR "Blocked on mailbox response\n", WHEREARG); 
+				//printf(WHERESTR "Blocked on mailbox response\n", WHEREARG); 
 			}
 			
-			printf(WHERESTR "After waiting for mbox, response status was: %d\n", WHEREARG, req->state);
+			//printf(WHERESTR "After waiting for mbox, response status was: %d\n", WHEREARG, req->state);
 		}
 		else if (req->state == ASYNC_STATUS_DMA_PENDING)
 		{
-			printf(WHERESTR "Awaiting DMA transfer\n", WHEREARG); 
+			//printf(WHERESTR "Awaiting DMA transfer\n", WHEREARG); 
 			if (IsThreaded())
 			{
 				while(req->state == ASYNC_STATUS_DMA_PENDING)
@@ -706,7 +706,7 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 	{
 		*size = req->object->size;
 		retval = req->object->data;
-		printf(WHERESTR "In AsyncStatus for %d, obj id: %d, obj data: %d\n", WHEREARG, requestNo, req->object->id, (int)req->object->data);
+		//printf(WHERESTR "In AsyncStatus for %d, obj id: %d, obj data: %d\n", WHEREARG, requestNo, req->object->id, (int)req->object->data);
 	}
 	
 	if (req->request != NULL)
@@ -724,7 +724,7 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 	
 	FREE(req);
 	
-	printf(WHERESTR "In endAsync for %d, returning %d\n", WHEREARG, requestNo, (int)retval);	
+	//printf(WHERESTR "In endAsync for %d, returning %d\n", WHEREARG, requestNo, (int)retval);	
 	return retval;
 }
  

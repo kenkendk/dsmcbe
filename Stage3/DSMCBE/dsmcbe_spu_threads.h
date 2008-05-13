@@ -11,4 +11,4 @@ extern void* thread_malloc(unsigned int size);
 extern void thread_free_align(void* data);
 extern void* thread_malloc_align(unsigned int size, int base);
 
-#endif DSMCBE_SPU_THREADS_H_
+#endif /*DSMCBE_SPU_THREADS_H_*/
