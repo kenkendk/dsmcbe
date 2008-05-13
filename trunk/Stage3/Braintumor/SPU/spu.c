@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include "../PPU/guids.h"
 #include "../Common/Common.h"
+#include "../DSMCBE/common/debug.h"
 
 #define BLOCKSIZE (GRIDWIDTH * GRIDHEIGTH) // In bytes
 #define NUM_OF_BUFFERS 2
@@ -163,10 +164,10 @@ int main()
 	
 	srand(1);
 	unsigned int i;
-
+	
 	initialize();
 
-	printf("SPU: Ready to start\n");
+	//printf("SPU: Ready to start\n");
 	
 	int jobID = 0;
 		
@@ -194,7 +195,9 @@ int main()
 		CTWIDTH = package->width;
 		CTHEIGTH = package->heigth;			
 	
-		//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);		
+		//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
+			
+		printf(WHERESTR "PID: %i out of %i\n", WHEREARG, pid, maxpid);
 	
 		if(pid >= maxpid) {
 			release(package);
@@ -240,7 +243,7 @@ int main()
 			//printf("spu.c: Trying to acquire BUFFER\n");
 			unsigned char* buffer;
 			buffer = acquire(id, &size, READ);			
-			//printf("spu.c: Finished acquiring BUFFER\n");
+			//printf(WHERESTR "Finished acquiring BUFFER %i\n", WHEREARG, id);
 					
 			next_grid.x = current_grid.x + 1;
 			if(next_grid.x == 3)

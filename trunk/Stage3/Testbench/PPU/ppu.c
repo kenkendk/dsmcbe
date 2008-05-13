@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "../guids.h"
 #include <common/debug.h>
+#include <unistd.h>
 
 #define SPU_THREADS 1
 
@@ -25,15 +26,20 @@ int main(int argc, char **argv) {
 	printf(WHERESTR "Releasing\n", WHEREARG);
 	release(data);
 	
-	//sleep(1);
+	sleep(1);
+	
+	printf(WHERESTR "Updating data\n", WHEREARG);
 	
 	data = acquire(ETTAL, &size, WRITE);
+	
+	*data = 210;
+	
 	printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
 	printf(WHERESTR "Value is %i. The expected value is 210.\n", WHEREARG, *data);
 	
 	release(data);
 
-	
+	/*
 	items = 16 * 1025;
 	unsigned int* largeblock = create(LARGE_ITEM, items * sizeof(unsigned int));
 
@@ -66,7 +72,10 @@ int main(int argc, char **argv) {
 	release(largeblock);
 	printf(WHERESTR "Tests completed, shutting down\n", WHEREARG);
 	
+	*/
+	
 	printf(WHERESTR "Released, waiting for SPU to complete\n", WHEREARG);
+	
 	for(i = 0; i < SPU_THREADS; i++)
 		pthread_join(spu_threads[i], NULL);
 

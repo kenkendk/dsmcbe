@@ -8,6 +8,7 @@
 #include "../../dsmcbe_spu.h"
 #include <malloc_align.h>
 #include <free_align.h>
+#include <string.h>
 
 
 static thread_struct* threads = NULL; //The threads

@@ -235,17 +235,22 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 //Perform all actions related to an invalidate
 void DoInvalidate(QueueableItem item, GUID dataItem)
 {
-	struct invalidateRequest* resp;
-	if ((resp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
+	struct invalidateRequest* requ;
+	if ((requ = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
 		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 	
-	resp->packageCode =  PACKAGE_INVALIDATE_REQUEST;
-	resp->requestID = 0; //TODO: Should we await this?
-	resp->dataItem = dataItem;
+	requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
+	requ->requestID = ((struct invalidateRequest*)item->dataRequest)->requestID;
+	requ->dataItem = dataItem;
 
-	printf(WHERESTR "Sending invalidate request\n", WHEREARG);
-	RespondAny(item, resp);
-
+	printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
+	pthread_mutex_lock(item->mutex);
+	printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
+	queue_enq(*(item->queue), requ);
+	pthread_cond_signal(item->event);
+	printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
+	pthread_mutex_unlock(item->mutex);
+	
 	printf(WHERESTR "Invalidate request send\n", WHEREARG);
 
 	free(item->dataRequest);
@@ -288,6 +293,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				memcpy(temp, item->dataRequest, sizeof(struct invalidateRequest));
 				queueItem->dataRequest = temp;
 				queue_enq(r, queueItem);
+				
 				RespondAcquire(item, obj);
 			} else {			
 				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
@@ -296,17 +302,28 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 
 				if(!queue_empty(r)) {
 					
-					QueueableItem next;
+					QueueableItem invalid;
 				
 					// Invalidate all in readersqueue (r)
 					while (!queue_empty(r)) {
 						// Invalidate
 						printf(WHERESTR "Must invalidate\n", WHEREARG);
 						
-						next = queue_deq(r);
-						DoInvalidate(next, request->dataItem);	
+						invalid = queue_deq(r);
+						DoInvalidate(invalid, request->dataItem);	
 					}
 				}
+/*				
+				if (request->requestID != 0) {
+					// Make copy of item into queueItem.
+					QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
+					memcpy(queueItem, item, sizeof(struct QueueableItemStruct));
+					struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
+					memcpy(temp, item->dataRequest, sizeof(struct invalidateRequest));
+					queueItem->dataRequest = temp;
+					queue_enq(r, queueItem);
+				}
+*/				
 			}
 		}
 		else {
@@ -372,19 +389,54 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				//Respond to the releaser
 				//printf(WHERESTR "Respond to the releaser\n", WHEREARG);
 				RespondRelease(item);
+
+				// Move next to readers queue, but what to do??				
+
 				while (!dq_empty(q))
 				{
 					//Acquire for the next in the queue
-					//printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
+					printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
 					next = dq_deq_front(q);
 					if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
 						dq_enq_front(q, NULL);
-						RespondAcquire(next, obj);						
+						RespondAcquire(next, obj);
+										
+						if(!queue_empty(r)) {
+					
+							QueueableItem invalid;
+						
+							// Invalidate all in readersqueue (r)
+							while (!queue_empty(r)) {
+								// Invalidate
+								printf(WHERESTR "Must invalidate\n", WHEREARG);
+								
+								invalid = queue_deq(r);
+								DoInvalidate(invalid, request->dataItem);	
+							}
+						}
+/*				
+						if (request->requestID != 0) {
+							// Make copy of item into queueItem.
+							QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
+							memcpy(queueItem, next, sizeof(struct QueueableItemStruct));
+							struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
+							memcpy(temp, next->dataRequest, sizeof(struct invalidateRequest));
+							queueItem->dataRequest = temp;
+							queue_enq(r, queueItem);
+						}
+*/												
 						break;
 					} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
-						queue_enq(r, next);
-						printf(WHERESTR "\nREAD lock has value: %i\n\n", WHEREARG, (int)next->mutex);
-						RespondAcquire(next, obj);
+						
+						// Make copy of item into queueItem.
+						QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
+						memcpy(queueItem, next, sizeof(struct QueueableItemStruct));
+						struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
+						memcpy(temp, next->dataRequest, sizeof(struct invalidateRequest));
+						queueItem->dataRequest = temp;
+						queue_enq(r, queueItem);
+						
+						RespondAcquire(next, obj);						
 						continue;
 					}
 					else

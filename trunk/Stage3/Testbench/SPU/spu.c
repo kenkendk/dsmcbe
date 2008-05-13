@@ -1,5 +1,6 @@
 #include "spu.h"
 #include <common/datastructures.h>
+#include <unistd.h>
 #include <malloc.h>
 
 //We need the counter on the heap so the threads share it
@@ -16,16 +17,33 @@ int main(int argc, char **argv) {
 	int threadNo;
 	int* allocation;
 
-	/*threadNo = CreateThreads(SPU_FIBERS);
+	/*threadNo = CreateThreads(SPU_FIBERS)
 	if (threadNo != -1)
 	{	*/
+
 		printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
 		allocation = acquire(ETTAL, &size, WRITE);
 				
-		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
+		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, 928, (int)allocation);				
+		//printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
 		
-		*allocation = 210;
-				
+		*allocation = 111;
+		
+		release(allocation);
+		
+		sleep(3);
+
+		printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
+		allocation = acquire(ETTAL, &size, READ);
+
+		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, 210, (int)allocation);				
+		//printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
+		
+		//*allocation = 210;
+		
+		release(allocation);
+		
+/*				
 		printf(WHERESTR "Thread #%d, modified value, relasing.\n", WHEREARG, threadNo);
 		release(allocation);
 		printf(WHERESTR "Thread #%d, release completed\n", WHEREARG, threadNo);
@@ -84,7 +102,7 @@ int main(int argc, char **argv) {
 	printf(WHERESTR "Releasing new item\n", WHEREARG);
 	release(allocation);
 	printf(WHERESTR "Released new item\n", WHEREARG);
-	
+*/	
 	
 	terminate();
 	printf(WHERESTR "Done\n", WHEREARG);
