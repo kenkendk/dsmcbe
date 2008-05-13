@@ -519,3 +519,75 @@ void ht_resize(hashtable ht, unsigned int newsize)
 	FREE(newtable);
 }
 
+/*********************/
+/* hash table iterator implementation */
+/*********************/
+
+hashtableIterator ht_iter_create(hashtable ht)
+{
+	hashtableIterator iter;
+	
+	if ((iter = MALLOC(sizeof(struct hashtableIterator))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+	
+	iter->ht = ht;
+	iter->kl = NULL;
+	iter->index = -1;
+	return iter;
+}
+
+void* ht_iter_get_key(hashtableIterator iter)
+{
+	if (iter == NULL || iter->kl == NULL)
+		return NULL;
+	else
+		return iter->kl->key;
+}
+
+void* ht_iter_get_value(hashtableIterator iter)
+{
+	if (iter == NULL || iter->kl == NULL)
+		return NULL;
+	else
+		return iter->kl->data;
+}
+
+int ht_iter_next(hashtableIterator iter)
+{
+	//printf(WHERESTR "In Next\n", WHEREARG);	
+	if (iter == NULL || iter->ht == NULL)
+		return 0;
+
+	if (iter->kl != NULL)
+	{
+		//printf(WHERESTR "In Next, updating KL\n", WHEREARG);
+		iter->kl = iter->kl->next;
+	}
+	
+	while (iter->kl == NULL)
+	{
+		//printf(WHERESTR "In Next, updating index from %d\n", WHEREARG, iter->index);
+		iter->index++;
+		if (iter->index >= iter->ht->count || (iter->index > 0 && iter->ht->count <= iter->ht->wrapsize))
+		{
+			//printf(WHERESTR "In Next, no more values\n", WHEREARG);
+			iter->index = -1;
+			iter->ht = NULL;
+			iter->kl = NULL;
+			return 0;
+		}
+		if (iter->ht->count > iter->ht->wrapsize)
+			iter->kl = iter->ht->buffer[iter->index]->elements;
+		else
+			iter->kl = ((slset)iter->ht->buffer)->elements;
+	}
+	
+	//printf(WHERESTR "In Next, returning valid pointer, key: %d\n", WHEREARG, (int)iter->kl->key);
+	return 1;
+}
+
+void ht_iter_destroy(hashtableIterator iter)
+{
+	FREE(iter);	
+}
+

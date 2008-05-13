@@ -8,7 +8,7 @@ static int counter = 0;
 int main(int argc, char **argv) {
 	
 	initialize();
-	
+
 	printf(WHERESTR "Hello World\n", WHEREARG);
 	unsigned long size;
 	unsigned int i;
