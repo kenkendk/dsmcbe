@@ -3,6 +3,10 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef DSMCBE_SPU
+#include "../header files/SPUThreads.h"
+#endif
   
 /*********************/
 /* list implementation */

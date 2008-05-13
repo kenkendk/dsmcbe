@@ -106,7 +106,7 @@ void* ProcessMessages(void* data)
 	unsigned long datasize;
 	void* datapointer;
 	GUID itemid;
-	void* dataItem;
+	void* dataItem = NULL;
 	QueueableItem queueItem;
 	
 	while(!terminate)

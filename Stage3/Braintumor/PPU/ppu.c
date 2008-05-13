@@ -79,7 +79,7 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 		release(count); 
 	}while(*count < SPU_THREADS);
 				
-	printf("\n\nStart working on results\n\n");
+	//printf("\n\nStart working on results\n\n");
 	
 	for(i = 0; i < (shots / shots_spu); i++) {
 		unsigned long size;
@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
 
 	threads = simpleInitialize(SPU_THREADS);
 
-	printf("Starting loading images!\n");
+	//printf("Starting loading images!\n");
 
 			
 	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
 	readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
 	release(grid22);			
 	
-	printf("Finished loading images!\n");
+	//printf("Finished loading images!\n");
 	
 	for(i = 0; i < (SHOTS / SHOTS_SPU); i++)
 	{

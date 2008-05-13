@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <spu_intrinsics.h>
 #include <libmisc.h>
-#include <spu_mfcio.h> 
+#include <spu_mfcio.h>
+#include <unistd.h>  
 
 #include "../../dsmcbe_spu.h"
 #include "../../common/datapackages.h"
@@ -83,58 +84,76 @@ void elementsInQueue(struct queue* q) {
 	printf(WHERESTR "Queue contained %i elements\n", WHEREARG, count);
 }
 
-int clearSimple() {
+void* clearAlign(unsigned long size) {	
 	
-	int id;
+	void* pointer = NULL;
+	unsigned long freedmemory = 0;
+	int go = 0;
 	
-	//printf(WHERESTR "Trying to free memory\n", WHEREARG);
+	do {
+		//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
 	
-	if (!queue_empty(allocatedID)) {
-		id = (int)queue_deq(allocatedID);
-		//printf(WHERESTR "Trying to free id %i\n", WHEREARG, id);
-	} else {
-		//printf(WHERESTR "Failed to free memory, allocatedID is empty\n", WHEREARG);
-		return 0;
-	}
-	if(ht_member(allocatedItemsOld, (void*)id)) {
-		dataObject object = ht_get(allocatedItemsOld, (void*)id);
-		ht_delete(allocatedItemsOld, (void*)id);
-		//printf(WHERESTR "Free is called\n", WHEREARG);
-		free_align(object->data);
-		free(object);
-		//printf(WHERESTR "Succes, free some memory\n", WHEREARG);		
-		return 1;					
-	} else {
-		//printf(WHERESTR "Failed to free memory, allocatedID not found in allocatedItemsOld\n", WHEREARG);
-		return 0;
-	}
-	//printf(WHERESTR "Failed to free memory\n", WHEREARG);	
-	return 0;
+		while(freedmemory < size || go) {
+			int id;
+			if (!queue_empty(allocatedID))
+				id = (int)queue_deq(allocatedID);
+			else
+				return MALLOC_ALIGN(size, 7);
+		
+			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
+			if(ht_member(allocatedItemsOld, (void*)id)) {
+				dataObject object = ht_get(allocatedItemsOld, (void*)id);
+				freedmemory += (object->size + sizeof(struct dataObjectStruct));
+				FREE_ALIGN(object->data);
+				FREE(object);
+				ht_delete(allocatedItemsOld, (void*)id);
+				//printf(WHERESTR "Memory freed\n", WHEREARG);				
+			}		
+		}
+		
+		pointer = MALLOC_ALIGN(size, 7);
+		go = 1;
+	} while (pointer == NULL);
+	
+	//printf(WHERESTR "Freed %i and allocated %i of memory\n", WHEREARG, (int)freedmemory, (int)size);
+	
+	return pointer;
 }
 
-int clear(unsigned long size) {	
+void* clear(unsigned long size) {	
 	
-	//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
+	void* pointer = NULL;
 	unsigned long freedmemory = 0;
-
-	while(freedmemory < size + 10) {
-		int id;
-		if (!queue_empty(allocatedID))
-			id = (int)queue_deq(allocatedID);
-		else
-			return 0;
+	int go = 0;
 	
-		//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
-		if(ht_member(allocatedItemsOld, (void*)id)) {
-			dataObject object = ht_get(allocatedItemsOld, (void*)id);
-			ht_delete(allocatedItemsOld, (void*)id);
-			freedmemory += (object->size + sizeof(struct dataObjectStruct));
-			FREE_ALIGN(object->data);
-			FREE(object);				
+	do {
+		//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
+	
+		while(freedmemory < size || go) {
+			int id;
+			if (!queue_empty(allocatedID))
+				id = (int)queue_deq(allocatedID);
+			else
+				return MALLOC_ALIGN(size, 7);
+		
+			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
+			if(ht_member(allocatedItemsOld, (void*)id)) {
+				dataObject object = ht_get(allocatedItemsOld, (void*)id);
+				freedmemory += (object->size + sizeof(struct dataObjectStruct));
+				FREE_ALIGN(object->data);
+				FREE(object);
+				ht_delete(allocatedItemsOld, (void*)id);
+				//printf(WHERESTR "Memory freed\n", WHEREARG);				
+			}		
 		}
-	}
+		
+		pointer = MALLOC(size);
+		go = 1;
+	} while (pointer == NULL);
 	
-	return 1;
+	//printf(WHERESTR "Freed %i and allocated %i of memory\n", WHEREARG, (int)freedmemory, (int)size);
+	
+	return pointer;
 }
 
 void sendMailbox(void* dataItem) {
@@ -276,11 +295,10 @@ void StartDMATransfer(struct acquireResponse* resp)
 	//printf(WHERESTR "Item %d was not known, starting DMA transfer\n", WHEREARG, req->id);
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
-	req->object->data = MALLOC_ALIGN(transfer_size, 7);
-	if (req->object->data == NULL)
-	{
-		printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill);
+	if ((req->object->data = clearAlign(transfer_size)) == NULL) {
+		//printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill);
 		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU\n", WHEREARG);
+		sleep(10);
 	}
 
 	ht_insert(allocatedItems, req->object->data, req->object);
@@ -291,7 +309,6 @@ void StartDMATransfer(struct acquireResponse* resp)
 
 void readMailbox() {
 	void* dataItem;
-	unsigned int datatype;
 	unsigned int requestID;
 	unsigned long datasize;
 	GUID itemid;
@@ -368,7 +385,7 @@ void readMailbox() {
 			break;
 		
 		default:
-			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, datatype);
+			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, packagetype);
 			fprintf(stderr, WHERESTR "Unknown package recieved", WHEREARG);
 	};	
 }
@@ -542,6 +559,7 @@ unsigned int beginRelease(void* data)
 			
 			ht_delete(allocatedItems, data);
 			ht_insert(allocatedItemsOld, (void*)object->id, object);
+			queue_enq(allocatedID, (void*)object->id);
 		} else if (object->mode == READ) {
 			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 
@@ -556,6 +574,7 @@ unsigned int beginRelease(void* data)
 			} else {
 				//printf(WHERESTR "Local release for %d in read mode\n", WHEREARG, object->id); 
 				ht_insert(allocatedItemsOld, (void*)object->id, object);
+				queue_enq(allocatedID, (void*)object->id);
 			}
 			
 			req->id = object->id;
@@ -591,7 +610,11 @@ void terminate() {
 	ht_destroy(pendingInvalidate);
 	queue_destroy(allocatedID);
 	ht_destroy(pending);
-	allocatedItems = allocatedItemsOld = pending = pendingInvalidate = allocatedID = NULL;
+	allocatedItems = NULL;
+	allocatedItemsOld = NULL;
+	pending = NULL;
+	pendingInvalidate = NULL;
+	allocatedID = NULL;
 }
 
 
@@ -778,3 +801,4 @@ void* create(GUID id, unsigned long size)
 		ht_iter_destroy(it); 
 	} 
 }*/
+
