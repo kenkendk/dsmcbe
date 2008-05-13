@@ -28,7 +28,7 @@
 #define GRID22 1220
 #define GRID22IMAGE 1221
 
-#define RESULT 100000
+#define RESULT 10000
 
 #define JOB 20000
 

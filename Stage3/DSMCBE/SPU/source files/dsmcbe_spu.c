@@ -20,7 +20,7 @@
 //The SPU cannot hold more than a few unserviced requests
 #define MAX_REQ_NO 100000
 
-//This table keeps all active items, key is the ointer
+//This table keeps all active items, key is the pointer
 static hashtable allocatedItems;
 
 //This table keeps all items that have been loaded, but is not active, key is the GUID
@@ -41,8 +41,6 @@ static int DMAGroupNo = 0;
 //If value is NULL a mailbox communication is expected
 //If value is not NULL, the value is the package with a pending DMA transfer  
 static hashtable pending;
-
-
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -77,20 +75,59 @@ int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
+void elementsInQueue(struct queue* q) {
+	int count = 0;
+	while(!queue_empty(q)) {
+		queue_deq(q);
+		count++;
+	}
+	printf(WHERESTR "Queue contained %i elements\n", WHEREARG, count);
+}
+
+int clearSimple() {
+	
+	int id;
+	
+	//printf(WHERESTR "Trying to free memory\n", WHEREARG);
+	
+	if (!queue_empty(allocatedID)) {
+		id = (int)queue_deq(allocatedID);
+		//printf(WHERESTR "Trying to free id %i\n", WHEREARG, id);
+	} else {
+		//printf(WHERESTR "Failed to free memory, allocatedID is empty\n", WHEREARG);
+		return 0;
+	}
+	if(ht_member(allocatedItemsOld, (void*)id)) {
+		dataObject object = ht_get(allocatedItemsOld, (void*)id);
+		ht_delete(allocatedItemsOld, (void*)id);
+		//printf(WHERESTR "Free is called\n", WHEREARG);
+		free_align(object->data);
+		free(object);
+		//printf(WHERESTR "Succes, free some memory\n", WHEREARG);		
+		return 1;					
+	} else {
+		//printf(WHERESTR "Failed to free memory, allocatedID not found in allocatedItemsOld\n", WHEREARG);
+		return 0;
+	}
+	//printf(WHERESTR "Failed to free memory\n", WHEREARG);	
+	return 0;
+}
+
 int clear(unsigned long size) {	
 	
-	//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);
+	//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
 	unsigned long freedmemory = 0;
 
-	while(freedmemory < size) {
+	while(freedmemory < size + 10) {
 		int id;
 		if (!queue_empty(allocatedID))
 			id = (int)queue_deq(allocatedID);
 		else
 			return 0;
-
+	
+		//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 		if(ht_member(allocatedItemsOld, (void*)id)) {
-			dataObject object = ht_get(allocatedItemsOld, (void*)id);		
+			dataObject object = ht_get(allocatedItemsOld, (void*)id);
 			ht_delete(allocatedItemsOld, (void*)id);
 			freedmemory += (object->size + sizeof(struct dataObjectStruct));
 			FREE_ALIGN(object->data);
@@ -271,7 +308,7 @@ void readMailbox() {
 	switch(packagetype)
 	{
 		case PACKAGE_ACQUIRE_RESPONSE:
-			printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
+			//printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
 			if ((dataItem = MALLOC(sizeof(struct acquireResponse))) == NULL)
 				fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
 
@@ -398,7 +435,7 @@ unsigned int beginAcquire(GUID id, int type)
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
 		if (type == READ)
 		{	
-			printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
+			printf(WHERESTR "Reacquire for READ id: %i\n", WHEREARG, id);
 	
 			object->mode = type;
 			ht_delete(allocatedItemsOld, (void*)id);
@@ -431,8 +468,10 @@ unsigned int beginAcquire(GUID id, int type)
 		perror("SPUEventHandler.c: malloc error");
 	
 	if (type == WRITE)
+		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
 	else if (type == READ)
+		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	else {
 		perror("Starting acquiring in unknown mode");
@@ -477,7 +516,6 @@ unsigned int beginRelease(void* data)
 
 		if (object->mode == WRITE) {	
 			printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
-			
 			req->id = object->id;
 			req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 			req->object = object;
@@ -530,12 +568,10 @@ unsigned int beginRelease(void* data)
 		ht_insert(pending, (void*)nextId, req);
 		
 		return nextId;
-	}
-	else
-	{
+	} else {
 		fprintf(stderr, WHERESTR "Tried to release non allocated item\n", WHEREARG);
 		return 0;
-	}
+	}		
 }
 
 void initialize(){

@@ -448,6 +448,8 @@ void* ht_get(hashtable ht, void* key)
 
 void ht_resize(hashtable ht, unsigned int newsize)
 {
+	printf("Elements in hashtable is %i and size is %i", ht->fill, ht->count);
+	/*
 	unsigned int i;
 	keylist kl;
 	hashtable newtable;
@@ -471,5 +473,6 @@ void ht_resize(hashtable ht, unsigned int newsize)
 	ht->fill = newtable->fill;
 	
 	FREE(newtable);
+	*/
 }
 
