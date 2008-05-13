@@ -387,92 +387,135 @@ void * dq_deq_back(dqueue q)
 /*********************/
 /* hash table implementation */
 /*********************/
-hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(void *, unsigned int size))
+hashtable ht_create_internal(unsigned int size, int (*less)(void *, void *), int (*hash)(void *, unsigned int size), unsigned int wrapsize)
 {
 	unsigned int i;
 	hashtable ht;
 	
-	if (size < 2)
-		size = 2;
-
 	if ((ht = MALLOC(sizeof(struct hashtable))) == NULL)
 		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
 		
 	ht->count = size;
-	ht->minsize = size;
 	ht->fill = 0;
 	ht->less = less;
 	ht->hash = hash;
+	ht->wrapsize = wrapsize;
 
-	if ((ht->buffer = MALLOC(sizeof(void*) * size)) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
-		
-	for(i = 0; i < size; i++)
-		ht->buffer[i] = slset_create(ht->less);
+	if (ht->count > ht->wrapsize)
+	{
+		if ((ht->buffer = MALLOC(sizeof(void*) * size)) == NULL)
+			fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+
+		for(i = 0; i < size; i++)
+			ht->buffer[i] = slset_create(ht->less);
+	}
+	else
+		ht->buffer = (slset*)slset_create(ht->less); 
 
 	return ht;
 }
 
+hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(void *, unsigned int size))
+{
+	return ht_create_internal(size < 2 ? 2 : size, less, hash, size);
+}
+
+
 void ht_destroy(hashtable ht)
 {
 	ht_resize(ht, 0);
+	slset_destroy((slset)ht->buffer);
 	FREE(ht);
 }
 
 void ht_insert(hashtable ht, void* key, void* data)
 {
-	if (((ht->fill + 1) * 2) > ht->count)
+	if (((ht->fill + 1) * 2) > ht->count && ht->fill >= ht->wrapsize)
 		ht_resize(ht, (ht->count + 1) * 2);
 
-	slset_insert(ht->buffer[ht->hash(key, ht->count)], key, data);
+	if(ht->count > ht->wrapsize)
+		slset_insert(ht->buffer[ht->hash(key, ht->count)], key, data);
+	else
+		slset_insert((slset)ht->buffer, key, data);
+		
 	ht->fill++;
 }
 
 void ht_delete(hashtable ht, void* key)
 {
-	slset_delete(ht->buffer[ht->hash(key, ht->count)], key);
+	if (ht->count > ht->wrapsize)
+		slset_delete(ht->buffer[ht->hash(key, ht->count)], key);
+	else
+		slset_delete((slset)ht->buffer, key);
+		
 	ht->fill--;
-	if (ht->fill * 3 < ht->count && ht->count != ht->minsize)
-		ht_resize(ht, (ht->count / 2) > ht->minsize ?  (ht->count / 2) : ht->minsize);
+	if (ht->count > ht->wrapsize)
+	{
+		if (ht->fill < ht->wrapsize)
+			ht_resize(ht, ht->wrapsize);
+		else if (ht->fill * 3 < ht->count) 
+			ht_resize(ht, (ht->count / 2) > ht->wrapsize ?  (ht->count / 2) : ht->wrapsize);
+	}
 }
 
 int ht_member(hashtable ht, void* key)
 {
-	return slset_member(ht->buffer[ht->hash(key, ht->count)], key);
+	if (ht->count > ht->wrapsize)
+		return slset_member(ht->buffer[ht->hash(key, ht->count)], key);
+	else
+		return slset_member((slset)ht->buffer, key);
 }
 
 void* ht_get(hashtable ht, void* key)
 {
-	return slset_get(ht->buffer[ht->hash(key, ht->count)], key);
+	if (ht->count > ht->wrapsize)
+		return slset_get(ht->buffer[ht->hash(key, ht->count)], key);
+	else
+		return slset_get((slset)ht->buffer, key);
 }
 
 void ht_resize(hashtable ht, unsigned int newsize)
 {
-	printf("Elements in hashtable is %i and size is %i", ht->fill, ht->count);
-	/*
 	unsigned int i;
 	keylist kl;
 	hashtable newtable;
 
-	newtable = ht_create(newsize, ht->less, ht->hash);
+	newtable = ht_create_internal(newsize, ht->less, ht->hash, ht->wrapsize);
+
 	for(i = 0; i < ht->count; i++)
 	{
-		kl = ht->buffer[i]->elements;
+		
+		if (ht->count > ht->wrapsize)
+			kl = ht->buffer[i]->elements;
+		else
+			kl = ((slset)ht->buffer)->elements;
 
 		while(kl != NULL)
 		{
-			ht_insert(newtable, kl->key, kl->data);
+			//Insert into the new table, but avoid resizing
+			if(newtable->count > newtable->wrapsize)
+				slset_insert(newtable->buffer[newtable->hash(kl->key, newtable->count)], kl->key, kl->data);
+			else
+				slset_insert((slset)newtable->buffer, kl->key, kl->data);
+			
 			kl = kl->next;
 		}
-		slset_destroy(ht->buffer[i]);
+
+		if (ht->count > ht->wrapsize)		
+			slset_destroy(ht->buffer[i]);
+		else
+		{
+			slset_destroy((slset)ht->buffer);
+			break;
+		}
 	}
-	FREE(ht->buffer);
+	
+	if (ht->count > ht->wrapsize)
+		FREE(ht->buffer);
 
 	ht->buffer = newtable->buffer;
 	ht->count = newtable->count;
-	ht->fill = newtable->fill;
 	
 	FREE(newtable);
-	*/
 }
 

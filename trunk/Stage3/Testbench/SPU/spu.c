@@ -1,5 +1,6 @@
 #include "spu.h"
 #include <common/datastructures.h>
+#include <malloc.h>
 
 //We need the counter on the heap so the threads share it
 static int counter = 0;
@@ -14,7 +15,7 @@ int main(int argc, char **argv) {
 	unsigned int items;
 	int threadNo;
 	int* allocation;
-	
+
 	/*threadNo = CreateThreads(SPU_FIBERS);
 	if (threadNo != -1)
 	{	*/
@@ -66,12 +67,12 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
 
 		//Memory leak testing, the SPU memory is very limited so a million runs usually reveal the problem
-		/*for(i = 0; i < 1000000; i++)
+		for(i = 0; i < 1000000; i++)
 		{
-			if (i % 1000 == 0)
+			if (i % 10000 == 0)
 				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
-			release(acquire(LARGE_ITEM, &size, READ));
-		}*/
+			release(acquire(LARGE_ITEM, &size, WRITE));
+		}
 
 		//TerminateThread();
 	//}

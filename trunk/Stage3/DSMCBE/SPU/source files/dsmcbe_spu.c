@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <spu_intrinsics.h>
-#include <malloc_align.h>
-#include <free_align.h>
+#include <libmisc.h>
 #include <spu_mfcio.h> 
 
 #include "../../dsmcbe_spu.h"
