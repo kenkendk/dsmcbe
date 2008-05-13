@@ -278,9 +278,9 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 		//If the object is not locked, register as locked and respond
 		if (dq_empty(q))
 		{
-			printf(WHERESTR "Object not looked\n", WHEREARG);
+			//printf(WHERESTR "Object not locked\n", WHEREARG);
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
-				printf(WHERESTR "Acquiring READ on not looked object\n", WHEREARG);
+				//printf(WHERESTR "Acquiring READ on not locked object\n", WHEREARG);
 				// Make copy of item into queueItem.
 				QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
 				memcpy(queueItem, item, sizeof(struct QueueableItemStruct));
@@ -290,7 +290,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				queue_enq(r, queueItem);
 				RespondAcquire(item, obj);
 			} else {			
-				printf(WHERESTR "Acquiring WRITE on not looked object\n", WHEREARG);
+				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
 				RespondAcquire(item, obj);
 
@@ -375,7 +375,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				while (!dq_empty(q))
 				{
 					//Acquire for the next in the queue
-					printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
+					//printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
 					next = dq_deq_front(q);
 					if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
 						dq_enq_front(q, NULL);

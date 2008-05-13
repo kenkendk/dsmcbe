@@ -36,12 +36,15 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Thread #%d, read large value (%d, %d) (ls: %d)\n", WHEREARG, threadNo, (int)size, items, (int)largeblock);
 
 	
-		//The first to get here has counter == 0	
+		//The first to get here has counter == 0
 		for(i = 0; i < items; i++)
 		{
 			if (largeblock[i] != (i + (counter * 2)))
 				printf(WHERESTR "Thread #%d, Invalid value at %d\n", WHEREARG, threadNo, i);
-			largeblock[i] = i + ((counter + 1) * 2);
+			if (IsThreaded())
+				largeblock[i] = i + ((counter + 1) * 2);
+			else
+				largeblock[i] = i + ((SPU_FIBERS) * 2);
 		}
 		counter++;
 		
@@ -63,12 +66,12 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
 
 		//Memory leak testing, the SPU memory is very limited so a million runs usually reveal the problem
-		for(i = 0; i < 1000000; i++)
+		/*for(i = 0; i < 1000000; i++)
 		{
-			//if (i % 1000 == 0)
+			if (i % 1000 == 0)
 				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
-			release(acquire(LARGE_ITEM, &size, WRITE));
-		}
+			release(acquire(LARGE_ITEM, &size, READ));
+		}*/
 
 		//TerminateThread();
 	//}

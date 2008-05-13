@@ -129,7 +129,7 @@ void* ProcessMessages(void* data)
 							perror("SPUEventHandler.c: malloc error");;
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
 						ReadMBOXBlocking(spe_threads[i], &itemid, 1);
-						ReadMBOXBlocking(spe_threads[i], (unsigned int*)&datasize, 2);
+						ReadMBOXBlocking(spe_threads[i], (unsigned int*)&datasize, 1);
 												
 						((struct createRequest*)dataItem)->dataItem = itemid;
 						((struct createRequest*)dataItem)->packageCode = datatype;
