@@ -8,7 +8,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.1889310184" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.2138533893" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.363752971" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage3/Testbench/SPU/spu-gnu-debug/SPU"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Stage3/Braintumor/SPU/spu-gnu-debug/SPU"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.607878669" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
