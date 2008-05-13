@@ -237,7 +237,7 @@ struct hashtable
 {
 	unsigned int count;
 	unsigned int fill;
-	unsigned int minsize;
+	unsigned int wrapsize;
 	slset* buffer;
 	int (*less)(void*, void*);
 	int (*hash)(void*, unsigned int count);
