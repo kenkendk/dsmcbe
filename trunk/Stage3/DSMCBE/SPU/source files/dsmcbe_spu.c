@@ -747,3 +747,34 @@ void* create(GUID id, unsigned long size)
 	unsigned int req = beginCreate(id, size);
 	return (void*)endAsync(req, &size);
 }
+
+/*void TEST()
+{
+	hashtable ht;
+	hashtableIterator it;
+	size_t i;
+	ht = ht_create(5, lessint, hashfc);
+	
+	for(i = 0; i < 30; i++)
+	{
+		ht_insert(ht, (void*)i, (void*)i);
+
+		it = ht_iter_create(ht);
+		printf(WHERESTR "Sequence after insert %d: ", WHEREARG, (int)i);
+		while(ht_iter_next(it))
+			printf(", %d", (int)ht_iter_get_key(it));
+		printf("\n");
+		ht_iter_destroy(it); 
+	}
+
+	for(i = 0; i < 30; i++)
+	{
+		ht_delete(ht, (void*)i);	
+		printf(WHERESTR "Sequence after delete %d: ", WHEREARG, (int)i);
+		it = ht_iter_create(ht);
+		while(ht_iter_next(it))
+			printf(", %d", (int)ht_iter_get_key(it));
+		printf("\n");
+		ht_iter_destroy(it); 
+	} 
+}*/

@@ -243,6 +243,7 @@ struct hashtable
 	int (*hash)(void*, unsigned int count);
 };
 
+
 typedef struct hashtable* hashtable;
 
 extern hashtable ht_create(unsigned int size, int (*less)(void *, void *), int (*hash)(void *, unsigned int count));
@@ -252,6 +253,25 @@ extern void ht_delete(hashtable ht, void* key);
 extern int ht_member(hashtable ht, void* key);
 extern void* ht_get(hashtable ht, void* key);
 extern void ht_resize(hashtable ht, unsigned int newsize);
+
+/*********************/
+/* hash table itteration */
+/*********************/
+
+struct hashtableIterator
+{
+	hashtable ht;
+	keylist kl;
+	unsigned int index;
+};
+
+typedef struct hashtableIterator* hashtableIterator;
+
+extern hashtableIterator ht_iter_create(hashtable ht);
+extern void* ht_iter_get_key(hashtableIterator iter);
+extern void* ht_iter_get_value(hashtableIterator iter);
+extern int ht_iter_next(hashtableIterator iter);
+extern void ht_iter_destroy(hashtableIterator iter);
 
 
 #endif
