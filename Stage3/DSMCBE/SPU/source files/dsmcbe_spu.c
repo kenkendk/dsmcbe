@@ -80,6 +80,24 @@ int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
+//TODO: This is NOT the way to remove an item in a queue...
+void removeAllocatedID(GUID id)
+{
+	queue temp;
+	GUID temp_id;
+	temp = queue_create();
+		while(!queue_empty(allocatedID))
+		{
+			temp_id = (GUID)queue_deq(allocatedID);
+			if (temp_id != id)
+				queue_enq(temp, (void*)temp_id);				
+		}		
+		
+		while(!queue_empty(temp))
+			queue_enq(allocatedID, queue_deq(temp));
+		queue_destroy(temp);			
+}
+
 void unsubscribe(dataObject object)
 {
 	struct releaseRequest* request;
@@ -236,17 +254,7 @@ void invalidate(struct invalidateRequest* item) {
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
 
 		ht_delete(allocatedItemsOld, (void*)id);
-		
-		queue temp = queue_create();
-		GUID value;
-		while(!queue_empty(allocatedID)) {
-			value = (GUID)queue_deq(allocatedID);
-			if(id != value) 
-				queue_enq(temp, (void*)value);
-		}
-		queue_destroy(allocatedID);
-		allocatedID = temp;
-		
+		removeAllocatedID(id);
 		FREE_ALIGN(object->data);
 		FREE(object);			
 	} else {
@@ -270,23 +278,6 @@ void invalidate(struct invalidateRequest* item) {
 	}
 
 	FREE(item);
-}
-
-void removeAllocatedID(GUID id)
-{
-	queue temp;
-	GUID temp_id;
-	temp = queue_create();
-		while(!queue_empty(allocatedID))
-		{
-			temp_id = queue_deq(allocatedID);
-			if (temp_id != id)
-				queue_enq(temp, (void*)temp_id);				
-		}		
-		
-		while(!queue_empty(temp))
-			queue_enq(allocatedID, queue_deq(temp));
-		queue_destroy(temp);			
 }
 
 void StartDMATransfer(struct acquireResponse* resp)
@@ -505,16 +496,7 @@ unsigned int beginAcquire(GUID id, int type)
 			object->mode = type;
 			ht_delete(allocatedItemsOld, (void*)id);
 			ht_insert(allocatedItems, object->data, object);
-	
-			queue temp = queue_create();
-			GUID value;
-			while(!queue_empty(allocatedID)) {
-				value = (GUID)queue_deq(allocatedID);
-				if(id != value) 
-					queue_enq(temp, (void*)value);
-			}
-			queue_destroy(allocatedID);
-			allocatedID = temp;
+			removeAllocatedID(id);	
 	
 			req->id = id;
 			req->object = object;

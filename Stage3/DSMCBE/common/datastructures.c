@@ -7,6 +7,7 @@
 #ifdef DSMCBE_SPU
 #include "../header files/SPUThreads.h"
 
+#ifdef SPU_TRACE_MEM
 unsigned int m_balance = 0;
 void* m_tmp;
 
@@ -35,7 +36,7 @@ void __m_free_align(void* x, char* s1, int s2)
 	thread_free_align(x);
 	printf(WHERESTR "Free_align'd %d, balance: %d\n", s1, s2, (int)x, --m_balance);
 };
-
+#endif /* SPU_TRACE_MEM */
 #endif
   
 /*********************/
