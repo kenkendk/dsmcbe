@@ -239,16 +239,18 @@ void DoInvalidate(QueueableItem item, GUID dataItem)
 	if ((requ = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
 		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 	
+	printf(WHERESTR "Making invalidate package with mutex: %i, queue: %i, signal: %i\n", WHEREARG, (int)item->mutex, (int)item->queue, (int)item->event);
+	
 	requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
 	requ->requestID = ((struct invalidateRequest*)item->dataRequest)->requestID;
 	requ->dataItem = dataItem;
 
-	printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
+	printf(WHERESTR "Locking mutex\n", WHEREARG);
 	pthread_mutex_lock(item->mutex);
-	printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
+	printf(WHERESTR "Mutex locked\n", WHEREARG);
 	queue_enq(*(item->queue), requ);
 	pthread_cond_signal(item->event);
-	printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
+	printf(WHERESTR "Signalled\n", WHEREARG);
 	pthread_mutex_unlock(item->mutex);
 	
 	printf(WHERESTR "Invalidate request send\n", WHEREARG);
@@ -295,7 +297,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				queue_enq(r, queueItem);
 				
 				RespondAcquire(item, obj);
-			} else {			
+			} else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE) {			
 				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
 				RespondAcquire(item, obj);
@@ -307,14 +309,14 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 					// Invalidate all in readersqueue (r)
 					while (!queue_empty(r)) {
 						// Invalidate
-						printf(WHERESTR "Must invalidate\n", WHEREARG);
+						printf(WHERESTR "Must invalidate id %i\n", WHEREARG, request->dataItem);
 						
 						invalid = queue_deq(r);
 						DoInvalidate(invalid, request->dataItem);	
 					}
 				}
-/*				
-				if (request->requestID != 0) {
+				
+			 	if (request->requestID != 0) {
 					// Make copy of item into queueItem.
 					QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
 					memcpy(queueItem, item, sizeof(struct QueueableItemStruct));
@@ -322,9 +324,12 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 					memcpy(temp, item->dataRequest, sizeof(struct invalidateRequest));
 					queueItem->dataRequest = temp;
 					queue_enq(r, queueItem);
-				}
-*/				
-			}
+/*									
+					if (request->dataItem == 20000)
+						printf(WHERESTR "Mutex %i, Queue: %i, Signal: %i\n", WHEREARG, (int)queueItem->mutex, (int)queueItem->queue, (int)queueItem->event);
+*/				}
+			} else
+				fprintf(stderr, WHERESTR "Acquire request where neither read or write", WHEREARG);
 		}
 		else {
 			//Otherwise add the request to the wait list
