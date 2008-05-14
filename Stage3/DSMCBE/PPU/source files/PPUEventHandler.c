@@ -15,38 +15,85 @@
 
 #include "../../common/debug.h"
 
-pthread_mutex_t pointer_mutex_Write, pointer_mutex_Read, pointer_mutex_Old;
-hashtable pointersWrite, pointersRead, pointersOld;
+//This mutex protects the pointer list
+pthread_mutex_t pointer_mutex;
+//This mutex protects the old pointer list
+pthread_mutex_t pointerOld_mutex;
+//This mutex protects the invalidate queue
+pthread_mutex_t ppu_invalidate_mutex;
 
-//Simple hashtable comparision
-int cmplessint(void* a, void* b)
-{
-	return ((int)a) < ((int)b);
-}
+//These two tables contains the registered pointers, either active or retired
+hashtable pointers, pointersOld;
 
-//Basic text book hash function
-int cmphashfc(void* a, unsigned int count)
-{
-	return ((int)a) % count;
-}
+//This is the queue of pending invalidates
+queue pendingInvalidate;
+
+
+
+int lessint(void* a, void* b);
+int hashfc(void* a, unsigned int count);
 
 //Setup the PPUHandler
 void InitializePPUHandler()
 {
-	pointersWrite = ht_create(10, cmplessint, cmphashfc);
-	pthread_mutex_init(&pointer_mutex_Write, NULL);
-	pointersRead = ht_create(10, cmplessint, cmphashfc);
-	pthread_mutex_init(&pointer_mutex_Read, NULL);
-	pointersOld = ht_create(10, cmplessint, cmphashfc);
-	pthread_mutex_init(&pointer_mutex_Old, NULL);
+	pointers = ht_create(10, lessint, hashfc);
+	pthread_mutex_init(&pointer_mutex, NULL);
+	pointersOld = ht_create(10, lessint, hashfc);
+	pthread_mutex_init(&pointerOld_mutex, NULL);
+	pendingInvalidate = queue_create();
+	pthread_mutex_init(&ppu_invalidate_mutex, NULL);
+	
+	RegisterInvalidateSubscriber(&ppu_invalidate_mutex, &pendingInvalidate);
 }
 
 //Terminate the PPUHandler and release all resources
 void TerminatePPUHandler()
 {
-	//ht_free(pointers);
-	pthread_mutex_destroy(&pointer_mutex_Write);
-	pthread_mutex_destroy(&pointer_mutex_Read);
+	hashtableIterator it;
+	queue keys;
+	PointerEntry pe;
+	
+	it = ht_iter_create(pointers);
+	keys = queue_create();
+	while(ht_iter_next(it))
+	{
+		pe = ht_iter_get_value(it);
+		queue_enq(keys, ht_iter_get_key(it)); 
+		free(pe->data);
+		free(pe);
+	}
+	ht_iter_destroy(it);
+	
+	while(!queue_empty(keys))
+		ht_delete(pointers, queue_deq(keys));
+	
+	ht_destroy(pointers);
+	queue_destroy(keys);
+	
+
+	it = ht_iter_create(pointersOld);
+	keys = queue_create();
+	while(ht_iter_next(it))
+	{
+		pe = ht_iter_get_value(it);
+		queue_enq(keys, ht_iter_get_key(it)); 
+		free(pe->data);
+		free(pe);
+	}
+	ht_iter_destroy(it);
+	
+	while(!queue_empty(keys))
+		ht_delete(pointersOld, queue_deq(keys));
+	
+	ht_destroy(pointers);
+	queue_destroy(keys);
+	
+	UnregisterInvalidateSubscriber(&pendingInvalidate);
+	
+	pthread_mutex_destroy(&pointer_mutex);
+	pthread_mutex_destroy(&pointerOld_mutex);
+	pthread_mutex_destroy(&ppu_invalidate_mutex);
+	queue_destroy(pendingInvalidate);
 }
 
 //Sends a request into the coordinator, and awaits the response (blocking)
@@ -60,7 +107,7 @@ void* forwardRequest(void* data)
 	//printf(WHERESTR "creating item\n", WHEREARG);
 	//Create the entry, this will be released by the coordinator
 	if ((q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct))) == NULL)
-		perror("PPUEventHandler.c: malloc error");
+		REPORT_ERROR("PPUEventHandler.c: malloc error");
 	
 	dummy = queue_create();
 	pthread_mutex_init(&m, NULL);
@@ -88,7 +135,7 @@ void* forwardRequest(void* data)
 
 	//printf(WHERESTR "returning response\n", WHEREARG);
 	
-	//queue_free(dummy);
+	queue_destroy(dummy);
 	pthread_mutex_destroy(&m);
 	pthread_cond_destroy(&e);
 	
@@ -105,21 +152,16 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 	{		
 		//printf(WHERESTR "recording entry\n", WHEREARG);
 		if ((ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct))) == NULL)
-			perror("PPUEventHandler.c: malloc error");
+			REPORT_ERROR("PPUEventHandler.c: malloc error");
 		ent->data = retval;
 		ent->id = id;
 		ent->offset = offset;
 		ent->size = size;
+		ent->mode = type;
 		
-		if (type == WRITE) {
-			pthread_mutex_lock(&pointer_mutex_Write);
-			ht_insert(pointersWrite, retval, ent);
-			pthread_mutex_unlock(&pointer_mutex_Write);
-		} else if (type == READ) {
-			pthread_mutex_lock(&pointer_mutex_Read);
-			ht_insert(pointersRead, retval, ent);
-			pthread_mutex_unlock(&pointer_mutex_Read);
-		}
+		pthread_mutex_lock(&pointer_mutex);
+		ht_insert(pointers, retval, ent);
+		pthread_mutex_unlock(&pointer_mutex);
 	}	
 }
 
@@ -133,7 +175,7 @@ void* threadCreate(GUID id, unsigned long size)
 	//printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
 	if ((cr = (struct createRequest*)malloc(sizeof(struct createRequest))) == NULL)
-		perror("PPUEventHandler.c: malloc error");
+		REPORT_ERROR("PPUEventHandler.c: malloc error");
 	cr->packageCode = PACKAGE_CREATE_REQUEST;
 	cr->requestID = 0;
 	cr->dataItem = id;
@@ -147,7 +189,7 @@ void* threadCreate(GUID id, unsigned long size)
 	{
 		printf(WHERESTR "response was negative\n", WHEREARG);
 		if (ar->packageCode != PACKAGE_NACK)
-			perror("Unexcepted response for a Create request");
+			REPORT_ERROR("Unexcepted response for a Create request");
 	}
 	else
 	{
@@ -156,9 +198,9 @@ void* threadCreate(GUID id, unsigned long size)
 		retval = ar->data;
 		#if DEBUG
 		if (ar->dataSize != size)
-			perror("Bad size returned in create");
+			REPORT_ERROR("Bad size returned in create");
 		if (ar->requestID != 0)
-			perror("Bad request ID returned in create");
+			REPORT_ERROR("Bad request ID returned in create");
 		#endif
 	}
 
@@ -168,35 +210,99 @@ void* threadCreate(GUID id, unsigned long size)
 	return retval;	
 }
 
+void processInvalidates()
+{
+	struct invalidateRequest* req;
+	queue temp;
+	PointerEntry pe;
+	hashtableIterator it;
+	
+	pthread_mutex_lock(&ppu_invalidate_mutex);
+	if (!queue_empty(pendingInvalidate))
+	{
+		temp = queue_create();
+		while(!queue_empty(pendingInvalidate))
+		{
+			req = queue_deq(pendingInvalidate);
+			pthread_mutex_lock(&pointerOld_mutex);
+			if (ht_member(pointersOld, (void*)req->dataItem))
+			{
+				pe = ht_get(pointersOld, (void*)req->dataItem);
+				ht_delete(pointersOld, (void*)req->dataItem);
+				pthread_mutex_unlock(&pointerOld_mutex);
+				free(pe);
+			}
+			else
+			{
+				pthread_mutex_unlock(&pointerOld_mutex);
+				
+				pthread_mutex_lock(&pointer_mutex);
+				it = ht_iter_create(pointers);
+				while(ht_iter_next(it))
+				{
+					pe = ht_iter_get_value(it);
+					if (pe->id == req->dataItem)
+					{
+						queue_enq(temp, req);
+						req = NULL;
+						break;
+					}
+				}
+				ht_iter_destroy(it);
+				pthread_mutex_unlock(&pointer_mutex);
+			}
+			
+			if (req != NULL)
+				free(req);
+		}
+
+		//Re-insert items
+		while(!queue_empty(temp))
+			queue_enq(pendingInvalidate, queue_deq(temp));
+			
+		queue_destroy(temp);
+	}
+	pthread_mutex_unlock(&ppu_invalidate_mutex);
+}
+
 //Perform an acquire in the current thread
 void* threadAcquire(GUID id, unsigned long* size, int type)
 {
 	void* retval;
-	
 	struct acquireRequest* cr;
-
 	struct acquireResponse* ar;
 	
 	// If acquire is of type read and id is in pointerOld, then we
-	// reacquire, whitout notifying system.
+	// reacquire, without notifying system.
 	
-	pthread_mutex_lock(&pointer_mutex_Old);
-	if (type == READ && ht_member(pointersOld, (void*)id)) {
-		printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
+	processInvalidates();
+	
+	pthread_mutex_lock(&pointerOld_mutex);
+	if (ht_member(pointersOld, (void*)id)) {
+		//printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
 		PointerEntry pe = ht_get(pointersOld, (void*)id);
 		ht_delete(pointersOld, (void*)id);
-		pthread_mutex_unlock(&pointer_mutex_Old);	
+		pthread_mutex_unlock(&pointerOld_mutex);	
 		
-		pthread_mutex_lock(&pointer_mutex_Read);
-		ht_insert(pointersRead, pe->data, pe);
-		pthread_mutex_unlock(&pointer_mutex_Read);
-		return pe->data;	
+		//Reads can just return the copy
+		if (type == READ) {
+			//printf(WHERESTR "Full reacquire on id: %i\n", WHEREARG, id);
+			pe->mode = type;
+			pthread_mutex_lock(&pointer_mutex);
+			ht_insert(pointers, pe->data, pe);
+			pthread_mutex_unlock(&pointer_mutex);
+			return pe->data;
+		} else {
+			//printf(WHERESTR "Re-acquire was for write, clearing local cache, id: %i\n", WHEREARG, id);
+			free(pe);
+		}			
 	}
-	pthread_mutex_unlock(&pointer_mutex_Old);
+	else
+		pthread_mutex_unlock(&pointerOld_mutex);
 		
 	//Create the request, this will be released by the coordinator	
 	if ((cr = (struct acquireRequest*)malloc(sizeof(struct acquireRequest))) == NULL)
-		perror("PPUEventHandler.c: malloc error");
+		REPORT_ERROR("malloc error");
 
 	if (type == WRITE) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
@@ -207,7 +313,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	}
 	else
-		perror("Starting acquiring in unknown mode");
+		REPORT_ERROR("Starting acquiring in unknown mode");
 		
 	cr->requestID = 0;
 	cr->dataItem = id;
@@ -218,25 +324,25 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	ar = (struct acquireResponse*)forwardRequest(cr);
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
-		if (ar->packageCode != PACKAGE_NACK)
-			perror("Unexcepted response for a Create request");
+		REPORT_ERROR("Unexcepted response for an Acquire request");
+		retval = NULL;
 	}
 	else
 	{
+		//printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
 		//The request was positive
 		retval = ar->data;
 		(*size) = ar->dataSize;
 		
 		#if DEBUG
 		if (ar->requestID != 0)
-			perror("Bad request ID returned in create");
+			REPORT_ERROR("Bad request ID returned in create");
 		#endif
+	
+		recordPointer(retval, id, *size, 0, type);	
 	}
 	
-	recordPointer(retval, id, *size, 0, type);	
-	
 	free(ar);
-
 	return retval;	
 }
 
@@ -248,57 +354,55 @@ void threadRelease(void* data)
 	struct releaseResponse* rr;
 	
 	//Verify that the pointer is registered
-	pthread_mutex_lock(&pointer_mutex_Write);
-	if (ht_member(pointersWrite, data))
+	pthread_mutex_lock(&pointer_mutex);
+	if (ht_member(pointers, data))
 	{
 		//Extract the pointer, and release the mutex fast
-		pe = ht_get(pointersWrite, data);
-		ht_delete(pointersWrite, data);
-		pthread_mutex_unlock(&pointer_mutex_Write);
+		pe = ht_get(pointers, data);
+		ht_delete(pointers, data);
+		pthread_mutex_unlock(&pointer_mutex);
 		
-		//Create a request, this will be released by the coordinator
-		if ((re = (struct releaseRequest*)malloc(sizeof(struct releaseRequest))) == NULL)
-			perror("PPUEventHandler.c: malloc error");
-		re->packageCode = PACKAGE_RELEASE_REQUEST;
-		re->requestID = 0;
-		re->dataItem = pe->id;
-		re->dataSize = pe->size;
-		re->offset = pe->offset;
-		re->data = data;
+		if (pe->mode == WRITE)
+		{
+			//Create a request, this will be released by the coordinator
+			if ((re = (struct releaseRequest*)malloc(sizeof(struct releaseRequest))) == NULL)
+				REPORT_ERROR("malloc error");
+			re->packageCode = PACKAGE_RELEASE_REQUEST;
+			re->requestID = 0;
+			re->dataItem = pe->id;
+			re->dataSize = pe->size;
+			re->offset = pe->offset;
+			re->data = data;
+			re->mode = pe->mode;
+
+			//TODO: What happens if there are multiple readers are trying to release the same item?
+			pthread_mutex_lock(&pointerOld_mutex);
+			ht_insert(pointersOld, (void*)pe->id, pe);
+			pthread_mutex_unlock(&pointerOld_mutex);			
+			
+			//Perform the request and await the response
+			rr = (struct releaseResponse*)forwardRequest(re);
+			if(rr->packageCode != PACKAGE_RELEASE_RESPONSE)
+				REPORT_ERROR("Reponse to release had unexpected type");
+			
+			free(rr);
+		}
+		else
+		{
+			pthread_mutex_lock(&pointerOld_mutex);
+			ht_insert(pointersOld, (void*)pe->id, pe);
+			pthread_mutex_unlock(&pointerOld_mutex);	
+		}
 		
-		//The pointer data is no longer needed
-		free(pe);
+		processInvalidates();
 		
-		//Perform the request and await the response
-		rr = (struct releaseResponse*)forwardRequest(re);
-		if(rr->packageCode != PACKAGE_RELEASE_RESPONSE)
-			perror("Reponse to release had unexpected type");
-		
-		free(rr);
 	}
 	else
 	{
-		pthread_mutex_unlock(&pointer_mutex_Write);		
-		pthread_mutex_lock(&pointer_mutex_Read);
-		if (ht_member(pointersRead, data)) {
-			//Extract the pointer, and release the mutex fast
-			pe = ht_get(pointersRead, data);
-			ht_delete(pointersRead, data);
-			pthread_mutex_unlock(&pointer_mutex_Read);	
-			
-			pthread_mutex_lock(&pointer_mutex_Old);
-			ht_insert(pointersOld, (void*)pe->id, pe);
-			pthread_mutex_unlock(&pointer_mutex_Old);	
-			
-			//The pointer data is no longer needed
-			//free(pe);
-								
-		} else {
-			pthread_mutex_unlock(&pointer_mutex_Read);
-			fprintf(stderr, WHERESTR "Pointer given to release was not registered", WHEREARG);
-		}
-				
-		
+		pthread_mutex_unlock(&pointer_mutex);
+		REPORT_ERROR("Pointer given to release was not registered");
 	}
+	
+	
 }
 

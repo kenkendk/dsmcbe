@@ -42,6 +42,8 @@ static int DMAGroupNo = 0;
 //If value is not NULL, the value is the package with a pending DMA transfer  
 static hashtable pending;
 
+void sendMailbox();
+
 typedef struct dataObjectStruct *dataObject;
 
 struct dataObjectStruct{	
@@ -75,13 +77,23 @@ int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
-void elementsInQueue(struct queue* q) {
-	int count = 0;
-	while(!queue_empty(q)) {
-		queue_deq(q);
-		count++;
-	}
-	printf(WHERESTR "Queue contained %i elements\n", WHEREARG, count);
+void unsubscribe(dataObject object)
+{
+	struct releaseRequest* request;
+	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
+	if ((request = MALLOC(sizeof(struct releaseRequest))) == NULL)
+		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
+
+	request->packageCode = PACKAGE_RELEASE_REQUEST; 
+	request->requestID = nextId;
+	request->dataItem = object->id;
+	request->mode = READ;
+	request->dataSize = object->size;
+	request->offset = 0;
+	
+	sendMailbox(request);
+	
+	free(request);
 }
 
 void* clearAlign(unsigned long size) {	
@@ -103,8 +115,9 @@ void* clearAlign(unsigned long size) {
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
-				freedmemory += (object->size + sizeof(struct dataObjectStruct));
 				FREE_ALIGN(object->data);
+				unsubscribe(object);
+				freedmemory += (object->size + sizeof(struct dataObjectStruct));
 				FREE(object);
 				ht_delete(allocatedItemsOld, (void*)id);
 				//printf(WHERESTR "Memory freed\n", WHEREARG);				
@@ -139,8 +152,9 @@ void* clear(unsigned long size) {
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
-				freedmemory += (object->size + sizeof(struct dataObjectStruct));
 				FREE_ALIGN(object->data);
+				unsubscribe(object);
+				freedmemory += (object->size + sizeof(struct dataObjectStruct));
 				FREE(object);
 				ht_delete(allocatedItemsOld, (void*)id);
 				//printf(WHERESTR "Memory freed\n", WHEREARG);				
@@ -177,20 +191,22 @@ void sendMailbox(void* dataItem) {
 			spu_write_out_mbox(((struct releaseRequest*)dataItem)->packageCode);
 			spu_write_out_mbox(((struct releaseRequest*)dataItem)->requestID);
 			spu_write_out_mbox(((struct releaseRequest*)dataItem)->dataItem);
+			spu_write_out_mbox(((struct releaseRequest*)dataItem)->mode);
 			spu_write_out_mbox(((struct releaseRequest*)dataItem)->dataSize);
 			spu_write_out_mbox((int)((struct releaseRequest*)dataItem)->data);			
 			break;
 		
-		case PACKAGE_INVALIDATE_RESPONSE:
+		/*case PACKAGE_INVALIDATE_RESPONSE:
 			spu_write_out_mbox(((struct invalidateResponse*)dataItem)->packageCode);
 			spu_write_out_mbox(((struct invalidateResponse*)dataItem)->requestID);
-			break;
+			break;*/
 		
 		default:
 			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, ((struct releaseRequest*)dataItem)->packageCode);
 	}
 }
 
+/*
 void sendInvalidateResponse(struct invalidateRequest* item) {
 	printf(WHERESTR "Sending invalidateResponse on data with id: %i\n", WHEREARG, item->dataItem);
 	struct invalidateResponse* resp;
@@ -202,18 +218,19 @@ void sendInvalidateResponse(struct invalidateRequest* item) {
 	resp->requestID = item->requestID;
 	
 	sendMailbox(resp);
-}
+}*/
 
 void invalidate(struct invalidateRequest* item) {
 	
-	printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
+	hashtableIterator it;
+	dataObject obj;
+	//printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
 	
 	GUID id = item->dataItem;
 	
 	if(ht_member(allocatedItemsOld, (void*)id)) {
-		printf(WHERESTR "Data with id: %i is allocated but has been released\n", WHEREARG, id);
+		//printf(WHERESTR "Data with id: %i is allocated but has been released\n", WHEREARG, id);
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
-		//printf(WHERESTR "ReAcquire for READ id: %i\n", WHEREARG, id);
 
 		ht_delete(allocatedItemsOld, (void*)id);
 		
@@ -229,22 +246,24 @@ void invalidate(struct invalidateRequest* item) {
 		
 		FREE_ALIGN(object->data);
 		FREE(object);			
-	} else if(ht_member(pendingInvalidate, (void*)id)) {
-		printf(WHERESTR "Data with id: %i is allocated and acquired\n", WHEREARG, id);
-
-		// Put in list and don't send reponse to invalidate, before release has been called.
-		if (!ht_member(pendingInvalidate, (void*)id))
-			ht_insert(pendingInvalidate, (void*)id, item);
-		else
+	} else {
+		it = ht_iter_create(allocatedItems);
+		while(ht_iter_next(it))
 		{
-			fprintf(stderr, WHERESTR "Recieved another invalidateRequest for the same item\n", WHEREARG);
-			FREE(item);
-		}				
-		
-		return;
-	}
-	else {
-		printf(WHERESTR "Data with id: %i not allocated anymore\n", WHEREARG, id);
+			obj = ht_iter_get_value(it);
+			if (obj->id == id)
+			{
+				if (!ht_member(pendingInvalidate, (void*)id))
+					ht_insert(pendingInvalidate, (void*)id, item);
+				else
+				{
+					fprintf(stderr, WHERESTR "Recieved another invalidateRequest for the same item\n", WHEREARG);
+					FREE(item);
+				}
+				break;				
+			}	
+		}
+		ht_iter_destroy(it);
 	}
 	
 	// Ready to send response!
@@ -314,6 +333,7 @@ void readMailbox() {
 	GUID itemid;
 	void* datapointer;
 	pendingRequest req;
+	int mode;
 		
 	int packagetype = spu_read_in_mbox();
 	switch(packagetype)
@@ -321,14 +341,18 @@ void readMailbox() {
 		case PACKAGE_ACQUIRE_RESPONSE:
 			//printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
 			if ((dataItem = MALLOC(sizeof(struct acquireResponse))) == NULL)
-				fprintf(stderr, WHERESTR "Failed to allocate memory on SPU\n", WHEREARG);
+				REPORT_ERROR("Failed to allocate memory on SPU");
 
 			requestID = spu_read_in_mbox();
+			itemid = spu_read_in_mbox();
+			mode = (int)spu_read_in_mbox();
 			datasize = spu_read_in_mbox();
 			datapointer = (void*)spu_read_in_mbox();
 
 			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
 			((struct acquireResponse*)dataItem)->requestID = requestID; 
+			((struct acquireResponse*)dataItem)->dataItem = itemid;
+			((struct acquireResponse*)dataItem)->dataItem = mode;
 			((struct acquireResponse*)dataItem)->dataSize = datasize;
 			((struct acquireResponse*)dataItem)->data = datapointer;
 
@@ -340,7 +364,7 @@ void readMailbox() {
 				req->request = dataItem;
 			}
 			else
-				fprintf(stderr, WHERESTR "Recieved a request with an unexpected requestID\n", WHEREARG);
+				REPORT_ERROR("Recieved a request with an unexpected requestID\n");
 			
 			StartDMATransfer((struct acquireResponse*)dataItem);
 			//printf(WHERESTR "Done with ACQUIRE package\n", WHEREARG);			
@@ -349,7 +373,7 @@ void readMailbox() {
 		case PACKAGE_RELEASE_RESPONSE:
 			//printf(WHERESTR "RELEASE package recieved\n", WHEREARG);
 			if ((dataItem = MALLOC(sizeof(struct releaseResponse))) == NULL)
-				fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
+				REPORT_ERROR("Failed to allocate memory on SPU");
 
 			requestID = spu_read_in_mbox();
 			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
@@ -369,10 +393,10 @@ void readMailbox() {
 			break;
 		
 		case PACKAGE_INVALIDATE_REQUEST:			
-			printf(WHERESTR "INVALIDATE package recieved\n", WHEREARG);
+			//printf(WHERESTR "INVALIDATE package recieved\n", WHEREARG);
 
 			if ((dataItem = MALLOC(sizeof(struct invalidateRequest))) == NULL)
-				fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
+				REPORT_ERROR("Failed to allocate memory on SPU");
 
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
@@ -381,12 +405,13 @@ void readMailbox() {
 			((struct invalidateRequest*)dataItem)->requestID = requestID;
 			((struct invalidateRequest*)dataItem)->dataItem = itemid; 
 
+			//printf(WHERESTR "INVALIDATE package read\n", WHEREARG);
+
 			invalidate(dataItem);
 			break;
 		
 		default:
-			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, packagetype);
-			fprintf(stderr, WHERESTR "Unknown package recieved", WHEREARG);
+			fprintf(stderr, WHERESTR "Unknown package recieved: %i, message: %s", WHEREARG, packagetype, strerror(errno));
 	};	
 }
 
@@ -552,6 +577,7 @@ unsigned int beginRelease(void* data)
 			request->packageCode = PACKAGE_RELEASE_REQUEST; 
 			request->requestID = nextId;
 			request->dataItem = object->id;
+			request->mode = WRITE;
 			request->dataSize = object->size;
 			request->offset = 0;
 
@@ -568,7 +594,6 @@ unsigned int beginRelease(void* data)
 			if (ht_member(pendingInvalidate, (void*)object->id)) {
 				struct invalidateRequest* item;
 				item = ht_get(pendingInvalidate, (void*)object->id);
-				sendInvalidateResponse(item);
 				FREE(item);
 				ht_delete(pendingInvalidate, (void*)object->id);
 			} else {
