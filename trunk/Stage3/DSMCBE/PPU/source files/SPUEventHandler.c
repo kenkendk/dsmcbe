@@ -138,8 +138,9 @@ void* ProcessMessages(void* data)
 						break;
 						
 					case PACKAGE_ACQUIRE_REQUEST_READ:
+						//printf(WHERESTR "Acquire READ recieved\n", WHEREARG);
 					case PACKAGE_ACQUIRE_REQUEST_WRITE:
-						//printf(WHERESTR "Acquire recieved\n", WHEREARG);
+						//printf(WHERESTR "Acquire WRITE recieved\n", WHEREARG);
 						if ((dataItem = malloc(sizeof(struct acquireRequest))) == NULL)
 							perror("SPUEventHandler.c: malloc error");
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
@@ -195,6 +196,7 @@ void* ProcessMessages(void* data)
 					//printf(WHERESTR "Got message from SPU, enqued as %i\n", WHEREARG, (int)queueItem);
 					
 					EnqueItem(queueItem);
+					printf(WHERESTR "Got message from SPU, mutex is %i\n", WHEREARG, (int)queueItem->mutex);
 					dataItem = NULL;
 					queueItem = NULL;
 				}
