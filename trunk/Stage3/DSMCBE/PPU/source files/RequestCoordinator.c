@@ -14,6 +14,7 @@
 
 volatile int terminate;
 
+pthread_mutex_t invalidate_queue_mutex;
 pthread_mutex_t queue_mutex;
 pthread_cond_t queue_ready;
 queue bagOfTasks = NULL;
@@ -21,7 +22,6 @@ pthread_t workthread;
 
 hashtable allocatedItems;
 hashtable waiters;
-
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -32,8 +32,20 @@ struct dataObjectStruct{
 	void* EA;
 	unsigned long size;
 	dqueue waitqueue;
-	queue readersqueue;
 };
+
+typedef struct invalidateSubscriber* invalidateSubscriber;
+
+//This structure is used to keep track of invalidate subscribers
+struct invalidateSubscriber
+{
+	pthread_mutex_t* mutex;
+	queue queue;
+};
+
+//This list contains all current invalidate subscribers;
+slset invalidateSubscribers;
+
 
 //This is used for sorting inside the hashtables
 int lessint(void* a, void* b){
@@ -47,6 +59,22 @@ int hashfc(void* a, unsigned int count){
 
 //This is the method the thread runs
 void* ProccessWork(void* data);
+
+//Add another subscriber to the list
+void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, queue* q)
+{
+	pthread_mutex_lock(&invalidate_queue_mutex);
+	slset_insert(invalidateSubscribers, q, mutex);
+	pthread_mutex_unlock(&invalidate_queue_mutex);
+}
+
+//Remove a subscriber from the list
+void UnregisterInvalidateSubscriber(queue* q)
+{
+	pthread_mutex_lock(&invalidate_queue_mutex);
+	slset_delete(invalidateSubscribers, q);
+	pthread_mutex_unlock(&invalidate_queue_mutex);
+}
 
 //Stops the coordination thread and releases all resources
 void TerminateCoordinator(int force)
@@ -96,6 +124,7 @@ void InitializeCoordinator()
 		pthread_attr_destroy(&attr);
 		allocatedItems = ht_create(10, lessint, hashfc);
 		waiters = ht_create(10, lessint, hashfc);
+		invalidateSubscribers = slset_create(lessint);
 	}
 }
 
@@ -127,7 +156,8 @@ void RespondAny(QueueableItem item, void* resp)
 	pthread_mutex_lock(item->mutex);
 	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
 	queue_enq(*(item->queue), resp);
-	pthread_cond_signal(item->event);
+	if (item->event != NULL)
+		pthread_cond_signal(item->event);
 	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
 	pthread_mutex_unlock(item->mutex);
 	//printf(WHERESTR "responding, done\n", WHEREARG);
@@ -159,6 +189,9 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
 	resp->dataSize = obj->size;
 	resp->data = obj->EA;
+	resp->dataItem = obj->id;
+	resp->mode = ((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE ? WRITE : READ;	
+	//printf(WHERESTR "Performing Acquire, mode: %d (code: %d)\n", WHEREARG, resp->mode, ((struct acquireRequest*)item->dataRequest)->packageCode);
 
 	RespondAny(item, resp);	
 }
@@ -217,9 +250,6 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		else
 			object->waitqueue = dq_create();
 			
-		// Create queue for readers
-		object->readersqueue = queue_create();
-		
 		//Acquire the item for the creator
 		dq_enq_front(object->waitqueue, NULL);
 		
@@ -233,53 +263,45 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 }
 
 //Perform all actions related to an invalidate
-void DoInvalidate(QueueableItem item, GUID dataItem)
+void DoInvalidate(GUID dataItem)
 {
-	struct invalidateRequest* requ;
-	if ((requ = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
-		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
-	
-	printf(WHERESTR "Making invalidate package with mutex: %i, queue: %i, signal: %i\n", WHEREARG, (int)item->mutex, (int)item->queue, (int)item->event);
-	
-	requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
-	requ->requestID = ((struct invalidateRequest*)item->dataRequest)->requestID;
-	requ->dataItem = dataItem;
+	keylist kl;
 
-	printf(WHERESTR "Locking mutex\n", WHEREARG);
-	pthread_mutex_lock(item->mutex);
-	printf(WHERESTR "Mutex locked\n", WHEREARG);
-	queue_enq(*(item->queue), requ);
-	pthread_cond_signal(item->event);
-	printf(WHERESTR "Signalled\n", WHEREARG);
-	pthread_mutex_unlock(item->mutex);
+	//printf(WHERESTR "Invalidating...\n", WHEREARG);
 	
-	printf(WHERESTR "Invalidate request send\n", WHEREARG);
+	pthread_mutex_lock(&invalidate_queue_mutex);
+	kl = invalidateSubscribers->elements;
+	while(kl != NULL)
+	{
+		struct invalidateRequest* requ;
+		if ((requ = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
+			fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+		
+		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
+		requ->requestID = 0; //There is no response
+		requ->dataItem = dataItem;
 
-	free(item->dataRequest);
-	free(item);
+		pthread_mutex_lock((pthread_mutex_t*)kl->data);
+		queue_enq(*((queue*)kl->key), requ); 
+		pthread_mutex_unlock((pthread_mutex_t*)kl->data); 
+		
+		kl = kl->next;
+	}
+	pthread_mutex_unlock(&invalidate_queue_mutex);
+
+	//printf(WHERESTR "Invalidate request sent\n", WHEREARG);
 }
 
 //Performs all actions releated to an acquire request
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
 	dqueue q;
-	queue r;
 	dataObject obj;
 	
 	//Check that the item exists
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
-		/*
-		if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
-			printf(WHERESTR "Recieved READ request for object with id %i\n", WHEREARG, request->dataItem);
-		else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
-			printf(WHERESTR "Recieved WRITE request for object with id %i\n", WHEREARG, request->dataItem);
-		else
-			printf(WHERESTR "Recieved UNKNOWN request for object with id %i\n", WHEREARG, request->dataItem);
-		*/
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
-
-		r = obj->readersqueue;
 		q = obj->waitqueue;
 						
 		//If the object is not locked, register as locked and respond
@@ -288,52 +310,19 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 			//printf(WHERESTR "Object not locked\n", WHEREARG);
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
 				//printf(WHERESTR "Acquiring READ on not locked object\n", WHEREARG);
-				// Make copy of item into queueItem.
-				QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
-				memcpy(queueItem, item, sizeof(struct QueueableItemStruct));
-				struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
-				memcpy(temp, item->dataRequest, sizeof(struct invalidateRequest));
-				queueItem->dataRequest = temp;
-				queue_enq(r, queueItem);
-				
 				RespondAcquire(item, obj);
 			} else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE) {			
 				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
-				RespondAcquire(item, obj);
 
-				if(!queue_empty(r)) {
-					
-					QueueableItem invalid;
-				
-					// Invalidate all in readersqueue (r)
-					while (!queue_empty(r)) {
-						// Invalidate
-						printf(WHERESTR "Must invalidate id %i\n", WHEREARG, request->dataItem);
-						
-						invalid = queue_deq(r);
-						DoInvalidate(invalid, request->dataItem);	
-					}
-				}
-				
-			 	if (request->requestID != 0) {
-					// Make copy of item into queueItem.
-					QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
-					memcpy(queueItem, item, sizeof(struct QueueableItemStruct));
-					struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
-					memcpy(temp, item->dataRequest, sizeof(struct invalidateRequest));
-					queueItem->dataRequest = temp;
-					queue_enq(r, queueItem);
-/*									
-					if (request->dataItem == 20000)
-						printf(WHERESTR "Mutex %i, Queue: %i, Signal: %i\n", WHEREARG, (int)queueItem->mutex, (int)queueItem->queue, (int)queueItem->event);
-*/				}
-			} else
-				fprintf(stderr, WHERESTR "Acquire request where neither read or write", WHEREARG);
+				RespondAcquire(item, obj);
+				DoInvalidate(obj->id);
+			}
+
 		}
 		else {
 			//Otherwise add the request to the wait list
-			//printf(WHERESTR "Object looked\n", WHEREARG);
+			//printf(WHERESTR "Object locked\n", WHEREARG);
 			dq_enq_back(q, item);
 		}
 	}
@@ -355,28 +344,28 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 void DoRelease(QueueableItem item, struct releaseRequest* request)
 {
 	dqueue q;
-	queue r;
 	dataObject obj;
 	QueueableItem next;
 	
 	//printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
+	if (request->mode == READ)
+	{
+		//printf(WHERESTR "Performing read-release for %d\n", WHEREARG, request->dataItem);
+		return;
+	}
+	
 	//Ensure that the item exists
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
 		q = obj->waitqueue;
-		r = obj->readersqueue;
 		
 		//printf(WHERESTR "%d queue pointer: %d\n", WHEREARG, request->dataItem, (int)q);
 		
 		//Ensure that the item was actually locked
 		if (dq_empty(q))
 		{
-			if (!queue_empty(r)) {				
-				printf(WHERESTR "Bad release, maybe item was a READ\n", WHEREARG);
-			} else {
-				fprintf(stderr, WHERESTR "Bad release, item was not locked!\n", WHEREARG);
-			}
+			fprintf(stderr, WHERESTR "Bad release, item was not locked!\n", WHEREARG);
 			RespondNACK(item);
 		}
 		else
@@ -395,54 +384,21 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				//printf(WHERESTR "Respond to the releaser\n", WHEREARG);
 				RespondRelease(item);
 
-				// Move next to readers queue, but what to do??				
-
 				while (!dq_empty(q))
 				{
 					//Acquire for the next in the queue
-					printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
+					//printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
 					next = dq_deq_front(q);
 					if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
+						//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 						dq_enq_front(q, NULL);
+
 						RespondAcquire(next, obj);
-										
-						if(!queue_empty(r)) {
-					
-							QueueableItem invalid;
+						DoInvalidate(obj->id);
 						
-							// Invalidate all in readersqueue (r)
-							while (!queue_empty(r)) {
-								// Invalidate
-								printf(WHERESTR "Must invalidate\n", WHEREARG);
-								
-								invalid = queue_deq(r);
-								DoInvalidate(invalid, request->dataItem);	
-							}
-						}
-/*				
-						if (request->requestID != 0) {
-							// Make copy of item into queueItem.
-							QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
-							memcpy(queueItem, next, sizeof(struct QueueableItemStruct));
-							struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
-							memcpy(temp, next->dataRequest, sizeof(struct invalidateRequest));
-							queueItem->dataRequest = temp;
-							queue_enq(r, queueItem);
-						}
-*/												
-						break;
+						break; //Done
 					} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
-						
-						// Make copy of item into queueItem.
-						QueueableItem queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
-						memcpy(queueItem, next, sizeof(struct QueueableItemStruct));
-						struct invalidateRequest* temp = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest)); 
-						memcpy(temp, next->dataRequest, sizeof(struct invalidateRequest));
-						queueItem->dataRequest = temp;
-						queue_enq(r, queueItem);
-						
 						RespondAcquire(next, obj);						
-						continue;
 					}
 					else
 						fprintf(stderr, WHERESTR "Error: packageCode where neither WRITE or READ", WHEREARG);						 
@@ -498,9 +454,9 @@ void* ProccessWork(void* data)
 				DoRelease(item, (struct releaseRequest*)item->dataRequest);
 				break;
 			
-			case PACKAGE_INVALIDATE_REQUEST:
-				//DoInvalidate(item, (struct invalidateRequest*)item->dataRequest);
-				break;
+			/*case PACKAGE_INVALIDATE_REQUEST:
+				DoInvalidate(item, (struct invalidateRequest*)item->dataRequest);
+				break;*/
 			
 			default:
 				printf(WHERESTR "Unknown package code: %i\n", WHEREARG, datatype);

@@ -24,7 +24,7 @@ void* ppu_pthread_function(void* arg) {
 		perror ("Failed running context");
 		return NULL;
 	}
-	printf(WHERESTR "Terminated SPU\n", WHEREARG);
+	//printf(WHERESTR "Terminated SPU\n", WHEREARG);
 	pthread_exit(NULL);
 }
 

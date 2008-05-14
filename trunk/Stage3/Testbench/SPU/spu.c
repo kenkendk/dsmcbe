@@ -10,36 +10,45 @@ int main(int argc, char **argv) {
 	
 	initialize();
 
-	printf(WHERESTR "Hello World\n", WHEREARG);
+	//printf(WHERESTR "Hello World\n", WHEREARG);
 	unsigned long size;
 	unsigned int i;
 	unsigned int items;
 	int threadNo;
 	int* allocation;
 
-	/*threadNo = CreateThreads(SPU_FIBERS)
+	if (SPU_FIBERS > 1)
+		threadNo = CreateThreads(SPU_FIBERS);
+	else
+		threadNo = 0;
+	
 	if (threadNo != -1)
-	{	*/
-
-		printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
+	{
+		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
 		allocation = acquire(ETTAL, &size, WRITE);
 				
-		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, 928, (int)allocation);				
 		//printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
 		
-		*allocation = 111;
+		*allocation = 210;
 		
 		release(allocation);
-		
-		sleep(3);
+		*allocation = 111;
 
-		printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
+		release(create(LOCK_ITEM_SPU, 0));
+		//sleep(2);		
+
+		release(acquire(LOCK_ITEM_PPU, &size, READ));		
+
+		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
 		allocation = acquire(ETTAL, &size, READ);
 
-		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, 210, (int)allocation);				
-		//printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
+		if (*allocation != 210)
+			printf("Error: %d\n", *allocation);
+		else
+			printf("OK\n");
+		//printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 210 : 210, (int)allocation);
 		
-		//*allocation = 210;
+		*allocation = 210;
 		
 		release(allocation);
 		
@@ -90,22 +99,22 @@ int main(int argc, char **argv) {
 			if (i % 10000 == 0)
 				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
 			release(acquire(LARGE_ITEM, &size, WRITE));
-		}
+		}*/
 
-		//TerminateThread();
-	//}
+		if (SPU_FIBERS > 1)
+			TerminateThread();
+	}
 	
-	printf(WHERESTR "Creating new item\n", WHEREARG);
+	//printf(WHERESTR "Creating new item\n", WHEREARG);
 	allocation = create(SPUITEM, sizeof(unsigned int));
-	printf(WHERESTR "Created new item\n", WHEREARG);
+	//printf(WHERESTR "Created new item\n", WHEREARG);
 	*allocation = 4;
-	printf(WHERESTR "Releasing new item\n", WHEREARG);
+	//printf(WHERESTR "Releasing new item\n", WHEREARG);
 	release(allocation);
-	printf(WHERESTR "Released new item\n", WHEREARG);
-*/	
+	//printf(WHERESTR "Released new item\n", WHEREARG);
 	
 	terminate();
-	printf(WHERESTR "Done\n", WHEREARG);
+	//printf(WHERESTR "Done\n", WHEREARG);
 	
 	
 	

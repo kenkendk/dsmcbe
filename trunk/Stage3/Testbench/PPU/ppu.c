@@ -12,32 +12,37 @@ int main(int argc, char **argv) {
 	unsigned int items;
 	size_t i;
 
-	printf(WHERESTR "Starting\n", WHEREARG);
+	//printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
 	spu_threads = simpleInitialize(SPU_THREADS);
 
-	printf(WHERESTR "Creating\n", WHEREARG);
+	//printf(WHERESTR "Creating\n", WHEREARG);
 	int* data = create(ETTAL, sizeof(int));
 	(*data) = 928;
 	
-	printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
+	//printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
 	
-	printf(WHERESTR "Releasing\n", WHEREARG);
+	//printf(WHERESTR "Releasing\n", WHEREARG);
 	release(data);
 	
-	sleep(1);
+	release(acquire(LOCK_ITEM_SPU, &size, READ));
+	//sleep(1);
 	
-	printf(WHERESTR "Updating data\n", WHEREARG);
+	//printf(WHERESTR "Updating data\n", WHEREARG);
 	
 	data = acquire(ETTAL, &size, WRITE);
 	
 	*data = 210;
 	
-	printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
-	printf(WHERESTR "Value is %i. The expected value is 210.\n", WHEREARG, *data);
+	//printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
+	//printf(WHERESTR "Value is %i. The expected value is 210.\n", WHEREARG, *data);
 	
+	//printf(WHERESTR "Releasing, this should invalidate SPU\n", WHEREARG);
 	release(data);
+	
+	release(create(LOCK_ITEM_PPU, 0)); 
+	//printf(WHERESTR "Released\n", WHEREARG, *data);
 
 	/*
 	items = 16 * 1025;
@@ -74,14 +79,14 @@ int main(int argc, char **argv) {
 	
 	*/
 	
-	printf(WHERESTR "Released, waiting for SPU to complete\n", WHEREARG);
+	//printf(WHERESTR "Released, waiting for SPU to complete\n", WHEREARG);
 	
 	for(i = 0; i < SPU_THREADS; i++)
 		pthread_join(spu_threads[i], NULL);
 
-	printf(WHERESTR "All SPU's are terminated, cleaning up\n", WHEREARG);
+	//printf(WHERESTR "All SPU's are terminated, cleaning up\n", WHEREARG);
 	//terminate();
 
-	printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);
+	//printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);
 	return 0;
 }

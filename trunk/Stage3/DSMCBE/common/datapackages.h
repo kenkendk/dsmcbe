@@ -43,6 +43,8 @@ struct acquireResponse
 {
     unsigned char packageCode; // = 4
     unsigned int requestID;
+    GUID dataItem; 
+    int mode;
     unsigned long dataSize;
     void* data;
 };
@@ -62,6 +64,7 @@ struct releaseRequest
     unsigned char packageCode; // = 6
     unsigned int requestID;
     GUID dataItem;
+    int mode;
     unsigned long dataSize;
     unsigned long offset;
     void* data;

@@ -34,6 +34,7 @@ struct PointerEntryStruct
 	void* data;
 	unsigned long offset;
 	unsigned long size;	
+	int mode;
 };
 
 //Requesters must call this function to interact with the coordinator
@@ -43,5 +44,7 @@ extern void EnqueItem(QueueableItem item);
 extern void InitializeCoordinator();
 extern void TerminateCoordinator(int force);
 
+extern void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, queue* q);
+extern void UnregisterInvalidateSubscriber(queue* q);
 
 #endif /*REQUESTCOORDINATOR_H_*/
