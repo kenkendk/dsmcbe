@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 	release(create(LOCK_ITEM_PPU, 0)); 
 	//printf(WHERESTR "Released\n", WHEREARG, *data);
 
-	/*
+	
 	items = 16 * 1025;
 	unsigned int* largeblock = create(LARGE_ITEM, items * sizeof(unsigned int));
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 	release(data);
 	printf(WHERESTR "Released SPU item\n", WHEREARG);
 	
-	
+	/*
 	
 	printf(WHERESTR "Re-acquire\n", WHEREARG);
 	largeblock = acquire(LARGE_ITEM, &size, WRITE);

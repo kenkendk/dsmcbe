@@ -92,14 +92,14 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Thread #%d, re-acquired value (ls: %d)\n", WHEREARG, threadNo, (int)allocation);
 		release(allocation);
 		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
-
+*/
 		//Memory leak testing, the SPU memory is very limited so a million runs usually reveal the problem
 		for(i = 0; i < 1000000; i++)
 		{
 			if (i % 10000 == 0)
 				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
 			release(acquire(LARGE_ITEM, &size, WRITE));
-		}*/
+		}
 
 		if (SPU_FIBERS > 1)
 			TerminateThread();
