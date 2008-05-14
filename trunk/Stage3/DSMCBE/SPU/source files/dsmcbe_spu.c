@@ -15,6 +15,9 @@
 #define ASYNC_STATUS_DMA_PENDING 2
 #define ASYNC_STATUS_COMPLETE 3
 
+//#define REPORT_MALLOC(x) printf(WHERESTR "Malloc gave %d, balance: %d\n", WHEREARG, (int)x, ++balance);
+//#define REPORT_FREE(x) printf(WHERESTR "Free'd %d, balance: %d\n", WHEREARG, (int)x, --balance);
+
 //There are only 32 DMA tags avalible
 #define MAX_DMA_GROUPS 32
 //The SPU cannot hold more than a few unserviced requests
@@ -82,7 +85,7 @@ void unsubscribe(dataObject object)
 	struct releaseRequest* request;
 	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
 	if ((request = MALLOC(sizeof(struct releaseRequest))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 
 	request->packageCode = PACKAGE_RELEASE_REQUEST; 
 	request->requestID = nextId;
@@ -93,7 +96,7 @@ void unsubscribe(dataObject object)
 	
 	sendMailbox(request);
 	
-	free(request);
+	FREE(request);
 }
 
 void* clearAlign(unsigned long size) {	
@@ -147,7 +150,7 @@ void* clear(unsigned long size) {
 			if (!queue_empty(allocatedID))
 				id = (int)queue_deq(allocatedID);
 			else
-				return MALLOC_ALIGN(size, 7);
+				return MALLOC(size);
 		
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
@@ -265,9 +268,25 @@ void invalidate(struct invalidateRequest* item) {
 		}
 		ht_iter_destroy(it);
 	}
-	
-	// Ready to send response!
-	//sendInvalidateResponse(item);
+
+	FREE(item);
+}
+
+void removeAllocatedID(GUID id)
+{
+	queue temp;
+	GUID temp_id;
+	temp = queue_create();
+		while(!queue_empty(allocatedID))
+		{
+			temp_id = queue_deq(allocatedID);
+			if (temp_id != id)
+				queue_enq(temp, (void*)temp_id);				
+		}		
+		
+		while(!queue_empty(temp))
+			queue_enq(allocatedID, queue_deq(temp));
+		queue_destroy(temp);			
 }
 
 void StartDMATransfer(struct acquireResponse* resp)
@@ -280,6 +299,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	if (ht_member(allocatedItemsOld, (void*)(req->id))) {
 		req->object = (dataObject)ht_get(allocatedItemsOld, (void*)(req->id));
 		ht_delete(allocatedItemsOld, (void*)(req->id));
+		
 		//printf(WHERESTR "Item %d (%d) was known, returning local copy\n", WHEREARG, req->id, (int)req->object->data);
 
 		req->object->mode = req->mode;
@@ -301,7 +321,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	// Make datastructures for later use
 	req->object = MALLOC(sizeof(struct dataObjectStruct));
 	if (req->object == NULL)
-		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU", WHEREARG);
+		REPORT_ERROR("Failed to allocate memory on SPU");
 
 	req->object->id = req->id;
 	req->object->EA = resp->data;
@@ -316,7 +336,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 
 	if ((req->object->data = clearAlign(transfer_size)) == NULL) {
 		//printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill);
-		fprintf(stderr, WHERESTR "Failed to allocate memory on SPU\n", WHEREARG);
+		REPORT_ERROR("Failed to allocate memory on SPU");
 		sleep(10);
 	}
 
@@ -342,7 +362,7 @@ void readMailbox() {
 			//printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
 			if ((dataItem = MALLOC(sizeof(struct acquireResponse))) == NULL)
 				REPORT_ERROR("Failed to allocate memory on SPU");
-
+			
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
 			mode = (int)spu_read_in_mbox();
@@ -373,7 +393,10 @@ void readMailbox() {
 		case PACKAGE_RELEASE_RESPONSE:
 			//printf(WHERESTR "RELEASE package recieved\n", WHEREARG);
 			if ((dataItem = MALLOC(sizeof(struct releaseResponse))) == NULL)
+			{
+				printf(WHERESTR "pending fill: %d, allocated: %d, allocatedOld: %d, queue: %d\n", WHEREARG, pending->fill, allocatedItems->fill, allocatedItemsOld->fill, queue_count(allocatedID));
 				REPORT_ERROR("Failed to allocate memory on SPU");
+			}
 
 			requestID = spu_read_in_mbox();
 			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
@@ -388,7 +411,7 @@ void readMailbox() {
 				req->state = ASYNC_STATUS_COMPLETE;
 			}
 			else
-				fprintf(stderr, WHERESTR "Recieved a request with an unexpected requestID\n", WHEREARG);
+				REPORT_ERROR("Recieved a request with an unexpected requestID");
 
 			break;
 		
@@ -397,7 +420,7 @@ void readMailbox() {
 
 			if ((dataItem = MALLOC(sizeof(struct invalidateRequest))) == NULL)
 				REPORT_ERROR("Failed to allocate memory on SPU");
-
+			
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
 			
@@ -428,10 +451,10 @@ unsigned int beginCreate(GUID id, unsigned long size)
 
 	if ((req = MALLOC(sizeof(struct pendingRequestStruct))) == NULL)
 		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
-
+	
 	struct createRequest* request;
 	if ((request = MALLOC(sizeof(struct createRequest))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 	
 	request->packageCode = PACKAGE_CREATE_REQUEST;
 	request->requestID = nextId;
@@ -450,7 +473,7 @@ unsigned int beginCreate(GUID id, unsigned long size)
 	
 	ht_insert(pending, (void*)nextId, req);
 	if (!ht_member(pending, (void*)nextId))
-		fprintf(stderr, WHERESTR "Failed to insert item in pending list\n", WHEREARG);
+		REPORT_ERROR("Failed to insert item in pending list");
 	
 	return nextId;
 }
@@ -516,7 +539,7 @@ unsigned int beginAcquire(GUID id, int type)
 		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	else {
-		perror("Starting acquiring in unknown mode");
+		REPORT_ERROR("Starting acquiring in unknown mode");
 		return 0;
 	}
 	request->requestID = nextId;
@@ -532,7 +555,7 @@ unsigned int beginAcquire(GUID id, int type)
 
 	ht_insert(pending, (void*)nextId, req);
 	if (!ht_member(pending, (void*)nextId))
-		fprintf(stderr, WHERESTR "Failed to insert item in pending list\n", WHEREARG);
+		REPORT_ERROR("Failed to insert item in pending list");
 	return nextId;
 }
 
@@ -585,6 +608,7 @@ unsigned int beginRelease(void* data)
 			
 			ht_delete(allocatedItems, data);
 			ht_insert(allocatedItemsOld, (void*)object->id, object);
+			removeAllocatedID(object->id);
 			queue_enq(allocatedID, (void*)object->id);
 		} else if (object->mode == READ) {
 			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
@@ -599,6 +623,7 @@ unsigned int beginRelease(void* data)
 			} else {
 				//printf(WHERESTR "Local release for %d in read mode\n", WHEREARG, object->id); 
 				ht_insert(allocatedItemsOld, (void*)object->id, object);
+				removeAllocatedID(object->id);
 				queue_enq(allocatedID, (void*)object->id);
 			}
 			
@@ -774,7 +799,7 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 		FREE(req->request);
 
 	FREE(req);
-	
+
 	//printf(WHERESTR "Pending fill: %d, count: %d\n", WHEREARG, pendingInvalidate->fill, pendingInvalidate->count);
 	//printf(WHERESTR "In endAsync for %d, returning %d\n", WHEREARG, requestNo, (int)retval);	
 	return retval;

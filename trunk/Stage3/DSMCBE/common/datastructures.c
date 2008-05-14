@@ -6,6 +6,36 @@
 
 #ifdef DSMCBE_SPU
 #include "../header files/SPUThreads.h"
+
+unsigned int m_balance = 0;
+void* m_tmp;
+
+void* __m_malloc(unsigned int x, char* s1, int s2)
+{
+	m_tmp = thread_malloc(x);
+	printf(WHERESTR "Malloc gave %d, balance: %d\n", s1, s2, (int)m_tmp, ++m_balance);
+	return m_tmp;
+};
+
+void __m_free(void* x, char* s1, int s2)
+{
+	thread_free(x);
+	printf(WHERESTR "Free'd %d, balance: %d\n", s1, s2, (int)x, --m_balance);
+};
+
+void* __m_malloc_align(unsigned int x, int y, char* s1, int s2)
+{
+	m_tmp = thread_malloc_align(x, y);
+	printf(WHERESTR "Malloc_align gave %d, balance: %d\n", s1, s2, (int)m_tmp, ++m_balance);
+	return m_tmp;
+};
+
+void __m_free_align(void* x, char* s1, int s2)
+{
+	thread_free_align(x);
+	printf(WHERESTR "Free_align'd %d, balance: %d\n", s1, s2, (int)x, --m_balance);
+};
+
 #endif
   
 /*********************/
@@ -302,6 +332,19 @@ void * queue_deq(queue q)
 		return temp;
 	}
 }
+
+unsigned int queue_count(queue q)
+{
+	unsigned int res = 0;
+	list tmp = q->head;
+	while(tmp != NULL)
+	{
+		res++;
+		tmp = tmp->next;
+	}
+	return res;
+}
+
 
 /*********************/
 /* double linked list implementation */

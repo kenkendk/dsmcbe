@@ -2,15 +2,31 @@
 #define DATASTRUCTURES_H
 
 #ifdef DSMCBE_SPU
+
+//#define SPU_TRACE_MEM
+
+#ifdef SPU_TRACE_MEM
+extern unsigned int m_balance;
+extern void* __m_malloc(unsigned int x, char* s1, int s2);
+extern void __m_free(void* x, char* s1, int s2);
+extern void* __m_malloc_align(unsigned int x, int y, char* s1, int s2);
+extern void __m_free_align(void* x, char* s1, int s2);
+
+#define MALLOC(x) __m_malloc(x, __FILE__, __LINE__)
+#define FREE(x) __m_free(x, __FILE__, __LINE__)
+#define MALLOC_ALIGN(x,y) __m_malloc_align(x,y, __FILE__, __LINE__)
+#define FREE_ALIGN(x) __m_free_align(x, __FILE__, __LINE__)
+#else
 #define MALLOC(x) thread_malloc(x)
 #define FREE(x) thread_free(x)
 #define MALLOC_ALIGN(x,y) thread_malloc_align(x,y)
-#define FREE_ALIGN(x) thread_free_align(x);
+#define FREE_ALIGN(x) thread_free_align(x)
+#endif /*SPU_TRACE_MEM*/
 #else
 #define MALLOC(x) malloc(x)
 #define FREE(x) free(x)
 #define MALLOC_ALIGN(x,y) malloc_align(x,y)
-#define FREE_ALIGN(x) free_align(x);
+#define FREE_ALIGN(x) free_align(x)
 #endif
 
 
@@ -181,6 +197,8 @@ extern void *queue_deq(queue q);
 /* return a true value if and only if the queue is empty */
 extern int queue_empty(queue q);
 
+/* returns the number of elements in the queue, use only for debugging, runs in O(n) */ 
+extern unsigned int queue_count(queue q);
 
 /*********************/
 /* double linked list implementation */
