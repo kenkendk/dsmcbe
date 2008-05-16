@@ -125,6 +125,7 @@ void unsubscribe(dataObject object)
 	
 	FREE(request);*/
 	
+	//printf(WHERESTR "Unregistering item with id: %d\n", WHEREARG, object->id);
 	spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
 	spu_write_out_mbox(NEXT_SEQ_NO(requestNo, MAX_REQ_NO));
 	spu_write_out_mbox(object->id);
@@ -132,6 +133,21 @@ void unsubscribe(dataObject object)
 	spu_write_out_mbox(object->size);
 	spu_write_out_mbox((int)object->EA);			
 	
+}
+
+void clean(GUID id)
+{
+	dataObject object;
+	if (ht_member(allocatedItemsOld, (void*)id))
+	{
+		object = ht_get(allocatedItemsOld, (void*)id);
+		ht_delete(allocatedItemsOld, (void*)id);
+		removeAllocatedID(id);
+		unsubscribe(object);
+		FREE_ALIGN(object->data);
+		FREE(object);
+		
+	}
 }
 
 void* clearAlign(unsigned long size, int base) {	
@@ -166,7 +182,7 @@ void* clearAlign(unsigned long size, int base) {
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
-				//unsubscribe(object);
+				unsubscribe(object);
 				freedmemory += (object->size + sizeof(struct dataObjectStruct));
 				ht_delete(allocatedItemsOld, (void*)id);
 
@@ -231,7 +247,7 @@ void* clear(unsigned long size) {
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
-				//unsubscribe(object);
+				unsubscribe(object);
 				freedmemory += (object->size + sizeof(struct dataObjectStruct));
 				ht_delete(allocatedItemsOld, (void*)id);
 
@@ -318,7 +334,7 @@ void invalidate(struct invalidateRequest* item) {
 	
 	hashtableIterator it;
 	dataObject obj;
-	//printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
+	printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
 	
 	GUID id = item->dataItem;
 	
@@ -332,6 +348,8 @@ void invalidate(struct invalidateRequest* item) {
 		object->data = NULL;
 		FREE(object);		
 		object = NULL;	
+		FREE(item);
+		item = NULL;
 	} else {
 		it = ht_iter_create(allocatedItems);
 		while(ht_iter_next(it))
@@ -340,7 +358,11 @@ void invalidate(struct invalidateRequest* item) {
 			if (obj->id == id)
 			{
 				if (!ht_member(pendingInvalidate, (void*)id))
+				{
+					printf(WHERESTR "Data with id: %i is in use\n", WHEREARG, id);
 					ht_insert(pendingInvalidate, (void*)id, item);
+					item = NULL;
+				}
 				else
 				{
 					REPORT_ERROR("Recieved another invalidateRequest for the same item");
@@ -352,9 +374,13 @@ void invalidate(struct invalidateRequest* item) {
 		}
 		ht_iter_destroy(it);
 	}
-
-	FREE(item);
-	item = NULL;
+	
+	if (item != NULL)
+	{
+		printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
+		FREE(item);
+		item = NULL;
+	}
 }
 
 void StartDMATransfer(struct acquireResponse* resp)
@@ -572,7 +598,7 @@ unsigned int beginAcquire(GUID id, int type)
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
 		if (type == READ)
 		{	
-			printf(WHERESTR "Reacquire for READ id: %i\n", WHEREARG, id);
+			//printf(WHERESTR "Reacquire for READ id: %i\n", WHEREARG, id);
 	
 			object->mode = type;
 			ht_delete(allocatedItemsOld, (void*)id);

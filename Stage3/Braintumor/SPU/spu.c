@@ -286,6 +286,7 @@ int main()
 			//printf("spu.c: Finished releasing BUFFER\n");
 		}
 		release(points);
+		clean(RESULT + pid);
 	}
 	
 	prof_stop();
