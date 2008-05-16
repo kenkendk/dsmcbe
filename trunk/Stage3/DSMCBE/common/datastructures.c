@@ -495,7 +495,7 @@ void ht_delete(hashtable ht, void* key)
 		slset_delete(ht->buffer[ht->hash(key, ht->count)], key);
 	else
 		slset_delete((slset)ht->buffer, key);
-		
+	
 	ht->fill--;
 	if (ht->count > ht->wrapsize)
 	{
@@ -549,10 +549,9 @@ void ht_resize(hashtable ht, unsigned int newsize)
 			kl = kl->next;
 		}
 
-		if (ht->count > ht->wrapsize)		
+		if (ht->count > ht->wrapsize) {		
 			slset_destroy(ht->buffer[i]);
-		else
-		{
+		} else {
 			slset_destroy((slset)ht->buffer);
 			break;
 		}

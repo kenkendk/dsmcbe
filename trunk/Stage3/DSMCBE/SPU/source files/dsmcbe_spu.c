@@ -92,11 +92,13 @@ void removeAllocatedID(GUID id)
 		return;
 	}
 	
+	//printf(WHERESTR "Removing item from allocated, count before: %d\n", WHEREARG, queue_count(allocatedID));
 	while(tmp->next != NULL)
 	{
 		if ((GUID)tmp->next->element == id)
 		{
 			tmp->next = cdr_and_free(tmp->next);
+			//printf(WHERESTR "Removed item from allocated, count after: %d\n", WHEREARG, queue_count(allocatedID));
 			break;
 		}
 		
@@ -106,8 +108,9 @@ void removeAllocatedID(GUID id)
 
 void unsubscribe(dataObject object)
 {
-	struct releaseRequest* request;
+	/*struct releaseRequest* request;
 	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
+	
 	if ((request = MALLOC(sizeof(struct releaseRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 
@@ -120,11 +123,25 @@ void unsubscribe(dataObject object)
 	
 	sendMailbox(request);
 	
-	FREE(request);
+	FREE(request);*/
+	
+	spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
+	spu_write_out_mbox(NEXT_SEQ_NO(requestNo, MAX_REQ_NO));
+	spu_write_out_mbox(object->id);
+	spu_write_out_mbox(READ);
+	spu_write_out_mbox(object->size);
+	spu_write_out_mbox((int)object->EA);			
+	
 }
 
 void* clearAlign(unsigned long size, int base) {	
 	
+	if (size == 0)
+	{
+		REPORT_ERROR("Called malloc align with size zero");	
+		return NULL;
+	}
+		
 	void* pointer = thread_malloc_align(size, base);
 	unsigned long freedmemory = 0;
 	int go = 0;
@@ -135,35 +152,61 @@ void* clearAlign(unsigned long size, int base) {
 		while(freedmemory < size || go) {
 			int id;
 			if (!queue_empty(allocatedID))
+			{
+				//printf(WHERESTR "Dequeue...\n", WHEREARG);		
 				id = (int)queue_deq(allocatedID);
+				//printf(WHERESTR "Dequeued\n", WHEREARG);		
+			}
 			else
+			{
+				//printf(WHERESTR "Clear failed, last attempt\n", WHEREARG);		
 				return thread_malloc_align(size, base);
+			}
 		
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
-				FREE_ALIGN(object->data);
-				unsubscribe(object);
+				//unsubscribe(object);
 				freedmemory += (object->size + sizeof(struct dataObjectStruct));
-				FREE(object);
 				ht_delete(allocatedItemsOld, (void*)id);
-				//printf(WHERESTR "Memory freed\n", WHEREARG);				
+
+				FREE_ALIGN(object->data);
+				object->data = NULL;
+				FREE(object);
+				object = NULL;
+				//printf(WHERESTR "Cleared id %i\n", WHEREARG, id);
 			} else {
-				printf(WHERESTR "allocatedID not found in allocatedItemsOld", WHEREARG);
+				REPORT_ERROR("allocatedID not found in allocatedItemsOld");
 			}		
 		}
 		
+		//printf(WHERESTR "callign malloc...\n", WHEREARG);		
+		//printf(WHERESTR "Enough is free, trying malloc_align\n", WHEREARG);
 		pointer = thread_malloc_align(size, base);
+		//printf(WHERESTR "Enough is free, result %d\n", WHEREARG, (int)pointer);
 		go = 1;
+		//printf(WHERESTR "Dequeue...\n", WHEREARG);		
+		
 	}
 	
 	//printf(WHERESTR "Freed %i and allocated %i of memory\n", WHEREARG, (int)freedmemory, (int)size);
-	
+	//printf(WHERESTR "Alocated pointer %d\n", WHEREARG, (int)pointer);
+	if ((unsigned int)pointer < 10000)
+	{
+		REPORT_ERROR("Pointer was broken!");
+		sleep(10);
+	}
 	return pointer;
 }
 
 void* clear(unsigned long size) {	
 	
+	if (size == 0)
+	{
+		REPORT_ERROR("Called malloc with size zero");	
+		return NULL;
+	}
+		
 	void* pointer = thread_malloc(size);
 	unsigned long freedmemory = 0;
 	int go = 0;
@@ -174,30 +217,50 @@ void* clear(unsigned long size) {
 		while(freedmemory < size || go) {
 			int id;
 			if (!queue_empty(allocatedID))
+			{
+				//printf(WHERESTR "Dequeue...\n", WHEREARG);		
 				id = (int)queue_deq(allocatedID);
+				//printf(WHERESTR "Dequeued\n", WHEREARG);		
+			}
 			else
+			{
+				//printf(WHERESTR "Clear failed, last attempt\n", WHEREARG);		
 				return thread_malloc(size);
+			}
 		
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
-				FREE_ALIGN(object->data);
-				unsubscribe(object);
+				//unsubscribe(object);
 				freedmemory += (object->size + sizeof(struct dataObjectStruct));
-				FREE(object);
 				ht_delete(allocatedItemsOld, (void*)id);
-				//printf(WHERESTR "Memory freed\n", WHEREARG);				
+
+				FREE_ALIGN(object->data);
+				object->data = NULL;
+				FREE(object);
+				object = NULL;
+				//printf(WHERESTR "Cleared id %i\n", WHEREARG, id);
 			} else {
-				printf(WHERESTR "allocatedID not found in allocatedItemsOld", WHEREARG);
-			}			
+				REPORT_ERROR("allocatedID not found in allocatedItemsOld");
+			}		
 		}
 		
+		//printf(WHERESTR "callign malloc...\n", WHEREARG);		
+		//printf(WHERESTR "Enough is free, trying malloc_align\n", WHEREARG);
 		pointer = thread_malloc(size);
+		//printf(WHERESTR "Enough is free, result %d\n", WHEREARG, (int)pointer);
 		go = 1;
+		//printf(WHERESTR "Dequeue...\n", WHEREARG);		
+		
 	}
 	
 	//printf(WHERESTR "Freed %i and allocated %i of memory\n", WHEREARG, (int)freedmemory, (int)size);
-	
+	//printf(WHERESTR "Alocated pointer %d\n", WHEREARG, (int)pointer);
+	if ((unsigned int)pointer < 10000)
+	{
+		REPORT_ERROR("Pointer was broken!");
+		sleep(10);
+	}
 	return pointer;
 }
 
@@ -266,7 +329,9 @@ void invalidate(struct invalidateRequest* item) {
 		ht_delete(allocatedItemsOld, (void*)id);
 		removeAllocatedID(id);
 		FREE_ALIGN(object->data);
-		FREE(object);			
+		object->data = NULL;
+		FREE(object);		
+		object = NULL;	
 	} else {
 		it = ht_iter_create(allocatedItems);
 		while(ht_iter_next(it))
@@ -278,8 +343,9 @@ void invalidate(struct invalidateRequest* item) {
 					ht_insert(pendingInvalidate, (void*)id, item);
 				else
 				{
-					fprintf(stderr, WHERESTR "Recieved another invalidateRequest for the same item\n", WHEREARG);
+					REPORT_ERROR("Recieved another invalidateRequest for the same item");
 					FREE(item);
+					item = NULL;
 				}
 				break;				
 			}	
@@ -288,6 +354,7 @@ void invalidate(struct invalidateRequest* item) {
 	}
 
 	FREE(item);
+	item = NULL;
 }
 
 void StartDMATransfer(struct acquireResponse* resp)
@@ -295,7 +362,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	unsigned int transfer_size;
 	pendingRequest req = (pendingRequest)ht_get(pending, (void*)resp->requestID);
 	
-	//printf(WHERESTR "Processing ACQUIRE package for %d (IsThreaded: %d)\n", WHEREARG, req->id);
+	//printf(WHERESTR "Processing ACQUIRE package for %d, %d\n", WHEREARG, req->id, resp->requestID);
 	
 	if (ht_member(allocatedItemsOld, (void*)(req->id))) {
 		req->object = (dataObject)ht_get(allocatedItemsOld, (void*)(req->id));
@@ -336,6 +403,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
 	if ((req->object->data = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
+	//if ((req->object->data = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
 		printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d, allocatedId: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill, queue_count(allocatedID));
 		REPORT_ERROR("Failed to allocate memory on SPU");
 		sleep(10);
@@ -459,7 +527,7 @@ unsigned int beginCreate(GUID id, unsigned long size)
 	
 	request->packageCode = PACKAGE_CREATE_REQUEST;
 	request->requestID = nextId;
-	request->dataSize = size;
+	request->dataSize = size == 0 ? 1 : size;
 	request->dataItem = id;
 	
 	sendMailbox(request);
@@ -481,7 +549,8 @@ unsigned int beginCreate(GUID id, unsigned long size)
 
 unsigned int beginAcquire(GUID id, int type)
 {
-	pendingRequest req;
+	pendingRequest req = NULL;
+	struct acquireRequest* request = NULL;
 	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
 	
 	if (allocatedItemsOld == NULL)
@@ -493,15 +562,17 @@ unsigned int beginAcquire(GUID id, int type)
 	while (spu_stat_in_mbox() > 0)
 		readMailbox();
 
-	if ((req = MALLOC(sizeof(struct pendingRequestStruct))) == NULL)
+	if ((req = (pendingRequest)MALLOC(sizeof(struct pendingRequestStruct))) == NULL)
 		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
+
+	//printf(WHERESTR "request %i, req %i\n", WHEREARG, (int)request, (int)req);
 
 	if (ht_member(allocatedItemsOld, (void*)id))
 	{
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
 		if (type == READ)
 		{	
-			//printf(WHERESTR "Reacquire for READ id: %i\n", WHEREARG, id);
+			printf(WHERESTR "Reacquire for READ id: %i\n", WHEREARG, id);
 	
 			object->mode = type;
 			ht_delete(allocatedItemsOld, (void*)id);
@@ -520,29 +591,30 @@ unsigned int beginAcquire(GUID id, int type)
 		}		
 	}
 	
-	struct acquireRequest* request;
 	if ((request = MALLOC(sizeof(struct acquireRequest))) == NULL)
 		perror("SPUEventHandler.c: malloc error");
 	
-	if (type == WRITE)
+	if (type == WRITE) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
-	else if (type == READ)
+	} else if (type == READ) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
-	else {
+	} else {
 		REPORT_ERROR("Starting acquiring in unknown mode");
 		return 0;
 	}
 	request->requestID = nextId;
 	request->dataItem = id;
-
+	
+	//printf(WHERESTR "request %i, req %i\n", WHEREARG, (int)request, (int)req);
+	
 	req->id = id;
 	req->object = NULL;
 	req->request = request;
 	req->state = ASYNC_STATUS_REQUEST_SENT;
 	req->mode = type;
-	
+
 	sendMailbox(request);
 
 	ht_insert(pending, (void*)nextId, req);
@@ -610,6 +682,7 @@ unsigned int beginRelease(void* data)
 				struct invalidateRequest* item;
 				item = ht_get(pendingInvalidate, (void*)object->id);
 				FREE(item);
+				item = NULL;
 				ht_delete(pendingInvalidate, (void*)object->id);
 			} else {
 				//printf(WHERESTR "Local release for %d in read mode\n", WHEREARG, object->id); 
@@ -695,8 +768,8 @@ int getAsyncStatus(unsigned int requestNo)
 
 void* endAsync(unsigned int requestNo, unsigned long* size)
 {
-	pendingRequest req;
-	void* retval;
+	pendingRequest req = NULL;
+	void* retval = NULL;
 	
 	if (getAsyncStatus(requestNo) == ASYNC_STATUS_ERROR)
 	{
@@ -759,10 +832,12 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 		}
 
 		getAsyncStatus(requestNo);
+
 		//printf(WHERESTR "Status for %d is %d\n", WHEREARG, requestNo, state); 
 	}
 
 	ht_delete(pending, (void*)requestNo);
+
 	if (req->object == NULL)
 	{
 		size = NULL;
@@ -770,25 +845,32 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 	}
 	else
 	{
-		*size = req->object->size;
+		if (size != NULL)
+			*size = req->object->size;
 		retval = req->object->data;
 		//printf(WHERESTR "In AsyncStatus for %d, obj id: %d, obj data: %d\n", WHEREARG, requestNo, req->object->id, (int)req->object->data);
 	}
-	
+ 	
 	if (req->object != NULL)
 	{
 		if (!ht_member(allocatedItemsOld, (void*)req->id) && !ht_member(allocatedItems, req->object->data))
 		{
 			//printf(WHERESTR "Dataobject %d (%d) was not registered anymore\n", WHEREARG, req->id, (int)req->object->data); 
 			FREE_ALIGN(req->object->data);
+			req->object->data = NULL;
 			FREE(req->object);
+			req->object = NULL;
 		}
 	}
 
 	if (req->request != NULL)
+	{
 		FREE(req->request);
+		req->request = NULL;
+	}
 
 	FREE(req);
+	req = NULL;
 
 	//printf(WHERESTR "Pending fill: %d, count: %d\n", WHEREARG, pendingInvalidate->fill, pendingInvalidate->count);
 	//printf(WHERESTR "In endAsync for %d, returning %d\n", WHEREARG, requestNo, (int)retval);	
@@ -808,7 +890,7 @@ void release(void* data){
 void* create(GUID id, unsigned long size)
 {
 	unsigned int req = beginCreate(id, size);
-	return (void*)endAsync(req, &size);
+	return (void*)endAsync(req, NULL);
 }
 
 /*void TEST()
