@@ -86,16 +86,18 @@ void removeAllocatedID(GUID id)
 	queue temp;
 	GUID temp_id;
 	temp = queue_create();
-		while(!queue_empty(allocatedID))
-		{
-			temp_id = (GUID)queue_deq(allocatedID);
-			if (temp_id != id)
-				queue_enq(temp, (void*)temp_id);				
-		}		
-		
-		while(!queue_empty(temp))
-			queue_enq(allocatedID, queue_deq(temp));
-		queue_destroy(temp);			
+	
+	while(!queue_empty(allocatedID))
+	{
+		temp_id = (GUID)queue_deq(allocatedID);
+		if (temp_id != id)
+			queue_enq(temp, (void*)temp_id);				
+	}		
+	
+	while(!queue_empty(temp))
+		queue_enq(allocatedID, queue_deq(temp));
+
+	queue_destroy(temp);			
 }
 
 void unsubscribe(dataObject object)
@@ -290,7 +292,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	if (ht_member(allocatedItemsOld, (void*)(req->id))) {
 		req->object = (dataObject)ht_get(allocatedItemsOld, (void*)(req->id));
 		ht_delete(allocatedItemsOld, (void*)(req->id));
-		
+		removeAllocatedID(req->id);		
 		//printf(WHERESTR "Item %d (%d) was known, returning local copy\n", WHEREARG, req->id, (int)req->object->data);
 
 		req->object->mode = req->mode;
@@ -326,7 +328,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
 	if ((req->object->data = clearAlign(transfer_size)) == NULL) {
-		//printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill);
+		printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d, allocatedId: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill, queue_count(allocatedID));
 		REPORT_ERROR("Failed to allocate memory on SPU");
 		sleep(10);
 	}
@@ -495,8 +497,8 @@ unsigned int beginAcquire(GUID id, int type)
 	
 			object->mode = type;
 			ht_delete(allocatedItemsOld, (void*)id);
+			removeAllocatedID(id);
 			ht_insert(allocatedItems, object->data, object);
-			removeAllocatedID(id);	
 	
 			req->id = id;
 			req->object = object;
@@ -590,7 +592,6 @@ unsigned int beginRelease(void* data)
 			
 			ht_delete(allocatedItems, data);
 			ht_insert(allocatedItemsOld, (void*)object->id, object);
-			removeAllocatedID(object->id);
 			queue_enq(allocatedID, (void*)object->id);
 		} else if (object->mode == READ) {
 			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
@@ -605,7 +606,6 @@ unsigned int beginRelease(void* data)
 			} else {
 				//printf(WHERESTR "Local release for %d in read mode\n", WHEREARG, object->id); 
 				ht_insert(allocatedItemsOld, (void*)object->id, object);
-				removeAllocatedID(object->id);
 				queue_enq(allocatedID, (void*)object->id);
 			}
 			

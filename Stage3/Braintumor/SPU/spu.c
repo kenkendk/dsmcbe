@@ -197,7 +197,7 @@ int main()
 	
 		//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
 			
-		printf(WHERESTR "PID: %i out of %i\n", WHEREARG, pid, maxpid);
+		//printf(WHERESTR "PID: %i out of %i\n", WHEREARG, pid, maxpid);
 	
 		if(pid >= maxpid) {
 			release(package);
