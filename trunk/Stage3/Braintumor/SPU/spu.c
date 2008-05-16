@@ -197,7 +197,7 @@ int main()
 	
 		//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
 			
-		printf(WHERESTR "PID: %i out of %i\n", WHEREARG, pid, maxpid);
+		printf(WHERESTR "Canon %i with PID: %i out of %i\n", WHEREARG, jobID + 1, pid, maxpid);
 	
 		if(pid >= maxpid) {
 			release(package);
@@ -211,6 +211,7 @@ int main()
 			
 		package->id = pid + 1;
 		release(package);
+		//clean(JOB+jobID);
 		
 		//printf("spu.c: Trying to acquire RESULT\n");
 		points = acquire(RESULT + pid, &size, WRITE);
@@ -286,7 +287,7 @@ int main()
 			//printf("spu.c: Finished releasing BUFFER\n");
 		}
 		release(points);
-		clean(RESULT + pid);
+		//clean(RESULT + pid);
 	}
 	
 	prof_stop();

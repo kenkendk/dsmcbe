@@ -145,8 +145,9 @@ void clean(GUID id)
 		removeAllocatedID(id);
 		unsubscribe(object);
 		FREE_ALIGN(object->data);
+		object->data = NULL;
 		FREE(object);
-		
+		object = NULL;		
 	}
 }
 
@@ -157,16 +158,24 @@ void* clearAlign(unsigned long size, int base) {
 		REPORT_ERROR("Called malloc align with size zero");	
 		return NULL;
 	}
+	
+	int totalfreed = 0;
+	//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), allocatedItemsOld->fill, totalfreed, (int)size);
 		
 	void* pointer = thread_malloc_align(size, base);
 	unsigned long freedmemory = 0;
 	int go = 0;
+	
+	if (queue_count(allocatedID) != allocatedItemsOld->fill)
+		REPORT_ERROR("allocatedID and allocatedItemsOld differ in size");
+		
 	
 	while (pointer == NULL) {
 		//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
 	
 		while(freedmemory < size || go) {
 			int id;
+			
 			if (!queue_empty(allocatedID))
 			{
 				//printf(WHERESTR "Dequeue...\n", WHEREARG);		
@@ -175,17 +184,19 @@ void* clearAlign(unsigned long size, int base) {
 			}
 			else
 			{
-				//printf(WHERESTR "Clear failed, last attempt\n", WHEREARG);		
+				//printf(WHERESTR "Clear failed, last attempt\n", WHEREARG);
+				//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), allocatedItemsOld->fill, totalfreed, (int)size);		
 				return thread_malloc_align(size, base);
 			}
 		
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
+			
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
+				ht_delete(allocatedItemsOld, (void*)id);			
 				unsubscribe(object);
 				freedmemory += (object->size + sizeof(struct dataObjectStruct));
-				ht_delete(allocatedItemsOld, (void*)id);
-
+				totalfreed += (object->size + sizeof(struct dataObjectStruct));
 				FREE_ALIGN(object->data);
 				object->data = NULL;
 				FREE(object);
@@ -212,6 +223,7 @@ void* clearAlign(unsigned long size, int base) {
 		REPORT_ERROR("Pointer was broken!");
 		sleep(10);
 	}
+	//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), allocatedItemsOld->fill, totalfreed, (int)size);
 	return pointer;
 }
 
@@ -222,10 +234,13 @@ void* clear(unsigned long size) {
 		REPORT_ERROR("Called malloc with size zero");	
 		return NULL;
 	}
-		
+	
+	int totalfreed = 0;	
 	void* pointer = thread_malloc(size);
 	unsigned long freedmemory = 0;
 	int go = 0;
+	
+	//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), allocatedItemsOld->fill, totalfreed, (int)size);
 	
 	while (pointer == NULL) {
 		//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
@@ -240,7 +255,8 @@ void* clear(unsigned long size) {
 			}
 			else
 			{
-				//printf(WHERESTR "Clear failed, last attempt\n", WHEREARG);		
+				//printf(WHERESTR "Clear failed, last attempt\n", WHEREARG);
+				//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), allocatedItemsOld->fill, totalfreed, (int)size);		
 				return thread_malloc(size);
 			}
 		
@@ -277,6 +293,7 @@ void* clear(unsigned long size) {
 		REPORT_ERROR("Pointer was broken!");
 		sleep(10);
 	}
+	//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), allocatedItemsOld->fill, totalfreed, (int)size);
 	return pointer;
 }
 
@@ -429,9 +446,9 @@ void StartDMATransfer(struct acquireResponse* resp)
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
 	if ((req->object->data = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
-	//if ((req->object->data = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
 		printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d, allocatedId: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill, queue_count(allocatedID));
 		REPORT_ERROR("Failed to allocate memory on SPU");
+		
 		sleep(10);
 	}
 
