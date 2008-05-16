@@ -123,13 +123,13 @@ void unsubscribe(dataObject object)
 	FREE(request);
 }
 
-void* clearAlign(unsigned long size, unsigned int n) {	
+void* clearAlign(unsigned long size, int base) {	
 	
-	void* pointer = NULL;
+	void* pointer = thread_malloc_align(size, base);
 	unsigned long freedmemory = 0;
 	int go = 0;
 	
-	do {
+	while (pointer == NULL) {
 		//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
 	
 		while(freedmemory < size || go) {
@@ -137,7 +137,7 @@ void* clearAlign(unsigned long size, unsigned int n) {
 			if (!queue_empty(allocatedID))
 				id = (int)queue_deq(allocatedID);
 			else
-				return thread_malloc_align(size, n);
+				return thread_malloc_align(size, base);
 		
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
@@ -153,9 +153,9 @@ void* clearAlign(unsigned long size, unsigned int n) {
 			}		
 		}
 		
-		pointer = thread_malloc_align(size, n);
+		pointer = thread_malloc_align(size, base);
 		go = 1;
-	} while (pointer == NULL);
+	}
 	
 	//printf(WHERESTR "Freed %i and allocated %i of memory\n", WHEREARG, (int)freedmemory, (int)size);
 	
@@ -164,11 +164,11 @@ void* clearAlign(unsigned long size, unsigned int n) {
 
 void* clear(unsigned long size) {	
 	
-	void* pointer = NULL;
+	void* pointer = thread_malloc(size);
 	unsigned long freedmemory = 0;
 	int go = 0;
 	
-	do {
+	while (pointer == NULL) {
 		//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
 	
 		while(freedmemory < size || go) {
@@ -194,7 +194,7 @@ void* clear(unsigned long size) {
 		
 		pointer = thread_malloc(size);
 		go = 1;
-	} while (pointer == NULL);
+	}
 	
 	//printf(WHERESTR "Freed %i and allocated %i of memory\n", WHEREARG, (int)freedmemory, (int)size);
 	

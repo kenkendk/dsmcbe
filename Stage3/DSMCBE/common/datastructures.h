@@ -17,8 +17,8 @@
     #define MALLOC_ALIGN(x,y) __m_malloc_align(x,y, __FILE__, __LINE__)
     #define FREE_ALIGN(x) __m_free_align(x, __FILE__, __LINE__)
   #else
-    void* clear();
-    void* clearAlign();
+    void* clear(unsigned long size);
+    void* clearAlign(unsigned long size, int base);
     #define MALLOC(x) clear(x)
     #define FREE(x) thread_free(x)
     #define MALLOC_ALIGN(x,y) clearAlign(x,y)
