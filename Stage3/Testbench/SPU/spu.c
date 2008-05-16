@@ -93,6 +93,16 @@ int main(int argc, char **argv) {
 		release(allocation);
 		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
 */
+
+		printf(WHERESTR "Reading large sequence...\n", WHEREARG);
+		for(i = 0; i < SEQUENCE_COUNT; i++)
+		{
+			release(acquire(LARGE_SEQUENCE + i, &size, READ));
+			if (i % 1000 == 0)
+				printf(WHERESTR "Read large sequence %d\n", WHEREARG, i);	
+		}
+
+
 		//Memory leak testing, the SPU memory is very limited so a million runs usually reveal the problem
 		for(i = 0; i < 1000000; i++)
 		{
