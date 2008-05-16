@@ -179,7 +179,7 @@ void* threadCreate(GUID id, unsigned long size)
 	cr->packageCode = PACKAGE_CREATE_REQUEST;
 	cr->requestID = 0;
 	cr->dataItem = id;
-	cr->dataSize = size;
+	cr->dataSize = size == 0 ? 1 : size;
 	
 	retval = NULL;
 	

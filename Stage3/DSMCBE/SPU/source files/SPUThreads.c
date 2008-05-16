@@ -19,6 +19,7 @@ static int loop_counter; //Keep the loop counter on the heap
 
 static unsigned int malloc_size;
 static void* malloc_result;
+static unsigned int malloc_base;
 
 #define JMP_MALLOC 3
 #define JMP_MALLOC_ALIGN 4
@@ -202,7 +203,7 @@ int CreateThreads(int threadCount)
 			break;
 		case JMP_MALLOC_ALIGN:
 			//Special malloc_align case
-			malloc_result = _malloc_align(malloc_size, 7);
+			malloc_result = _malloc_align(malloc_size, malloc_base);
 			longjmp(current_thread->env, 1);
 			break;
 		case JMP_FREE:
@@ -281,7 +282,7 @@ void thread_free(void* data)
 	}
 }
 
-void* thread_malloc(unsigned int size)
+void* thread_malloc(unsigned long size)
 {
 	if (main_env == NULL)
 		return malloc(size);
@@ -311,11 +312,8 @@ void thread_free_align(void* data)
 	}
 }
 
-void* thread_malloc_align(unsigned int size, int base)
+void* thread_malloc_align(unsigned long size, unsigned int base)
 {
-	if (base != 7)
-		perror("Malloc align is not supported with other base than 7!");
-	
 	if (main_env == NULL)
 		return _malloc_align(size, base);
 	else
@@ -324,6 +322,7 @@ void* thread_malloc_align(unsigned int size, int base)
 		{
 			malloc_result = NULL;
 			malloc_size = size;
+			malloc_base = base;
 			longjmp(*main_env, JMP_MALLOC_ALIGN);
 		}
 		return malloc_result;

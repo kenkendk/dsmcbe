@@ -19,17 +19,23 @@
   #else
     void* clear(unsigned long size);
     void* clearAlign(unsigned long size, int base);
+
     #define MALLOC(x) clear(x)
-    #define FREE(x) thread_free(x)
     #define MALLOC_ALIGN(x,y) clearAlign(x,y)
+    
+    //#define MALLOC(x) thread_malloc(x)
+    //#define MALLOC_ALIGN(x,y) thread_malloc_align(x,y)
+    
+    #define FREE(x) thread_free(x)
     #define FREE_ALIGN(x) thread_free_align(x)
   #endif /*SPU_TRACE_MEM*/
+  
 #else
   #define MALLOC(x) malloc(x)
   #define FREE(x) free(x)
   #define MALLOC_ALIGN(x,y) malloc_align(x,y)
   #define FREE_ALIGN(x) free_align(x)
-#endif
+#endif /* DSMCBE_SPU */
 
 
 /*********************/
