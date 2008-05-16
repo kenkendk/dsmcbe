@@ -123,7 +123,7 @@ void unsubscribe(dataObject object)
 	FREE(request);
 }
 
-void* clearAlign(unsigned long size) {	
+void* clearAlign(unsigned long size, unsigned int n) {	
 	
 	void* pointer = NULL;
 	unsigned long freedmemory = 0;
@@ -137,7 +137,7 @@ void* clearAlign(unsigned long size) {
 			if (!queue_empty(allocatedID))
 				id = (int)queue_deq(allocatedID);
 			else
-				return MALLOC_ALIGN(size, 7);
+				return thread_malloc_align(size, n);
 		
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
@@ -148,10 +148,12 @@ void* clearAlign(unsigned long size) {
 				FREE(object);
 				ht_delete(allocatedItemsOld, (void*)id);
 				//printf(WHERESTR "Memory freed\n", WHEREARG);				
+			} else {
+				printf(WHERESTR "allocatedID not found in allocatedItemsOld", WHEREARG);
 			}		
 		}
 		
-		pointer = MALLOC_ALIGN(size, 7);
+		pointer = thread_malloc_align(size, n);
 		go = 1;
 	} while (pointer == NULL);
 	
@@ -174,7 +176,7 @@ void* clear(unsigned long size) {
 			if (!queue_empty(allocatedID))
 				id = (int)queue_deq(allocatedID);
 			else
-				return MALLOC(size);
+				return thread_malloc(size);
 		
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
@@ -185,10 +187,12 @@ void* clear(unsigned long size) {
 				FREE(object);
 				ht_delete(allocatedItemsOld, (void*)id);
 				//printf(WHERESTR "Memory freed\n", WHEREARG);				
-			}		
+			} else {
+				printf(WHERESTR "allocatedID not found in allocatedItemsOld", WHEREARG);
+			}			
 		}
 		
-		pointer = MALLOC(size);
+		pointer = thread_malloc(size);
 		go = 1;
 	} while (pointer == NULL);
 	
@@ -331,7 +335,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	//printf(WHERESTR "Item %d was not known, starting DMA transfer\n", WHEREARG, req->id);
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
-	if ((req->object->data = clearAlign(transfer_size)) == NULL) {
+	if ((req->object->data = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
 		printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d, allocatedId: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill, queue_count(allocatedID));
 		REPORT_ERROR("Failed to allocate memory on SPU");
 		sleep(10);
