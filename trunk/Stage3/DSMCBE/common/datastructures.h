@@ -6,6 +6,9 @@
 //#define SPU_TRACE_MEM
 
   #ifdef SPU_TRACE_MEM
+    extern void* clear(unsigned long size);
+    extern void* clearAlign(unsigned long size, int base);
+
     extern unsigned int m_balance;
     extern void* __m_malloc(unsigned int x, char* s1, int s2);
     extern void __m_free(void* x, char* s1, int s2);
@@ -17,8 +20,6 @@
     #define MALLOC_ALIGN(x,y) __m_malloc_align(x,y, __FILE__, __LINE__)
     #define FREE_ALIGN(x) __m_free_align(x, __FILE__, __LINE__)
   #else
-    void* clear(unsigned long size);
-    void* clearAlign(unsigned long size, int base);
 
     #define MALLOC(x) clear(x)
     #define MALLOC_ALIGN(x,y) clearAlign(x,y)

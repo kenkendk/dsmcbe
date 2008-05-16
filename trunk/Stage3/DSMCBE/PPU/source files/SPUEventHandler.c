@@ -205,12 +205,12 @@ void* SPU_Worker(void* data)
 						}
 						else
 						{
-							//printf(WHERESTR "Release recieved for READ, unregistering requestor\n", WHEREARG);
 							//The release request implies that the sender has destroyed the copy
 							if (!ht_member(spu_leaseTable, (void*)itemid))
 								ht_insert(spu_leaseTable, (void*)itemid, slset_create(lessint));
 							if (slset_member((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i))
 								slset_delete((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i);
+							//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, i);
 						}
 						
 						break;
@@ -305,21 +305,32 @@ void* SPU_Worker(void* data)
 						queue_enq(spu_mailboxQueues[i], (void*)((struct NACK*)dataItem)->hint);
 						break;
 					case PACKAGE_INVALIDATE_REQUEST:
-						initiatorNo = -1;
-						if (ht_member(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem))
-							initiatorNo = (int)ht_get(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem);
-						
-						if ((int)i != initiatorNo)
+
+						itemid = ((struct invalidateRequest*)dataItem)->dataItem;
+						if (!ht_member(spu_leaseTable,  (void*)itemid))
+							ht_insert(spu_leaseTable, (void*)itemid, slset_create(lessint));
+							
+						if (slset_member((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i))
 						{
-							//printf(WHERESTR "Got \"invalidateRequest\" message, converting to MBOX messages for %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
-							queue_enq(spu_mailboxQueues[i], (void*)datatype);
-							queue_enq(spu_mailboxQueues[i], (void*)((struct invalidateRequest*)dataItem)->requestID);
-							queue_enq(spu_mailboxQueues[i], (void*)((struct invalidateRequest*)dataItem)->dataItem);
-						}
-						else
-						{
-							ht_delete(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem);
-							//printf(WHERESTR "Got \"invalidateRequest\" message, but skipping because SPU is initiator, ID %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
+							initiatorNo = -1;
+							if (ht_member(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem))
+								initiatorNo = (int)ht_get(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem);
+							
+							if ((int)i != initiatorNo)
+							{
+								//printf(WHERESTR "Got \"invalidateRequest\" message, converting to MBOX messages for %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
+								queue_enq(spu_mailboxQueues[i], (void*)datatype);
+								queue_enq(spu_mailboxQueues[i], (void*)((struct invalidateRequest*)dataItem)->requestID);
+								queue_enq(spu_mailboxQueues[i], (void*)((struct invalidateRequest*)dataItem)->dataItem);
+								
+								//printf(WHERESTR "Forwarding invalidate for id %d to SPU %d\n", WHEREARG, itemid, i);
+								slset_delete((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i);
+							}
+							else
+							{
+								ht_delete(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem);
+								//printf(WHERESTR "Got \"invalidateRequest\" message, but skipping because SPU is initiator, ID %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
+							}
 						}
 							
 						break;

@@ -2,6 +2,8 @@
 #include <common/datastructures.h>
 #include <unistd.h>
 #include <malloc.h>
+#include <malloc_align.h>
+#include <free_align.h>
 
 //We need the counter on the heap so the threads share it
 static int counter = 0;
@@ -10,12 +12,34 @@ int main(int argc, char **argv) {
 	
 	initialize();
 
-	//printf(WHERESTR "Hello World\n", WHEREARG);
+	printf(WHERESTR "Hello World\n", WHEREARG);
+	
 	unsigned long size;
 	unsigned int i;
 	unsigned int items;
 	int threadNo;
 	int* allocation;
+
+	/*void* test;
+	void* test2;
+
+	printf(WHERESTR "Start malloc test\n", WHEREARG);
+	for( i = 0; i < 10000000; i++)
+	{
+		allocation = (int*)malloc(24);
+		test2 = (int*)malloc(24);
+		test = _malloc_align(1000 + (i % 32) * 4, 7);
+		if (allocation == NULL)
+			printf("Failed alloc %d\n", i);
+		if (test == NULL)
+			printf("Failed test %d\n", i);
+		if (i % 5000 != 0)
+			free(allocation);
+		free(test2);
+		_free_align(test);
+	}
+	printf(WHERESTR "Done malloc test\n", WHEREARG);
+	sleep(5);*/
 
 	if (SPU_FIBERS > 1)
 		threadNo = CreateThreads(SPU_FIBERS);
@@ -27,26 +51,29 @@ int main(int argc, char **argv) {
 		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
 		allocation = acquire(ETTAL, &size, WRITE);
 				
-		//printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
+		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
 		
 		*allocation = 210;
 		
 		release(allocation);
 		*allocation = 111;
 
+		//printf(WHERESTR "Thread #%d, released, creating SPU lock.\n", WHEREARG, threadNo);
+
 		release(create(LOCK_ITEM_SPU, 0));
 		//sleep(2);		
 
-		release(acquire(LOCK_ITEM_PPU, &size, READ));		
-
+		//printf(WHERESTR "Thread #%d, waiting for PPU lock.\n", WHEREARG, threadNo);
+		release(acquire(LOCK_ITEM_PPU, &size, READ));
+		
 		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
 		allocation = acquire(ETTAL, &size, READ);
 
-		if (*allocation != 210)
+		/*if (*allocation != 210)
 			printf("Error: %d\n", *allocation);
 		else
-			printf("OK\n");
-		//printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 210 : 210, (int)allocation);
+			printf("OK\n");*/
+		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 210 : 210, (int)allocation);
 		
 		*allocation = 210;
 		
@@ -101,6 +128,14 @@ int main(int argc, char **argv) {
 			if (i % 1000 == 0)
 				printf(WHERESTR "Read large sequence %d\n", WHEREARG, i);	
 		}
+
+		/*printf(WHERESTR "Reading small sequence...\n", WHEREARG);
+		for(i = 0; i < SMALL_SEQUENCE_COUNT; i++)
+		{
+			release(acquire(SMALL_SEQUENCE + i, &size, READ));
+			if (i % 1000 == 0)
+				printf(WHERESTR "Read small sequence %d\n", WHEREARG, i);	
+		}*/
 
 
 		//Memory leak testing, the SPU memory is very limited so a million runs usually reveal the problem

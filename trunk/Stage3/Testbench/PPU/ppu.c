@@ -60,6 +60,11 @@ int main(int argc, char **argv) {
 	for(i = 0; i < SEQUENCE_COUNT; i++)
 		release(create(LARGE_SEQUENCE + i, items * sizeof(unsigned int)));
 
+	/*printf(WHERESTR "Creating small sequence, %d blocks of size %d\n", WHEREARG, SMALL_SEQUENCE_COUNT, sizeof(unsigned int));
+	for(i = 0; i < SMALL_SEQUENCE_COUNT; i++)
+		release(create(SMALL_SEQUENCE + i, sizeof(unsigned int)));
+	*/
+	
 	printf(WHERESTR "Acquiring SPU item\n", WHEREARG);
 	data = acquire(SPUITEM, &size, WRITE);
 	printf(WHERESTR "Acquired SPU item, value is %d. Expected value 4.\n", WHEREARG, (*data));

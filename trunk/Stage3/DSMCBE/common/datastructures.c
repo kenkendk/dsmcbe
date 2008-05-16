@@ -13,7 +13,7 @@ void* m_tmp;
 
 void* __m_malloc(unsigned int x, char* s1, int s2)
 {
-	m_tmp = thread_malloc(x);
+	m_tmp = clear(x);
 	printf(WHERESTR "Malloc gave %d, balance: %d\n", s1, s2, (int)m_tmp, ++m_balance);
 	return m_tmp;
 };
@@ -26,7 +26,7 @@ void __m_free(void* x, char* s1, int s2)
 
 void* __m_malloc_align(unsigned int x, int y, char* s1, int s2)
 {
-	m_tmp = thread_malloc_align(x, y);
+	m_tmp = clearAlign(x, y);
 	printf(WHERESTR "Malloc_align gave %d, balance: %d\n", s1, s2, (int)m_tmp, ++m_balance);
 	return m_tmp;
 };
