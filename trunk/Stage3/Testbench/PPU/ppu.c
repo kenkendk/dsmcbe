@@ -55,6 +55,11 @@ int main(int argc, char **argv) {
 	printf(WHERESTR "Releasing large block with %d items\n", WHEREARG, items);
 	release(largeblock);
 
+
+	printf(WHERESTR "Creating large sequence, %d blocks of size %d\n", WHEREARG, SEQUENCE_COUNT, items * sizeof(unsigned int));
+	for(i = 0; i < SEQUENCE_COUNT; i++)
+		release(create(LARGE_SEQUENCE + i, items * sizeof(unsigned int)));
+
 	printf(WHERESTR "Acquiring SPU item\n", WHEREARG);
 	data = acquire(SPUITEM, &size, WRITE);
 	printf(WHERESTR "Acquired SPU item, value is %d. Expected value 4.\n", WHEREARG, (*data));

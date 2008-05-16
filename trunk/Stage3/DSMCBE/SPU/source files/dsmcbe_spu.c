@@ -55,6 +55,7 @@ struct dataObjectStruct{
 	void* data;
 	unsigned long size;
 	int mode;
+	unsigned int count;
 };
 
 typedef struct pendingRequestStruct *pendingRequest;
@@ -80,24 +81,27 @@ int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
-//TODO: This is NOT the way to remove an item in a queue...
 void removeAllocatedID(GUID id)
 {
-	queue temp;
-	GUID temp_id;
-	temp = queue_create();
+	list tmp;
+	tmp = allocatedID->head;
 	
-	while(!queue_empty(allocatedID))
+	if ((GUID)tmp->element == id)
 	{
-		temp_id = (GUID)queue_deq(allocatedID);
-		if (temp_id != id)
-			queue_enq(temp, (void*)temp_id);				
-	}		
+		queue_deq(allocatedID);
+		return;
+	}
 	
-	while(!queue_empty(temp))
-		queue_enq(allocatedID, queue_deq(temp));
-
-	queue_destroy(temp);			
+	while(tmp->next != NULL)
+	{
+		if ((GUID)tmp->next->element == id)
+		{
+			tmp->next = cdr_and_free(tmp->next);
+			break;
+		}
+		
+		tmp = tmp->next;
+	}
 }
 
 void unsubscribe(dataObject object)
