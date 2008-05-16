@@ -337,7 +337,7 @@ void * queue_deq(queue q)
 unsigned int queue_count(queue q)
 {
 	unsigned int res = 0;
-	list tmp = q->head;
+	list tmp = q->head->next;
 	while(tmp != NULL)
 	{
 		res++;
