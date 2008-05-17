@@ -5,7 +5,6 @@ typedef unsigned int GUID;
 
 #define READ 0
 #define WRITE 1
-#define OLD 2
  
 extern void* create(GUID id, unsigned long size);
 extern void* acquire(GUID id, unsigned long* size, int type);

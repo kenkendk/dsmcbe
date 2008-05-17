@@ -56,7 +56,7 @@ int FoldPrototein(unsigned long long id)
     //printf(WHERESTR "Started SPU\n", WHEREARG);
     initialize();
     
-    prototein_object = acquire(PROTOTEIN, &size);
+    prototein_object = acquire(PROTOTEIN, &size, WRITE);
     //printf(WHERESTR "SPU got prototein\n", WHEREARG);
     
     thread_id = ((unsigned int*)prototein_object)[0];
@@ -75,14 +75,18 @@ int FoldPrototein(unsigned long long id)
     if (places == NULL)
     	printf("Failed to allocate memory %d\n", errno);
 
-    threadNo = CreateThreads(SPU_FIBERS);
+	if (SPU_FIBERS > 1)
+    	threadNo = CreateThreads(SPU_FIBERS);
+    else
+    	threadNo = 0;
+    	
     if (threadNo >= 0)
     {
 	    while(1)
 	    {
 		    //printf(WHERESTR "thread %d:%d is waiting for work\n", WHEREARG, thread_id, threadNo);
 	    	
-		    synclock = acquire(PACKAGE_ITEM, &size);
+		    synclock = acquire(PACKAGE_ITEM, &size, WRITE);
 		    if (synclock[0] >= synclock[1])
 		    {
 			    //printf(WHERESTR "thread %d:%d is terminating\n", WHEREARG, thread_id, threadNo);
@@ -94,8 +98,9 @@ int FoldPrototein(unsigned long long id)
 		    //printf(WHERESTR "thread %d:%d acquired work %d of %d\n", WHEREARG, thread_id, threadNo, synclock[0], synclock[1]);
 		    synclock[0]++;
 	    	release(synclock);
+	    	clean(PACKAGE_ITEM);
 	
-			work = (struct workblock*)acquire(itemno, &size);	    
+			work = (struct workblock*)acquire(itemno, &size, READ);	    
 		    queue = (struct coordinate*)(((void*)work) + sizeof(struct workblock));
 		   	//printf("SPU recieved a work block with %d items\n", (*work).worksize);
 		    for(i = 0; i < (*work).worksize; i++)
@@ -124,8 +129,9 @@ int FoldPrototein(unsigned long long id)
 	
 			//printf("Writing a score %d\n", bestscore);	        
 	    }
-	
-		TerminateThread();
+		
+		if (SPU_FIBERS > 1)
+			TerminateThread();
 	}
 
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);

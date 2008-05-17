@@ -19,6 +19,89 @@ int main(int argc, char **argv) {
 	unsigned int items;
 	int threadNo;
 	int* allocation;
+	
+	
+	//This section tests that two threads may acquire the same object in various ways:
+	// 1. Both have read acces (shared pointer)
+	// 2. Read is acquired and write is requested (blocks until read is released)
+	// 3. Write is acquire, read i requested (blocks until write is released)
+	
+	/*
+	int* f = &counter;
+	threadNo = CreateThreads(2);
+	if (threadNo >= 0)
+	{
+		allocation = acquire(ETTAL, &size, READ);
+		printf(WHERESTR "Thread #%d, Value read from acquire is: %i (ls: %d). \n", WHEREARG, threadNo, *allocation, (int)allocation);
+
+		//Force thread 1
+		while((*f) == 0 && threadNo != 1)
+			YieldThread();
+		
+		if (threadNo == 1)
+			(*f)++;
+
+		while((*f) == 1 && threadNo != 0)
+			YieldThread();
+		
+		if (threadNo == 0)
+			(*f)++;
+
+		printf(WHERESTR "Thread #%d, release (%d). \n", WHEREARG, threadNo, counter);
+		release(allocation);
+		printf(WHERESTR "Thread #%d, released (%d). \n", WHEREARG, threadNo, counter);
+		YieldThread();
+		
+		//Force thread 0
+		while((*f) == 2 && threadNo != 0)
+			YieldThread();
+		
+		if (threadNo == 0)
+		{
+			printf(WHERESTR "Thread #%d, acquire read (%d). \n", WHEREARG, threadNo, counter);
+			allocation = acquire(ETTAL, &size, READ);
+			printf(WHERESTR "Thread #%d, has read lock (%d). \n", WHEREARG, threadNo, counter);
+			(*f)++;
+		}
+		
+		//Force thread 1
+		while((*f) == 3 && threadNo != 1)
+			YieldThread();
+
+		if (threadNo == 1)
+		{		
+			printf(WHERESTR "Thread #%d, is acquire'ing write lock. \n", WHEREARG, threadNo);
+			(*f)++;
+			allocation = acquire(ETTAL, &size, WRITE);
+			printf(WHERESTR "Thread #%d, has write lock. \n", WHEREARG, threadNo);
+		}
+		
+		//Thread 0 has a read lock, and thread 1 is awaiting is write lock
+		
+		//Force thread 0
+		while((*f) == 4 && threadNo != 0)
+			YieldThread();
+		
+		if (threadNo == 0)
+		{
+			printf(WHERESTR "Thread #%d, is releasing read lock. \n", WHEREARG, threadNo);
+			release(allocation);
+			printf(WHERESTR "Thread #%d, has released read lock. \n", WHEREARG, threadNo);
+
+			(*f)++;
+			printf(WHERESTR "Thread #%d, is getting read lock. \n", WHEREARG, threadNo);
+			acquire(ETTAL, &size, READ);
+			printf(WHERESTR "Thread #%d, has read lock. \n", WHEREARG, threadNo);
+		}
+			
+		printf(WHERESTR "Thread #%d, release. \n", WHEREARG, threadNo);
+		release(allocation);
+		
+		printf(WHERESTR "Thread #%d, terminate. \n", WHEREARG, threadNo);
+		TerminateThread();
+	}
+
+	sleep(5);*/
 
 	/*void* test;
 	void* test2;
@@ -46,7 +129,7 @@ int main(int argc, char **argv) {
 	else
 		threadNo = 0;
 	
-	if (threadNo != -1)
+	if (threadNo >= 0)
 	{
 		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
 		allocation = acquire(ETTAL, &size, WRITE);

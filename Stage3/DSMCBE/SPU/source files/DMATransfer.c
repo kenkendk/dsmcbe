@@ -32,10 +32,17 @@ void WaitForDMATransferByGroup(int groupid)
 void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid)
 {
 	if (((unsigned int)buffer % 128) != 0)
-		printf(WHERESTR "Warning detected non-aligned DMA transfer\n", WHEREARG);
+		REPORT_ERROR("Warning detected non-aligned DMA transfer");
 
 	if ((ea % 128) != 0)
-		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
+	{
+		REPORT_ERROR("Error, EA was non-aligned in DMA transfer");
+
+		if (size < 16384 )
+			printf(WHERESTR "Single DMA write-transfer, source: %d, ea: %d, size: %d, tag: %d\n", WHEREARG, (int)buffer, ea, size, groupid);
+		else
+			printf(WHERESTR "DMA list write-transfer, source: %d, ea: %d, size: %d, tag: %d\n", WHEREARG, (int)buffer, ea, size, groupid);
+	}
 
 	if (size < 16384 ) {
 		//printf(WHERESTR "Single DMA write-transfer, source: %d, ea: %d, size: %d, tag: %d\n", WHEREARG, (int)buffer, ea, size, groupid);
@@ -73,7 +80,14 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 		printf(WHERESTR "Warning detected non-aligned DMA transfer\n", WHEREARG);
 
 	if ((ea % 128) != 0)
-		printf(WHERESTR "Error, EA was non-aligned in DMA transfer\n", WHEREARG);
+	{
+		REPORT_ERROR("Error, EA was non-aligned in DMA transfer");
+
+		if (size < 16384 )
+			printf(WHERESTR "Single DMA read-transfer, source: %d, ea: %d, size: %d, tag: %d\n", WHEREARG, (int)buffer, ea, size, groupid);
+		else
+			printf(WHERESTR "DMA list read-transfer, source: %d, ea: %d, size: %d, tag: %d\n", WHEREARG, (int)buffer, ea, size, groupid);
+	}
 	
 	if (size < 16384 ) {
 		//printf(WHERESTR "Single DMA read-transfer, target: %d, ea: %d, size: %d, tag: %d\n", WHEREARG, buffer, ea, size, groupid);
