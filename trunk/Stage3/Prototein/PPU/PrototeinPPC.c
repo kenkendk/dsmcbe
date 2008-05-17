@@ -130,7 +130,7 @@ void FoldPrototein(char* proto, int spu_count)
 	for(i = 0; i < spu_count; i++)
 	{
 	    //printf(WHERESTR "PPU is reading result for %i\n", WHEREARG, i);
-		tempobj = acquire(WINNER_OFFSET + i, &size);
+		tempobj = acquire(WINNER_OFFSET + i, &size, READ);
 		if (tempobj == NULL)
 			printf(WHERESTR "winner buffer failed\n", WHEREARG);
 		else
