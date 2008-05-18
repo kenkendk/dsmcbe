@@ -23,8 +23,9 @@
 
 //There are only 32 DMA tags avalible
 #define MAX_DMA_GROUPS 32
-//The SPU cannot hold more than a few unserviced requests
-#define MAX_REQ_NO 100000
+
+//There can be no more than this many ongoing requests
+#define MAX_PENDING_REQUESTS 10
 
 //This table keeps all active items, key is the pointer, data is a dataObject
 static hashtable allocatedItems;
@@ -38,15 +39,18 @@ static hashtable pendingInvalidate;
 //This is all IDs kept after release, sorted with last used first
 static queue allocatedID;
 
-//A running number to distinguish requests
-static unsigned int requestNo = 1;
-//A running number to distinguish DMA transfers
-static int DMAGroupNo = 0;
+//A sequential number to distinguish requests
+static unsigned int requestNo = 0;
 
-//A list of pending requests. 
-//If value is NULL a mailbox communication is expected
-//If value is not NULL, the value is the package with a pending DMA transfer  
-static hashtable pending;
+//A sequential number to distinguish DMA transfers
+static unsigned int DMAGroupNo = 0;
+
+//The map of used pending request
+static unsigned int pendingMap = 0;
+
+#define SETBIT(seqNo,maxNo,map) (map |= (1 << (seqNo = (seqNo % maxNo))))
+#define GETBIT(seqNo,maxNo,map) ((map & (1 << (seqNo = (seqNo % maxNo)))) != 0) 
+#define CLEARBIT(seqNo,maxNo,map) map = (map & (~(1 << (seqNo = (seqNo % maxNo))))) 
 
 void sendMailbox();
 void invalidate(struct invalidateRequest* item);
@@ -67,13 +71,15 @@ typedef struct pendingRequestStruct *pendingRequest;
 struct pendingRequestStruct
 {
 	dataObject object;
-	void* request;
+	struct packageBuffer request;
 	GUID id;
 	int dmaNo;
 	unsigned long size;
 	int state;
 	int mode;
 };
+
+static struct pendingRequestStruct pendingRequestBuffer[MAX_PENDING_REQUESTS];
 
 int lessint(void* a, void* b){
 	
@@ -85,28 +91,46 @@ int hashfc(void* a, unsigned int count){
 	return ((int)a % count);
 }
 
-//#define TESTHT testht(__LINE__);
+//This function looks in map for a zero bit, if found, flips it and returns the matching number
+inline unsigned int findFreeItem(unsigned int* seq, unsigned int max, unsigned int* map)
+{
+	size_t i;
 
-static hashtableIterator test_ht_it = NULL;
+	//printf(WHERESTR "Args: %d, %d, %d\n", WHEREARG, *seq, max, *map);	
+	
+	//Optimal, the corresponding number fits
+	if (!GETBIT(*seq, max, *map))
+	{
+		SETBIT(*seq, max, *map);
+		return *seq;
+	}
+	else
+	{
+		for(i = 0; i < (max-1); i++)
+		{
+			(*seq)++;
+			if (!GETBIT(*seq, max, *map))
+			{
+				SETBIT(*seq, max, *map);
+				return *seq;
+			}
+			
+		}
+	}
+
+	REPORT_ERROR("Failed to retrieve a sequence number, try to increase the avalible amount");
+	return -1;
+}
 
 //We cannot free items if they are in transit
 int pendingContains(dataObject obj)
 {
-	hashtableIterator it;
-	pendingRequest req;
-	
-	it = ht_iter_create(pending);
-	while(ht_iter_next(it))
-	{
-		req = ht_iter_get_value(it);
-		if (req->object == obj)
-		{
-			//printf(WHERESTR "Found invalidated item to be in progress: %d\n", WHEREARG, obj->id);
+	size_t i;
+	for(i = 0; i < MAX_PENDING_REQUESTS; i++)
+		if (GETBIT(i, MAX_PENDING_REQUESTS, pendingMap) && pendingRequestBuffer[i].object == obj)
 			return 1;
-		}
-	}
-	ht_iter_destroy(it);
-	return 0;
+	
+	return 0; 
 }
 
 void processPendingInvalidate(GUID id)
@@ -120,48 +144,6 @@ void processPendingInvalidate(GUID id)
 	}	
 }
 
-
-void testht(int lineno)
-{
-	//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
-	if (pending == NULL)
-	{
-		printf("Pending is null, returning. Caller %d\n", lineno);
-		return;
-	}
-
-	if (test_ht_it == NULL)
-	{
-		//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
-		test_ht_it = ht_iter_create(pending);
-		//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
-	}
-	
-	//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
-	test_ht_it->ht = pending;
-	test_ht_it->index = -1;
-	test_ht_it->kl = NULL;
-	
-	//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
-	while(ht_iter_next(test_ht_it))
-	{
-		if ((unsigned int)ht_iter_get_key(test_ht_it) > requestNo)
-		{
-			printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
-			test_ht_it->ht = pending;
-			test_ht_it->index = -1;
-			test_ht_it->kl = NULL;
-			printf(WHERESTR "Detected broken hashtable from line %d: ", WHEREARG, lineno);
-			while(ht_iter_next(test_ht_it))
-				printf("%d, ", (int)ht_iter_get_key(test_ht_it));
-			printf("\n");
-			sleep(10);
-			break;
-		}
-	}
-
-}
-
 void removeAllocatedID(GUID id)
 {
 	list tmp;
@@ -173,13 +155,11 @@ void removeAllocatedID(GUID id)
 		return;
 	}
 	
-	//printf(WHERESTR "Removing item from allocated, count before: %d\n", WHEREARG, queue_count(allocatedID));
 	while(tmp->next != NULL)
 	{
 		if ((GUID)tmp->next->element == id)
 		{
 			tmp->next = cdr_and_free(tmp->next);
-			//printf(WHERESTR "Removed item from allocated, count after: %d\n", WHEREARG, queue_count(allocatedID));
 			break;
 		}
 		
@@ -208,7 +188,7 @@ void unsubscribe(dataObject object)
 	
 	//printf(WHERESTR "Unregistering item with id: %d\n", WHEREARG, object->id);
 	spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
-	spu_write_out_mbox(NEXT_SEQ_NO(requestNo, MAX_REQ_NO));
+	spu_write_out_mbox(MAX_PENDING_REQUESTS + 1); //Invalid number
 	spu_write_out_mbox(object->id);
 	spu_write_out_mbox(READ);
 	spu_write_out_mbox(object->size);
@@ -225,11 +205,12 @@ void clean(GUID id)
 		{
 			ht_delete(allocatedItemsOld, (void*)id);
 			removeAllocatedID(id);
+			//printf(WHERESTR "Removed id %d\n", WHEREARG, object->id);
 			unsubscribe(object);
 			if (ht_member(pendingInvalidate, (void*)object->id))
 			{
 				FREE(ht_get(pendingInvalidate, (void*)object->id));
-				ht_delete(pending, (void*)object->id);
+				ht_delete(pendingInvalidate, (void*)object->id);
 			}
 			FREE_ALIGN(object->data);
 			object->data = NULL;
@@ -284,7 +265,7 @@ void* clearAlign(unsigned long size, int base) {
 					if (ht_member(pendingInvalidate, (void*)object->id))
 					{
 						FREE(ht_get(pendingInvalidate, (void*)object->id));
-						ht_delete(pending, (void*)object->id);
+						ht_delete(pendingInvalidate, (void*)object->id);
 					}
 
 					FREE_ALIGN(object->data);
@@ -301,6 +282,7 @@ void* clearAlign(unsigned long size, int base) {
 					cur = &((*cur)->next);
 				//printf(WHERESTR "Cleared id %i\n", WHEREARG, id);
 			} else {
+				printf(WHERESTR "ID is %d (%d)\n", WHEREARG, id, queue_count(allocatedID));
 				REPORT_ERROR("allocatedID not found in allocatedItemsOld");
 				sleep(10);
 			}		
@@ -365,7 +347,7 @@ void* clear(unsigned long size) {
 					if (ht_member(pendingInvalidate, (void*)object->id))
 					{
 						FREE(ht_get(pendingInvalidate, (void*)object->id));
-						ht_delete(pending, (void*)object->id);
+						ht_delete(pendingInvalidate, (void*)object->id);
 					}
 
 					FREE_ALIGN(object->data);
@@ -378,6 +360,7 @@ void* clear(unsigned long size) {
 					cur = &((*cur)->next);
 				//printf(WHERESTR "Cleared id %i\n", WHEREARG, id);
 			} else {
+				printf(WHERESTR "ID is %d\n", WHEREARG, id);
 				REPORT_ERROR("allocatedID not found in allocatedItemsOld");
 			}		
 		}
@@ -471,6 +454,7 @@ void invalidate(struct invalidateRequest* item) {
 				fprintf(stderr, WHERESTR "Item lock count was zero, but item was allocated? (%d, %d)\n", WHEREARG, object->id, (int)object->data);  
 			ht_delete(allocatedItemsOld, (void*)id);
 			removeAllocatedID(id);
+			//printf(WHERESTR "Removed id %d\n", WHEREARG, object->id);
 			FREE_ALIGN(object->data);
 			object->data = NULL;
 			FREE(object);		
@@ -506,13 +490,20 @@ void invalidate(struct invalidateRequest* item) {
 void StartDMATransfer(struct acquireResponse* resp)
 {
 	unsigned int transfer_size;
-	pendingRequest req = (pendingRequest)ht_get(pending, (void*)resp->requestID);
+	pendingRequest req = &pendingRequestBuffer[resp->requestID];
+
+	if (!GETBIT(resp->requestID, MAX_PENDING_REQUESTS, pendingMap))
+	{
+		printf("Req id: %d\n", resp->requestID);
+		REPORT_ERROR("Invalid request number");
+	}
 	
 	//printf(WHERESTR "Processing ACQUIRE package for %d, %d\n", WHEREARG, req->id, resp->requestID);
 	
 	if (ht_member(allocatedItemsOld, (void*)(req->id))) {
 		req->object = (dataObject)ht_get(allocatedItemsOld, (void*)(req->id));
 		removeAllocatedID(req->id);
+		//printf(WHERESTR "Removed id %d\n", WHEREARG, req->id);
 		
 		if (req->object->count == 0)
 		{
@@ -572,7 +563,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
 	if ((req->object->data = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
-		printf(WHERESTR "Pending fill: %d, pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d, allocatedId: %d\n", WHEREARG, pending->fill, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill, queue_count(allocatedID));
+		printf(WHERESTR "Pending invalidate: %d, allocatedItems: %d, allocatedItemsOld: %d, allocatedId: %d\n", WHEREARG, pendingInvalidate->fill, allocatedItems->fill, allocatedItemsOld->fill, queue_count(allocatedID));
 		REPORT_ERROR("Failed to allocate memory on SPU");
 		
 		sleep(10);
@@ -600,16 +591,16 @@ void readMailbox() {
 	unsigned long datasize;
 	GUID itemid;
 	void* datapointer;
-	pendingRequest req;
 	int mode;
 		
+	struct acquireResponse* acqResp;
+	struct releaseResponse* relResp;
+	
 	int packagetype = spu_read_in_mbox();
 	switch(packagetype)
 	{
 		case PACKAGE_ACQUIRE_RESPONSE:
 			//printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
-			if ((dataItem = MALLOC(sizeof(struct acquireResponse))) == NULL)
-				REPORT_ERROR("Failed to allocate memory on SPU");
 			
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
@@ -617,51 +608,44 @@ void readMailbox() {
 			datasize = spu_read_in_mbox();
 			datapointer = (void*)spu_read_in_mbox();
 
-			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
-			((struct acquireResponse*)dataItem)->requestID = requestID; 
-			((struct acquireResponse*)dataItem)->dataItem = itemid;
-			((struct acquireResponse*)dataItem)->dataItem = mode;
-			((struct acquireResponse*)dataItem)->dataSize = datasize;
-			((struct acquireResponse*)dataItem)->data = datapointer;
-
-			if (ht_member(pending, (void*)((struct acquireResponse*)dataItem)->requestID))
-			{
-				req = ht_get(pending, (void*)((struct acquireResponse*)dataItem)->requestID);
-				if (req->request != NULL)
-					FREE(req->request);
-				req->request = dataItem;
-			}
-			else
+			if (!GETBIT(requestID, MAX_PENDING_REQUESTS, pendingMap)) {
 				REPORT_ERROR("Recieved a request with an unexpected requestID\n");
+			} else {
+				
+				//printf(WHERESTR "ID was %d\n", WHEREARG, requestID);
+				acqResp = (struct acquireResponse*)&pendingRequestBuffer[requestID].request;
+				
+				acqResp->packageCode = packagetype;									
+				acqResp->requestID = requestID; 
+				acqResp->dataItem = itemid;
+				acqResp->dataItem = mode;
+				acqResp->dataSize = datasize;
+				acqResp->data = datapointer;
+
+				StartDMATransfer(acqResp);
+			}
 			
-			StartDMATransfer((struct acquireResponse*)dataItem);
 			//printf(WHERESTR "Done with ACQUIRE package\n", WHEREARG);			
 			break;
 		
 		case PACKAGE_RELEASE_RESPONSE:
 			//printf(WHERESTR "RELEASE package recieved\n", WHEREARG);
-			if ((dataItem = MALLOC(sizeof(struct releaseResponse))) == NULL)
-			{
-				printf(WHERESTR "pending fill: %d, allocated: %d, allocatedOld: %d, queue: %d\n", WHEREARG, pending->fill, allocatedItems->fill, allocatedItemsOld->fill, queue_count(allocatedID));
-				REPORT_ERROR("Failed to allocate memory on SPU");
-			}
-
 			requestID = spu_read_in_mbox();
-			((struct acquireResponse*)dataItem)->packageCode = packagetype;									
-			((struct acquireResponse*)dataItem)->requestID = requestID; 
+			
+			if (!GETBIT(requestID, MAX_PENDING_REQUESTS, pendingMap)) {
+				REPORT_ERROR("Recieved a request with an unexpected requestID\n");
+			} else {
+				
+				//printf(WHERESTR "ID was %d\n", WHEREARG, requestID);
+				relResp = (struct releaseResponse*)&pendingRequestBuffer[requestID].request;
+						
+				relResp->packageCode = packagetype;									
+				relResp->requestID = requestID; 
 
-			if (ht_member(pending, (void*)((struct acquireResponse*)dataItem)->requestID))
-			{
-				req = ht_get(pending, (void*)((struct acquireResponse*)dataItem)->requestID);
-				if (req->request != NULL)
-					FREE(req->request);
-				req->object->count--;
-				req->request = dataItem;
-				req->state = ASYNC_STATUS_COMPLETE;
+				pendingRequestBuffer[requestID].object->count--;
+				pendingRequestBuffer[requestID].state = ASYNC_STATUS_COMPLETE;
 			}
-			else
-				REPORT_ERROR("Recieved a request with an unexpected requestID");
-
+			
 			break;
 		
 		case PACKAGE_INVALIDATE_REQUEST:			
@@ -690,21 +674,18 @@ void readMailbox() {
 unsigned int beginCreate(GUID id, unsigned long size)
 {
 	pendingRequest req;
-	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
+	unsigned int nextId = findFreeItem(&requestNo, MAX_PENDING_REQUESTS, &pendingMap);
 
 	if (allocatedItemsOld == NULL)
 	{
-		printf(WHERESTR "Initialize must be called\n", WHEREARG);
+		REPORT_ERROR("Initialize must be called");
+		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
 		return 0;
 	}
 
-	if ((req = MALLOC(sizeof(struct pendingRequestStruct))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
-	
-	struct createRequest* request;
-	if ((request = MALLOC(sizeof(struct createRequest))) == NULL)
-		REPORT_ERROR("malloc error");
-	
+	req = &pendingRequestBuffer[nextId];
+	struct createRequest* request = (struct createRequest*)&req->request;
+
 	request->packageCode = PACKAGE_CREATE_REQUEST;
 	request->requestID = nextId;
 	request->dataSize = size == 0 ? 1 : size;
@@ -714,17 +695,10 @@ unsigned int beginCreate(GUID id, unsigned long size)
 	
 	req->id = id;
 	req->object = NULL;
-	req->request = request;
 	req->state = ASYNC_STATUS_REQUEST_SENT;
 	req->mode = WRITE;
 
 	//printf(WHERESTR "Issued an create for %d, with req %d\n", WHEREARG, id, nextId); 
-	
-	if (ht_member(pending, (void*)nextId))
-		REPORT_ERROR("Re-used a request ID");
-	ht_insert(pending, (void*)nextId, req);
-	if (!ht_member(pending, (void*)nextId))
-		REPORT_ERROR("Failed to insert item in pending list");
 	
 	return nextId;
 }
@@ -733,12 +707,20 @@ unsigned int beginAcquire(GUID id, int type)
 {
 	pendingRequest req = NULL;
 	struct acquireRequest* request = NULL;
-	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
+	unsigned int nextId = findFreeItem(&requestNo, MAX_PENDING_REQUESTS, &pendingMap);
 	
 	if (allocatedItemsOld == NULL)
 	{
-		printf(WHERESTR "Initialize must be called\n", WHEREARG);
+		REPORT_ERROR("Initialize must be called");
+		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
 		return 0;
+	}
+	
+	if (!GETBIT(nextId, MAX_PENDING_REQUESTS, pendingMap))
+	{
+		//printf(WHERESTR "Values %d, %d\n", WHEREARG, nextId, pendingMap);
+		REPORT_ERROR("Setbit failed");
+		sleep(5);
 	}
 
 	while (spu_stat_in_mbox() > 0)
@@ -746,11 +728,9 @@ unsigned int beginAcquire(GUID id, int type)
 		
 	processPendingInvalidate(id);
 
-	if ((req = (pendingRequest)MALLOC(sizeof(struct pendingRequestStruct))) == NULL)
-		REPORT_ERROR("malloc error");
+	req = &pendingRequestBuffer[nextId];
 
 	//printf(WHERESTR "request %i, req %i\n", WHEREARG, (int)request, (int)req);
-
 	if (ht_member(allocatedItemsOld, (void*)id))
 	{
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
@@ -761,26 +741,23 @@ unsigned int beginAcquire(GUID id, int type)
 			object->mode = type;
 			object->count++;
 			removeAllocatedID(id);
+			//printf(WHERESTR "Removed id %d\n", WHEREARG, object->id);
 			
 			if (!ht_member(allocatedItems, object->data))
 				ht_insert(allocatedItems, object->data, object);
 	
 			req->id = id;
 			req->object = object;
-			req->request = NULL;
+			req->request.packageCode = PACKAGE_INVALID;
 			req->size = object->size;
 			req->state = ASYNC_STATUS_COMPLETE;
 			req->mode = type;
 			
-			if (ht_member(pending, (void*)nextId))
-				REPORT_ERROR("Re-used a request ID");
-			ht_insert(pending, (void*)nextId, req);
 			return nextId;
 		}		
 	}
-	
-	if ((request = MALLOC(sizeof(struct acquireRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+
+	request = (struct acquireRequest*)&req->request;	
 	
 	if (type == WRITE) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
@@ -790,6 +767,7 @@ unsigned int beginAcquire(GUID id, int type)
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	} else {
 		REPORT_ERROR("Starting acquiring in unknown mode");
+		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
 		return 0;
 	}
 	request->requestID = nextId;
@@ -799,38 +777,31 @@ unsigned int beginAcquire(GUID id, int type)
 	
 	req->id = id;
 	req->object = NULL;
-	req->request = request;
 	req->state = ASYNC_STATUS_REQUEST_SENT;
 	req->mode = type;
 
 	sendMailbox(request);
-
-	if (ht_member(pending, (void*)nextId))
-		REPORT_ERROR("Re-used a request ID");
-	ht_insert(pending, (void*)nextId, req);
-	if (!ht_member(pending, (void*)nextId))
-		REPORT_ERROR("Failed to insert item in pending list");
 	
 	return nextId;
 }
 
 unsigned int beginRelease(void* data)
 {
-	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
+	unsigned int nextId = findFreeItem(&requestNo, MAX_PENDING_REQUESTS, &pendingMap);
 	unsigned int transfersize;
 	dataObject object;
 	pendingRequest req;
+	size_t i;
 	
 	//printf(WHERESTR "Starting a release\n", WHEREARG); 
 	
 	if (allocatedItemsOld == NULL)
 	{
-		fprintf(stderr, WHERESTR "Initialize must be called\n", WHEREARG);
+		REPORT_ERROR("Initialize must be called");
 		return 0;
 	}
 
-	if ((req = MALLOC(sizeof(struct pendingRequestStruct))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
+	req = &pendingRequestBuffer[nextId];
 
 	if (ht_member(allocatedItems, data)) {
 		object = ht_get(allocatedItems, data);
@@ -848,9 +819,7 @@ unsigned int beginRelease(void* data)
 
 			//printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, object->id); 
 
-			struct releaseRequest* request;
-			if ((request = MALLOC(sizeof(struct releaseRequest))) == NULL)
-				fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
+			struct releaseRequest* request = (struct releaseRequest*)&req->request;
 	
 			request->packageCode = PACKAGE_RELEASE_REQUEST; 
 			request->requestID = nextId;
@@ -858,11 +827,14 @@ unsigned int beginRelease(void* data)
 			request->mode = WRITE;
 			request->dataSize = object->size;
 			request->offset = 0;
-
-			req->request = request;
 			
-			ht_delete(allocatedItems, data);
+			//TODO: The item is not up for release, until the DMA transfer is complete
+			//It works now, because there is no invalidate performed while the request is pending
+			ht_delete(allocatedItems, object->data);
 			queue_enq(allocatedID, (void*)object->id);
+			//printf(WHERESTR "Inserted id %d\n", WHEREARG, object->id);
+			
+			
 		} else if (object->mode == READ || object->mode == BLOCKED) {
 			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 
@@ -871,18 +843,15 @@ unsigned int beginRelease(void* data)
 			if (object->mode == BLOCKED) {
 				if (object->count == 0)
 				{
-					hashtableIterator it = ht_iter_create(pending);
-					while(ht_iter_next(it))
-					{
-						if (ht_iter_get_key(it) == (void*)object->id)
+					for(i = 0; i < MAX_PENDING_REQUESTS; i++)
+						if (GETBIT(i, MAX_PENDING_REQUESTS, pendingMap) && pendingRequestBuffer[i].id == object->id)
 						{
-							((pendingRequest)ht_iter_get_value(it))->state = ASYNC_STATUS_COMPLETE;
+							pendingRequestBuffer[i].state = ASYNC_STATUS_COMPLETE;
 							object->count++;
 							object->mode = WRITE;
 							break;
 						}
-					}
-					ht_iter_destroy(it);
+
 					if (object->count == 0)
 						REPORT_ERROR("Object state was blocked, but there was no pending requests for it");
 				}
@@ -897,6 +866,7 @@ unsigned int beginRelease(void* data)
 				//printf(WHERESTR "Local release for %d in read mode\n", WHEREARG, object->id);
 				removeAllocatedID(object->id); 
 				queue_enq(allocatedID, (void*)object->id);
+				//printf(WHERESTR "Inserted id %d\n", WHEREARG, object->id);
 				if (object->count == 0)
 					ht_delete(allocatedItems, object->data);
 			}
@@ -905,16 +875,10 @@ unsigned int beginRelease(void* data)
 			req->object = object;
 			req->size = object->size;
 			req->state = ASYNC_STATUS_COMPLETE;
-			req->request = NULL;
+			req->request.packageCode = PACKAGE_INVALID;
 			req->mode = READ;
 		}
 		 
-		if (ht_member(pending, (void*)nextId))
-			REPORT_ERROR("Re-used a request ID");
-		ht_insert(pending, (void*)nextId, req);
-		if (!ht_member(pending, (void*)nextId))
-			REPORT_ERROR("Failed to insert item in pending list");
-		
 		return nextId;
 	} else {
 		REPORT_ERROR("Tried to release non allocated item");
@@ -927,7 +891,6 @@ void initialize(){
 	allocatedItemsOld = ht_create(10, lessint, hashfc);
 	pendingInvalidate = ht_create(10, lessint, hashfc);
 	allocatedID = queue_create();
-	pending = ht_create(10, lessint, hashfc);
 }
 
 void terminate() {
@@ -935,10 +898,8 @@ void terminate() {
 	ht_destroy(allocatedItemsOld);
 	ht_destroy(pendingInvalidate);
 	queue_destroy(allocatedID);
-	ht_destroy(pending);
 	allocatedItems = NULL;
 	allocatedItemsOld = NULL;
-	pending = NULL;
 	pendingInvalidate = NULL;
 	allocatedID = NULL;
 }
@@ -950,8 +911,11 @@ int getAsyncStatus(unsigned int requestNo)
 	
 	//printf(WHERESTR "In AsyncStatus for %d\n", WHEREARG, requestNo);
 	
-	if (!ht_member(pending, (void*)requestNo))
+	if (!GETBIT(requestNo, MAX_PENDING_REQUESTS, pendingMap))
+	{
+		//printf(WHERESTR "Failed for %d\n", WHEREARG, requestNo);
 		return ASYNC_STATUS_ERROR;
+	}
 	else
 	{
 		while (spu_stat_in_mbox() != 0)
@@ -960,20 +924,22 @@ int getAsyncStatus(unsigned int requestNo)
 			readMailbox();
 		}
 	
-		req = (pendingRequest)ht_get(pending, (void*)requestNo);
+		req = &pendingRequestBuffer[requestNo];
 		
 		if (req->state == ASYNC_STATUS_DMA_PENDING)
 		{
 			if (IsDMATransferGroupCompleted(req->dmaNo))
+			{
 				req->state = ASYNC_STATUS_COMPLETE;
-			if (req->request != NULL)
-				if (req->state == ASYNC_STATUS_COMPLETE && ((struct acquireRequest*)req->request)->packageCode == PACKAGE_RELEASE_REQUEST)
+				if (req->request.packageCode == PACKAGE_RELEASE_REQUEST)
 				{
 					req->state = ASYNC_STATUS_REQUEST_SENT;
-					((struct acquireRequest*)req->request)->requestID = requestNo;
-					sendMailbox(req->request);
+					((struct acquireRequest*)&req->request)->requestID = requestNo;
+					
+					sendMailbox(&req->request);
 					//printf(WHERESTR "Handling release status for %d\n", WHEREARG, requestNo);
-				}		
+				}
+			}		
 		}	
 		return req->state;
 	}
@@ -986,11 +952,17 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 	
 	if (getAsyncStatus(requestNo) == ASYNC_STATUS_ERROR)
 	{
-		fprintf(stderr, WHERESTR "RequestNo was not for a pending request\n", WHEREARG);
+		REPORT_ERROR("RequestNo was not for a pending request");
 		return NULL;
 	}
-		
-	req = ht_get(pending, (void*)requestNo);
+	
+	if (!GETBIT(requestNo, MAX_PENDING_REQUESTS, pendingMap))
+	{
+		REPORT_ERROR("Invalid request number");
+		return NULL;
+	}
+	
+	req = &pendingRequestBuffer[requestNo];
 	//printf(WHERESTR "In endAsync for: %d, initial state was: %d\n", WHEREARG, requestNo, req->state);
 	
 	while(req->state != ASYNC_STATUS_COMPLETE)
@@ -1053,10 +1025,8 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 
 		getAsyncStatus(requestNo);
 
-		//printf(WHERESTR "Status for %d is %d\n", WHEREARG, requestNo, state); 
+		//printf(WHERESTR "Status for %d is %d\n", WHEREARG, requestNo, req->state); 
 	}
-
-	ht_delete(pending, (void*)requestNo);
 
 	if (req->object == NULL)
 	{
@@ -1077,11 +1047,12 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 		{
 			printf(WHERESTR "Dataobject %d (%d) was not registered anymore\n", WHEREARG, req->id, (int)req->object->data); 
 			removeAllocatedID(req->object->id);
+			printf(WHERESTR "Removed id %d\n", WHEREARG, req->object->id);
 
 			if (ht_member(pendingInvalidate, (void*)req->object->id))
 			{
 				FREE(ht_get(pendingInvalidate, (void*)req->object->id));
-				ht_delete(pending, (void*)req->object->id);
+				ht_delete(pendingInvalidate, (void*)req->object->id);
 			}
 
 			FREE_ALIGN(req->object->data);
@@ -1091,18 +1062,13 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 		}
 	}
 
-	if (req->request != NULL)
-	{
-		if (((struct acquireRequest*)req->request)->packageCode == PACKAGE_RELEASE_REQUEST)
-			processPendingInvalidate(((struct acquireRequest*)req->request)->dataItem);
-		
-		FREE(req->request);
-		req->request = NULL;
-	}
+	if (req->request.packageCode == PACKAGE_RELEASE_REQUEST)
+		processPendingInvalidate(((struct acquireRequest*)&req->request)->dataItem);
 
-	FREE(req);
-	req = NULL;
-
+	req->object = NULL;
+	req->request.packageCode = PACKAGE_INVALID;		
+	CLEARBIT(requestNo, MAX_PENDING_REQUESTS, pendingMap);
+	
 	//printf(WHERESTR "Pending fill: %d, count: %d\n", WHEREARG, pendingInvalidate->fill, pendingInvalidate->count);
 	//printf(WHERESTR "In endAsync for %d, returning %d\n", WHEREARG, requestNo, (int)retval);	
 	return retval;

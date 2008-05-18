@@ -8,6 +8,8 @@
 //We need the counter on the heap so the threads share it
 static int counter = 0;
 
+void TEST();
+
 int main(int argc, char **argv) {
 	
 	initialize();
