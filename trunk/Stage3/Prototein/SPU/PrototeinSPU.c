@@ -56,7 +56,7 @@ int FoldPrototein(unsigned long long id)
     bestscore = -9999999;
     prototein = NULL;
     
-    printf(WHERESTR "Started SPU\n", WHEREARG);
+    //printf(WHERESTR "Started SPU\n", WHEREARG);
     initialize();
     
     prototein_object = acquire(PROTOTEIN, &size, WRITE);
@@ -87,7 +87,7 @@ int FoldPrototein(unsigned long long id)
     {
 	    while(1)
 	    {
-		    printf(WHERESTR "thread %d:%d is waiting for work\n", WHEREARG, thread_id, threadNo);
+		    //printf(WHERESTR "thread %d:%d is waiting for work\n", WHEREARG, thread_id, threadNo);
 		    synclock = acquire(PACKAGE_ITEM, &size, WRITE);
 		    if (synclock[0] >= synclock[1])
 		    {
@@ -98,7 +98,7 @@ int FoldPrototein(unsigned long long id)
 		    	
 		    itemno = WORKITEM_OFFSET + synclock[0];
 		    total = synclock[1];
-		    printf(WHERESTR "thread %d:%d acquired work %d of %d\n", WHEREARG, thread_id, threadNo, synclock[0], synclock[1]);
+		    //printf(WHERESTR "thread %d:%d acquired work %d of %d\n", WHEREARG, thread_id, threadNo, synclock[0], synclock[1]);
 		    synclock[0]++;
 	    	release(synclock);
 	
@@ -124,7 +124,7 @@ int FoldPrototein(unsigned long long id)
 		        queue += (*work).item_length;
 	    	}
 	    	release(work);
-		    printf(WHERESTR "thread %d:%d has completed work %d of %d\n", WHEREARG, thread_id, threadNo, itemno - WORKITEM_OFFSET, total);
+		    //printf(WHERESTR "thread %d:%d has completed work %d of %d\n", WHEREARG, thread_id, threadNo, itemno - WORKITEM_OFFSET, total);
 	    	
 	    	//printf("Done folding work block at SPU, score: %d\n", bestscore);
 	    	//printmap(winner, prototein_length);

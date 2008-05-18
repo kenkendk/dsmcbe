@@ -454,7 +454,7 @@ void sendInvalidateResponse(struct invalidateRequest* item) {
 }*/
 
 void invalidate(struct invalidateRequest* item) {
-	printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
+	//printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
 
 	/*FREE(item);
 	return;*/
