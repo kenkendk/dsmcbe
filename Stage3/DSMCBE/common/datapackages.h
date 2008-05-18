@@ -12,6 +12,7 @@
 
 #define NEXT_SEQ_NO(current, max) (current = (current+1) % (max)) 
 
+#define PACKAGE_INVALID 0
 #define PACKAGE_CREATE_REQUEST 1
 #define PACKAGE_ACQUIRE_REQUEST_READ 2
 #define PACKAGE_ACQUIRE_REQUEST_WRITE 3
@@ -94,6 +95,18 @@ struct invalidateResponse
 {
     unsigned char packageCode; // = 10
     unsigned int requestID;
+};
+
+#ifndef MAX
+#define MAX(a,b) (a > b ? a : b)
+#endif
+
+#define MAX_PACKAGE_SIZE MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(sizeof(struct createRequest), sizeof(struct acquireRequest)), sizeof(struct acquireResponse)), sizeof(struct migrationResponse)), sizeof(struct releaseRequest)), sizeof(struct releaseResponse)), sizeof(struct NACK)), sizeof(struct invalidateRequest)), sizeof(struct invalidateResponse))
+
+struct packageBuffer
+{
+	unsigned char packageCode;
+	unsigned char buffer[MAX_PACKAGE_SIZE - sizeof(unsigned char)];
 };
 
 #endif /*DATAPACKAGES_H_*/
