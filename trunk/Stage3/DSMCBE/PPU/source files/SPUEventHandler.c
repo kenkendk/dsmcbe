@@ -47,7 +47,8 @@ void TerminateSPUHandler(int force)
 {
 	size_t i;
 	
-	spu_terminate = 1;
+	//Remove warning about unused parameter
+	spu_terminate = force ? 1 : 1;
 	pthread_join(spu_workthread, NULL);
 	
 	

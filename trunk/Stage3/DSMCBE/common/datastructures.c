@@ -280,11 +280,6 @@ void slset_insert(slset l, void* key, void *data)
 {
 	keylist *lp = slset_find(&(l->elements), key, l->less);
 	if (slset_points_to(lp, key, l->less))
-#ifdef DSMCBE_SPU
-		REPORT_ERROR("Insert failure");
-#else
-		REPORT_ERROR("Insert failure (PPU)");
-#endif
 	assert(!slset_points_to(lp, key, l->less));
 	*lp = key_cons(key, data, *lp);
 }
