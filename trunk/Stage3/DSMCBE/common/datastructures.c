@@ -47,7 +47,7 @@ keylist key_cons(void *key, void* data, keylist l)
 {
 	keylist temp;
 	if ((temp = MALLOC(sizeof(struct keycell))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	temp->data = data;
 	temp->key = key; 
@@ -67,7 +67,7 @@ list cons(void *element, list l)
 {
 	list temp;
 	if ((temp = MALLOC(sizeof(struct cell))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	temp -> element = element;
 	temp -> next = l;
@@ -85,7 +85,7 @@ list list_create()
 {
 	list l;
 	if ((l = MALLOC(sizeof(struct cell))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	l->next = NULL;
 	return l;
@@ -116,7 +116,7 @@ stack stack_create(void)
 {
 	stack temp;
 	if ((temp = MALLOC(sizeof(struct stack))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	temp -> elements = NULL;
 	return temp;
@@ -161,7 +161,7 @@ ulset ulset_create(int (*equal)(void *, void *))
 {
 	ulset l;
 	if ((l = MALLOC(sizeof(struct ulset))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	l -> elements = NULL;
 	l -> equal = equal;
@@ -225,7 +225,7 @@ slset slset_create(int (*less)(void *, void *))
 {
 	slset l;
 	if ((l = MALLOC(sizeof(struct slset))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	l->elements = NULL;
 	l->less = less;
@@ -279,6 +279,12 @@ void* slset_get(slset l, void *key)
 void slset_insert(slset l, void* key, void *data)
 {
 	keylist *lp = slset_find(&(l->elements), key, l->less);
+	if (slset_points_to(lp, key, l->less))
+#ifdef DSMCBE_SPU
+		REPORT_ERROR("Insert failure");
+#else
+		REPORT_ERROR("Insert failure (PPU)");
+#endif
 	assert(!slset_points_to(lp, key, l->less));
 	*lp = key_cons(key, data, *lp);
 }
@@ -298,7 +304,7 @@ queue queue_create(void)
 {
 	queue q;
 	if ((q = MALLOC(sizeof(struct queue))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	q -> head = q -> tail = cons(NULL, NULL);
 	return q;
@@ -355,7 +361,8 @@ dlist dcons(void *element, dlist prev, dlist next)
 {
 	dlist temp;
 	if ((temp = MALLOC(sizeof(struct dcell))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
+
 	temp -> element = element;
 	temp -> prev = prev;
 	temp -> next = next;
@@ -389,7 +396,7 @@ dqueue dq_create(void)
 {
 	dqueue q;
 	if ((q = MALLOC(sizeof(struct dqueue))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	q -> sentinel = dcons(NULL, NULL, NULL);
 	q -> sentinel -> next = q -> sentinel -> prev = q -> sentinel;
@@ -441,7 +448,7 @@ hashtable ht_create_internal(unsigned int size, int (*less)(void *, void *), int
 	hashtable ht;
 	
 	if ((ht = MALLOC(sizeof(struct hashtable))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error");
 		
 	ht->count = size;
 	ht->fill = 0;
@@ -452,7 +459,7 @@ hashtable ht_create_internal(unsigned int size, int (*less)(void *, void *), int
 	if (ht->count > ht->wrapsize)
 	{
 		if ((ht->buffer = MALLOC(sizeof(void*) * size)) == NULL)
-			fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+			REPORT_ERROR("malloc error");
 
 		for(i = 0; i < size; i++)
 			ht->buffer[i] = slset_create(ht->less);
@@ -574,8 +581,11 @@ hashtableIterator ht_iter_create(hashtable ht)
 {
 	hashtableIterator iter;
 	
+	if (ht == NULL)
+		REPORT_ERROR("Creating iter for NULL pointer");
+	
 	if ((iter = MALLOC(sizeof(struct hashtableIterator))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error, out of memory?\n", WHEREARG);
+		REPORT_ERROR("malloc error, out of memory?");
 	
 	iter->ht = ht;
 	iter->kl = NULL;
@@ -618,8 +628,7 @@ int ht_iter_next(hashtableIterator iter)
 		if (iter->index >= iter->ht->count || (iter->index > 0 && iter->ht->count <= iter->ht->wrapsize))
 		{
 			//printf(WHERESTR "In Next, no more values\n", WHEREARG);
-			iter->index = -1;
-			iter->ht = NULL;
+			iter->index = iter->ht->count;
 			iter->kl = NULL;
 			return 0;
 		}
@@ -638,3 +647,8 @@ void ht_iter_destroy(hashtableIterator iter)
 	FREE(iter);	
 }
 
+void ht_iter_reset(hashtableIterator iter)
+{
+	iter->kl = NULL;
+	iter->index = -1;
+}

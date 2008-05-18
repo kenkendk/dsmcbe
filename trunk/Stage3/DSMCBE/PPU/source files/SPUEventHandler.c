@@ -285,8 +285,12 @@ void* SPU_Worker(void* data)
 						//Register this SPU as the initiator
 						if (((struct acquireResponse*)dataItem)->mode == WRITE)
 						{
-							//printf(WHERESTR "Registering SPU %d as initiator for package %d\n", WHEREARG, i, itemid);							
-							ht_insert(spu_writeInitiator, (void*)itemid, (void*)i);
+							//printf(WHERESTR "Registering SPU %d as initiator for package %d\n", WHEREARG, i, itemid);
+							if (ht_member(spu_writeInitiator, (void*)itemid)) {
+								REPORT_ERROR("Same SPU was registered twice for write");
+							} else {							
+								ht_insert(spu_writeInitiator, (void*)itemid, (void*)i);
+							}
 						}
 						
 						break;
