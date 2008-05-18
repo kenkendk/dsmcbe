@@ -49,6 +49,7 @@ static int DMAGroupNo = 0;
 static hashtable pending;
 
 void sendMailbox();
+void invalidate(struct invalidateRequest* item);
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -82,6 +83,83 @@ int lessint(void* a, void* b){
 int hashfc(void* a, unsigned int count){
 	
 	return ((int)a % count);
+}
+
+//#define TESTHT testht(__LINE__);
+
+static hashtableIterator test_ht_it = NULL;
+
+//We cannot free items if they are in transit
+int pendingContains(dataObject obj)
+{
+	hashtableIterator it;
+	pendingRequest req;
+	
+	it = ht_iter_create(pending);
+	while(ht_iter_next(it))
+	{
+		req = ht_iter_get_value(it);
+		if (req->object == obj)
+		{
+			//printf(WHERESTR "Found invalidated item to be in progress: %d\n", WHEREARG, obj->id);
+			return 1;
+		}
+	}
+	ht_iter_destroy(it);
+	return 0;
+}
+
+void processPendingInvalidate(GUID id)
+{
+	struct invalidateRequest* req;
+	if (ht_member(pendingInvalidate, (void*)id))
+	{
+		req = ht_get(pendingInvalidate, (void*)id);
+		ht_delete(pendingInvalidate, (void*)id);
+		invalidate(req);
+	}	
+}
+
+
+void testht(int lineno)
+{
+	//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
+	if (pending == NULL)
+	{
+		printf("Pending is null, returning. Caller %d\n", lineno);
+		return;
+	}
+
+	if (test_ht_it == NULL)
+	{
+		//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
+		test_ht_it = ht_iter_create(pending);
+		//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
+	}
+	
+	//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
+	test_ht_it->ht = pending;
+	test_ht_it->index = -1;
+	test_ht_it->kl = NULL;
+	
+	//printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
+	while(ht_iter_next(test_ht_it))
+	{
+		if ((unsigned int)ht_iter_get_key(test_ht_it) > requestNo)
+		{
+			printf(WHERESTR "In tst, %d, %d\n", WHEREARG, lineno, (int)test_ht_it);
+			test_ht_it->ht = pending;
+			test_ht_it->index = -1;
+			test_ht_it->kl = NULL;
+			printf(WHERESTR "Detected broken hashtable from line %d: ", WHEREARG, lineno);
+			while(ht_iter_next(test_ht_it))
+				printf("%d, ", (int)ht_iter_get_key(test_ht_it));
+			printf("\n");
+			sleep(10);
+			break;
+		}
+	}
+
 }
 
 void removeAllocatedID(GUID id)
@@ -134,8 +212,7 @@ void unsubscribe(dataObject object)
 	spu_write_out_mbox(object->id);
 	spu_write_out_mbox(READ);
 	spu_write_out_mbox(object->size);
-	spu_write_out_mbox((int)object->EA);			
-	
+	spu_write_out_mbox((int)object->EA);
 }
 
 void clean(GUID id)
@@ -144,11 +221,16 @@ void clean(GUID id)
 	if (ht_member(allocatedItemsOld, (void*)id))
 	{
 		object = ht_get(allocatedItemsOld, (void*)id);
-		if (object->count == 0)
+		if (object->count == 0 && !pendingContains(object))
 		{
 			ht_delete(allocatedItemsOld, (void*)id);
 			removeAllocatedID(id);
 			unsubscribe(object);
+			if (ht_member(pendingInvalidate, (void*)object->id))
+			{
+				FREE(ht_get(pendingInvalidate, (void*)object->id));
+				ht_delete(pending, (void*)object->id);
+			}
 			FREE_ALIGN(object->data);
 			object->data = NULL;
 			FREE(object);
@@ -158,7 +240,7 @@ void clean(GUID id)
 }
 
 void* clearAlign(unsigned long size, int base) {	
-	
+
 	if (size == 0)
 	{
 		REPORT_ERROR("Called malloc align with size zero");	
@@ -190,12 +272,21 @@ void* clearAlign(unsigned long size, int base) {
 			if(ht_member(allocatedItemsOld, (void*)id)) {
 			
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
-				if (object->count == 0)
+				if (object->count == 0 && !pendingContains(object))
 				{
+					if (ht_member(allocatedItems, object->data))
+						fprintf(stderr, WHERESTR "Item had no lockers, but was allocated (%d, %d)?", WHEREARG, object->id, (int)object->data);
+
 					unsubscribe(object);
 					freedmemory += (object->size + sizeof(struct dataObjectStruct));
 					ht_delete(allocatedItemsOld, (void*)id);
 	
+					if (ht_member(pendingInvalidate, (void*)object->id))
+					{
+						FREE(ht_get(pendingInvalidate, (void*)object->id));
+						ht_delete(pending, (void*)object->id);
+					}
+
 					FREE_ALIGN(object->data);
 					object->data = NULL;
 					FREE(object);
@@ -263,12 +354,20 @@ void* clear(unsigned long size) {
 			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
 			if(ht_member(allocatedItemsOld, (void*)id)) {
 				dataObject object = ht_get(allocatedItemsOld, (void*)id);
-				if (object->count == 0)
+				if (object->count == 0 && !pendingContains(object))
 				{
+					if (ht_member(allocatedItems, object->data))
+						fprintf(stderr, WHERESTR "Item had no lockers, but was allocated (%d, %d)?", WHEREARG, object->id, (int)object->data);
 					unsubscribe(object);
 					freedmemory += (object->size + sizeof(struct dataObjectStruct));
 					ht_delete(allocatedItemsOld, (void*)id);
 	
+					if (ht_member(pendingInvalidate, (void*)object->id))
+					{
+						FREE(ht_get(pendingInvalidate, (void*)object->id));
+						ht_delete(pending, (void*)object->id);
+					}
+
 					FREE_ALIGN(object->data);
 					object->data = NULL;
 					FREE(object);
@@ -304,6 +403,7 @@ void* clear(unsigned long size) {
 }
 
 void sendMailbox(void* dataItem) {
+	//printf(WHERESTR "Sending request with no %d\n", WHEREARG, ((struct createRequest*)dataItem)->requestID);
 	switch(((struct releaseRequest*)dataItem)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
@@ -354,18 +454,21 @@ void sendInvalidateResponse(struct invalidateRequest* item) {
 }*/
 
 void invalidate(struct invalidateRequest* item) {
-	
-	hashtableIterator it;
-	dataObject obj;
-	//printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
+	printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
+
+	/*FREE(item);
+	return;*/
 	
 	GUID id = item->dataItem;
 	
 	if(ht_member(allocatedItemsOld, (void*)id)) {
 		//printf(WHERESTR "Data with id: %i is allocated but has been released\n", WHEREARG, id);
 		dataObject object = ht_get(allocatedItemsOld, (void*)id);
-		if (object->count == 0)
+		
+		if (object->count == 0 && !pendingContains(object))
 		{
+			if (ht_member(allocatedItems, object->data))
+				fprintf(stderr, WHERESTR "Item lock count was zero, but item was allocated? (%d, %d)\n", WHEREARG, object->id, (int)object->data);  
 			ht_delete(allocatedItemsOld, (void*)id);
 			removeAllocatedID(id);
 			FREE_ALIGN(object->data);
@@ -379,48 +482,25 @@ void invalidate(struct invalidateRequest* item) {
 		{
 			if (!ht_member(pendingInvalidate, (void*)id))
 			{
-				printf(WHERESTR "Data with id: %i is in use\n", WHEREARG, id);
+				//printf(WHERESTR "Data with id: %i is in use\n", WHEREARG, id);
 				ht_insert(pendingInvalidate, (void*)id, item);
 				item = NULL;
 			}
 			else
 			{
-				REPORT_ERROR("Recieved another invalidateRequest for the same item");
+				//REPORT_ERROR("Recieved another invalidateRequest for the same item");
 				FREE(item);
 				item = NULL;
 			}
 		}
-	} else {
-		it = ht_iter_create(allocatedItems);
-		while(ht_iter_next(it))
-		{
-			obj = ht_iter_get_value(it);
-			if (obj->id == id)
-			{
-				if (!ht_member(pendingInvalidate, (void*)id))
-				{
-					printf(WHERESTR "Data with id: %i is in use\n", WHEREARG, id);
-					ht_insert(pendingInvalidate, (void*)id, item);
-					item = NULL;
-				}
-				else
-				{
-					REPORT_ERROR("Recieved another invalidateRequest for the same item");
-					FREE(item);
-					item = NULL;
-				}
-				break;				
-			}	
-		}
-		ht_iter_destroy(it);
 	}
-	
-	if (item != NULL)
+	else	
 	{
-		printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
+		//printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
 		FREE(item);
 		item = NULL;
 	}
+	
 }
 
 void StartDMATransfer(struct acquireResponse* resp)
@@ -435,7 +515,13 @@ void StartDMATransfer(struct acquireResponse* resp)
 		removeAllocatedID(req->id);
 		
 		if (req->object->count == 0)
-			ht_insert(allocatedItems, req->object->data, req->object);
+		{
+			if (ht_member(allocatedItems, req->object->data)) {
+				REPORT_ERROR("Tried to re-insert an object into allocatedItems");
+			} else {
+				ht_insert(allocatedItems, req->object->data, req->object);
+			}
+		}
 		
 		if (req->mode == READ || req->object->count == 0)
 			req->object->count++;
@@ -492,8 +578,17 @@ void StartDMATransfer(struct acquireResponse* resp)
 		sleep(10);
 	}
 
-	ht_insert(allocatedItems, req->object->data, req->object);
-	ht_insert(allocatedItemsOld, (void*)req->object->id, req->object);
+	if (ht_member(allocatedItems, req->object->data)) {
+		REPORT_ERROR("Newly created item already existed in table?");
+	} else {
+		ht_insert(allocatedItems, req->object->data, req->object);
+	}
+	
+	if (ht_member(allocatedItemsOld, (void*)req->object->id)) {
+		REPORT_ERROR("Allocated space for an already existing item");
+	} else {
+		ht_insert(allocatedItemsOld, (void*)req->object->id, req->object);
+	}
 	//printf(WHERESTR "Registered dataobject with id: %d\n", WHEREARG, object->id);
 
 	StartDMAReadTransfer(req->object->data, (unsigned int)resp->data, transfer_size, req->dmaNo);
@@ -625,6 +720,8 @@ unsigned int beginCreate(GUID id, unsigned long size)
 
 	//printf(WHERESTR "Issued an create for %d, with req %d\n", WHEREARG, id, nextId); 
 	
+	if (ht_member(pending, (void*)nextId))
+		REPORT_ERROR("Re-used a request ID");
 	ht_insert(pending, (void*)nextId, req);
 	if (!ht_member(pending, (void*)nextId))
 		REPORT_ERROR("Failed to insert item in pending list");
@@ -646,6 +743,8 @@ unsigned int beginAcquire(GUID id, int type)
 
 	while (spu_stat_in_mbox() > 0)
 		readMailbox();
+		
+	processPendingInvalidate(id);
 
 	if ((req = (pendingRequest)MALLOC(sizeof(struct pendingRequestStruct))) == NULL)
 		REPORT_ERROR("malloc error");
@@ -673,6 +772,8 @@ unsigned int beginAcquire(GUID id, int type)
 			req->state = ASYNC_STATUS_COMPLETE;
 			req->mode = type;
 			
+			if (ht_member(pending, (void*)nextId))
+				REPORT_ERROR("Re-used a request ID");
 			ht_insert(pending, (void*)nextId, req);
 			return nextId;
 		}		
@@ -704,9 +805,12 @@ unsigned int beginAcquire(GUID id, int type)
 
 	sendMailbox(request);
 
+	if (ht_member(pending, (void*)nextId))
+		REPORT_ERROR("Re-used a request ID");
 	ht_insert(pending, (void*)nextId, req);
 	if (!ht_member(pending, (void*)nextId))
 		REPORT_ERROR("Failed to insert item in pending list");
+	
 	return nextId;
 }
 
@@ -805,6 +909,8 @@ unsigned int beginRelease(void* data)
 			req->mode = READ;
 		}
 		 
+		if (ht_member(pending, (void*)nextId))
+			REPORT_ERROR("Re-used a request ID");
 		ht_insert(pending, (void*)nextId, req);
 		if (!ht_member(pending, (void*)nextId))
 			REPORT_ERROR("Failed to insert item in pending list");
@@ -969,7 +1075,15 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 	{
 		if (!ht_member(allocatedItemsOld, (void*)req->id) && !ht_member(allocatedItems, req->object->data))
 		{
-			//printf(WHERESTR "Dataobject %d (%d) was not registered anymore\n", WHEREARG, req->id, (int)req->object->data); 
+			printf(WHERESTR "Dataobject %d (%d) was not registered anymore\n", WHEREARG, req->id, (int)req->object->data); 
+			removeAllocatedID(req->object->id);
+
+			if (ht_member(pendingInvalidate, (void*)req->object->id))
+			{
+				FREE(ht_get(pendingInvalidate, (void*)req->object->id));
+				ht_delete(pending, (void*)req->object->id);
+			}
+
 			FREE_ALIGN(req->object->data);
 			req->object->data = NULL;
 			FREE(req->object);
@@ -979,6 +1093,9 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 
 	if (req->request != NULL)
 	{
+		if (((struct acquireRequest*)req->request)->packageCode == PACKAGE_RELEASE_REQUEST)
+			processPendingInvalidate(((struct acquireRequest*)req->request)->dataItem);
+		
 		FREE(req->request);
 		req->request = NULL;
 	}

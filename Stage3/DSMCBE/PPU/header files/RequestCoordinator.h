@@ -27,16 +27,6 @@ struct QueueableItemStruct {
 	void* dataRequest;
 };
 
-typedef struct PointerEntryStruct *PointerEntry;
-struct PointerEntryStruct
-{
-	GUID id;
-	void* data;
-	unsigned long offset;
-	unsigned long size;	
-	int mode;
-};
-
 //Requesters must call this function to interact with the coordinator
 //The coordinator will free the QueueableItem and the request
 //The requester must free the response

@@ -4,11 +4,10 @@
 #ifdef DSMCBE_SPU
 
 //#define SPU_TRACE_MEM
+  extern void* clear(unsigned long size);
+  extern void* clearAlign(unsigned long size, int base);
 
   #ifdef SPU_TRACE_MEM
-    extern void* clear(unsigned long size);
-    extern void* clearAlign(unsigned long size, int base);
-
     extern unsigned int m_balance;
     extern void* __m_malloc(unsigned int x, char* s1, int s2);
     extern void __m_free(void* x, char* s1, int s2);
@@ -299,6 +298,6 @@ extern void* ht_iter_get_key(hashtableIterator iter);
 extern void* ht_iter_get_value(hashtableIterator iter);
 extern int ht_iter_next(hashtableIterator iter);
 extern void ht_iter_destroy(hashtableIterator iter);
-
+extern void ht_iter_reset(hashtableIterator iter);
 
 #endif
