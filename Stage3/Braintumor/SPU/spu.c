@@ -23,6 +23,9 @@
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
+#define SPU_FIBERS 1
+int threadNo;
+
 struct CURRENT_GRID
 {
 	unsigned char x;
@@ -170,126 +173,136 @@ int main()
 	//printf("SPU: Ready to start\n");
 	
 	int jobID = 0;
-		
-	while(1) {
-		
-		// Make points buffer
-		struct POINTS* points;
-		struct PACKAGE* package;
-
-		unsigned long size;
-		//printf("spu.c: Trying to acquire JOB\n");
-		package = acquire(JOB+jobID, &size, WRITE);
-		//printf("spu.c: Finished acquiring JOB\n");
-		// Get canon information
-		// Position(x,y) Angel(ax,ay), Shots(S)	
-		unsigned int pid = package->id;
-		unsigned int maxpid = package->maxid;
-		unsigned int canonS = package->shots_spu;
-		unsigned int canonX = package->canonX;
-		unsigned int canonY = package->canonY;
-		
-		float canonAX = package->canonAX;
-		float canonAY = package->canonAY;
-			
-		CTWIDTH = package->width;
-		CTHEIGTH = package->heigth;			
 	
-		//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
+	if (SPU_FIBERS > 1)
+		threadNo = CreateThreads(SPU_FIBERS);
+	else
+		threadNo = 0;
+		
+	if (threadNo >= 0) 
+	{				
+		while(1) {
 			
-		printf(WHERESTR "Canon %i with PID: %i out of %i\n", WHEREARG, jobID + 1, pid, maxpid);
+			// Make points buffer
+			struct POINTS* points;
+			struct PACKAGE* package;
 	
-		if(pid >= maxpid) {
-			release(package);
-			unsigned long size; 
-			int* count = acquire(COUNT+jobID, &size, WRITE);
-			*count += 1;
-			release(count);
-			jobID++;
-			continue;
-		}
-			
-		package->id = pid + 1;
-		release(package);
-		//clean(JOB+jobID);
-		
-		//printf("spu.c: Trying to acquire RESULT\n");
-		points = acquire(RESULT + pid, &size, WRITE);
-		//printf("spu.c: Finished acquiring RESULT\n");
-
-		// Set current_grid
-		struct CURRENT_GRID current_grid;
-		current_grid.x = 0;
-		current_grid.y = 0;
-		
-		struct CURRENT_GRID next_grid;
-		next_grid.x = 0;
-		next_grid.y = 0;
-				
-		for(i = 0; i < canonS; i++)
-		{
-			points[i].alive = TRUE;
-			points[i].x = canonX;
-			points[i].y = canonY;
-		}
-				
-		int more_to_do = TRUE;
-		
-		while(more_to_do)
-		{			
-		
-			unsigned int id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10));
 			unsigned long size;
+			//printf("spu.c: Trying to acquire JOB\n");
+			package = acquire(JOB+jobID, &size, WRITE);
+			//printf("spu.c: Finished acquiring JOB\n");
+			// Get canon information
+			// Position(x,y) Angel(ax,ay), Shots(S)	
+			unsigned int pid = package->id;
+			unsigned int maxpid = package->maxid;
+			unsigned int canonS = package->shots_spu;
+			unsigned int canonX = package->canonX;
+			unsigned int canonY = package->canonY;
 			
-			//printf("spu.c: Trying to acquire BUFFER\n");
-			unsigned char* buffer;
-			buffer = acquire(id, &size, READ);			
-			//printf(WHERESTR "Finished acquiring BUFFER %i\n", WHEREARG, id);
+			float canonAX = package->canonAX;
+			float canonAY = package->canonAY;
+				
+			CTWIDTH = package->width;
+			CTHEIGTH = package->heigth;			
+		
+			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
+				
+			//if ((pid % (maxpid / 10)) == 0)
+				//printf(WHERESTR "Canon %i with PID: %i out of %i\n", WHEREARG, jobID + 1, pid, maxpid);
 					
-			next_grid.x = current_grid.x + 1;
-			if(next_grid.x == 3)
-			{
-				next_grid.y = (current_grid.y + 1);
-				next_grid.x = 0;
-				i = 0;
-				if(next_grid.y == 3)
-				{
-					more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
-					//printf("spu.c: Trying to release BUFFER\n");
-					release(buffer);
-					//printf("spu.c: Finished releasing BUFFER\n");
-					if(!more_to_do)
-					{
-						//printf("All points in POINTS are dead!!\n");
-						break;
-					}
-					next_grid.x = 0;
-					next_grid.y = 0;
-					current_grid.x = next_grid.x;
-					current_grid.y = next_grid.y;						
-					//printf("Starting all over because there is more work to do!\n");
-					continue;
-				}				
+			if(pid >= maxpid) {
+				release(package);
+				unsigned long size; 
+				int* count = acquire(COUNT+jobID, &size, WRITE);
+				*count += 1;
+				release(count);
+				jobID++;
+				continue;
 			}
-									
-			more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
-																						
-			current_grid.x = next_grid.x;
-			current_grid.y = next_grid.y;
-			/*
-			if(more_to_do)	
-				printf("More work to do\n");
-			else
-				printf("No more work to do\n");
-			*/
-			//printf("spu.c: Trying to release BUFFER\n");			
-			release(buffer);
-			//printf("spu.c: Finished releasing BUFFER\n");
-		}
-		release(points);
-		//clean(RESULT + pid);
-	}
+				
+			package->id = pid + 1;
+			release(package);
+			
+			//printf("spu.c: Trying to acquire RESULT\n");
+			points = acquire(RESULT + pid, &size, WRITE);
+			//printf("spu.c: Finished acquiring RESULT\n");
 	
+			// Set current_grid
+			struct CURRENT_GRID current_grid;
+			current_grid.x = 0;
+			current_grid.y = 0;
+			
+			struct CURRENT_GRID next_grid;
+			next_grid.x = 0;
+			next_grid.y = 0;
+					
+			for(i = 0; i < canonS; i++)
+			{
+				points[i].alive = TRUE;
+				points[i].x = canonX;
+				points[i].y = canonY;
+			}
+					
+			int more_to_do = TRUE;
+			
+			while(more_to_do)
+			{			
+			
+				unsigned int id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10));
+				unsigned long size;
+				
+				//printf("spu.c: Trying to acquire BUFFER\n");
+				unsigned char* buffer;
+				buffer = acquire(id, &size, READ);			
+				//printf(WHERESTR "Finished acquiring BUFFER %i\n", WHEREARG, id);
+						
+				next_grid.x = current_grid.x + 1;
+				if(next_grid.x == 3)
+				{
+					next_grid.y = (current_grid.y + 1);
+					next_grid.x = 0;
+					i = 0;
+					if(next_grid.y == 3)
+					{
+						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
+						//printf("spu.c: Trying to release BUFFER\n");
+						release(buffer);
+						//printf("spu.c: Finished releasing BUFFER\n");
+						if(!more_to_do)
+						{
+							//printf("All points in POINTS are dead!!\n");
+							break;
+						}
+						next_grid.x = 0;
+						next_grid.y = 0;
+						current_grid.x = next_grid.x;
+						current_grid.y = next_grid.y;						
+						//printf("Starting all over because there is more work to do!\n");
+						continue;
+					}				
+				}
+										
+				more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
+																							
+				current_grid.x = next_grid.x;
+				current_grid.y = next_grid.y;
+				/*
+				if(more_to_do)	
+					printf("More work to do\n");
+				else
+					printf("No more work to do\n");
+				*/
+				//printf("spu.c: Trying to release BUFFER\n");			
+				release(buffer);
+				//printf("spu.c: Finished releasing BUFFER\n");
+			}
+			release(points);
+			clean(RESULT + pid);
+		}
+		if (SPU_FIBERS > 1)
+			TerminateThread();
+	}
+
 	prof_stop();
  	
 	return 0;

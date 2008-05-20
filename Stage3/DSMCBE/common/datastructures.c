@@ -13,14 +13,14 @@ void* m_tmp;
 
 void* __m_malloc(unsigned int x, char* s1, int s2)
 {
-	m_tmp = clear(x);
+	m_tmp = clearAlign(x, 0);
 	printf(WHERESTR "Malloc gave %d, balance: %d\n", s1, s2, (int)m_tmp, ++m_balance);
 	return m_tmp;
 };
 
 void __m_free(void* x, char* s1, int s2)
 {
-	thread_free(x);
+	thread_free_align(x);
 	printf(WHERESTR "Free'd %d, balance: %d\n", s1, s2, (int)x, --m_balance);
 };
 
