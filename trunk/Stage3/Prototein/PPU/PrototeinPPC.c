@@ -69,6 +69,9 @@ void FoldPrototein(char* proto, int spu_count)
 	struct coordinate cord;
 	pthread_t* threads;
 	struct workblock* wb;
+	
+	unsigned int total_jobcount;
+	unsigned int reported_jobcount;
 
 	bestscore = -9999999;
 	
@@ -99,21 +102,21 @@ void FoldPrototein(char* proto, int spu_count)
 
     //printf(WHERESTR "PPU is building tasks\n", WHEREARG);
 	//Now create all actual tasks, this is a bit wastefull in terms of memory usage
-	i = 0;
+	total_jobcount = 0;
 	while(current_job < job_queue_length)
 	{
-		wb = (struct workblock*)create(WORKITEM_OFFSET + i, BUFFER_SIZE);
+		wb = (struct workblock*)create(WORKITEM_OFFSET + total_jobcount, BUFFER_SIZE);
 		PrepareWorkBlock(wb, current_job);
 		current_job += wb->worksize;
 		release(wb);
-		i++;
+		total_jobcount++;
 	}
 
     //printf(WHERESTR "PPU has completed building tasks\n", WHEREARG);
 	free(job_queue);
 	
 	//Let the SPU's begin their work
-	work_counter[1] = i;
+	work_counter[1] = total_jobcount;
 	release(work_counter);
 
     //printf(WHERESTR "PPU is waiting for SPU completion\n", WHEREARG);
@@ -124,6 +127,7 @@ void FoldPrototein(char* proto, int spu_count)
 		pthread_join(threads[i], NULL);
 	}
 	
+	reported_jobcount = 0;
 	winner = (struct coordinate*)malloc(sizeof(struct coordinate) * prototein_length);
     //printf(WHERESTR "PPU is reading results\n", WHEREARG);
 	//Pick up the results
@@ -136,10 +140,11 @@ void FoldPrototein(char* proto, int spu_count)
 		else
 		{
 			//printf(WHERESTR "SPU %d result was %d\n", WHEREARG,i, ((int*)tempobj)[0]); 
+			reported_jobcount += ((int*)tempobj)[1];
 			if (((int*)tempobj)[0] > bestscore)
 			{
 				bestscore = ((int*)tempobj)[0];
-				memcpy(winner, tempobj + sizeof(int), prototein_length * sizeof(struct coordinate));
+				memcpy(winner, tempobj + (sizeof(int) * 2), prototein_length * sizeof(struct coordinate));
 			}
 			release(tempobj);
 		}
@@ -147,6 +152,9 @@ void FoldPrototein(char* proto, int spu_count)
 	
 	//printf("Optimal folding is (%d):\n", bestscore);
 	printmap(winner, prototein_length);
+	printf("Fibers: %d\n", SPU_FIBERS);
+	
+	//printf("The SPU's reported processing %d jobs out of %d\n", reported_jobcount, total_jobcount);
 	
 }
 
