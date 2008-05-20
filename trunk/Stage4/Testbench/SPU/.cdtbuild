@@ -11,7 +11,7 @@
           </option>
           <option superClass="gnu.c.link.option.paths" id="gnu.c.link.option.paths.762750122" valueType="stringList">
             <listOptionValue value="/opt/cell/sysroot/usr/spu/lib" builtIn="false"/>
-            <listOptionValue value="/root/dsmcbe/Stage3/DSMCBE/SPU/spu-gnu-debug" builtIn="false"/>
+            <listOptionValue value="/root/dsmcbe/Stage4/DSMCBE/SPU/spu-gnu-debug" builtIn="false"/>
           </option>
           <option superClass="cell.gnu.c.linker.option.libs.lm" id="cell.gnu.c.linker.option.libs.lm.1827599649" value="false" valueType="boolean"/>
         </tool>
@@ -19,7 +19,7 @@
         <tool superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug" id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.1115882960" name="SPU GNU C Compiler with Debug Options">
           <option superClass="gnu.c.compiler.option.include.paths" id="gnu.c.compiler.option.include.paths.1636201903" valueType="includePath">
             <listOptionValue value="/opt/ibm/systemsim-cell/include/callthru/spu" builtIn="false"/>
-            <listOptionValue value="/root/dsmcbe/Stage3/DSMCBE" builtIn="false"/>
+            <listOptionValue value="/root/dsmcbe/Stage4/DSMCBE" builtIn="false"/>
             <listOptionValue value="/opt/cell/sysroot/opt/cell/sdk/usr/include" builtIn="false"/>
           </option>
         </tool>
