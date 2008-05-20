@@ -59,6 +59,7 @@ static unsigned int pendingInvalidateMap = 0;
 #define CLEARBIT(seqNo,maxNo,map) map = (map & (~(1 << (seqNo = (seqNo % maxNo))))) 
 
 void sendMailbox();
+void readMailbox();
 void invalidate(GUID id);
 
 typedef struct dataObjectStruct *dataObject;
@@ -137,6 +138,7 @@ int pendingInvalidateContains(GUID id, int clear)
 	for(i = 0; i < MAX_PENDING_INVALIDATES; i++)
 		if (GETBIT(i, MAX_PENDING_INVALIDATES, pendingInvalidateMap) && pendingInvalidates[i] == id)
 		{
+			printf(WHERESTR "Found a pending invalidate\n", WHEREARG);
 			if (clear)
 				CLEARBIT(i, MAX_PENDING_INVALIDATES, pendingInvalidateMap);
 			return i;
@@ -371,7 +373,7 @@ void invalidate(GUID id) {
 			removeAllocatedID(id);
 			pendingInvalidateContains(id, 1);
 			
-			//printf(WHERESTR "Removed id %d\n", WHEREARG, object->id);
+			//printf(WHERESTR "Invalidated id %d\n", WHEREARG, object->id);
 			FREE_ALIGN(object->data);
 			object->data = NULL;
 			FREE(object);		
@@ -379,13 +381,18 @@ void invalidate(GUID id) {
 		}
 		else
 		{
+			//printf(WHERESTR "Inserting a pending invalidate\n", WHEREARG);
 			if (!pendingInvalidateContains(id, 0))
+			{
+				//printf(WHERESTR "Inserted a pending invalidate before: %d\n", WHEREARG, pendingInvalidateMap);
 				pendingInvalidates[findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap)] = id;
+				//printf(WHERESTR "Inserted a pending invalidate after: %d\n", WHEREARG, pendingInvalidateMap);
+			}
 		}
 	}
 	else	
 	{
-		//printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
+		printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
 		pendingInvalidateContains(id, 1);
 	}
 	
@@ -401,36 +408,54 @@ void StartDMATransfer(struct acquireResponse* resp)
 		printf("Req id: %d\n", resp->requestID);
 		REPORT_ERROR("Invalid request number");
 	}
-	
+
+	if (spu_stat_in_mbox() > 0)
+		readMailbox();	
 	processPendingInvalidate(req->id);
+	
 	//printf(WHERESTR "Processing ACQUIRE package for %d, %d\n", WHEREARG, req->id, resp->requestID);
 	
 	if (ht_member(itemsById, (void*)(req->id))) {
 		req->object = (dataObject)ht_get(itemsById, (void*)(req->id));
 		removeAllocatedID(req->id);
-		//printf(WHERESTR "Removed id %d\n", WHEREARG, req->id);
-		
-		if (req->mode == READ || req->object->count == 0)
-			req->object->count++;
-		else if (req->mode == WRITE)
-		{
-			req->state = ASYNC_STATUS_BLOCKED;
-			req->object->mode = BLOCKED;
+
+		//Special case, this pending transfer is blocking the invalidate
+		if (req->object->count == 0 && pendingInvalidateContains(req->id, 1)) {
+			
+			//printf(WHERESTR "Invalidate, last minute save :), %d - %d\n", WHEREARG, req->id, req->mode);
+			ht_delete(itemsById, (void*)req->id);
+			ht_delete(itemsByPointer, req->object->data);
+			FREE_ALIGN(req->object->data);
+			req->object->data = NULL;		
+			FREE(req->object);
+			req->object = NULL;		
+			
+		} else 	{
+			//printf(WHERESTR "Removed id %d\n", WHEREARG, req->id);
+			
+			printf(WHERESTR "Re-used object %d in mode %d\n", WHEREARG, req->id, req->mode);
+			
+			if (req->mode == READ || req->object->count == 0)
+			{
+				//printf(WHERESTR "Item %d (%d) was known, returning local copy\n", WHEREARG, req->id, (int)req->object->data);
+				req->object->count++;
+				req->object->mode = req->mode;
+				req->state = ASYNC_STATUS_COMPLETE;
+			}
+			else if (req->mode == WRITE)
+			{
+				printf(WHERESTR "Blocked object %d\n", WHEREARG, req->id);
+				req->state = ASYNC_STATUS_BLOCKED;
+				req->object->mode = BLOCKED;
+			}
+			else
+			{
+				REPORT_ERROR("Invalid mode detected");
+				req->state = ASYNC_STATUS_ERROR;
+			}
+			
 			return;
 		}
-		else
-		{
-			REPORT_ERROR("Invalid mode detected");
-			req->state = ASYNC_STATUS_ERROR;
-		}
-					
-		//printf(WHERESTR "Item %d (%d) was known, returning local copy\n", WHEREARG, req->id, (int)req->object->data);
-
-		req->object->mode = req->mode;
-		req->state = ASYNC_STATUS_COMPLETE;
-		
-		//printf(WHERESTR "Item %d is now inserted into itemsByPointer\n", WHEREARG, req->id);
-		return;
 	}
 
  	req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
