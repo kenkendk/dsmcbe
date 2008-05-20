@@ -27,14 +27,14 @@
 //There can be no more than this many ongoing requests
 #define MAX_PENDING_REQUESTS 10
 
+//The number of unprocessed pending invalidates
+#define MAX_PENDING_INVALIDATES 32
+
 //This table keeps all loaded items, key is the pointer, data is a dataObject, duals with itemsById
 static hashtable itemsByPointer;
 
 //This table keeps all items that have been loaded, key is the GUID, data is a dataObject, duals with itemsByPointer
 static hashtable itemsById;
-
-//List of pending invalidate requests, key is GUID
-static hashtable pendingInvalidate;  
 
 //This is all IDs kept after release, sorted with last used first
 static queue allocatedID;
@@ -48,12 +48,18 @@ static unsigned int DMAGroupNo = 0;
 //The map of used pending request
 static unsigned int pendingMap = 0;
 
+//The list of items requested for invalidate
+static GUID pendingInvalidates[MAX_PENDING_INVALIDATES];
+
+//The map of used pending invalidates
+static unsigned int pendingInvalidateMap = 0; 
+
 #define SETBIT(seqNo,maxNo,map) (map |= (1 << (seqNo = (seqNo % maxNo))))
 #define GETBIT(seqNo,maxNo,map) ((map & (1 << (seqNo = (seqNo % maxNo)))) != 0) 
 #define CLEARBIT(seqNo,maxNo,map) map = (map & (~(1 << (seqNo = (seqNo % maxNo))))) 
 
 void sendMailbox();
-void invalidate(struct invalidateRequest* item);
+void invalidate(GUID id);
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -122,6 +128,23 @@ inline unsigned int findFreeItem(unsigned int* seq, unsigned int max, unsigned i
 	return -1;
 }
 
+int pendingInvalidateContains(GUID id, int clear)
+{
+	size_t i;
+	if (pendingInvalidateMap == 0)
+		return -1;
+		
+	for(i = 0; i < MAX_PENDING_INVALIDATES; i++)
+		if (GETBIT(i, MAX_PENDING_INVALIDATES, pendingInvalidateMap) && pendingInvalidates[i] == id)
+		{
+			if (clear)
+				CLEARBIT(i, MAX_PENDING_INVALIDATES, pendingInvalidateMap);
+			return i;
+		}
+		
+	return -1;
+}
+
 //We cannot free items if they are in transit
 int pendingContains(dataObject obj)
 {
@@ -135,13 +158,9 @@ int pendingContains(dataObject obj)
 
 void processPendingInvalidate(GUID id)
 {
-	struct invalidateRequest* req;
-	if (ht_member(pendingInvalidate, (void*)id))
-	{
-		req = ht_get(pendingInvalidate, (void*)id);
-		ht_delete(pendingInvalidate, (void*)id);
-		invalidate(req);
-	}	
+	int index = pendingInvalidateContains(id, 1);
+	if (index >= 0)
+		invalidate(id);
 }
 
 void removeAllocatedID(GUID id)
@@ -169,23 +188,7 @@ void removeAllocatedID(GUID id)
 
 void unsubscribe(dataObject object)
 {
-	/*struct releaseRequest* request;
-	unsigned int nextId = NEXT_SEQ_NO(requestNo, MAX_REQ_NO);
-	
-	if ((request = MALLOC(sizeof(struct releaseRequest))) == NULL)
-		REPORT_ERROR("malloc error");
-
-	request->packageCode = PACKAGE_RELEASE_REQUEST; 
-	request->requestID = nextId;
-	request->dataItem = object->id;
-	request->mode = READ;
-	request->dataSize = object->size;
-	request->offset = 0;
-	
-	sendMailbox(request);
-	
-	FREE(request);*/
-	
+	/* Sending the package directly reduces memory overhead, but is a little less maintainable */
 	//printf(WHERESTR "Unregistering item with id: %d\n", WHEREARG, object->id);
 	spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
 	spu_write_out_mbox(MAX_PENDING_REQUESTS + 1); //Invalid number
@@ -208,11 +211,8 @@ void clean(GUID id)
 			removeAllocatedID(id);
 			//printf(WHERESTR "Removed id %d\n", WHEREARG, object->id);
 			unsubscribe(object);
-			if (ht_member(pendingInvalidate, (void*)object->id))
-			{
-				FREE(ht_get(pendingInvalidate, (void*)object->id));
-				ht_delete(pendingInvalidate, (void*)object->id);
-			}
+			pendingInvalidateContains(object->id, 1);
+
 			FREE_ALIGN(object->data);
 			object->data = NULL;
 			FREE(object);
@@ -264,11 +264,7 @@ void* clearAlign(unsigned long size, int base) {
 					ht_delete(itemsById, (void*)id);
 					ht_delete(itemsByPointer, object->data);
 	
-					if (ht_member(pendingInvalidate, (void*)object->id))
-					{
-						FREE(ht_get(pendingInvalidate, (void*)object->id));
-						ht_delete(pendingInvalidate, (void*)object->id);
-					}
+					pendingInvalidateContains(object->id, 1);
 
 					FREE_ALIGN(object->data);
 					object->data = NULL;
@@ -361,14 +357,9 @@ void sendInvalidateResponse(struct invalidateRequest* item) {
 	sendMailbox(resp);
 }*/
 
-void invalidate(struct invalidateRequest* item) {
+void invalidate(GUID id) {
 	//printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
 
-	/*FREE(item);
-	return;*/
-	
-	GUID id = item->dataItem;
-	
 	if(ht_member(itemsById, (void*)id)) {
 		//printf(WHERESTR "Data with id: %i is allocated but has been released\n", WHEREARG, id);
 		dataObject object = ht_get(itemsById, (void*)id);
@@ -378,35 +369,24 @@ void invalidate(struct invalidateRequest* item) {
 			ht_delete(itemsById, (void*)id);
 			ht_delete(itemsByPointer, object->data);
 			removeAllocatedID(id);
+			pendingInvalidateContains(id, 1);
+			
 			//printf(WHERESTR "Removed id %d\n", WHEREARG, object->id);
 			FREE_ALIGN(object->data);
 			object->data = NULL;
 			FREE(object);		
 			object = NULL;	
-			FREE(item);
-			item = NULL;
 		}
 		else
 		{
-			if (!ht_member(pendingInvalidate, (void*)id))
-			{
-				//printf(WHERESTR "Data with id: %i is in use\n", WHEREARG, id);
-				ht_insert(pendingInvalidate, (void*)id, item);
-				item = NULL;
-			}
-			else
-			{
-				//REPORT_ERROR("Recieved another invalidateRequest for the same item");
-				FREE(item);
-				item = NULL;
-			}
+			if (!pendingInvalidateContains(id, 0))
+				pendingInvalidates[findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap)] = id;
 		}
 	}
 	else	
 	{
 		//printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
-		FREE(item);
-		item = NULL;
+		pendingInvalidateContains(id, 1);
 	}
 	
 }
@@ -422,6 +402,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 		REPORT_ERROR("Invalid request number");
 	}
 	
+	processPendingInvalidate(req->id);
 	//printf(WHERESTR "Processing ACQUIRE package for %d, %d\n", WHEREARG, req->id, resp->requestID);
 	
 	if (ht_member(itemsById, (void*)(req->id))) {
@@ -475,7 +456,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
 	if ((req->object->data = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
-		printf(WHERESTR "Pending invalidate: %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d\n", WHEREARG, pendingInvalidate->fill, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID));
+		printf(WHERESTR "Pending invalidate (bitmap): %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d\n", WHEREARG, pendingInvalidateMap, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID));
 		REPORT_ERROR("Failed to allocate memory on SPU");
 		
 		void* test1 = _malloc_align(transfer_size / 4, 7);
@@ -512,7 +493,6 @@ void StartDMATransfer(struct acquireResponse* resp)
 }
 
 void readMailbox() {
-	void* dataItem;
 	unsigned int requestID;
 	unsigned long datasize;
 	GUID itemid;
@@ -582,19 +562,12 @@ void readMailbox() {
 		case PACKAGE_INVALIDATE_REQUEST:			
 			//printf(WHERESTR "INVALIDATE package recieved\n", WHEREARG);
 
-			if ((dataItem = MALLOC(sizeof(struct invalidateRequest))) == NULL)
-				REPORT_ERROR("Failed to allocate memory on SPU");
-			
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
 			
-			((struct invalidateRequest*)dataItem)->packageCode = packagetype;									
-			((struct invalidateRequest*)dataItem)->requestID = requestID;
-			((struct invalidateRequest*)dataItem)->dataItem = itemid; 
-
 			//printf(WHERESTR "INVALIDATE package read\n", WHEREARG);
 
-			invalidate(dataItem);
+			invalidate(itemid);
 			break;
 		
 		default:
@@ -665,7 +638,7 @@ unsigned int beginAcquire(GUID id, int type)
 	if (ht_member(itemsById, (void*)id))
 	{
 		dataObject object = ht_get(itemsById, (void*)id);
-		if (type == READ && (object->count == 0 || object->mode == READ) && !ht_member(pendingInvalidate, (void*)id))
+		if (type == READ && (object->count == 0 || object->mode == READ) && !pendingInvalidateContains(id, 0))
 		{	
 			//printf(WHERESTR "Reacquire for READ id: %i\n", WHEREARG, id);
 	
@@ -776,13 +749,6 @@ unsigned int beginRelease(void* data)
 					if (object->count == 0)
 						REPORT_ERROR("Object state was blocked, but there was no pending requests for it");
 				}
-			} else if (ht_member(pendingInvalidate, (void*)object->id) && object->count == 0) {
-				struct invalidateRequest* item;
-				item = ht_get(pendingInvalidate, (void*)object->id);
-				FREE(item);
-				item = NULL;
-				ht_delete(pendingInvalidate, (void*)object->id);
-				
 			} else {
 				//printf(WHERESTR "Local release for %d in read mode\n", WHEREARG, object->id);
 				//removeAllocatedID(object->id);
@@ -797,6 +763,12 @@ unsigned int beginRelease(void* data)
 			req->state = ASYNC_STATUS_COMPLETE;
 			req->request.packageCode = PACKAGE_INVALID;
 			req->mode = READ;
+			
+			if (object->count == 0 && pendingInvalidateContains(object->id, 1) >= 0)
+			{
+				clean(object->id);
+				req->object = NULL;
+			}
 		}
 		 
 		return nextId;
@@ -809,18 +781,15 @@ unsigned int beginRelease(void* data)
 void initialize(){
 	itemsByPointer = ht_create(10, lessint, hashfc);
 	itemsById = ht_create(10, lessint, hashfc);
-	pendingInvalidate = ht_create(10, lessint, hashfc);
 	allocatedID = queue_create();
 }
 
 void terminate() {
 	ht_destroy(itemsByPointer);
 	ht_destroy(itemsById);
-	ht_destroy(pendingInvalidate);
 	queue_destroy(allocatedID);
 	itemsByPointer = NULL;
 	itemsById = NULL;
-	pendingInvalidate = NULL;
 	allocatedID = NULL;
 }
 
@@ -963,17 +932,13 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
  	
 	if (req->object != NULL)
 	{
-		if (!ht_member(itemsById, (void*)req->id))
+		if (!ht_member(itemsById, (void*)req->object->id))
 		{
 			printf(WHERESTR "Dataobject %d (%d) was not registered anymore\n", WHEREARG, req->id, (int)req->object->data); 
 			removeAllocatedID(req->object->id);
 			printf(WHERESTR "Removed id %d\n", WHEREARG, req->object->id);
 
-			if (ht_member(pendingInvalidate, (void*)req->object->id))
-			{
-				FREE(ht_get(pendingInvalidate, (void*)req->object->id));
-				ht_delete(pendingInvalidate, (void*)req->object->id);
-			}
+			pendingInvalidateContains(req->object->id, 1);
 
 			FREE_ALIGN(req->object->data);
 			req->object->data = NULL;
