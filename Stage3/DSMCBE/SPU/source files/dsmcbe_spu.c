@@ -245,7 +245,10 @@ void* clearAlign(unsigned long size, int base) {
 	
 		while(freedmemory < size || go) {
 			int id;
-			if (cur != NULL)
+			
+			go = 0;
+			
+			if (cur != NULL && (*cur) != allocatedID->tail)
 				id = (GUID)(*cur)->element;
 			else
 				return thread_malloc_align(size, base);
@@ -290,84 +293,6 @@ void* clearAlign(unsigned long size, int base) {
 		//printf(WHERESTR "callign malloc...\n", WHEREARG);		
 		//printf(WHERESTR "Enough is free, trying malloc_align\n", WHEREARG);
 		pointer = thread_malloc_align(size, base);
-		//printf(WHERESTR "Enough is free, result %d\n", WHEREARG, (int)pointer);
-		go = 1;
-		//printf(WHERESTR "Dequeue...\n", WHEREARG);		
-		
-	}
-	
-	//printf(WHERESTR "Freed %i and allocated %i of memory\n", WHEREARG, (int)freedmemory, (int)size);
-	//printf(WHERESTR "Alocated pointer %d\n", WHEREARG, (int)pointer);
-	if ((unsigned int)pointer < 10000)
-	{
-		REPORT_ERROR("Pointer was broken!");
-		sleep(10);
-	}
-	//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), itemsById->fill, totalfreed, (int)size);
-	return pointer;
-}
-
-void* clear(unsigned long size) {	
-	
-	if (size == 0)
-	{
-		REPORT_ERROR("Called malloc align with size zero");	
-		return NULL;
-	}
-	
-	void* pointer = thread_malloc(size);
-	unsigned long freedmemory = 0;
-	int go = 0;
-	list* cur = &allocatedID->head;
-	
-	//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), itemsById->fill, totalfreed, (int)size);
-	
-	while (pointer == NULL) {
-		//printf(WHERESTR "Starting to free memory\n", WHEREARG);	
-	
-		while(freedmemory < size || go) {
-			int id;
-			if (cur != NULL)
-				id = (GUID)(*cur)->element;
-			else
-				return thread_malloc(size);
-		
-			//printf(WHERESTR "Trying to clear id %i\n", WHEREARG, id);		
-			if(ht_member(itemsById, (void*)id)) {
-				dataObject object = ht_get(itemsById, (void*)id);
-				if (object->count == 0 && !pendingContains(object))
-				{
-					if (ht_member(itemsByPointer, object->data))
-						fprintf(stderr, WHERESTR "Item had no lockers, but was allocated (%d, %d)?", WHEREARG, object->id, (int)object->data);
-					unsubscribe(object);
-					freedmemory += (object->size + sizeof(struct dataObjectStruct));
-					ht_delete(itemsById, (void*)id);
-					ht_delete(itemsByPointer, object->data);
-	
-					if (ht_member(pendingInvalidate, (void*)object->id))
-					{
-						FREE(ht_get(pendingInvalidate, (void*)object->id));
-						ht_delete(pendingInvalidate, (void*)object->id);
-					}
-
-					FREE_ALIGN(object->data);
-					object->data = NULL;
-					FREE(object);
-					object = NULL;
-					(*cur) = cdr_and_free(*cur);
-				}
-				else
-					cur = &((*cur)->next);
-				//printf(WHERESTR "Cleared id %i\n", WHEREARG, id);
-			} else {
-				printf(WHERESTR "ID is %d\n", WHEREARG, id);
-				REPORT_ERROR("allocatedID not found in itemsById");
-			}		
-		}
-		
-		//printf(WHERESTR "callign malloc...\n", WHEREARG);		
-		//printf(WHERESTR "Enough is free, trying malloc_align\n", WHEREARG);
-		pointer = thread_malloc(size);
 		//printf(WHERESTR "Enough is free, result %d\n", WHEREARG, (int)pointer);
 		go = 1;
 		//printf(WHERESTR "Dequeue...\n", WHEREARG);		
@@ -553,7 +478,21 @@ void StartDMATransfer(struct acquireResponse* resp)
 		printf(WHERESTR "Pending invalidate: %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d\n", WHEREARG, pendingInvalidate->fill, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID));
 		REPORT_ERROR("Failed to allocate memory on SPU");
 		
-		sleep(10);
+		void* test1 = _malloc_align(transfer_size / 4, 7);
+		void* test2 = _malloc_align(transfer_size / 4, 7);
+		void* test3 = _malloc_align(transfer_size / 4, 7);
+		void* test4 = _malloc_align(transfer_size / 4, 7);
+		
+		if (test1 != NULL)
+			printf(WHERESTR "Test1 succes\n", WHEREARG);
+		if (test2 != NULL)
+			printf(WHERESTR "Test2 succes\n", WHEREARG);
+		if (test3 != NULL)
+			printf(WHERESTR "Test3 succes\n", WHEREARG);
+		if (test4 != NULL)
+			printf(WHERESTR "Test4 succes\n", WHEREARG);
+
+		sleep(1000);		
 	}
 
 	if (ht_member(itemsByPointer, req->object->data)) {
