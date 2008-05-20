@@ -20,13 +20,13 @@
     #define FREE_ALIGN(x) __m_free_align(x, __FILE__, __LINE__)
   #else
 
-    #define MALLOC(x) clear(x)
+    #define MALLOC(x) clearAlign(x, 0)
     #define MALLOC_ALIGN(x,y) clearAlign(x,y)
     
     //#define MALLOC(x) thread_malloc(x)
     //#define MALLOC_ALIGN(x,y) thread_malloc_align(x,y)
     
-    #define FREE(x) thread_free(x)
+    #define FREE(x) thread_free_align(x)
     #define FREE_ALIGN(x) thread_free_align(x)
   #endif /*SPU_TRACE_MEM*/
   
