@@ -24,6 +24,9 @@ char* map = NULL;
 struct coordinate* winner;
 int bestscore;
 
+static unsigned int totalwork = 0;
+static unsigned int totaljobs = 0;
+
 void initialize_map(struct coordinate* place, unsigned int places_length)
 {
 	size_t i;
@@ -98,6 +101,7 @@ int FoldPrototein(unsigned long long id)
 		    	
 		    itemno = WORKITEM_OFFSET + synclock[0];
 		    total = synclock[1];
+		    totaljobs = synclock[1];
 		    //printf(WHERESTR "thread %d:%d acquired work %d of %d\n", WHEREARG, thread_id, threadNo, synclock[0], synclock[1]);
 		    synclock[0]++;
 	    	release(synclock);
@@ -125,7 +129,7 @@ int FoldPrototein(unsigned long long id)
 	    	}
 	    	release(work);
 		    //printf(WHERESTR "thread %d:%d has completed work %d of %d\n", WHEREARG, thread_id, threadNo, itemno - WORKITEM_OFFSET, total);
-	    	
+	    	totalwork++;
 	    	//printf("Done folding work block at SPU, score: %d\n", bestscore);
 	    	//printmap(winner, prototein_length);
 	
@@ -136,6 +140,7 @@ int FoldPrototein(unsigned long long id)
 			TerminateThread();
 	}
 
+    printf(WHERESTR "SPU %d has completed %d jobs (of %d)\n", WHEREARG, thread_id, totalwork, totaljobs);
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
     winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + sizeof(int));
     memcpy(winner_object + sizeof(int), winner, sizeof(struct coordinate) * prototein_length);
