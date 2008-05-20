@@ -19,8 +19,7 @@
     #define MALLOC_ALIGN(x,y) __m_malloc_align(x,y, __FILE__, __LINE__)
     #define FREE_ALIGN(x) __m_free_align(x, __FILE__, __LINE__)
   #else
-
-    #define MALLOC(x) clearAlign(x, 0)
+    #define MALLOC(x) clearAlign(x,0)
     #define MALLOC_ALIGN(x,y) clearAlign(x,y)
     
     //#define MALLOC(x) thread_malloc(x)
