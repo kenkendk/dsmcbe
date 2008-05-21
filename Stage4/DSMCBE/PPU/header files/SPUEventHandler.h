@@ -12,9 +12,6 @@
 #include "../../common/datastructures.h"
 #include "../../dsmcbe.h"
 
-//The number of messages the hardware allows in the MBOX queue
-#define MBOX_HW_QUEUE_SIZE 4
-
 extern void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count);
 extern void TerminateSPUHandler(int force);
 
