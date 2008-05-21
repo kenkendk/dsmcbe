@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -19,6 +20,7 @@
 
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
+static unsigned int dsmcbe_host_number;
 
 /* how many pending connections queue will hold */
 #define BACKLOG 10
@@ -45,7 +47,7 @@ int* initializeNetwork(unsigned int id, char* path)
 	unsigned int port;
 	char ip[15];
 	unsigned int networkcount, j;
-
+	
 	printf(WHERESTR "Starting network setup\n", WHEREARG);
 	
 	file = fopen (path , "r");
@@ -156,12 +158,15 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	size_t i;
 	spe_context_ptr_t* spe_ids;
 	pthread_t* spu_threads;
-	int* sockets;
-	
-	if ((void*)id != NULL && path != NULL)
-		sockets = initializeNetwork(id, path);
-	
-	
+	int* sockets;	
+
+	if ((void*) id != NULL) {
+		dsmcbe_host_number = id;
+		if (path != NULL)
+			sockets = initializeNetwork(id, path);
+	} else
+		dsmcbe_host_number = UINT_MAX;
+		
 	if ((spe_ids = (spe_context_ptr_t*)malloc(thread_count * sizeof(spe_context_ptr_t))) == NULL)
 		perror("dsmcbe.c: malloc error");
 	
