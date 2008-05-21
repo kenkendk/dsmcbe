@@ -420,6 +420,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 void* ProccessWork(void* data)
 {
 	QueueableItem item;
+	dataObject object;
 	unsigned int datatype;
 	
 	while(!terminate)
@@ -454,7 +455,19 @@ void* ProccessWork(void* data)
 			case PACKAGE_ACQUIRE_REQUEST_READ:
 			case PACKAGE_ACQUIRE_REQUEST_WRITE:
 				if (GetMachineID(((struct acquireRequest*)item->dataRequest)->dataItem) != dsmcbe_host_number)
-					NetRequest(item);
+				{
+					if (ht_member(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
+						RespondAcquire(item, ht_get(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem));
+					else
+					{
+						if (!ht_member(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
+						{
+							ht_insert(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
+							NetRequest(item);
+						}
+						dq_enq_back(ht_get(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem), item);
+					}
+				}
 				else 
 					DoAcquire(item, (struct acquireRequest*)item->dataRequest);
 				break;
@@ -474,6 +487,38 @@ void* ProccessWork(void* data)
 				DoInvalidate(((struct invalidateRequest*)item->dataRequest)->dataItem);
 				free(item->dataRequest);
 				free(item);
+				
+				break;
+			
+			case PACKAGE_ACQUIRE_RESPONSE:
+
+				if (item->event != NULL || item->mutex != NULL || item->queue != NULL)
+					REPORT_ERROR("Item from network was not cleaned");
+				
+				if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
+					fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+		
+				object->id = ((struct acquireResponse*)item->dataRequest)->dataItem;
+				object->EA = ((struct acquireResponse*)item->dataRequest)->data;
+				object->size = ((struct acquireResponse*)item->dataRequest)->dataSize;
+				object->waitqueue = NULL;
+
+				ht_insert(allocatedItems, (void*)object->id, object);
+
+				free (item->dataRequest);
+				item->dataRequest = NULL;
+				free(item);				
+				item = NULL;
+
+				
+				if (ht_member(waiters, (void*)object->id))
+				{
+					dqueue dq = ht_get(waiters, (void*)object->id);
+					ht_delete(waiters, (void*)object->id);
+					
+					while(!dq_empty(dq))
+						RespondAcquire(dq_deq_front(dq), object);
+				}
 				
 				break;
 			

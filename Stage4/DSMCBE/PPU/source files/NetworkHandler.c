@@ -441,82 +441,101 @@ void* net_readPackage(int fd)
 		{
 		case PACKAGE_CREATE_REQUEST:
 			blocksize = sizeof(struct createRequest);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire create package"); 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 			blocksize = sizeof(struct acquireRequest);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire read package"); 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 			blocksize = sizeof(struct acquireRequest);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire write package"); 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			blocksize = sizeof(struct acquireResponse);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			blocksize -= sizeof(unsigned long);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire response package"); 
 
 			blocksize = ((struct acquireResponse*)data)->dataSize;
+			if ((((struct acquireResponse*)data)->data = _malloc_align(blocksize, 7)) == NULL)
+				REPORT_ERROR("Failed to allocate space for acquire response data");
 			if (recv(fd, ((struct acquireResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read package data from acquire response");
 			
 			break;
 		case PACKAGE_RELEASE_REQUEST:
 			blocksize = sizeof(struct releaseRequest);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			blocksize -= sizeof(unsigned long);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire release request package"); 
 
 			blocksize = ((struct releaseRequest*)data)->dataSize;
+			if ((((struct releaseRequest*)data)->data = _malloc_align(blocksize, 7)) == NULL)
+				REPORT_ERROR("Failed to allocate space for release request data");
 			if (recv(fd, ((struct releaseRequest*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read package data from release request");
 
 			break;
 		case PACKAGE_RELEASE_RESPONSE:
 			blocksize = sizeof(struct releaseResponse);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire release response package"); 
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:
 			blocksize = sizeof(struct invalidateRequest);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire invalidate request package"); 
 			break;
 		case PACKAGE_INVALIDATE_RESPONSE:
 			blocksize = sizeof(struct invalidateResponse);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire invalidate response package"); 
 			break;
 		case PACKAGE_NACK:
 			blocksize = sizeof(struct NACK);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire nack package"); 
 			break;
 		case PACKAGE_MIGRATION_RESPONSE:
 			blocksize = sizeof(struct migrationResponse);
-			data = malloc(blocksize);
+			if ((data = malloc(blocksize)) == NULL)
+				REPORT_ERROR("malloc error");
+			
 			blocksize -= (sizeof(unsigned long) * 2);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire migration package"); 
 
 			blocksize = ((struct migrationResponse*)data)->dataSize;
+			if ((((struct migrationResponse*)data)->data = _malloc_align(blocksize, 7)) == NULL)
+				REPORT_ERROR("Failed to allocate space for migration response data");
 			if (recv(fd, ((struct migrationResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read package data from migration response");
 		
 			blocksize = ((struct migrationResponse*)data)->waitListSize;
+			if ((((struct migrationResponse*)data)->waitList = malloc(blocksize)) == NULL)
+				REPORT_ERROR("Failed to allocate space for migration response waitlist");
 			if (recv(fd, ((struct migrationResponse*)data)->waitList, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read waitlist from migration response");
 		
