@@ -1,8 +1,14 @@
-#include "../../dsmcbe.h"
+ #include "../../dsmcbe.h"
 #include <free_align.h>
 #include <malloc_align.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "../header files/PPUEventHandler.h"
 #include "../header files/SPUEventHandler.h"
@@ -13,6 +19,9 @@
 
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
+
+/* how many pending connections queue will hold */
+#define BACKLOG 10
 
 void* ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
@@ -28,12 +37,130 @@ void* ppu_pthread_function(void* arg) {
 	pthread_exit(NULL);
 }
 
+int* initializeNetwork(unsigned int id, char* path)
+{
+	FILE* file;
+	struct sockaddr_in* network = malloc(sizeof(struct sockaddr_in) * 10);
+	struct sockaddr_in addr;
+	unsigned int port;
+	char ip[15];
+	unsigned int networkcount, j;
 
-pthread_t* simpleInitialize(unsigned int thread_count)
+	printf(WHERESTR "Starting network setup\n", WHEREARG);
+	
+	file = fopen (path , "r");
+	
+	if (file == NULL) 
+       REPORT_ERROR("Error reading file");
+			
+	networkcount = 0;	
+	while(!feof(file)) { 
+		if (fscanf(file, "%s %u", ip, &port) != 2 && feof(file))			
+			break;
+				
+		addr.sin_family = AF_INET;
+		inet_aton(ip,&(addr.sin_addr));		
+		addr.sin_port = port;
+		memset(&(addr.sin_zero),'\0',8);
+		network[networkcount] = addr;
+		networkcount++;
+	}
+		
+	//for(j = 0; j < networkcount; j++)
+		//printf("%s:%u\n", inet_ntoa(network[j].sin_addr), network[j].sin_port);
+
+	fclose(file);
+	
+	int* sockfd = malloc(sizeof(int) * networkcount);	
+	
+	if (id == 0 && id < networkcount) {
+		printf(WHERESTR "This machine is coordinator\n", WHEREARG);
+
+		for(j = networkcount - 1; j > id; j--) {		
+			printf(WHERESTR "This machine needs to connect to machine with id:  %i\n", WHEREARG, j);
+			if((sockfd[j] = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+			{
+				REPORT_ERROR("socket()");
+				exit(1);
+			}
+						
+			if(connect(sockfd[j], (struct sockaddr *)&network[j], sizeof(struct sockaddr)) == -1) {
+				REPORT_ERROR("connect()");
+				exit(1);
+			}
+		}
+
+	} else if (id < networkcount){
+		printf(WHERESTR "This machine is not coordinator\n", WHEREARG);
+
+		printf(WHERESTR "This machine needs to wait for connection from id: %i\n", WHEREARG, 0);
+		
+		sockfd[id] = socket(AF_INET, SOCK_STREAM, 0);
+		if(sockfd[id] == -1) {
+			REPORT_ERROR("socket()");
+			exit(1);
+		}
+		  
+		if(bind(sockfd[id], (struct sockaddr *)&network[id], sizeof(struct sockaddr)) == -1)
+		{
+			REPORT_ERROR("bind()");
+			exit(1);
+		}
+		
+		if(listen(sockfd[id], BACKLOG) == -1)
+		{
+		  	REPORT_ERROR("listen()");
+		  	exit(1);
+		}
+		  	
+		unsigned int sin_size = sizeof(struct sockaddr_in);
+		if ((sockfd[0] = accept(sockfd[id], (struct sockaddr *)&network[id], &sin_size)) == -1)
+		{
+		  	REPORT_ERROR("accept()");
+		  	exit(1);
+		}
+		
+		for(j = networkcount - 1; j > id; j--) {		
+			printf(WHERESTR "This machine needs to connect to machine with id: %i\n", WHEREARG, j);
+
+			if((sockfd[j] = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+			{
+				REPORT_ERROR("socket()");
+				exit(1);
+			}
+						
+			if(connect(sockfd[j], (struct sockaddr *)&network[j], sizeof(struct sockaddr)) == -1) {
+				REPORT_ERROR("connect()");
+				exit(1);
+			}
+		}
+			  	
+		for(j = id - 1; j > 0; j--) {
+			printf(WHERESTR "This machine needs to wait for connection from id: %i\n", WHEREARG, j);			  	
+			if ((sockfd[j] = accept(sockfd[id], (struct sockaddr *)&network[id], &sin_size)) == -1)
+			{
+			  	REPORT_ERROR("accept()");
+			  	exit(1);
+			}
+		}
+	} else
+		REPORT_ERROR("Cannot parse ID with IP/PORT from network file");
+			
+	printf(WHERESTR "Network setup completed\n", WHEREARG);
+	free(network);	
+	return sockfd;
+}
+
+pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_count)
 {
 	size_t i;
 	spe_context_ptr_t* spe_ids;
 	pthread_t* spu_threads;
+	int* sockets;
+	
+	if ((void*)id != NULL && path != NULL)
+		sockets = initializeNetwork(id, path);
+	
 	
 	if ((spe_ids = (spe_context_ptr_t*)malloc(thread_count * sizeof(spe_context_ptr_t))) == NULL)
 		perror("dsmcbe.c: malloc error");
