@@ -34,6 +34,7 @@ extern void EnqueItem(QueueableItem item);
 extern void InitializeCoordinator();
 extern void TerminateCoordinator(int force);
 
+//Threads wishing to recieve invalidation notification must register/unregister with the two calls below
 extern void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, queue* q);
 extern void UnregisterInvalidateSubscriber(queue* q);
 
