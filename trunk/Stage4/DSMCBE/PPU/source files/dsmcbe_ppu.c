@@ -14,13 +14,14 @@
 #include "../header files/PPUEventHandler.h"
 #include "../header files/SPUEventHandler.h"
 #include "../header files/RequestCoordinator.h"
+#include "../header files/NetworkHandler.h"
 #include "../../dsmcbe_ppu.h"
 
 #include "../../common/debug.h"
 
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
-static unsigned int dsmcbe_host_number;
+unsigned int dsmcbe_host_number = INT_MAX;
 
 /* how many pending connections queue will hold */
 #define BACKLOG 10
@@ -209,7 +210,8 @@ void initialize(spe_context_ptr_t* threads, unsigned int thread_count)
 {
 	InitializeCoordinator();
 	InitializePPUHandler();
-	InitializeSPUHandler(threads, thread_count);	
+	InitializeSPUHandler(threads, thread_count);
+	InitializeNetworkHandler(0, NULL);	
 }
 
 void* create(GUID id, unsigned long size){

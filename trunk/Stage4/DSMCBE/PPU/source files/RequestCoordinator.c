@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <string.h>
 #include "../header files/RequestCoordinator.h"
+#include "../header files/NetworkHandler.h"
 
 #include "../../common/debug.h"
 
@@ -317,6 +318,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 
 				RespondAcquire(item, obj);
 				DoInvalidate(obj->id);
+				NetInvalidate(obj->id);
 			}
 
 		}
@@ -395,6 +397,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 
 						RespondAcquire(next, obj);
 						DoInvalidate(obj->id);
+						NetInvalidate(obj->id);
 						
 						break; //Done
 					} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
@@ -443,20 +446,36 @@ void* ProccessWork(void* data)
 		switch(datatype)
 		{
 			case PACKAGE_CREATE_REQUEST:
-				DoCreate(item, (struct createRequest*)item->dataRequest);
+				if (GetMachineID(((struct createRequest*)item->dataRequest)->dataItem) != dsmcbe_host_number)
+					NetRequest(item);
+				else 
+					DoCreate(item, (struct createRequest*)item->dataRequest);
 				break;
 			case PACKAGE_ACQUIRE_REQUEST_READ:
 			case PACKAGE_ACQUIRE_REQUEST_WRITE:
-				DoAcquire(item, (struct acquireRequest*)item->dataRequest);
+				if (GetMachineID(((struct acquireRequest*)item->dataRequest)->dataItem) != dsmcbe_host_number)
+					NetRequest(item);
+				else 
+					DoAcquire(item, (struct acquireRequest*)item->dataRequest);
 				break;
 			
 			case PACKAGE_RELEASE_REQUEST:
-				DoRelease(item, (struct releaseRequest*)item->dataRequest);
+				if (GetMachineID(((struct releaseRequest*)item->dataRequest)->dataItem) != dsmcbe_host_number)
+				{
+					if (((struct releaseRequest*)item->dataRequest)->mode == WRITE)
+						DoInvalidate(((struct releaseRequest*)item->dataRequest)->dataItem);
+					NetRequest(item);
+				}
+				else 
+					DoRelease(item, (struct releaseRequest*)item->dataRequest);
 				break;
 			
-			/*case PACKAGE_INVALIDATE_REQUEST:
-				DoInvalidate(item, (struct invalidateRequest*)item->dataRequest);
-				break;*/
+			case PACKAGE_INVALIDATE_REQUEST:
+				DoInvalidate(((struct invalidateRequest*)item->dataRequest)->dataItem);
+				free(item->dataRequest);
+				free(item);
+				
+				break;
 			
 			default:
 				printf(WHERESTR "Unknown package code: %i\n", WHEREARG, datatype);
