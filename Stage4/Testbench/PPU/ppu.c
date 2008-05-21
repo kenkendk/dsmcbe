@@ -3,19 +3,34 @@
 #include "../guids.h"
 #include <common/debug.h>
 #include <unistd.h>
+#include <stdlib.h>
 
-#define SPU_THREADS 1
+unsigned int id;
+char* file;
+unsigned int SPU_THREADS;
 
 int main(int argc, char **argv) {
 	
 	unsigned long size;
 	unsigned int items;
 	size_t i;
-
+	
+	if(argc != 4)
+	{
+		printf("Wrong number of arguments \"./PPU id network-file spu-threads\"\n");
+		return -1;
+	}
+	
+	id = atoi(argv[1]);
+	file = argv[2]; 	
+	SPU_THREADS = atoi(argv[3]);
+	
+	printf(WHERESTR "id: %i, file %s, SPU_THREADS %i\n", WHEREARG, id, file, SPU_THREADS);
+	
 	//printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
-	spu_threads = simpleInitialize(SPU_THREADS);
+	spu_threads = simpleInitialize(id, file, SPU_THREADS);
 
 	//printf(WHERESTR "Creating\n", WHEREARG);
 	int* data = create(ETTAL, sizeof(int));

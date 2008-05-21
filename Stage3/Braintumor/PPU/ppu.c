@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
 {
 	if(argc != 4)
 	{
-		printf("Wrong number of arguments \"./PPU input output\"\n");
+		printf("Wrong number of arguments \"./PPU input output spu_threads\"\n");
 		return -1;
 	}
 	char* input = argv[1];
