@@ -22,6 +22,7 @@ queue bagOfTasks = NULL;
 pthread_t workthread;
 
 hashtable allocatedItems;
+hashtable allocatedItemsDirty;
 hashtable waiters;
 
 typedef struct dataObjectStruct *dataObject;
@@ -272,6 +273,24 @@ void DoInvalidate(GUID dataItem)
 	
 	pthread_mutex_lock(&invalidate_queue_mutex);
 	kl = invalidateSubscribers->elements;
+	
+	if(dsmcbe_host_number == GetMachineID(dataItem)) {
+		if(kl != NULL) {
+			// Mark memory as dirty
+			// Record invalidateRequests i while-loop
+			// When invalidateResponse received, remove record
+			// from list.
+			// When list is empty, free memory.
+		} else {
+			if(ht_member(allocatedItems, (void*)dataItem)) {
+				dataObject obj = ht_get(allocatedItems, (void*)dataItem);
+				_free_align(obj->EA);
+				ht_delete(allocatedItems, (void*)dataItem);
+				free(obj);
+			}
+		}
+	}
+		
 	while(kl != NULL)
 	{
 		struct invalidateRequest* requ;
