@@ -21,8 +21,12 @@ pthread_cond_t queue_ready;
 queue bagOfTasks = NULL;
 pthread_t workthread;
 
+#define MAX_SEQUENCE_NR 1000000
+unsigned int sequence_nr;
+
 hashtable allocatedItems;
 hashtable allocatedItemsDirty;
+hashtable pendingSequenceNr;
 hashtable waiters;
 
 typedef struct dataObjectStruct *dataObject;
@@ -125,6 +129,8 @@ void InitializeCoordinator()
 		pthread_create(&workthread, &attr, ProccessWork, NULL);
 		pthread_attr_destroy(&attr);
 		allocatedItems = ht_create(10, lessint, hashfc);
+		allocatedItemsDirty = ht_create(10, lessint, hashfc);
+		pendingSequenceNr = ht_create(10, lessint, hashfc);
 		waiters = ht_create(10, lessint, hashfc);
 		invalidateSubscribers = slset_create(lessint);
 	}
@@ -268,6 +274,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 void DoInvalidate(GUID dataItem)
 {
 	keylist kl;
+	dataObject obj;
 
 	//printf(WHERESTR "Invalidating...\n", WHEREARG);
 	
@@ -277,13 +284,16 @@ void DoInvalidate(GUID dataItem)
 	if(dsmcbe_host_number == GetMachineID(dataItem)) {
 		if(kl != NULL) {
 			// Mark memory as dirty
-			// Record invalidateRequests i while-loop
-			// When invalidateResponse received, remove record
-			// from list.
-			// When list is empty, free memory.
+			if(ht_member(allocatedItems, (void*)dataItem)) {
+				obj = ht_get(allocatedItems, (void*)dataItem);
+				ht_delete(allocatedItems, (void*)dataItem);
+				unsigned int* count = (unsigned int*)malloc(sizeof(unsigned int));
+				*count = 0;
+				ht_insert(allocatedItemsDirty, obj, count);
+			}
 		} else {
 			if(ht_member(allocatedItems, (void*)dataItem)) {
-				dataObject obj = ht_get(allocatedItems, (void*)dataItem);
+				obj = ht_get(allocatedItems, (void*)dataItem);
 				_free_align(obj->EA);
 				ht_delete(allocatedItems, (void*)dataItem);
 				free(obj);
@@ -298,8 +308,12 @@ void DoInvalidate(GUID dataItem)
 			fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
 		
 		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
-		requ->requestID = 0; //There is no response
+		requ->requestID = NEXT_SEQ_NO(sequence_nr, MAX_SEQUENCE_NR);
 		requ->dataItem = dataItem;
+		
+		ht_insert(pendingSequenceNr, obj, (void*)requ->dataItem);
+		unsigned int* count = ht_get(allocatedItemsDirty, obj);
+		*count = *count + 1;
 
 		pthread_mutex_lock((pthread_mutex_t*)kl->data);
 		queue_enq(*((queue*)kl->key), requ); 
@@ -508,6 +522,21 @@ void* ProccessWork(void* data)
 				free(item);
 				
 				break;
+			
+			case PACKAGE_INVALIDATE_RESPONSE:				
+				object = ht_get(pendingSequenceNr, (void*)((struct invalidateResponse*)item->dataRequest)->requestID);
+				unsigned int* count = ht_get(allocatedItemsDirty, (void*)object);
+				*count = *count - 1;
+				if (*count <= 0) {
+					_free_align(object->EA);
+					ht_delete(allocatedItemsDirty, (void*)object);
+					free(object);
+					free(count);
+				}
+				ht_delete(pendingSequenceNr, (void*)((struct invalidateResponse*)item->dataRequest)->requestID);
+				free(item->dataRequest);
+				free(item);
+			break;
 			
 			case PACKAGE_ACQUIRE_RESPONSE:
 

@@ -216,7 +216,7 @@ void* SPU_Worker(void* data)
 						
 						break;
 			
-					/*case PACKAGE_INVALIDATE_RESPONSE:
+					case PACKAGE_INVALIDATE_RESPONSE:
 						printf(WHERESTR "Invalidate Response\n", WHEREARG);
 						if ((dataItem = malloc(sizeof(struct invalidateResponse))) == NULL)
 							perror("SPUEventHandler.c: malloc failed");
@@ -225,7 +225,7 @@ void* SPU_Worker(void* data)
 					
 						((struct invalidateResponse*)dataItem)->packageCode = datatype;
 						((struct invalidateResponse*)dataItem)->requestID = requestID;
-						break;*/
+						break;
 					default:
 						fprintf(stderr, WHERESTR "Bad SPU request, ID was: %i, message: %s\n", WHEREARG, datatype, strerror(errno));
 						break;

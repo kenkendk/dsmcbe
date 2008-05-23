@@ -49,7 +49,12 @@ static unsigned int DMAGroupNo = 0;
 static unsigned int pendingMap = 0;
 
 //The list of items requested for invalidate
-static GUID pendingInvalidates[MAX_PENDING_INVALIDATES];
+
+struct pendingInvalidateObject {
+	GUID guid;
+	unsigned int requestID;
+};
+static struct pendingInvalidateObject pendingInvalidates[MAX_PENDING_INVALIDATES];
 
 //The map of used pending invalidates
 static unsigned int pendingInvalidateMap = 0; 
@@ -60,7 +65,7 @@ static unsigned int pendingInvalidateMap = 0;
 
 void sendMailbox();
 void readMailbox();
-void invalidate(GUID id);
+void invalidate(GUID id, unsigned int requestID);
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -136,7 +141,7 @@ int pendingInvalidateContains(GUID id, int clear)
 		return -1;
 		
 	for(i = 0; i < MAX_PENDING_INVALIDATES; i++)
-		if (GETBIT(i, MAX_PENDING_INVALIDATES, pendingInvalidateMap) && pendingInvalidates[i] == id)
+		if (GETBIT(i, MAX_PENDING_INVALIDATES, pendingInvalidateMap) && pendingInvalidates[i].guid == id)
 		{
 			printf(WHERESTR "Found a pending invalidate\n", WHEREARG);
 			if (clear)
@@ -162,7 +167,7 @@ void processPendingInvalidate(GUID id)
 {
 	int index = pendingInvalidateContains(id, 1);
 	if (index >= 0)
-		invalidate(id);
+		invalidate(id, pendingInvalidates[index].requestID);
 }
 
 void removeAllocatedID(GUID id)
@@ -345,21 +350,21 @@ void sendMailbox(void* dataItem) {
 	}
 }
 
-/*
-void sendInvalidateResponse(struct invalidateRequest* item) {
-	printf(WHERESTR "Sending invalidateResponse on data with id: %i\n", WHEREARG, item->dataItem);
+
+void sendInvalidateResponse(unsigned int requestID) {
+	printf(WHERESTR "Sending invalidateResponse on data with id: %i\n", WHEREARG, requestID);
 	struct invalidateResponse* resp;
 	
 	if ((resp = MALLOC(sizeof(struct invalidateResponse))) == NULL)
 		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
 	
 	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
-	resp->requestID = item->requestID;
+	resp->requestID = requestID;
 	
 	sendMailbox(resp);
-}*/
+}
 
-void invalidate(GUID id) {
+void invalidate(GUID id, unsigned int requestID) {
 	//printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
 
 	if(ht_member(itemsById, (void*)id)) {
@@ -371,13 +376,15 @@ void invalidate(GUID id) {
 			ht_delete(itemsById, (void*)id);
 			ht_delete(itemsByPointer, object->data);
 			removeAllocatedID(id);
-			pendingInvalidateContains(id, 1);
+			int index =	pendingInvalidateContains(id, 1);
 			
 			//printf(WHERESTR "Invalidated id %d\n", WHEREARG, object->id);
 			FREE_ALIGN(object->data);
 			object->data = NULL;
 			FREE(object);		
-			object = NULL;	
+			object = NULL;
+			
+			sendInvalidateResponse(pendingInvalidates[index].requestID);	
 		}
 		else
 		{
@@ -385,7 +392,8 @@ void invalidate(GUID id) {
 			if (!pendingInvalidateContains(id, 0))
 			{
 				//printf(WHERESTR "Inserted a pending invalidate before: %d\n", WHEREARG, pendingInvalidateMap);
-				pendingInvalidates[findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap)] = id;
+				pendingInvalidates[findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap)].guid = id;
+				pendingInvalidates[findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap)].requestID = requestID;
 				//printf(WHERESTR "Inserted a pending invalidate after: %d\n", WHEREARG, pendingInvalidateMap);
 			}
 		}
@@ -592,7 +600,7 @@ void readMailbox() {
 			
 			//printf(WHERESTR "INVALIDATE package read\n", WHEREARG);
 
-			invalidate(itemid);
+			invalidate(itemid, requestID);
 			break;
 		
 		default:
