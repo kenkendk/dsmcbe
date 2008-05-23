@@ -15,15 +15,19 @@ int main(int argc, char **argv) {
 	unsigned int items;
 	size_t i;
 	
-	if(argc != 4)
-	{
+	if(argc == 4) {
+		id = atoi(argv[1]);
+		file = argv[2]; 	
+		SPU_THREADS = atoi(argv[3]);		 
+	} else if (argc == 2) {
+		id = 0;
+		file = NULL; 	
+		SPU_THREADS = atoi(argv[1]);		 		
+	} else {
 		printf("Wrong number of arguments \"./PPU id network-file spu-threads\"\n");
 		return -1;
 	}
 	
-	id = atoi(argv[1]);
-	file = argv[2]; 	
-	SPU_THREADS = atoi(argv[3]);
 	
 	printf(WHERESTR "id: %i, file %s, SPU_THREADS %i\n", WHEREARG, id, file, SPU_THREADS);
 	
