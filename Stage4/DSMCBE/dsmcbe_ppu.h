@@ -5,7 +5,7 @@
 #include <libspe2.h>
 #include <pthread.h>
 
-extern void initialize(spe_context_ptr_t* threads, unsigned int thread_count);
+extern void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sockets, unsigned int socketsCount);
 extern pthread_t* simpleInitialize(unsigned int id, char* file, unsigned int thread_count);
 
 #endif /*DSMCBE_PPU_H_*/
