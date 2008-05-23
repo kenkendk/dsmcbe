@@ -12,6 +12,7 @@
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"
 #include "../../common/debug.h"
+#include "../header files/NetworkHandler.h"
 
 int lessint(void* a, void* b);
 int hashfc(void* a, unsigned int count);
@@ -59,12 +60,11 @@ unsigned int GetMachineID(GUID id);
 // sequence and back again
 hashtable* net_idlookups;
 
-//These are the sequence numbers assigned to the packages 
+//These are the sequence numbers assigned to the packages, a unique sequence for each host
 unsigned int* net_sequenceNumbers;
 
-void NetRequest(QueueableItem item)
+void NetRequest(QueueableItem item, unsigned int machineId)
 {
-	unsigned int machineId;
 	unsigned int nextId;
 	struct QueueableItemWrapper* w;
 	
@@ -72,25 +72,6 @@ void NetRequest(QueueableItem item)
 	{
 		REPORT_ERROR("bad request");
 		return;
-	}
-	
-	switch(((struct createRequest*)(item->dataRequest))->packageCode)
-	{
-		case PACKAGE_CREATE_REQUEST:
-			machineId = GetMachineID(((struct createRequest*)(item->dataRequest))->dataItem);
-			break;
-		case PACKAGE_ACQUIRE_REQUEST_READ:
-			machineId = GetMachineID(((struct acquireRequest*)(item->dataRequest))->dataItem);
-			break;
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
-			machineId = GetMachineID(((struct acquireRequest*)(item->dataRequest))->dataItem);
-			break;
-		case PACKAGE_RELEASE_REQUEST:
-			machineId = GetMachineID(((struct releaseRequest*)(item->dataRequest))->dataItem);
-			break;
-		default:
-			REPORT_ERROR("Request was not valid for net");
-			return;	
 	}
 
 	if (machineId > net_remote_hosts)
@@ -271,12 +252,12 @@ void* net_Writer(void* data)
 		
 		pthread_mutex_unlock(&net_work_mutex);
 		
-		if (net_terminate)
-			break;
+		if (net_terminate || package == NULL)
+			continue;
 
 
 		//Catch and filter invalidates
-		if (package != NULL && ((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
+		if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 		{
 			if (slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno))
 			{
@@ -318,11 +299,6 @@ void* net_Writer(void* data)
 	
 	//Returning the unused argument removes a warning
 	return data;
-}
-
-unsigned int GetMachineID(GUID itemId)
-{
-	return 0;
 }
 
 void net_processPackage(void* data, unsigned int machineId)
@@ -410,13 +386,25 @@ void net_processPackage(void* data, unsigned int machineId)
 			ui = w->ui;
 			free(w);
 
-			pthread_mutex_lock(ui->mutex);
-			queue_enq(*(ui->queue), data);
-			if (ui->event != NULL)
-				pthread_cond_signal(ui->event);
-			pthread_mutex_unlock(ui->mutex);
-
-			free(ui);
+			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE)
+			{
+				//Forward this to the request coordinator, so it may record the data and propagate it
+				EnqueItem(ui);
+			}
+			else
+			{
+				//Other responses are sent directly to the reciever
+				if (ui->mutex != NULL)
+					pthread_mutex_lock(ui->mutex);
+				if (ui->queue != NULL)
+					queue_enq(*(ui->queue), data);
+				if (ui->event != NULL)
+					pthread_cond_signal(ui->event);
+				if (ui->mutex != NULL)
+					pthread_mutex_unlock(ui->mutex);
+	
+				free(ui);
+			}
 			
 			break;
 		
