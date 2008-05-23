@@ -167,7 +167,7 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 		dsmcbe_host_number = id;
 		sockets = initializeNetwork(id, path, &socketsCount);
 	} else
-		dsmcbe_host_number = UINT_MAX;
+		dsmcbe_host_number = 0;
 		
 	if ((spe_ids = (spe_context_ptr_t*)malloc(thread_count * sizeof(spe_context_ptr_t))) == NULL)
 		perror("dsmcbe.c: malloc error");

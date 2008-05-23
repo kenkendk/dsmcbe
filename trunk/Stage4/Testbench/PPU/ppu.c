@@ -39,7 +39,6 @@ int main(int argc, char **argv) {
 	int* data;
 	
 	printf(WHERESTR "%d: Connected, starting\n", WHEREARG, id);
-	sleep(1);
 
 	if (id == 0)
 	{
