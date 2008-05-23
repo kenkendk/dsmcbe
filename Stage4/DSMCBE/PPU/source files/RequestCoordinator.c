@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <string.h>
+#include <limits.h>
 #include "../header files/RequestCoordinator.h"
 #include "../header files/NetworkHandler.h"
 
@@ -28,6 +29,8 @@ hashtable allocatedItems;
 hashtable allocatedItemsDirty;
 hashtable pendingSequenceNr;
 hashtable waiters;
+
+queue pagetableWaiters;
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -102,7 +105,14 @@ void TerminateCoordinator(int force)
 	 	}
 	 	pthread_mutex_unlock(&queue_mutex);
 	}
-		
+	
+	if (pagetableWaiters != NULL)
+		queue_destroy(pagetableWaiters);
+	queue_destroy(bagOfTasks);
+	ht_destroy(allocatedItems);
+	ht_destroy(allocatedItemsDirty);
+	ht_destroy(waiters);
+	
 	pthread_join(workthread, NULL);
 	
 	pthread_mutex_destroy(&queue_mutex);
@@ -132,7 +142,9 @@ void InitializeCoordinator()
 		allocatedItemsDirty = ht_create(10, lessint, hashfc);
 		pendingSequenceNr = ht_create(10, lessint, hashfc);
 		waiters = ht_create(10, lessint, hashfc);
+		pagetableWaiters = NULL;
 		invalidateSubscribers = slset_create(lessint);
+		
 	}
 }
 
@@ -161,13 +173,17 @@ void RespondAny(QueueableItem item, void* resp)
 	((struct acquireResponse*)resp)->requestID = ((struct acquireRequest*)item->dataRequest)->requestID;
 
 	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
-	pthread_mutex_lock(item->mutex);
+	if (item->mutex != NULL)
+		pthread_mutex_lock(item->mutex);
 	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
-	queue_enq(*(item->queue), resp);
+	if (item->queue != NULL)
+		queue_enq(*(item->queue), resp);
+		
 	if (item->event != NULL)
 		pthread_cond_signal(item->event);
 	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
-	pthread_mutex_unlock(item->mutex);
+	if (item->mutex != NULL)
+		pthread_mutex_unlock(item->mutex);
 	//printf(WHERESTR "responding, done\n", WHEREARG);
 	
 	free(item->dataRequest);
@@ -226,47 +242,46 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	//Check that the item is not already created
 	if (ht_member(allocatedItems, (void*)request->dataItem))
 	{
-		fprintf(stderr, WHERESTR "RequestCoordinator.c: Create request for already existing item\n", WHEREARG);
+		REPORT_ERROR("Create request for already existing item");
 		RespondNACK(item);
+		return;
+	}
+
+		
+	size = request->dataSize;
+	data = _malloc_align(size + ((16 - size) % 16), 7);
+	if (data == NULL)
+	{
+		REPORT_ERROR("Failed to allocate buffer for create");
+		RespondNACK(item);
+		return;
+	}
+	
+	// Make datastructures for later use
+	if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
+		REPORT_ERROR("malloc error");
+	
+	object->id = request->dataItem;
+	object->EA = data;
+	object->size = size;
+
+	//If there are pending acquires, add them to the list
+	if (ht_member(waiters, (void*)object->id))
+	{
+		object->waitqueue = ht_get(waiters, (void*)object->id);
+		ht_delete(waiters, (void*)object->id);
 	}
 	else
-	{
-		size = request->dataSize;
-		data = _malloc_align(size + ((16 - size) % 16), 7);
-		if (data == NULL)
-		{
-			fprintf(stderr, WHERESTR "Failed to allocate buffer for create\n", WHEREARG);
-			RespondNACK(item);
-			return;
-		}
-			
-
-		// Make datastructures for later use
-		if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
-			fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+		object->waitqueue = dq_create();
 		
-		object->id = request->dataItem;
-		object->EA = data;
-		object->size = size;
-
-		//If there are pending acquires, add them to the list
-		if (ht_member(waiters, (void*)object->id))
-		{
-			object->waitqueue = ht_get(waiters, (void*)object->id);
-			ht_delete(waiters, (void*)object->id);
-		}
-		else
-			object->waitqueue = dq_create();
-			
-		//Acquire the item for the creator
-		dq_enq_front(object->waitqueue, NULL);
-		
-		//Register this item as created
-		ht_insert(allocatedItems, (void*)object->id, object);
-		
-		//Notify the requestor 
-		RespondAcquire(item, object);
-	}
+	//Acquire the item for the creator
+	dq_enq_front(object->waitqueue, NULL);
+	
+	//Register this item as created
+	ht_insert(allocatedItems, (void*)object->id, object);
+	
+	//Notify the requestor 
+	RespondAcquire(item, object);
 	
 }
 
@@ -449,6 +464,58 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 	}
 }
 
+int isPageTableAvalible()
+{
+	if (dsmcbe_host_number == 0)
+	{
+		if (!ht_member(allocatedItems, (void*)PAGE_TABLE_ID))
+			REPORT_ERROR("Host zero did not have the page table");
+		
+		return dq_empty(((dataObject)ht_get(allocatedItems, (void*)PAGE_TABLE_ID))->waitqueue);
+	}
+	else
+		return ht_member(allocatedItems, (void*)PAGE_TABLE_ID);
+}
+
+void RequestPageTable(int mode)
+{
+	struct acquireRequest* acq;
+	QueueableItem q;
+
+	if (dsmcbe_host_number == 0 && mode == READ) 
+	{
+		//We have to wait for someone to release it :(
+		return;
+	}
+	else
+	{
+			if ((acq = malloc(sizeof(struct acquireRequest))) == NULL)
+				REPORT_ERROR("malloc error");
+			acq->dataItem = PAGE_TABLE_ID;
+			acq->packageCode = mode == READ ? PACKAGE_ACQUIRE_REQUEST_READ : PACKAGE_ACQUIRE_REQUEST_WRITE;
+			acq->requestID = 0;
+
+			if ((q = malloc(sizeof(struct QueueableItemStruct))) == NULL)
+				REPORT_ERROR("malloc error");
+
+			q->dataRequest = acq;
+			q->mutex = &queue_mutex;
+			q->event = &queue_ready;
+			q->queue = &bagOfTasks;			
+
+			if (dsmcbe_host_number != 0)
+				NetRequest(q, 0);
+			else
+				DoAcquire(q, acq);		
+	}
+}
+
+unsigned int GetMachineID(GUID id)
+{
+	dataObject obj = ht_get(allocatedItems, PAGE_TABLE_ID);
+	return ((unsigned int *)obj->EA)[id];
+}
+
 //This is the main thread function
 void* ProccessWork(void* data)
 {
@@ -458,7 +525,6 @@ void* ProccessWork(void* data)
 	
 	while(!terminate)
 	{
-
 		//Get the next item, or sleep until it arrives	
 		//printf(WHERESTR "fetching job\n", WHEREARG);
 			
@@ -468,8 +534,12 @@ void* ProccessWork(void* data)
 			pthread_cond_wait(&queue_ready, &queue_mutex);
 			//printf(WHERESTR "event recieved\n", WHEREARG);
 		}
+		
 		if (terminate)
+		{
+			pthread_mutex_unlock(&queue_mutex);
 			break;
+		}
 
 		//printf(WHERESTR "fetching event\n", WHEREARG);
 		item = (QueueableItem)queue_deq(bagOfTasks);
@@ -477,11 +547,25 @@ void* ProccessWork(void* data)
 		
 		//Get the type of the package and perform the corresponding action
 		datatype = ((struct acquireRequest*)item->dataRequest)->packageCode;
+
+		//If we do not have an idea where to forward this, save it for later, but let pagetable responses go through		
+		if ((!isPageTableAvalible() || datatype == PACKAGE_CREATE_REQUEST) && (datatype != PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)item->dataRequest)->dataItem != PAGE_TABLE_ID ) )
+		{
+			if (pagetableWaiters == NULL)
+			{
+				RequestPageTable(datatype == PACKAGE_CREATE_REQUEST ? WRITE : READ);
+				pagetableWaiters = queue_create();
+			}
+			
+			queue_enq(pagetableWaiters, item);
+			continue;
+		}
+		
 		switch(datatype)
 		{
 			case PACKAGE_CREATE_REQUEST:
 				if (GetMachineID(((struct createRequest*)item->dataRequest)->dataItem) != dsmcbe_host_number)
-					NetRequest(item);
+					NetRequest(item, GetMachineID(((struct createRequest*)item->dataRequest)->dataItem));
 				else 
 					DoCreate(item, (struct createRequest*)item->dataRequest);
 				break;
@@ -496,7 +580,7 @@ void* ProccessWork(void* data)
 						if (!ht_member(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
 						{
 							ht_insert(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
-							NetRequest(item);
+							NetRequest(item, GetMachineID(((struct acquireRequest*)item->dataRequest)->dataItem));
 						}
 						dq_enq_back(ht_get(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem), item);
 					}
@@ -510,9 +594,10 @@ void* ProccessWork(void* data)
 				{
 					if (((struct releaseRequest*)item->dataRequest)->mode == WRITE)
 						DoInvalidate(((struct releaseRequest*)item->dataRequest)->dataItem);
-					NetRequest(item);
+					NetRequest(item, GetMachineID(((struct releaseRequest*)item->dataRequest)->dataItem));
 				}
-				else 
+				else
+					//TODO: If this is from the network, we only have a copy of data... 
 					DoRelease(item, (struct releaseRequest*)item->dataRequest);
 				break;
 			
@@ -543,22 +628,24 @@ void* ProccessWork(void* data)
 				if (item->event != NULL || item->mutex != NULL || item->queue != NULL)
 					REPORT_ERROR("Item from network was not cleaned");
 				
-				if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
-					fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
-		
-				object->id = ((struct acquireResponse*)item->dataRequest)->dataItem;
-				object->EA = ((struct acquireResponse*)item->dataRequest)->data;
-				object->size = ((struct acquireResponse*)item->dataRequest)->dataSize;
-				object->waitqueue = NULL;
+				if (((struct acquireResponse*)item->dataRequest)->dataSize == 0)
+				{
+					object = ht_get(allocatedItems, (void*)object->id);
+				}
+				else
+				{
+					if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
+						fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+						
+					object->id = ((struct acquireResponse*)item->dataRequest)->dataItem;
+					object->EA = ((struct acquireResponse*)item->dataRequest)->data;
+					object->size = ((struct acquireResponse*)item->dataRequest)->dataSize;
+					object->waitqueue = NULL;
+	
+					ht_insert(allocatedItems, (void*)object->id, object);
+				}
 
-				ht_insert(allocatedItems, (void*)object->id, object);
-
-				free (item->dataRequest);
-				item->dataRequest = NULL;
-				free(item);				
-				item = NULL;
-
-				
+			
 				if (ht_member(waiters, (void*)object->id))
 				{
 					dqueue dq = ht_get(waiters, (void*)object->id);
@@ -567,6 +654,64 @@ void* ProccessWork(void* data)
 					while(!dq_empty(dq))
 						RespondAcquire(dq_deq_front(dq), object);
 				}
+
+				//We have recieved a new copy of the page table, re-enter all those awaiting this
+				if (pagetableWaiters != NULL && ((struct acquireResponse*)item->dataRequest)->dataItem == PAGE_TABLE_ID)
+				{
+					//TODO: Must be a double queue
+					pthread_mutex_lock(&queue_mutex);
+					while(!queue_empty(pagetableWaiters))
+					{
+						QueueableItem cr = queue_deq(pagetableWaiters);
+						if (((struct createRequest*)cr->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
+						{
+							if (((struct acquireResponse*)item->dataRequest)->mode == WRITE)
+							{
+								unsigned int* pagetable = (unsigned int*)((struct acquireResponse*)item->dataRequest)->data;
+								GUID id = ((struct createRequest*)cr->dataRequest)->dataItem;
+								pagetable[id] = dsmcbe_host_number;
+								
+								QueueableItem qs;
+								if ((qs = malloc(sizeof(struct QueueableItemStruct))) == NULL)
+									REPORT_ERROR("malloc error");
+									
+								qs->event = NULL;
+								qs->mutex = NULL;
+								qs->queue = NULL;
+								
+								if ((qs->dataRequest = malloc(sizeof(struct releaseRequest))) == NULL)
+									REPORT_ERROR("malloc error");
+									
+								((struct releaseRequest*)qs->dataRequest)->packageCode = PACKAGE_RELEASE_REQUEST;
+								((struct releaseRequest*)qs->dataRequest)->data = ((struct acquireResponse*)item->dataRequest)->data;
+								((struct releaseRequest*)qs->dataRequest)->dataItem = ((struct acquireResponse*)item->dataRequest)->dataItem;
+								((struct releaseRequest*)qs->dataRequest)->dataSize = ((struct acquireResponse*)item->dataRequest)->dataSize;
+								((struct releaseRequest*)qs->dataRequest)->mode = ((struct acquireResponse*)item->dataRequest)->mode;
+								((struct releaseRequest*)qs->dataRequest)->offset = 0;
+								((struct releaseRequest*)qs->dataRequest)->requestID = ((struct acquireResponse*)item->dataRequest)->requestID;
+								
+								if (dsmcbe_host_number == 0)
+									DoRelease(qs, (struct releaseRequest*)qs->dataRequest);
+								else
+									NetRequest(qs, 0);
+								 
+								DoCreate(cr, (struct createRequest*)cr->dataRequest);
+							}
+							
+							break;
+						}
+						else					
+							queue_enq(bagOfTasks, item);
+					}
+					pthread_mutex_unlock(&queue_mutex);
+					pagetableWaiters = NULL;
+				}
+				
+				free (item->dataRequest);
+				item->dataRequest = NULL;
+				free(item);				
+				item = NULL;
+				
 				
 				break;
 			

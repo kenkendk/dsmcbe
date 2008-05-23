@@ -7,9 +7,12 @@
 
 void InitializeNetworkHandler(int* handles, unsigned int host_count);
 void TerminateNetworkHandler(int force);
+
 unsigned int GetMachineID(GUID itemId);
+int SetMachineID(GUID itemId, unsigned int machineId, unsigned int expectedId);
+
 void NetInvalidate(GUID id);
-void NetRequest(QueueableItem item);
+void NetRequest(QueueableItem item, unsigned int machineId);
 
 extern unsigned int dsmcbe_host_number;
 
