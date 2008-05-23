@@ -256,6 +256,28 @@ void processInvalidates()
 				if (pe->count == 0 && pe->mode != BLOCKED)
 				{
 					ht_delete(pointersOld, (void*)req->dataItem);
+					// Send invalidateResponse
+					QueueableItem q;
+					struct invalidateResponse* cr;
+					
+					if ((cr = (struct invalidateResponse*)malloc(sizeof(struct invalidateResponse))) == NULL)
+						REPORT_ERROR("malloc error");
+	
+					cr->packageCode = PACKAGE_INVALIDATE_RESPONSE;
+					cr->requestID = req->requestID;
+	
+					if ((q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct))) == NULL)
+						REPORT_ERROR("PPUEventHandler.c: malloc error");
+					
+					q->dataRequest = cr;
+					q->event = NULL;
+					q->mutex = NULL;
+					q->queue = NULL;
+					
+					//printf(WHERESTR "adding item to queue\n", WHEREARG);
+					EnqueItem(q);
+					
+					
 					free(pe);
 				}
 				else
@@ -470,7 +492,5 @@ void threadRelease(void* data)
 		pthread_mutex_unlock(&pointer_mutex);
 		REPORT_ERROR("Pointer given to release was not registered");
 	}
-	
-	
 }
 
