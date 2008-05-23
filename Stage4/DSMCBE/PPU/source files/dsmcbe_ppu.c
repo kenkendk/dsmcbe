@@ -163,10 +163,9 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	int* sockets = NULL;
 	unsigned int socketsCount = 0;		
 
-	if ((void*) id != NULL) {
+	if (path != NULL) {
 		dsmcbe_host_number = id;
-		if (path != NULL)
-			sockets = initializeNetwork(id, path, &socketsCount);
+		sockets = initializeNetwork(id, path, &socketsCount);
 	} else
 		dsmcbe_host_number = UINT_MAX;
 		

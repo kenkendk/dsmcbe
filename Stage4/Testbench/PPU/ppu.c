@@ -32,14 +32,35 @@ int main(int argc, char **argv) {
 	pthread_t* spu_threads;
 	spu_threads = simpleInitialize(id, file, SPU_THREADS);
 
-	//printf(WHERESTR "Creating\n", WHEREARG);
-	int* data = create(ETTAL, sizeof(int));
-	(*data) = 928;
+	int* data;
 	
-	//printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
+	printf(WHERESTR "%d: Connected, starting\n", WHEREARG, id);
+	sleep(1);
+
+	if (id == 0)
+	{
+		printf(WHERESTR "%d: Creating\n", WHEREARG, id);
+		data = create(ETTAL, sizeof(int));
+		(*data) = 928;
+		
+		printf(WHERESTR "%d: Data location is %i\n", WHEREARG, id, (unsigned int)data);
+		
+		printf(WHERESTR "%d: Releasing\n", WHEREARG, id);
+		release(data);
+	}
+	else
+	{
+		printf(WHERESTR "%d: Reading\n", WHEREARG, id);
+		data = acquire(ETTAL, &size, READ);
+
+		printf(WHERESTR "%d: Read: %d\n", WHEREARG, id, *data);
+		
+		release(data);
+
+		printf(WHERESTR "%d: Released\n", WHEREARG, id);
+	}
 	
-	//printf(WHERESTR "Releasing\n", WHEREARG);
-	release(data);
+	sleep(5);
 	
 	release(acquire(LOCK_ITEM_SPU, &size, READ));
 	//sleep(1);
