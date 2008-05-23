@@ -40,7 +40,7 @@ void* ppu_pthread_function(void* arg) {
 	pthread_exit(NULL);
 }
 
-int* initializeNetwork(unsigned int id, char* path)
+int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 {
 	FILE* file;
 	struct sockaddr_in* network = malloc(sizeof(struct sockaddr_in) * 10);
@@ -150,7 +150,8 @@ int* initializeNetwork(unsigned int id, char* path)
 		REPORT_ERROR("Cannot parse ID with IP/PORT from network file");
 			
 	printf(WHERESTR "Network setup completed\n", WHEREARG);
-	free(network);	
+	free(network);
+	*count = networkcount;
 	return sockfd;
 }
 
@@ -159,12 +160,13 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	size_t i;
 	spe_context_ptr_t* spe_ids;
 	pthread_t* spu_threads;
-	int* sockets;	
+	int* sockets = NULL;
+	unsigned int socketsCount = 0;		
 
 	if ((void*) id != NULL) {
 		dsmcbe_host_number = id;
 		if (path != NULL)
-			sockets = initializeNetwork(id, path);
+			sockets = initializeNetwork(id, path, &socketsCount);
 	} else
 		dsmcbe_host_number = UINT_MAX;
 		
@@ -201,17 +203,17 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 		}
 	}
 	
-	initialize(spe_ids, thread_count);
+	initialize(spe_ids, thread_count, sockets, socketsCount);
 	
 	return spu_threads;
 }
 
-void initialize(spe_context_ptr_t* threads, unsigned int thread_count)
+void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sockets, unsigned int socketsCount)
 {
 	InitializeCoordinator();
 	InitializePPUHandler();
 	InitializeSPUHandler(threads, thread_count);
-	InitializeNetworkHandler(0, NULL);	
+	InitializeNetworkHandler(sockets, socketsCount);	
 }
 
 void* create(GUID id, unsigned long size){
