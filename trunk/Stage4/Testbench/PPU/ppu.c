@@ -53,6 +53,7 @@ int main(int argc, char **argv) {
 	}
 	else
 	{
+		sleep(5);
 		printf(WHERESTR "%d: Reading\n", WHEREARG, id);
 		data = acquire(ETTAL, &size, READ);
 
@@ -63,7 +64,7 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "%d: Released\n", WHEREARG, id);
 	}
 	
-	sleep(5);
+	sleep(10);
 	
 	release(acquire(LOCK_ITEM_SPU, &size, READ));
 	//sleep(1);

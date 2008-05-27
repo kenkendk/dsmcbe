@@ -68,6 +68,8 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	unsigned int nextId;
 	struct QueueableItemWrapper* w;
 	
+	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
+	
 	if (item == NULL || item->dataRequest == NULL)
 	{
 		REPORT_ERROR("bad request");
@@ -91,12 +93,27 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	
 	pthread_mutex_lock(&net_work_mutex);
 
+	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	nextId = NEXT_SEQ_NO(net_sequenceNumbers[machineId], NET_MAX_SEQUENCE);
+	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	((struct createRequest*)(item->dataRequest))->requestID = nextId;
+	if (ht_member(net_idlookups[machineId], (void*)nextId))
+		printf(WHERESTR "Baddness 10000\n", WHEREARG);
+	
+	printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, malloc: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
+	sleep(1);
 	ht_insert(net_idlookups[machineId], (void*)nextId, w);
+	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	queue_enq(net_requestQueues[machineId], item->dataRequest);
+	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
+	
+	pthread_cond_signal(&net_work_ready);
+	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	
 	pthread_mutex_unlock(&net_work_mutex);
+
+	printf(WHERESTR "Netrequest inserted for target machine: %d\n", WHEREARG, machineId);
+	
 }
 
 void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
@@ -130,6 +147,9 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	net_leaseTable = ht_create(10, lessint, hashfc);
 	net_writeInitiator = ht_create(10, lessint, hashfc);
 
+	ht_insert(net_idlookups[0], (void*) 100000, NULL);
+	ht_delete(net_idlookups[0], (void*) 100000);
+
 	/* For portability, explicitly create threads in a joinable state */
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -145,17 +165,23 @@ void NetInvalidate(GUID id)
 	struct invalidateRequest* req;
 	size_t i;
 	
+	printf(WHERESTR "Processing invalidates\n", WHEREARG);
 	pthread_mutex_lock(&net_work_mutex);
 	for(i = 0; i < net_remote_hosts; i++)
 	{
-		if((req = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
-			REPORT_ERROR("malloc error");
-		req->dataItem = id;
-		req->packageCode = PACKAGE_INVALIDATE_REQUEST;
-		req->requestID = 0;
-		queue_enq(net_requestQueues[i], req);
+		if (i != dsmcbe_host_number)
+		{
+			printf(WHERESTR "Processing invalidates, target machine: %d, GUID: %d\n", WHEREARG, i, id);
+			if((req = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
+				REPORT_ERROR("malloc error");
+			req->dataItem = id;
+			req->packageCode = PACKAGE_INVALIDATE_REQUEST;
+			req->requestID = 0;
+			queue_enq(net_requestQueues[i], req);
+		}
 	}
 	pthread_mutex_unlock(&net_work_mutex);
+	printf(WHERESTR "Processed invalidates\n", WHEREARG);
 }
 
 void TerminateNetworkHandler(int force)
@@ -209,10 +235,16 @@ void* net_Reader(void* data)
 		} else if (res == 0)
 			continue;		
 		
+		printf(WHERESTR "Network packaged recieved\n", WHEREARG);
+		
 		for(i = 0; i < net_remote_hosts; i++)
 		{
 			if (sockets[i].revents & POLLIN)
+			{
+				printf(WHERESTR "Processing network package from %d\n", WHEREARG, i);
 				net_processPackage(net_readPackage(sockets[i].fd), i);
+				printf(WHERESTR "Processed network package from: %d\n", WHEREARG, i);
+			}
 			else if (sockets[i].revents & POLLHUP)
 				REPORT_ERROR("Socked closed unexpectedly");
 		}
@@ -255,10 +287,15 @@ void* net_Writer(void* data)
 		if (net_terminate || package == NULL)
 			continue;
 
+		printf(WHERESTR "Sending a package to machine: %d, type: %d\n", WHEREARG, hostno, ((struct createRequest*)package)->packageCode);
 
 		//Catch and filter invalidates
 		if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 		{
+			if (!ht_member(net_leaseTable, (void*)itemid))
+				ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
+				
+			printf(WHERESTR "Processing invalidate package to: %d\n", WHEREARG, hostno);
 			if (slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno))
 			{
 				initiatorNo = -1;
@@ -268,12 +305,13 @@ void* net_Writer(void* data)
 				if ((int)hostno != initiatorNo)
 				{
 					//Regular invalidate, register as cleared
-					//printf(WHERESTR "Forwarding invalidate for id %d to SPU %d\n", WHEREARG, itemid, i);
-					slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)i);
+					printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
+					slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno);
 				}
 				else
 				{
 					//This host initiated the invalidate
+					printf(WHERESTR "Invalidate to %d was discarded because the host initiated the invalidate, id: %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
 					ht_delete(net_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem);
 					free(package);
 					package = NULL;
@@ -282,6 +320,7 @@ void* net_Writer(void* data)
 			}
 			else
 			{
+				printf(WHERESTR "Invalidate to %d was discarded, because the recipient does not have the data, id: %d.\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
 				//The host has newer seen the data, or actively destroyed it
 				free(package);
 				package = NULL;
@@ -291,6 +330,7 @@ void* net_Writer(void* data)
 		
 		if (package != NULL)
 		{
+			printf(WHERESTR "Sending package with type: %d, to %d for id: %d.\n", WHEREARG, ((struct createRequest*)package)->packageCode, hostno, ((struct invalidateRequest*)package)->dataItem);
 			net_sendPackage(package, hostno);
 			free(package);
 		}
@@ -323,6 +363,8 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 		case PACKAGE_RELEASE_REQUEST:
 		case PACKAGE_INVALIDATE_REQUEST:
+
+			printf(WHERESTR "Processing network package from %d, with type: %d\n", WHEREARG, machineId, ((struct createRequest*)data)->packageCode);
 		
 			if (((struct createRequest*)data)->packageCode == PACKAGE_RELEASE_REQUEST)
 			{
@@ -369,13 +411,16 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_INVALIDATE_RESPONSE:
 		case PACKAGE_MIGRATION_RESPONSE:
 		
+			printf(WHERESTR "Processing network package from %d, with type: %d\n", WHEREARG, machineId, ((struct createRequest*)data)->packageCode);
+
+			pthread_mutex_lock(&net_work_mutex);
+
 			if (!ht_member(net_idlookups[machineId], (void*)((struct createRequest*)data)->requestID))
 			{
 				REPORT_ERROR("Incoming response did not match an outgoing request");
+				pthread_mutex_unlock(&net_work_mutex);
 				return;
 			}
-			
-			pthread_mutex_lock(&net_work_mutex);
 
 			w = ht_get(net_idlookups[machineId], (void*)((struct createRequest*)data)->requestID);
 			ht_delete(net_idlookups[machineId], (void*)((struct createRequest*)data)->requestID);
@@ -388,11 +433,17 @@ void net_processPackage(void* data, unsigned int machineId)
 
 			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE)
 			{
+				printf(WHERESTR "Acquire response package from %d, for guid: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->dataItem);
+				if (ui->dataRequest)
+					free(ui->dataRequest);
+				ui->dataRequest = data;
 				//Forward this to the request coordinator, so it may record the data and propagate it
 				EnqueItem(ui);
 			}
 			else
 			{
+				printf(WHERESTR "Forwarding response directly\n", WHEREARG);
+
 				//Other responses are sent directly to the reciever
 				if (ui->mutex != NULL)
 					pthread_mutex_lock(ui->mutex);
@@ -428,6 +479,7 @@ void* net_readPackage(int fd)
 		switch(type)
 		{
 		case PACKAGE_CREATE_REQUEST:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct createRequest);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -435,6 +487,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("Failed to read entire create package"); 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct acquireRequest);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -442,6 +495,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("Failed to read entire acquire read package"); 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct acquireRequest);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -449,6 +503,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("Failed to read entire acquire write package"); 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct acquireResponse);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -464,6 +519,7 @@ void* net_readPackage(int fd)
 			
 			break;
 		case PACKAGE_RELEASE_REQUEST:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct releaseRequest);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -479,6 +535,7 @@ void* net_readPackage(int fd)
 
 			break;
 		case PACKAGE_RELEASE_RESPONSE:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct releaseResponse);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -486,6 +543,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("Failed to read entire release response package"); 
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct invalidateRequest);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -493,6 +551,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("Failed to read entire invalidate request package"); 
 			break;
 		case PACKAGE_INVALIDATE_RESPONSE:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct invalidateResponse);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -500,6 +559,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("Failed to read entire invalidate response package"); 
 			break;
 		case PACKAGE_NACK:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct NACK);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -507,6 +567,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("Failed to read entire nack package"); 
 			break;
 		case PACKAGE_MIGRATION_RESPONSE:
+			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct migrationResponse);
 			if ((data = malloc(blocksize)) == NULL)
 				REPORT_ERROR("malloc error");
@@ -553,35 +614,45 @@ void net_sendPackage(void* package, unsigned int machineId)
 	switch(((struct createRequest*)package)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct createRequest), 0);
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct acquireRequest), 0);
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct acquireRequest), 0);
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct acquireResponse) - sizeof(unsigned long), 0);
 			send(fd, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize, 0); 
 			break;
 		case PACKAGE_RELEASE_REQUEST:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct releaseRequest) - sizeof(unsigned long), 0);
 			send(fd, ((struct releaseRequest*)package)->data, ((struct releaseRequest*)package)->dataSize, 0); 
 			break;
 		case PACKAGE_RELEASE_RESPONSE:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct releaseResponse), 0);
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct invalidateRequest), 0);
 			break;
 		case PACKAGE_INVALIDATE_RESPONSE:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct invalidateResponse), 0);
 			break;
 		case PACKAGE_NACK:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct NACK), 0);
 			break;
 		case PACKAGE_MIGRATION_RESPONSE:
+			printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 			send(fd, package, sizeof(struct migrationResponse) - (2 * sizeof(unsigned long)), 0);
 			send(fd, ((struct migrationResponse*)package)->data, ((struct migrationResponse*)package)->dataSize, 0); 
 			send(fd, ((struct migrationResponse*)package)->waitList, ((struct migrationResponse*)package)->waitListSize, 0); 
