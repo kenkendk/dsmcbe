@@ -31,6 +31,7 @@ hashtable pendingSequenceNr;
 hashtable waiters;
 
 queue pagetableWaiters;
+queue pagetableResponses;
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -109,6 +110,7 @@ void TerminateCoordinator(int force)
 	if (pagetableWaiters != NULL)
 		queue_destroy(pagetableWaiters);
 	queue_destroy(bagOfTasks);
+	queue_destroy(pagetableResponses);
 	ht_destroy(allocatedItems);
 	ht_destroy(allocatedItemsDirty);
 	ht_destroy(waiters);
@@ -136,16 +138,13 @@ void InitializeCoordinator()
 		pthread_cond_init (&queue_ready, NULL);
 
 		/* For portability, explicitly create threads in a joinable state */
-		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-		pthread_create(&workthread, &attr, ProccessWork, NULL);
-		pthread_attr_destroy(&attr);
 		allocatedItems = ht_create(10, lessint, hashfc);
 		allocatedItemsDirty = ht_create(10, lessint, hashfc);
 		pendingSequenceNr = ht_create(10, lessint, hashfc);
 		waiters = ht_create(10, lessint, hashfc);
 		pagetableWaiters = NULL;
 		invalidateSubscribers = slset_create(lessint);
+		pagetableResponses = queue_create();
 		
 		if (dsmcbe_host_number == 0)
 		{
@@ -163,7 +162,12 @@ void InitializeCoordinator()
 			((unsigned int*)obj->EA)[PAGE_TABLE_ID] = 0; 
 			ht_insert(allocatedItems, (void*)obj->id, obj);
 		}
-		
+
+		pthread_attr_init(&attr);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+		pthread_create(&workthread, &attr, ProccessWork, NULL);
+		pthread_attr_destroy(&attr);
+	
 	}
 }
 
@@ -196,18 +200,8 @@ void RespondAny(QueueableItem item, void* resp)
 		pthread_mutex_lock(item->mutex);
 	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
 	
-	//TODO: This is an ugly hack
 	if (item->queue != NULL)
-	{
-		if (item->queue == &bagOfTasks)
-		{
-			free(item->dataRequest);
-			item->dataRequest = resp;
-			queue_enq(*(item->queue), item);
-		}
-		else
-			queue_enq(*(item->queue), resp);
-	}
+		queue_enq(*(item->queue), resp);
 		
 	if (item->event != NULL)
 		pthread_cond_signal(item->event);
@@ -216,14 +210,10 @@ void RespondAny(QueueableItem item, void* resp)
 		pthread_mutex_unlock(item->mutex);
 	//printf(WHERESTR "responding, done\n", WHEREARG);
 	
-	//TODO: This is an ugly hack
-	if (item->queue != &bagOfTasks)
-	{
-		free(item->dataRequest);
-		item->dataRequest = NULL;
-		free(item);
-		item = NULL;
-	}
+	free(item->dataRequest);
+	item->dataRequest = NULL;
+	free(item);
+	item = NULL;
 }
 
 //Responds with NACK to a request
@@ -470,13 +460,13 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 			else
 			{
 				//Respond to the releaser
-				//printf(WHERESTR "Respond to the releaser\n", WHEREARG);
+				printf(WHERESTR "Respond to the releaser\n", WHEREARG);
 				RespondRelease(item);
 
 				while (!dq_empty(q))
 				{
 					//Acquire for the next in the queue
-					//printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
+					printf(WHERESTR "Acquire for the next in the queue\n", WHEREARG);
 					next = dq_deq_front(q);
 					if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
 						//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
@@ -540,7 +530,7 @@ void RequestPageTable(int mode)
 			q->dataRequest = acq;
 			q->mutex = &queue_mutex;
 			q->event = &queue_ready;
-			q->queue = &bagOfTasks;			
+			q->queue = &pagetableResponses;			
 
 			printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 
@@ -555,10 +545,11 @@ void RequestPageTable(int mode)
 
 unsigned int GetMachineID(GUID id)
 {
-	printf(WHERESTR "Getting machine id for item %d\n", WHEREARG, id);
+	//printf(WHERESTR "Getting machine id for item %d\n", WHEREARG, id);
 	dataObject obj = ht_get(allocatedItems, PAGE_TABLE_ID);
-	printf(WHERESTR "Getting machine id for item EA: %d\n", WHEREARG, obj);
-	printf(WHERESTR "Getting machine id for item EA: %d\n", WHEREARG, obj->EA);
+	//printf(WHERESTR "Getting machine id for item EA: %d\n", WHEREARG, obj);
+	//printf(WHERESTR "Getting machine id for item EA: %d\n", WHEREARG, obj->EA);
+	printf(WHERESTR "Getting machine id for item %d, result: %d\n", WHEREARG, id, ((unsigned int *)obj->EA)[id]);
 	return ((unsigned int *)obj->EA)[id];
 }
 
@@ -568,6 +559,7 @@ void* ProccessWork(void* data)
 	QueueableItem item;
 	dataObject object;
 	unsigned int datatype;
+	int isPtResponse;
 	
 	while(!terminate)
 	{
@@ -575,7 +567,7 @@ void* ProccessWork(void* data)
 		//printf(WHERESTR "fetching job\n", WHEREARG);
 			
 		pthread_mutex_lock(&queue_mutex);
-		while (queue_empty(bagOfTasks) && !terminate) {
+		while (queue_empty(bagOfTasks) && queue_empty(pagetableResponses) && !terminate) {
 			//printf(WHERESTR "waiting for event\n", WHEREARG);
 			pthread_cond_wait(&queue_ready, &queue_mutex);
 			//printf(WHERESTR "event recieved\n", WHEREARG);
@@ -586,8 +578,26 @@ void* ProccessWork(void* data)
 			pthread_mutex_unlock(&queue_mutex);
 			break;
 		}
+		
+		isPtResponse = 0;
 
-		item = (QueueableItem)queue_deq(bagOfTasks);
+		//We prioritize page table responses
+		if (!queue_empty(pagetableResponses))
+		{
+			if ((item = malloc(sizeof(struct QueueableItemStruct))) == NULL)
+				REPORT_ERROR("malloc error");
+			item->dataRequest = queue_deq(pagetableResponses);
+			item->event = &queue_ready;
+			item->mutex = &queue_mutex;
+			item->queue = &pagetableResponses;
+			isPtResponse = 1;
+		}
+		else
+		{
+			item = (QueueableItem)queue_deq(bagOfTasks);
+			isPtResponse = ((struct createRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireRequest*)item->dataRequest)->dataItem == PAGE_TABLE_ID;
+		}
+			
 		pthread_mutex_unlock(&queue_mutex);
 		
 		//Get the type of the package and perform the corresponding action
@@ -597,8 +607,9 @@ void* ProccessWork(void* data)
 		printf(WHERESTR "processing package type %d\n", WHEREARG, datatype);
 
 
-		//If we do not have an idea where to forward this, save it for later, but let pagetable responses go through		
-		if ((!isPageTableAvalible() || datatype == PACKAGE_CREATE_REQUEST) && (datatype != PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)item->dataRequest)->dataItem != PAGE_TABLE_ID ) )
+		//If we do not have an idea where to forward this, save it for later, 
+		//but let pagetable responses go through		
+		if ((!isPageTableAvalible() || datatype == PACKAGE_CREATE_REQUEST) && !isPtResponse )
 		{
 			printf(WHERESTR "defering package type %d, page table is missing\n", WHEREARG, datatype);
 			if (pagetableWaiters == NULL)
@@ -629,34 +640,43 @@ void* ProccessWork(void* data)
 				break;
 			case PACKAGE_ACQUIRE_REQUEST_READ:
 			case PACKAGE_ACQUIRE_REQUEST_WRITE:
-				if (GetMachineID(((struct acquireRequest*)item->dataRequest)->dataItem) != dsmcbe_host_number)
+				if (GetMachineID(((struct acquireRequest*)item->dataRequest)->dataItem) != dsmcbe_host_number && GetMachineID(((struct acquireRequest*)item->dataRequest)->dataItem) != UINT_MAX)
 				{
 					if (ht_member(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
 						RespondAcquire(item, ht_get(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem));
 					else
 					{
-						if (!ht_member(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
+						if (!ht_member(waiters, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
 						{
-							ht_insert(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
+							ht_insert(waiters, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
 							NetRequest(item, GetMachineID(((struct acquireRequest*)item->dataRequest)->dataItem));
 						}
-						dq_enq_back(ht_get(allocatedItems, (void*)((struct acquireRequest*)item->dataRequest)->dataItem), item);
+						dq_enq_back(ht_get(waiters, (void*)((struct acquireRequest*)item->dataRequest)->dataItem), item);
 					}
 				}
 				else 
+				{
+					printf(WHERESTR "Processing acquire locally, machineid: %d, machine id: %d\n", WHEREARG, GetMachineID(((struct acquireRequest*)item->dataRequest)->dataItem), dsmcbe_host_number);
 					DoAcquire(item, (struct acquireRequest*)item->dataRequest);
+				}
 				break;
 			
 			case PACKAGE_RELEASE_REQUEST:
+				printf(WHERESTR "processing release event\n", WHEREARG);
 				if (GetMachineID(((struct releaseRequest*)item->dataRequest)->dataItem) != dsmcbe_host_number)
 				{
+					printf(WHERESTR "processing release event, not owner\n", WHEREARG);
 					if (((struct releaseRequest*)item->dataRequest)->mode == WRITE)
 						DoInvalidate(((struct releaseRequest*)item->dataRequest)->dataItem);
 					NetRequest(item, GetMachineID(((struct releaseRequest*)item->dataRequest)->dataItem));
 				}
 				else
+				{
+					printf(WHERESTR "processing release event, owner\n", WHEREARG);
 					//TODO: If this is from the network, we only have a copy of data... 
 					DoRelease(item, (struct releaseRequest*)item->dataRequest);
+				}
+				printf(WHERESTR "processed release event\n", WHEREARG);
 				break;
 			
 			case PACKAGE_INVALIDATE_REQUEST:
@@ -705,6 +725,8 @@ void* ProccessWork(void* data)
 					object->size = ((struct acquireResponse*)item->dataRequest)->dataSize;
 					object->waitqueue = NULL;
 	
+					if (((struct acquireResponse*)item->dataRequest)->dataItem == PAGE_TABLE_ID)
+						printf(WHERESTR "pagetable entry 1 = %d\n", WHEREARG, ((unsigned int*)object->EA)[1]);
 					ht_insert(allocatedItems, (void*)object->id, object);
 				}
 
@@ -724,7 +746,7 @@ void* ProccessWork(void* data)
 
 
 				//We have recieved a new copy of the page table, re-enter all those awaiting this
-				if (pagetableWaiters != NULL && ((struct acquireResponse*)item->dataRequest)->dataItem == PAGE_TABLE_ID)
+				if (pagetableWaiters != NULL && isPtResponse)
 				{
 					printf(WHERESTR "fixing pagetable waiters\n", WHEREARG);
 
@@ -771,17 +793,20 @@ void* ProccessWork(void* data)
 							break;
 						}
 						else					
-							queue_enq(bagOfTasks, item);
+							queue_enq(bagOfTasks, cr);
 					}
 					pthread_mutex_unlock(&queue_mutex);
 					pagetableWaiters = NULL;
 				}
 				
+				printf(WHERESTR "re-inserted pagetable waiters\n", WHEREARG);
 				free (item->dataRequest);
 				item->dataRequest = NULL;
+				printf(WHERESTR "re-inserted pagetable waiters\n", WHEREARG);
 				free(item);				
 				item = NULL;
-				
+				printf(WHERESTR "re-inserted pagetable waiters\n", WHEREARG);
+			
 				
 				break;
 			
