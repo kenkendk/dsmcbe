@@ -46,27 +46,13 @@ void __m_free_align(void* x, char* s1, int s2)
 keylist key_cons(void *key, void* data, keylist l)
 {
 	keylist temp;
-	printf(WHERESTR "key_cons\n", WHEREARG);
-	unsigned int size = sizeof(struct keycell);
-	printf(WHERESTR "key_cons %u\n", WHEREARG, size);
-	sleep(1);
-	void* pointer = malloc(size);
-	printf(WHERESTR "key_cons\n", WHEREARG);
-	temp = pointer;
-	printf(WHERESTR "key_cons\n", WHEREARG);
-	if (temp == NULL)
-		REPORT_ERROR("malloc error");	
-/*
+
 	if ((temp = MALLOC(sizeof(struct keycell))) == NULL)
 		REPORT_ERROR("malloc error");
-*/
-	printf(WHERESTR "key_cons, %d\n", WHEREARG, temp);		
+
 	temp->data = data;
-	printf(WHERESTR "key_cons\n", WHEREARG);		
 	temp->key = key; 
-	printf(WHERESTR "key_cons\n", WHEREARG);		
 	temp->next = l;
-	printf(WHERESTR "key_cons\n", WHEREARG);		
 	return temp;
 }
 
@@ -293,14 +279,10 @@ void* slset_get(slset l, void *key)
 
 void slset_insert(slset l, void* key, void *data)
 {
-	printf(WHERESTR "slset_insert\n", WHEREARG);
 	keylist *lp = slset_find(&(l->elements), key, l->less);
-	printf(WHERESTR "slset_insert\n", WHEREARG);
 	if (slset_points_to(lp, key, l->less))
 	assert(!slset_points_to(lp, key, l->less));
-	printf(WHERESTR "slset_insert, %d, %d, %d\n", WHEREARG, key, data, lp);
 	*lp = key_cons(key, data, *lp);
-	printf(WHERESTR "slset_insert\n", WHEREARG);
 }
 
 void slset_delete(slset l, void *key)
@@ -499,24 +481,15 @@ void ht_destroy(hashtable ht)
 
 void ht_insert(hashtable ht, void* key, void* data)
 {
-	printf(WHERESTR "ht insert\n", WHEREARG);
 	if (((ht->fill + 1) * 2) > ht->count && ht->fill >= ht->wrapsize)
 		ht_resize(ht, (ht->count + 1) * 2);
 
-	printf(WHERESTR "ht insert\n", WHEREARG);
-	if(ht->count > ht->wrapsize) {
-		printf(WHERESTR "ht insert\n", WHEREARG);
+	if(ht->count > ht->wrapsize)
 		slset_insert(ht->buffer[ht->hash(key, ht->count)], key, data);
-		printf(WHERESTR "ht insert\n", WHEREARG);
-	} else {
-		printf(WHERESTR "ht insert, %d\n", WHEREARG, ht->buffer);
+	 else
 		slset_insert((slset)ht->buffer, key, data);
-		printf(WHERESTR "ht insert\n", WHEREARG);
-	}
 		
-	printf(WHERESTR "ht insert\n", WHEREARG);
 	ht->fill++;
-	printf(WHERESTR "ht insert\n", WHEREARG);
 }
 
 void ht_delete(hashtable ht, void* key)
