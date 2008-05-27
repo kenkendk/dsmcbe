@@ -40,6 +40,89 @@ void* ppu_pthread_function(void* arg) {
 	pthread_exit(NULL);
 }
 
+void reverse(char s[])
+{
+    int c, i, j;
+
+    for (i = 0, j = strlen(s)-1; i<j; i++, j--) {
+        c = s[i];
+        s[i] = s[j];
+        s[j] = c;
+    }
+}
+
+void itoa(int n, char s[])
+{
+    int i, sign;
+
+    if ((sign = n) < 0)  /* record sign */
+        n = -n;          /* make n positive */
+    i = 0;
+    do {       /* generate digits in reverse order */
+        s[i++] = n % 10 + '0';   /* get next digit */
+    } while ((n /= 10) > 0);     /* delete it */
+    if (sign < 0)
+        s[i++] = '-';
+    s[i] = '\0';
+    reverse(s);
+} 
+
+void updateNetworkFile(char* path, unsigned int networkcount)
+{
+	FILE* filesource; 
+	FILE* filetarget;
+	unsigned int port;
+	char str[5];
+	char ip[15];
+	
+	printf(WHERESTR "Starting network setup\n", WHEREARG);
+	
+	filesource = fopen(path , "r");
+	filetarget = fopen("networkbackup.txt", "w");
+	
+	if (filesource == NULL || filetarget == NULL) 
+       REPORT_ERROR("Error reading file");
+			
+	while(!feof(filesource)) { 
+		if (fscanf(filesource, "%s %u", ip, &port) != 2 && feof(filesource))					
+			break;
+			
+		port = port + networkcount;
+		
+		itoa(port, str);
+			
+		fputs(ip, filetarget);
+		fputs(" ", filetarget); 
+		fputs(str, filetarget);
+		fputs("\n", filetarget); 
+						
+	}	
+	
+	fclose(filetarget);
+	fclose(filesource);
+	
+	filesource = fopen("networkbackup.txt" , "r");
+	filetarget = fopen(path, "w");
+	
+	if (filesource == NULL || filetarget == NULL) 
+       REPORT_ERROR("Error reading file");
+			
+	while(!feof(filesource)) { 
+		if (fscanf(filesource, "%s %s", ip, str) != 2 && feof(filesource))					
+			break;
+			
+		fputs(ip, filetarget);
+		fputs(" ", filetarget); 
+		fputs(str, filetarget);
+		fputs("\n", filetarget); 
+						
+	}	
+	
+	fclose(filetarget);
+	fclose(filesource);
+	
+}
+
 int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 {
 	FILE* file;
@@ -48,7 +131,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	unsigned int port;
 	char ip[15];
 	unsigned int networkcount, j;
-	
+		
 	printf(WHERESTR "Starting network setup\n", WHEREARG);
 	
 	file = fopen (path , "r");
@@ -73,7 +156,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		//printf("%s:%u\n", inet_ntoa(network[j].sin_addr), network[j].sin_port);
 
 	fclose(file);
-	
+		
 	int* sockfd = malloc(sizeof(int) * networkcount);	
 	
 	if (id == 0 && id < networkcount) {
@@ -92,6 +175,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 				exit(1);
 			}
 		}
+		
+		updateNetworkFile(path, networkcount);
 
 	} else if (id < networkcount){
 		printf(WHERESTR "This machine is not coordinator\n", WHEREARG);

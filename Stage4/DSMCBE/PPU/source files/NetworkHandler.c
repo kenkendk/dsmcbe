@@ -67,7 +67,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 {
 	unsigned int nextId;
 	struct QueueableItemWrapper* w;
-	
+		
 	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	
 	if (item == NULL || item->dataRequest == NULL)
@@ -81,7 +81,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		REPORT_ERROR("Invalid machineId detected");
 		return;
 	}
-	
+			
 	if ((w = malloc(sizeof(struct QueueableItemWrapper))) == NULL)
 	{
 		REPORT_ERROR("malloc error");
@@ -97,11 +97,15 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	nextId = NEXT_SEQ_NO(net_sequenceNumbers[machineId], NET_MAX_SEQUENCE);
 	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	((struct createRequest*)(item->dataRequest))->requestID = nextId;
+
 	if (ht_member(net_idlookups[machineId], (void*)nextId))
-		printf(WHERESTR "Baddness 10000\n", WHEREARG);
-	
+		printf(WHERESTR "Baddness 10000\n", WHEREARG);	
+
 	printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, malloc: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
-	sleep(1);
+
+	void* tester1 = MALLOC(12);
+	free(tester1);
+	
 	ht_insert(net_idlookups[machineId], (void*)nextId, w);
 	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	queue_enq(net_requestQueues[machineId], item->dataRequest);

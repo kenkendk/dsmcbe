@@ -46,10 +46,20 @@ void __m_free_align(void* x, char* s1, int s2)
 keylist key_cons(void *key, void* data, keylist l)
 {
 	keylist temp;
-	printf(WHERESTR "key_cons\n", WHEREARG);		
+	printf(WHERESTR "key_cons\n", WHEREARG);
+	unsigned int size = sizeof(struct keycell);
+	printf(WHERESTR "key_cons %u\n", WHEREARG, size);
+	sleep(1);
+	void* pointer = malloc(size);
+	printf(WHERESTR "key_cons\n", WHEREARG);
+	temp = pointer;
+	printf(WHERESTR "key_cons\n", WHEREARG);
+	if (temp == NULL)
+		REPORT_ERROR("malloc error");	
+/*
 	if ((temp = MALLOC(sizeof(struct keycell))) == NULL)
 		REPORT_ERROR("malloc error");
-
+*/
 	printf(WHERESTR "key_cons, %d\n", WHEREARG, temp);		
 	temp->data = data;
 	printf(WHERESTR "key_cons\n", WHEREARG);		
