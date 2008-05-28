@@ -65,8 +65,10 @@ void TerminateSPUHandler(int force)
 	
 	ht_destroy(spu_leaseTable);
 	ht_destroy(spu_writeInitiator);
-	free(spu_requestQueues);
-	free(spu_mailboxQueues);
+	FREE(spu_requestQueues);
+	spu_requestQueues = NULL;
+	FREE(spu_mailboxQueues);
+	spu_mailboxQueues = NULL;
 }
 
 void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
@@ -81,10 +83,10 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 
 	/* Setup queues */
 
-	if((spu_requestQueues = (queue*)malloc(sizeof(queue) * spe_thread_count)) == NULL)
+	if((spu_requestQueues = (queue*)MALLOC(sizeof(queue) * spe_thread_count)) == NULL)
 		perror("SPUEventHandler.c: malloc error");
 		
-	if((spu_mailboxQueues = (queue*)malloc(sizeof(queue) * spe_thread_count)) == NULL)
+	if((spu_mailboxQueues = (queue*)MALLOC(sizeof(queue) * spe_thread_count)) == NULL)
 		perror("SPUEventHandler.c: malloc error");;
 	
 	/* Initialize mutex and condition variable objects */
@@ -153,7 +155,7 @@ void* SPU_Worker(void* data)
 				{
 					case PACKAGE_CREATE_REQUEST:
 						//printf(WHERESTR "Create recieved\n", WHEREARG);
-						if ((dataItem = malloc(sizeof(struct createRequest))) == NULL)
+						if ((dataItem = MALLOC(sizeof(struct createRequest))) == NULL)
 							REPORT_ERROR("malloc error");;
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
 						ReadMBOXBlocking(spe_threads[i], &itemid, 1);
@@ -169,7 +171,7 @@ void* SPU_Worker(void* data)
 						//printf(WHERESTR "Acquire READ recieved\n", WHEREARG);
 					case PACKAGE_ACQUIRE_REQUEST_WRITE:
 						//printf(WHERESTR "Acquire WRITE recieved\n", WHEREARG);
-						if ((dataItem = malloc(sizeof(struct acquireRequest))) == NULL)
+						if ((dataItem = MALLOC(sizeof(struct acquireRequest))) == NULL)
 							REPORT_ERROR("malloc error");
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
 						ReadMBOXBlocking(spe_threads[i], &itemid, 1);
@@ -193,7 +195,7 @@ void* SPU_Worker(void* data)
 						if (mode == WRITE)
 						{
 							//printf(WHERESTR "Release recieved for WRITE, forwarding request and registering initiator\n", WHEREARG);
-							if ((dataItem = malloc(sizeof(struct releaseRequest))) == NULL)
+							if ((dataItem = MALLOC(sizeof(struct releaseRequest))) == NULL)
 								REPORT_ERROR("malloc failed");
 	
 							//printf(WHERESTR "Release ID: %i\n", WHEREARG, itemid);
@@ -218,7 +220,7 @@ void* SPU_Worker(void* data)
 			
 					case PACKAGE_INVALIDATE_RESPONSE:
 						printf(WHERESTR "Invalidate Response\n", WHEREARG);
-						if ((dataItem = malloc(sizeof(struct invalidateResponse))) == NULL)
+						if ((dataItem = MALLOC(sizeof(struct invalidateResponse))) == NULL)
 							perror("SPUEventHandler.c: malloc failed");
 
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
@@ -234,7 +236,7 @@ void* SPU_Worker(void* data)
 				//If the request 
 				if (dataItem != NULL)
 				{
-					queueItem = (QueueableItem)malloc(sizeof(struct QueueableItemStruct));
+					queueItem = (QueueableItem)MALLOC(sizeof(struct QueueableItemStruct));
 					queueItem->dataRequest = dataItem;
 					queueItem->event = &spu_work_ready;
 					queueItem->mutex = &spu_work_mutex;
@@ -344,7 +346,8 @@ void* SPU_Worker(void* data)
 						break;
 				}
 				
-				free(dataItem);
+				FREE(dataItem);
+				dataItem = NULL;
 								
 				pthread_mutex_lock(&spu_work_mutex);
 			}

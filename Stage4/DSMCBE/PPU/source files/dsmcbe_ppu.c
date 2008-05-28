@@ -1,6 +1,4 @@
- #include "../../dsmcbe.h"
-#include <free_align.h>
-#include <malloc_align.h>
+#include "../../dsmcbe.h"
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -126,7 +124,10 @@ void updateNetworkFile(char* path, unsigned int networkcount)
 int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 {
 	FILE* file;
-	struct sockaddr_in* network = malloc(sizeof(struct sockaddr_in) * 10);
+	struct sockaddr_in* network;
+	if ((network = MALLOC(sizeof(struct sockaddr_in) * 10)) == NULL)
+		REPORT_ERROR("malloc error");
+	
 	struct sockaddr_in addr;
 	unsigned int port;
 	char ip[15];
@@ -235,7 +236,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		REPORT_ERROR("Cannot parse ID with IP/PORT from network file");
 			
 	printf(WHERESTR "Network setup completed\n", WHEREARG);
-	free(network);
+	FREE(network);
+	network = NULL;
 	*count = networkcount;
 	return sockfd;
 }
@@ -254,11 +256,11 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	} else
 		dsmcbe_host_number = 0;
 		
-	if ((spe_ids = (spe_context_ptr_t*)malloc(thread_count * sizeof(spe_context_ptr_t))) == NULL)
-		perror("dsmcbe.c: malloc error");
+	if ((spe_ids = (spe_context_ptr_t*)MALLOC(thread_count * sizeof(spe_context_ptr_t))) == NULL)
+		REPORT_ERROR("dsmcbe.c: malloc error");
 	
-	if ((spu_threads = (pthread_t*)malloc(thread_count * sizeof(pthread_t))) == NULL)
-			perror("dsmcbe.c: malloc error");
+	if ((spu_threads = (pthread_t*)MALLOC(thread_count * sizeof(pthread_t))) == NULL)
+		REPORT_ERROR("dsmcbe.c: malloc error");
 
 	mustrelease_spe_id = 1;
 	

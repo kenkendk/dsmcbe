@@ -60,6 +60,7 @@ keylist key_cdr_and_free(keylist l)
 {
 	keylist temp = l->next; 
 	FREE(l);
+	l = NULL;
 	return temp;
 }
 
@@ -79,6 +80,7 @@ list cdr_and_free(list l)
 {
 	list temp = l -> next; 
 	FREE(l);
+	l = NULL;
 	return temp;
 }
 
@@ -97,6 +99,7 @@ void list_destroy(list l)
 	while(l->next != NULL)
 		l = cdr_and_free(l);
 	FREE(l);
+	l = NULL;
 }
 
 void list_add(void* element, list* l)
@@ -128,6 +131,7 @@ void stack_destroy(stack s)
 	while(!stack_empty(s))
 		stack_pop(s);
 	FREE(s);
+	s = NULL;
 }
 
 void stack_push(stack s, void *element)
@@ -174,6 +178,7 @@ void ulset_destroy(ulset l)
 	while(!ulset_empty(l))
 		ulset_delete(l, l->elements->key);
 	FREE(l);
+	l = NULL;
 }
 
 int ulset_empty(ulset l)
@@ -238,6 +243,7 @@ void slset_destroy(slset l)
 	while(!slset_empty(l))
 		slset_delete(l, l->elements->key);
 	FREE(l);
+	l = NULL;
 }
 
 int slset_empty(slset l)
@@ -312,6 +318,7 @@ void queue_destroy(queue q)
 		queue_deq(q);
 	cdr_and_free(q->head);
 	FREE(q);
+	q = NULL;
 }
 
 int queue_empty(queue q)
@@ -379,6 +386,7 @@ void * unlink_and_free(dlist l)
 	l -> next -> prev = l -> prev;
 	l -> prev -> next = l -> next;
 	FREE(l);
+	l = NULL;
 	return temp;
 }
 
@@ -405,6 +413,7 @@ void dq_destroy(dqueue q)
 		dq_deq_front(q);
 	unlink_and_free(q->sentinel);
 	FREE(q);
+	q = NULL;
 }
 
 int dq_empty(dqueue q)
@@ -477,6 +486,7 @@ void ht_destroy(hashtable ht)
 	ht_resize(ht, 0);
 	slset_destroy((slset)ht->buffer);
 	FREE(ht);
+	ht = NULL;
 }
 
 void ht_insert(hashtable ht, void* key, void* data)
@@ -560,13 +570,17 @@ void ht_resize(hashtable ht, unsigned int newsize)
 		}
 	}
 	
-	if (ht->count > ht->wrapsize)
+	if (ht->count > ht->wrapsize) {
 		FREE(ht->buffer);
+		ht->buffer = NULL;
+	}
+
 
 	ht->buffer = newtable->buffer;
 	ht->count = newtable->count;
 	
 	FREE(newtable);
+	newtable = NULL;
 }
 
 /*********************/
@@ -640,7 +654,8 @@ int ht_iter_next(hashtableIterator iter)
 
 void ht_iter_destroy(hashtableIterator iter)
 {
-	FREE(iter);	
+	FREE(iter);
+	iter = NULL;	
 }
 
 void ht_iter_reset(hashtableIterator iter)

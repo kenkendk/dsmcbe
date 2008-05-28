@@ -6,7 +6,6 @@
  */
 
 #include <pthread.h>
-#include <malloc.h>
 #include <stdio.h>
 #include "../../common/datastructures.h"
 #include "../../common/datapackages.h"
@@ -76,7 +75,9 @@ void TerminatePPUHandler()
 		pe = ht_iter_get_value(it);
 		queue_enq(keys, ht_iter_get_key(it)); 
 		free(pe->data);
+		pe->data = NULL;
 		free(pe);
+		pe = NULL;
 	}
 	ht_iter_destroy(it);
 	
@@ -94,7 +95,9 @@ void TerminatePPUHandler()
 		pe = ht_iter_get_value(it);
 		queue_enq(keys, ht_iter_get_key(it)); 
 		free(pe->data);
+		pe->data = NULL;
 		free(pe);
+		pe = NULL;
 	}
 	ht_iter_destroy(it);
 	
@@ -123,7 +126,7 @@ void* forwardRequest(void* data)
 	
 	//printf(WHERESTR "creating item\n", WHEREARG);
 	//Create the entry, this will be released by the coordinator
-	if ((q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct))) == NULL)
+	if ((q = (QueueableItem)MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 		REPORT_ERROR("PPUEventHandler.c: malloc error");
 	
 	dummy = queue_create();
@@ -176,7 +179,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 		else
 		{
 			//printf(WHERESTR "recording entry\n", WHEREARG);
-			if ((ent = (PointerEntry)malloc(sizeof(struct PointerEntryStruct))) == NULL)
+			if ((ent = (PointerEntry)MALLOC(sizeof(struct PointerEntryStruct))) == NULL)
 				REPORT_ERROR("PPUEventHandler.c: malloc error");
 			ent->data = retval;
 			ent->id = id;
@@ -199,7 +202,7 @@ void* threadCreate(GUID id, unsigned long size)
 	
 	//printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
-	if ((cr = (struct createRequest*)malloc(sizeof(struct createRequest))) == NULL)
+	if ((cr = (struct createRequest*)MALLOC(sizeof(struct createRequest))) == NULL)
 		REPORT_ERROR("PPUEventHandler.c: malloc error");
 	cr->packageCode = PACKAGE_CREATE_REQUEST;
 	cr->requestID = 0;
@@ -232,6 +235,7 @@ void* threadCreate(GUID id, unsigned long size)
 	recordPointer(retval, id, size, 0, WRITE);	
 	
 	free(ar);
+	ar = NULL;
 	return retval;	
 }
 
@@ -260,13 +264,13 @@ void processInvalidates()
 					QueueableItem q;
 					struct invalidateResponse* cr;
 					
-					if ((cr = (struct invalidateResponse*)malloc(sizeof(struct invalidateResponse))) == NULL)
+					if ((cr = (struct invalidateResponse*)MALLOC(sizeof(struct invalidateResponse))) == NULL)
 						REPORT_ERROR("malloc error");
 	
 					cr->packageCode = PACKAGE_INVALIDATE_RESPONSE;
 					cr->requestID = req->requestID;
 	
-					if ((q = (QueueableItem)malloc(sizeof(struct QueueableItemStruct))) == NULL)
+					if ((q = (QueueableItem)MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 						REPORT_ERROR("PPUEventHandler.c: malloc error");
 					
 					q->dataRequest = cr;
@@ -279,6 +283,7 @@ void processInvalidates()
 					
 					
 					free(pe);
+					pe = NULL;
 				}
 				else
 					queue_enq(temp, req);
@@ -304,8 +309,10 @@ void processInvalidates()
 				pthread_mutex_unlock(&pointer_mutex);
 			}
 			
-			if (req != NULL)
+			if (req != NULL) {
 				free(req);
+				req = NULL;
+			}
 		}
 
 		//Re-insert items
@@ -371,7 +378,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	pthread_mutex_unlock(&pointerOld_mutex);
 		
 	//Create the request, this will be released by the coordinator	
-	if ((cr = (struct acquireRequest*)malloc(sizeof(struct acquireRequest))) == NULL)
+	if ((cr = (struct acquireRequest*)MALLOC(sizeof(struct acquireRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 
 	if (type == WRITE) {
@@ -427,6 +434,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	}
 	
 	free(ar);
+	ar = NULL;
 	return retval;	
 }
 
@@ -462,7 +470,7 @@ void threadRelease(void* data)
 		if (pe->mode == WRITE)
 		{
 			//Create a request, this will be released by the coordinator
-			if ((re = (struct releaseRequest*)malloc(sizeof(struct releaseRequest))) == NULL)
+			if ((re = (struct releaseRequest*)MALLOC(sizeof(struct releaseRequest))) == NULL)
 				REPORT_ERROR("malloc error");
 			re->packageCode = PACKAGE_RELEASE_REQUEST;
 			re->requestID = 0;
@@ -478,6 +486,7 @@ void threadRelease(void* data)
 				REPORT_ERROR("Reponse to release had unexpected type");
 			
 			free(rr);
+			rr = NULL;
 		}
 
 		pthread_mutex_lock(&pointerOld_mutex);
