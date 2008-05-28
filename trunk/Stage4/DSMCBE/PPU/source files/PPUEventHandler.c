@@ -286,33 +286,16 @@ void processInvalidates()
 				if (pe->count == 0 && pe->mode != BLOCKED)
 				{
 					ht_delete(pointersOld, (void*)req->dataItem);
-					// Send invalidateResponse
-					QueueableItem q;
-					struct invalidateResponse* cr;
-					
-					if ((cr = (struct invalidateResponse*)MALLOC(sizeof(struct invalidateResponse))) == NULL)
-						REPORT_ERROR("malloc error");
-	
-					cr->packageCode = PACKAGE_INVALIDATE_RESPONSE;
-					cr->requestID = req->requestID;
-	
-					if ((q = (QueueableItem)MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
-						REPORT_ERROR("PPUEventHandler.c: malloc error");
-					
-					q->dataRequest = cr;
-					q->event = NULL;
-					q->mutex = NULL;
-					q->queue = NULL;
-					
-					//printf(WHERESTR "adding item to queue\n", WHEREARG);
-					EnqueItem(q);
-					
 					
 					free(pe);
 					pe = NULL;
 				}
 				else
+				{
 					queue_enq(temp, req);
+					req = NULL;
+				}
+				
 				pthread_mutex_unlock(&pointerOld_mutex);
 			}
 			else
@@ -336,6 +319,8 @@ void processInvalidates()
 			}
 			
 			if (req != NULL) {
+				EnqueInvalidateResponse(req->requestID);
+				
 				free(req);
 				req = NULL;
 			}
