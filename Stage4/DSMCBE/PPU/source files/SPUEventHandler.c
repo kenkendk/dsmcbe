@@ -348,6 +348,11 @@ void* SPU_Worker(void* data)
 						}
 							
 						break;
+					case PACKAGE_WRITEBUFFER_READY:
+						queue_enq(spu_mailboxQueues[i], (void*)datatype);
+						queue_enq(spu_mailboxQueues[i], (void*)((struct writebufferReady*)dataItem)->requestID);
+						queue_enq(spu_mailboxQueues[i], (void*)((struct writebufferReady*)dataItem)->dataItem);						
+						break;
 					default:						
 						perror("SPUEventHandler.c: Bad Coordinator response");
 						break;

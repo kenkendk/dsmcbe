@@ -29,6 +29,7 @@ hashtable allocatedItems;
 hashtable allocatedItemsDirty;
 hashtable pendingSequenceNr;
 hashtable waiters;
+hashtable writebufferReady;
 
 queue pagetableWaiters;
 queue pagetableResponses;
@@ -142,6 +143,7 @@ void InitializeCoordinator()
 		allocatedItemsDirty = ht_create(10, lessint, hashfc);
 		pendingSequenceNr = ht_create(10, lessint, hashfc);
 		waiters = ht_create(10, lessint, hashfc);
+		writebufferReady = ht_create(10, lessint, hashfc);
 		pagetableWaiters = NULL;
 		invalidateSubscribers = slset_create(lessint);
 		pagetableResponses = queue_create();
@@ -418,6 +420,11 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				dq_enq_front(q, NULL);
 
 				RespondAcquire(item, obj);
+				if(!ht_member(writebufferReady, (void*)request->dataItem))
+					ht_insert(writebufferReady, (void*)request->dataItem ,item);
+				else
+					REPORT_ERROR("Could not insert into writebufferReady, element exists");
+					
 				DoInvalidate(obj->id);
 				NetInvalidate(obj->id);
 			}
@@ -727,6 +734,16 @@ void HandleInvalidateResponse(QueueableItem item)
 	if (*count <= 0) {
 		printf(WHERESTR "The last response is in for: %d\n", WHEREARG, object->id);
 		ht_delete(allocatedItemsDirty, (void*)object);
+				
+		if(ht_member(writebufferReady, (void*)object->id)) {
+			struct writebufferReady* req = (struct writebufferReady*)malloc(sizeof(struct writebufferReady));
+			req->packageCode = PACKAGE_WRITEBUFFER_READY;
+			req->requestID = 0;
+			req->dataItem = object->id;
+		
+			QueueableItem reciever = ht_get(writebufferReady, (void*)object->id);
+			RespondAny(reciever, req);
+		}
 
 		if (!ht_member(allocatedItems, (void*)object->id) || ht_get(allocatedItems, (void*)object->id) != object)
 		{  		
