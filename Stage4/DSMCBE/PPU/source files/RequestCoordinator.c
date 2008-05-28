@@ -32,7 +32,7 @@ hashtable waiters;
 hashtable writebufferReady;
 
 queue pagetableWaiters;
-queue pagetableResponses;
+queue priorityResponses;
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -70,6 +70,9 @@ int hashfc(void* a, unsigned int count){
 
 //This is the method the thread runs
 void* ProccessWork(void* data);
+
+//This cleans out all pending invalidates for the PPU handler
+void processInvalidates();
 
 //Add another subscriber to the list
 void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, queue* q)
@@ -111,7 +114,7 @@ void TerminateCoordinator(int force)
 	if (pagetableWaiters != NULL)
 		queue_destroy(pagetableWaiters);
 	queue_destroy(bagOfTasks);
-	queue_destroy(pagetableResponses);
+	queue_destroy(priorityResponses);
 	ht_destroy(allocatedItems);
 	ht_destroy(allocatedItemsDirty);
 	ht_destroy(waiters);
@@ -146,7 +149,7 @@ void InitializeCoordinator()
 		writebufferReady = ht_create(10, lessint, hashfc);
 		pagetableWaiters = NULL;
 		invalidateSubscribers = slset_create(lessint);
-		pagetableResponses = queue_create();
+		priorityResponses = queue_create();
 		
 		if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 		{
@@ -186,6 +189,27 @@ void EnqueItem(QueueableItem item)
  	pthread_mutex_unlock(&queue_mutex);
 
 	//printf(WHERESTR "item added to queue\n", WHEREARG);
+}
+
+//This method enques a response for an invalidate
+void EnqueInvalidateResponse(unsigned int requestNumber)
+{
+	struct invalidateResponse* resp;
+	
+	if((resp = MALLOC(sizeof(struct invalidateResponse))) == NULL)
+		REPORT_ERROR("malloc error");
+	
+	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
+	resp->requestID = requestNumber;
+	
+ 	pthread_mutex_lock(&queue_mutex);
+ 	
+ 	queue_enq(priorityResponses, resp);
+	//printf(WHERESTR "setting event\n", WHEREARG);
+ 	
+ 	pthread_cond_signal(&queue_ready);
+ 	pthread_mutex_unlock(&queue_mutex);
+	
 }
 
 //Helper method with common code for responding
@@ -369,37 +393,58 @@ void DoInvalidate(GUID dataItem)
 	
 	pthread_mutex_lock(&invalidate_queue_mutex);
 	kl = invalidateSubscribers->elements;
-	
-	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		
 	while(kl != NULL)
 	{
 		struct invalidateRequest* requ;
-	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		if ((requ = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
 			REPORT_ERROR("MALLOC error");
-	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		
 		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
 		requ->requestID = NEXT_SEQ_NO(sequence_nr, MAX_SEQUENCE_NR);
 		requ->dataItem = dataItem;
-	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		
 		ht_insert(pendingSequenceNr, (void*)requ->requestID, obj);
 		unsigned int* count = ht_get(allocatedItemsDirty, obj);
 		*count = *count + 1;
-	printf(WHERESTR "Invalidating...\n", WHEREARG);
 
 		pthread_mutex_lock((pthread_mutex_t*)kl->data);
 		queue_enq(*((queue*)kl->key), requ); 
 		pthread_mutex_unlock((pthread_mutex_t*)kl->data); 
-	printf(WHERESTR "Invalidating...\n", WHEREARG);
+		
+		printf(WHERESTR "Sent invalidate request sent\n", WHEREARG);
 		
 		kl = kl->next;
 	}
 	pthread_mutex_unlock(&invalidate_queue_mutex);
 
+	//Clean out the PPU cache
+	processInvalidates();
+
 	printf(WHERESTR "Invalidate request sent\n", WHEREARG);
+}
+
+void RecordBufferRequest(QueueableItem item)
+{
+	QueueableItem temp;
+	if ((temp = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+		REPORT_ERROR("malloc error");
+	memcpy(temp, item, sizeof(struct QueueableItemStruct));				
+
+	if ((temp->dataRequest = MALLOC(sizeof(struct acquireRequest))) == NULL)
+		REPORT_ERROR("malloc error");
+	memcpy(temp->dataRequest, item->dataRequest, sizeof(struct acquireRequest));
+
+	if (((struct acquireRequest*)item->dataRequest)->packageCode != PACKAGE_ACQUIRE_REQUEST_WRITE)
+		REPORT_ERROR("Recording buffer entry for non acquire or non write");
+
+	if(!ht_member(writebufferReady, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
+	{
+		printf(WHERESTR "Inserted item into writebuffer table: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
+		ht_insert(writebufferReady, (void*)((struct acquireRequest*)item->dataRequest)->dataItem ,temp);
+	}
+	else
+		REPORT_ERROR("Could not insert into writebufferReady, element exists");
 }
 
 //Performs all actions releated to an acquire request
@@ -424,12 +469,9 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 			} else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE) {			
 				printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
-
+				
+				RecordBufferRequest(item);
 				RespondAcquire(item, obj);
-				if(!ht_member(writebufferReady, (void*)request->dataItem))
-					ht_insert(writebufferReady, (void*)request->dataItem ,item);
-				else
-					REPORT_ERROR("Could not insert into writebufferReady, element exists");
 					
 				DoInvalidate(obj->id);
 				NetInvalidate(obj->id);
@@ -510,6 +552,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 						dq_enq_front(q, NULL);
 
 						GUID id = obj->id;
+						RecordBufferRequest(next);
 						RespondAcquire(next, obj);
 						DoInvalidate(id);
 						NetInvalidate(id);
@@ -568,7 +611,7 @@ void RequestPageTable(int mode)
 		q->dataRequest = acq;
 		q->mutex = &queue_mutex;
 		q->event = &queue_ready;
-		q->queue = &pagetableResponses;			
+		q->queue = &priorityResponses;			
 
 		printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 
@@ -742,13 +785,19 @@ void HandleInvalidateResponse(QueueableItem item)
 		ht_delete(allocatedItemsDirty, (void*)object);
 				
 		if(ht_member(writebufferReady, (void*)object->id)) {
-			struct writebufferReady* req = (struct writebufferReady*)malloc(sizeof(struct writebufferReady));
+			printf(WHERESTR "The last response is in for: %d, sending writebuffer signal\n", WHEREARG, object->id);
+			
+			QueueableItem reciever = ht_get(writebufferReady, (void*)object->id);
+			
+			struct writebufferReady* req = (struct writebufferReady*)MALLOC(sizeof(struct writebufferReady));
+			if (req == NULL)
+				REPORT_ERROR("malloc error");
+				
 			ht_delete(writebufferReady, (void*)object->id);
 			req->packageCode = PACKAGE_WRITEBUFFER_READY;
-			req->requestID = 0;
+			req->requestID = ((struct acquireRequest*)reciever->dataRequest)->requestID;
 			req->dataItem = object->id;
 		
-			QueueableItem reciever = ht_get(writebufferReady, (void*)object->id);
 			RespondAny(reciever, req);
 		}
 
@@ -951,7 +1000,7 @@ void* ProccessWork(void* data)
 		printf(WHERESTR "fetching job\n", WHEREARG);
 			
 		pthread_mutex_lock(&queue_mutex);
-		while (queue_empty(bagOfTasks) && queue_empty(pagetableResponses) && !terminate) {
+		while (queue_empty(bagOfTasks) && queue_empty(priorityResponses) && !terminate) {
 			//printf(WHERESTR "waiting for event\n", WHEREARG);
 			pthread_cond_wait(&queue_ready, &queue_mutex);
 			//printf(WHERESTR "event recieved\n", WHEREARG);
@@ -966,15 +1015,15 @@ void* ProccessWork(void* data)
 		isPtResponse = 0;
 
 		//We prioritize page table responses
-		if (!queue_empty(pagetableResponses))
+		if (!queue_empty(priorityResponses))
 		{
-			printf(WHERESTR "fetching pagetable response\n", WHEREARG);
+			printf(WHERESTR "fetching priority response\n", WHEREARG);
 			if ((item = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 				REPORT_ERROR("MALLOC error");
-			item->dataRequest = queue_deq(pagetableResponses);
+			item->dataRequest = queue_deq(priorityResponses);
 			item->event = &queue_ready;
 			item->mutex = &queue_mutex;
-			item->queue = &pagetableResponses;
+			item->queue = &priorityResponses;
 			isPtResponse = 1;
 		}
 		else

@@ -226,13 +226,11 @@ void* net_Reader(void* data)
 	struct pollfd* sockets;
 	size_t i;
 	int res;
-	unsigned int active_sockets;
 	
 	if ((sockets = MALLOC(sizeof(struct pollfd) * net_remote_hosts)) == NULL)
 		REPORT_ERROR("MALLOC error");
 		
-	active_sockets = net_remote_hosts;
-	for(i = 0; i < active_sockets; i++)
+	for(i = 0; i < net_remote_hosts; i++)
 	{
 		sockets[i].fd = net_remote_handles[i];
 		sockets[i].events = POLLIN | POLLHUP | POLLERR;
@@ -241,7 +239,7 @@ void* net_Reader(void* data)
 	while(!net_terminate)
 	{
 		//We check each second for the termination event
-		res = poll(sockets, active_sockets, 1000);
+		res = poll(sockets, net_remote_hosts, 1000);
 		if (res < 0) {
 			REPORT_ERROR("Poll reported error");
 		} else if (res == 0)
@@ -249,7 +247,7 @@ void* net_Reader(void* data)
 		
 		printf(WHERESTR "Network packaged recieved\n", WHEREARG);
 		
-		for(i = 0; i < active_sockets; i++)
+		for(i = 0; i < net_remote_hosts; i++)
 		{
 			if (sockets[i].revents & POLLIN)
 			{
@@ -257,7 +255,7 @@ void* net_Reader(void* data)
 				if (recv(sockets[i].fd, &res, 1, MSG_PEEK) == 0)
 					sockets[i].revents = POLLHUP;
 				
-				printf(WHERESTR "Processing network package from %d, revents: %d, active_sockets: %d\n", WHEREARG, i, sockets[i].revents, active_sockets);
+				printf(WHERESTR "Processing network package from %d, revents: %d\n", WHEREARG, i, sockets[i].revents);
 				net_processPackage(net_readPackage(sockets[i].fd), i);
 				printf(WHERESTR "Processed network package from: %d\n", WHEREARG, i);
 			}
@@ -265,9 +263,7 @@ void* net_Reader(void* data)
 			if ((sockets[i].revents & POLLHUP) || (sockets[i].revents & POLLERR))
 			{
 				REPORT_ERROR("Socked closed unexpectedly");
-				if (active_sockets != 0)
-					sockets[i].fd = sockets[active_sockets - 1].fd;
-				active_sockets--;
+				sockets[i].fd = -1;
 			}
 		}
 	}

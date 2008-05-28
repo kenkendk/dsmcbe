@@ -227,13 +227,10 @@ void* SPU_Worker(void* data)
 			
 					case PACKAGE_INVALIDATE_RESPONSE:
 						printf(WHERESTR "Invalidate Response\n", WHEREARG);
-						if ((dataItem = MALLOC(sizeof(struct invalidateResponse))) == NULL)
-							perror("SPUEventHandler.c: malloc failed");
 
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
-					
-						((struct invalidateResponse*)dataItem)->packageCode = datatype;
-						((struct invalidateResponse*)dataItem)->requestID = requestID;
+						EnqueInvalidateResponse(requestID);
+						
 						break;
 					default:
 						fprintf(stderr, WHERESTR "Bad SPU request, ID was: %i, message: %s\n", WHEREARG, datatype, strerror(errno));
@@ -321,6 +318,7 @@ void* SPU_Worker(void* data)
 					case PACKAGE_INVALIDATE_REQUEST:
 
 						itemid = ((struct invalidateRequest*)dataItem)->dataItem;
+						requestID = ((struct invalidateRequest*)dataItem)->requestID;
 						if (!ht_member(spu_leaseTable,  (void*)itemid))
 							ht_insert(spu_leaseTable, (void*)itemid, slset_create(lessint));
 							
@@ -342,9 +340,14 @@ void* SPU_Worker(void* data)
 							}
 							else
 							{
+								EnqueInvalidateResponse(requestID);
 								ht_delete(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem);
 								//printf(WHERESTR "Got \"invalidateRequest\" message, but skipping because SPU is initiator, ID %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
 							}
+						}
+						else
+						{
+							EnqueInvalidateResponse(requestID);
 						}
 							
 						break;
