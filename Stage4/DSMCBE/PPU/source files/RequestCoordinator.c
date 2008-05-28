@@ -660,6 +660,8 @@ void HandleReleaseRequest(QueueableItem item)
 				//The object is still in use, re-register, the last invalidate response will free it
 				dqueue tmp = obj->waitqueue;
 				obj->waitqueue = NULL;
+				if (req->data == NULL)
+					req->data = obj->EA;
 				ht_delete(allocatedItems, (void*)req->dataItem);
 				if ((obj = MALLOC(sizeof(struct dataObjectStruct))) == NULL)
 					REPORT_ERROR("malloc error");
@@ -718,14 +720,17 @@ void HandleInvalidateResponse(QueueableItem item)
 	dataObject object;
 	struct invalidateResponse* req = item->dataRequest;
 	
+	printf(WHERESTR "processing invalidate response for\n", WHEREARG);
 	object = ht_get(pendingSequenceNr, (void*)req->requestID);
 	unsigned int* count = ht_get(allocatedItemsDirty, (void*)object);
 	*count = *count - 1;
 	if (*count <= 0) {
+		printf(WHERESTR "The last response is in for: %d\n", WHEREARG, object->id);
 		ht_delete(allocatedItemsDirty, (void*)object);
 
 		if (!ht_member(allocatedItems, (void*)object->id) || ht_get(allocatedItems, (void*)object->id) != object)
 		{  		
+			printf(WHERESTR "Item is no longer required, freeing: %d\n", WHEREARG, object->id);
 			FREE_ALIGN(object->EA);
 			object->EA = NULL;
 			FREE(object);
@@ -734,11 +739,15 @@ void HandleInvalidateResponse(QueueableItem item)
 			count = NULL;
 		}
 	}
+
+	printf(WHERESTR "removing pending invalidate response for: %d\n", WHEREARG, object->id);
 	ht_delete(pendingSequenceNr, (void*)req->requestID);
 	FREE(item->dataRequest);
 	item->dataRequest = NULL;
 	FREE(item);
 	item  = NULL;
+	printf(WHERESTR "processing invalidate response for: %d\n", WHEREARG, object->id);
+	
 }
 
 void HandleAcquireResponse(QueueableItem item)
