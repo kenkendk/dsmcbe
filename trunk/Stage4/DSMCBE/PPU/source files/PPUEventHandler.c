@@ -29,7 +29,7 @@ hashtable pointers, pointersOld;
 //This is the queue of pending invalidates
 queue pendingInvalidate;
 
-#define BLOCKED (READ + WRITE)
+#define BLOCKED (ACQUIRE_MODE_READ + ACQUIRE_MODE_WRITE + ACQUIRE_MODE_CREATE + 1)
 
 typedef struct PointerEntryStruct *PointerEntry;
 struct PointerEntryStruct
@@ -154,7 +154,7 @@ void* forwardRequest(void* data)
 	data = queue_deq(dummy);
 	pthread_mutex_unlock(&m);
 	
-	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == WRITE) {
+	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE) {
 		while (queue_empty(dummy)) {
 			//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
 			pthread_cond_wait(&e, &m);
@@ -183,6 +183,9 @@ void* forwardRequest(void* data)
 void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offset, int type)
 {
 	PointerEntry ent;
+	
+	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE)
+		REPORT_ERROR("pointer was neither READ nor WRITE");
 	
 	//If the response was valid, record the item data
 	if (retval != NULL)
@@ -217,6 +220,12 @@ void* threadCreate(GUID id, unsigned long size)
 	struct acquireResponse* ar;
 	void* retval;
 	
+	if (id == PAGE_TABLE_ID)
+	{
+		REPORT_ERROR("cannot request pagetable");
+		return NULL;
+	}
+	
 	//printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
 	if ((cr = (struct createRequest*)MALLOC(sizeof(struct createRequest))) == NULL)
@@ -249,7 +258,7 @@ void* threadCreate(GUID id, unsigned long size)
 		#endif
 	}
 
-	recordPointer(retval, id, size, 0, WRITE);	
+	recordPointer(retval, id, size, 0, ACQUIRE_MODE_WRITE);	
 	
 	free(ar);
 	ar = NULL;
@@ -368,6 +377,12 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	struct acquireResponse* ar;
 	PointerEntry pe;
 	
+	if (id == PAGE_TABLE_ID)
+	{
+		REPORT_ERROR("cannot request pagetable");
+		return NULL;
+	}
+	
 	// If acquire is of type read and id is in pointerOld, then we
 	// reacquire, without notifying system.
 	
@@ -377,7 +392,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	if (ht_member(pointersOld, (void*)id)) {
 		//printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
 		PointerEntry pe = ht_get(pointersOld, (void*)id);
-		if (type == READ && (pe->count == 0 || pe->mode == READ) && !isPendingInvalidate(id))
+		if (type == ACQUIRE_MODE_READ && (pe->count == 0 || pe->mode == ACQUIRE_MODE_READ) && !isPendingInvalidate(id))
 		{
 			pe->mode = type;
 			pe->count++;
@@ -398,11 +413,11 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	if ((cr = (struct acquireRequest*)MALLOC(sizeof(struct acquireRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 
-	if (type == WRITE) {
+	if (type == ACQUIRE_MODE_WRITE) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
 	}
-	else if (type == READ) {
+	else if (type == ACQUIRE_MODE_READ) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	}
@@ -433,7 +448,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 			REPORT_ERROR("Bad request ID returned in create");
 		#endif
 
-		if (type == WRITE)
+		if (type == ACQUIRE_MODE_WRITE)
 		{
 			pthread_mutex_lock(&pointerOld_mutex);
 			if (ht_member(pointersOld, (void*)id))
@@ -470,6 +485,12 @@ void threadRelease(void* data)
 		pe = ht_get(pointers, data);
 		pthread_mutex_unlock(&pointer_mutex);
 		
+		if (pe->id == PAGE_TABLE_ID)
+		{
+			REPORT_ERROR("cannot request pagetable");
+			return;
+		}
+		
 		pthread_mutex_lock(&pointerOld_mutex);
 		pe->count--;
 					
@@ -484,7 +505,7 @@ void threadRelease(void* data)
 		else
 			pthread_mutex_unlock(&pointerOld_mutex);
 		
-		if (pe->mode == WRITE)
+		if (pe->mode == ACQUIRE_MODE_WRITE)
 		{
 			//Create a request, this will be released by the coordinator
 			if ((re = (struct releaseRequest*)MALLOC(sizeof(struct releaseRequest))) == NULL)

@@ -635,6 +635,13 @@ unsigned int beginCreate(GUID id, unsigned long size)
 		return 0;
 	}
 
+	if (id == PAGE_TABLE_ID)
+	{
+		REPORT_ERROR("cannot request pagetable");
+		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
+		return 0;
+	}
+
 	req = &pendingRequestBuffer[nextId];
 	struct createRequest* request = (struct createRequest*)&req->request;
 
@@ -667,6 +674,14 @@ unsigned int beginAcquire(GUID id, int type)
 		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
 		return 0;
 	}
+	
+	if (id == PAGE_TABLE_ID)
+	{
+		REPORT_ERROR("cannot request pagetable");
+		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
+		return 0;
+	}
+
 	
 	if (!GETBIT(nextId, MAX_PENDING_REQUESTS, pendingMap))
 	{
@@ -769,11 +784,18 @@ unsigned int beginRelease(void* data)
 		REPORT_ERROR("Initialize must be called");
 		return 0;
 	}
-
 	req = &pendingRequestBuffer[nextId];
 
 	if (ht_member(itemsByPointer, data)) {
 		object = ht_get(itemsByPointer, data);
+
+		if (object->id == PAGE_TABLE_ID)
+		{
+			REPORT_ERROR("cannot request pagetable");
+			CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
+			return 0;
+		}
+
 
 		if (object->mode == WRITE) {
 

@@ -148,7 +148,7 @@ void InitializeCoordinator()
 		invalidateSubscribers = slset_create(lessint);
 		pagetableResponses = queue_create();
 		
-		if (dsmcbe_host_number == 0)
+		if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 		{
 			if ((obj = MALLOC(sizeof(struct dataObjectStruct))) == NULL)
 				REPORT_ERROR("MALLOC error");
@@ -161,7 +161,7 @@ void InitializeCoordinator()
 			for(i = 0; i < 10000; i++)
 				((unsigned int*)obj->EA)[i] = UINT_MAX;
 
-			((unsigned int*)obj->EA)[PAGE_TABLE_ID] = 0; 
+			((unsigned int*)obj->EA)[PAGE_TABLE_ID] = PAGE_TABLE_OWNER; 
 			ht_insert(allocatedItems, (void*)obj->id, obj);
 		}
 
@@ -242,7 +242,14 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	resp->dataSize = obj->size;
 	resp->data = obj->EA;
 	resp->dataItem = obj->id;
-	resp->mode = ((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE ? WRITE : READ;	
+	if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+		resp->mode = ACQUIRE_MODE_WRITE;
+	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
+		resp->mode = ACQUIRE_MODE_READ;
+	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
+		resp->mode = ACQUIRE_MODE_CREATE;
+	else
+		REPORT_ERROR("Responding to unknown acquire type"); 
 	//printf(WHERESTR "Performing Acquire, mode: %d (code: %d)\n", WHEREARG, resp->mode, ((struct acquireRequest*)item->dataRequest)->packageCode);
 
 	RespondAny(item, resp);	
@@ -325,7 +332,7 @@ void DoInvalidate(GUID dataItem)
 
 	printf(WHERESTR "Invalidating...\n", WHEREARG);
 	
-	if (dataItem == PAGE_TABLE_ID && dsmcbe_host_number == 0)
+	if (dataItem == PAGE_TABLE_ID && dsmcbe_host_number == PAGE_TABLE_OWNER)
 		return;
 	
 	if (!ht_member(allocatedItems, (void*)dataItem))
@@ -457,7 +464,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 	QueueableItem next;
 	
 	//printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
-	if (request->mode == READ)
+	if (request->mode == ACQUIRE_MODE_READ)
 	{
 		//printf(WHERESTR "Performing read-release for %d\n", WHEREARG, request->dataItem);
 		return;
@@ -526,7 +533,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 
 int isPageTableAvalible()
 {
-	if (dsmcbe_host_number == 0)
+	if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 	{
 		if (!ht_member(allocatedItems, (void*)PAGE_TABLE_ID))
 			REPORT_ERROR("Host zero did not have the page table");
@@ -542,7 +549,7 @@ void RequestPageTable(int mode)
 	struct acquireRequest* acq;
 	QueueableItem q;
 
-	if (dsmcbe_host_number == 0 && mode == READ) 
+	if (dsmcbe_host_number == PAGE_TABLE_OWNER && mode == ACQUIRE_MODE_READ) 
 	{
 		//We have to wait for someone to release it :(
 		return;
@@ -552,7 +559,7 @@ void RequestPageTable(int mode)
 		if ((acq = MALLOC(sizeof(struct acquireRequest))) == NULL)
 			REPORT_ERROR("MALLOC error");
 		acq->dataItem = PAGE_TABLE_ID;
-		acq->packageCode = mode == READ ? PACKAGE_ACQUIRE_REQUEST_READ : PACKAGE_ACQUIRE_REQUEST_WRITE;
+		acq->packageCode = mode == ACQUIRE_MODE_READ ? PACKAGE_ACQUIRE_REQUEST_READ : PACKAGE_ACQUIRE_REQUEST_WRITE;
 		acq->requestID = 0;
 
 		if ((q = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
@@ -565,8 +572,8 @@ void RequestPageTable(int mode)
 
 		printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 
-		if (dsmcbe_host_number != 0)
-			NetRequest(q, 0);
+		if (dsmcbe_host_number != PAGE_TABLE_OWNER)
+			NetRequest(q, PAGE_TABLE_OWNER);
 		else
 			DoAcquire(q, acq);		
 
@@ -650,14 +657,14 @@ void HandleReleaseRequest(QueueableItem item)
 	if (machineId != dsmcbe_host_number)
 	{
 		printf(WHERESTR "processing release event, not owner\n", WHEREARG);
-		if (req->mode == WRITE)
+		if (req->mode == ACQUIRE_MODE_WRITE)
 			DoInvalidate(req->dataItem);
 		NetRequest(item, machineId);
 	}
 	else
 	{
 		printf(WHERESTR "processing release event, owner\n", WHEREARG);
-		if (req->mode == WRITE)
+		if (req->mode == ACQUIRE_MODE_WRITE)
 		{
 			dataObject obj = ht_get(allocatedItems, (void*)req->dataItem);
 			if (ht_member(allocatedItemsDirty, obj))
@@ -706,13 +713,13 @@ void HandleInvalidateRequest(QueueableItem item)
 	printf(WHERESTR "processing network invalidate request for: %d\n", WHEREARG, req->dataItem);
 	DoInvalidate(req->dataItem);
 	
-	if (dsmcbe_host_number != 0 && req->dataItem == PAGE_TABLE_ID)
+	if (dsmcbe_host_number != PAGE_TABLE_OWNER && req->dataItem == PAGE_TABLE_ID)
 	{
 		if (pagetableWaiters == NULL || queue_empty(pagetableWaiters))
 		{
 			printf(WHERESTR "issuing automatic request for page table\n", WHEREARG);
 			pagetableWaiters = queue_create();
-			RequestPageTable(READ);							
+			RequestPageTable(ACQUIRE_MODE_READ);							
 		}
 	}
 	FREE(item->dataRequest);
@@ -773,7 +780,7 @@ void HandleAcquireResponse(QueueableItem item)
 	struct acquireResponse* req = item->dataRequest;
 	dataObject object;
 	
-	if (req->dataSize == 0 || (dsmcbe_host_number == 0 && req->dataItem == PAGE_TABLE_ID))
+	if (req->dataSize == 0 || (dsmcbe_host_number == PAGE_TABLE_OWNER && req->dataItem == PAGE_TABLE_ID))
 	{
 		printf(WHERESTR "acquire response had local copy\n", WHEREARG);
 		//TODO: Should we copy the contents over?
@@ -864,7 +871,7 @@ void HandleAcquireResponse(QueueableItem item)
 			if (((struct createRequest*)cr->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
 			{
 				printf(WHERESTR "waiter was for create %d\n", WHEREARG, ((struct createRequest*)cr->dataRequest)->dataItem);
-				if (((struct acquireResponse*)item->dataRequest)->mode == WRITE)
+				if (((struct acquireResponse*)item->dataRequest)->mode != ACQUIRE_MODE_READ)
 				{
 					printf(WHERESTR "incoming response was for write %d\n", WHEREARG, req->dataItem);
 					unsigned int* pagetable = (unsigned int*)req->data;
@@ -906,10 +913,10 @@ void HandleAcquireResponse(QueueableItem item)
 					rr->requestID = req->requestID;
 					
 					//Local pagetable, or remote?
-					if (dsmcbe_host_number == 0)
+					if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 						DoRelease(qs, (struct releaseRequest*)qs->dataRequest);
 					else
-						NetRequest(qs, 0);
+						NetRequest(qs, PAGE_TABLE_OWNER);
 				}
 				
 				break;
@@ -997,7 +1004,7 @@ void* ProccessWork(void* data)
 			printf(WHERESTR "defering package type %d, page table is missing\n", WHEREARG, datatype);
 			if (pagetableWaiters == NULL)
 			{
-				RequestPageTable(datatype == PACKAGE_CREATE_REQUEST ? WRITE : READ);
+				RequestPageTable(datatype == PACKAGE_CREATE_REQUEST ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
 				pagetableWaiters = queue_create();
 			}
 			

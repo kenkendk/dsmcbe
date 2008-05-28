@@ -1,8 +1,6 @@
 #ifndef NETWORKHANDLER_H_
 #define NETWORKHANDLER_H_
 
-#define PAGE_TABLE_ID 0
-
 #include "RequestCoordinator.h"
 
 void InitializeNetworkHandler(int* handles, unsigned int host_count);
