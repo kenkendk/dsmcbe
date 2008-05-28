@@ -123,7 +123,7 @@ void updateNetworkFile(char* path, unsigned int networkcount)
 
 int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 {
-	FILE* file;
+	FILE* filesource;
 	struct sockaddr_in* network;
 	if ((network = MALLOC(sizeof(struct sockaddr_in) * 10)) == NULL)
 		REPORT_ERROR("malloc error");
@@ -135,14 +135,14 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		
 	printf(WHERESTR "Starting network setup\n", WHEREARG);
 	
-	file = fopen (path , "r");
+	filesource = fopen (path , "r");
 	
-	if (file == NULL) 
+	if (filesource == NULL) 
        REPORT_ERROR("Error reading file");
 			
 	networkcount = 0;	
-	while(!feof(file)) { 
-		if (fscanf(file, "%s %u", ip, &port) != 2 && feof(file))			
+	while(!feof(filesource)) { 
+		if (fscanf(filesource, "%s %u", ip, &port) != 2 && feof(filesource))			
 			break;
 				
 		addr.sin_family = AF_INET;
@@ -156,9 +156,11 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	//for(j = 0; j < networkcount; j++)
 		//printf("%s:%u\n", inet_ntoa(network[j].sin_addr), network[j].sin_port);
 
-	fclose(file);
+	fclose(filesource);
 		
-	int* sockfd = malloc(sizeof(int) * networkcount);	
+	int* sockfd;
+	if ((sockfd = (int*)MALLOC(sizeof(int) * networkcount)) == NULL)
+		REPORT_ERROR("malloc error");
 	
 	if (id == 0 && id < networkcount) {
 		printf(WHERESTR "This machine is coordinator\n", WHEREARG);
