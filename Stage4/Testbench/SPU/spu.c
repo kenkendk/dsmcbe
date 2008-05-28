@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
 	if (threadNo >= 0)
 	{
 		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
-		allocation = acquire(ETTAL, &size, WRITE);
+		allocation = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				
 		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
 		
@@ -149,10 +149,10 @@ int main(int argc, char **argv) {
 		//sleep(2);		
 
 		//printf(WHERESTR "Thread #%d, waiting for PPU lock.\n", WHEREARG, threadNo);
-		release(acquire(LOCK_ITEM_PPU, &size, READ));
+		release(acquire(LOCK_ITEM_PPU, &size, ACQUIRE_MODE_READ));
 		
 		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
-		allocation = acquire(ETTAL, &size, READ);
+		allocation = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 
 		/*if (*allocation != 210)
 			printf("Error: %d\n", *allocation);
@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Reading large sequence...\n", WHEREARG);
 		for(i = 0; i < SEQUENCE_COUNT; i++)
 		{
-			release(acquire(LARGE_SEQUENCE + i, &size, READ));
+			release(acquire(LARGE_SEQUENCE + i, &size, ACQUIRE_MODE_READ));
 			if (i % 1000 == 0)
 				printf(WHERESTR "Read large sequence %d\n", WHEREARG, i);	
 		}
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
 		{
 			if (i % 10000 == 0)
 				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
-			release(acquire(LARGE_ITEM, &size, WRITE));
+			release(acquire(LARGE_ITEM, &size, ACQUIRE_MODE_WRITE));
 		}
 
 		if (SPU_FIBERS > 1)

@@ -19,7 +19,7 @@
 #define TRUE 1
 #define FALSE 0
 
-#define BLOCKED (READ + WRITE + 1)
+#define BLOCKED (ACQUIRE_MODE_READ + ACQUIRE_MODE_WRITE + 1)
 
 //#define REPORT_MALLOC(x) printf(WHERESTR "Malloc gave %d, balance: %d\n", WHEREARG, (int)x, ++balance);
 //#define REPORT_FREE(x) printf(WHERESTR "Free'd %d, balance: %d\n", WHEREARG, (int)x, --balance);
@@ -204,7 +204,7 @@ void unsubscribe(dataObject object)
 	spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
 	spu_write_out_mbox(MAX_PENDING_REQUESTS + 1); //Invalid number
 	spu_write_out_mbox(object->id);
-	spu_write_out_mbox(READ);
+	spu_write_out_mbox(ACQUIRE_MODE_READ);
 	spu_write_out_mbox(object->size);
 	spu_write_out_mbox((int)object->EA);
 }
@@ -447,14 +447,14 @@ void StartDMATransfer(struct acquireResponse* resp)
 			
 			printf(WHERESTR "Re-used object %d in mode %d\n", WHEREARG, req->id, req->mode);
 			
-			if (req->mode == READ || req->object->count == 0)
+			if (req->mode == ACQUIRE_MODE_READ || req->object->count == 0)
 			{
 				//printf(WHERESTR "Item %d (%d) was known, returning local copy\n", WHEREARG, req->id, (int)req->object->data);
 				req->object->count++;
 				req->object->mode = req->mode;
 				req->state = ASYNC_STATUS_COMPLETE;
 			}
-			else if (req->mode == WRITE)
+			else if (req->mode == ACQUIRE_MODE_WRITE)
 			{
 				printf(WHERESTR "Blocked object %d\n", WHEREARG, req->id);
 				req->state = ASYNC_STATUS_BLOCKED;
@@ -587,7 +587,7 @@ void readMailbox() {
 				relResp->packageCode = packagetype;									
 				relResp->requestID = requestID; 
 
-				if (pendingRequestBuffer[requestID].object->mode == WRITE)
+				if (pendingRequestBuffer[requestID].object->mode == ACQUIRE_MODE_WRITE)
 				{
 					pendingRequestBuffer[requestID].object->count--;
 					if (pendingRequestBuffer[requestID].object->count == 0)
@@ -655,7 +655,7 @@ unsigned int beginCreate(GUID id, unsigned long size)
 	req->id = id;
 	req->object = NULL;
 	req->state = ASYNC_STATUS_REQUEST_SENT;
-	req->mode = WRITE;
+	req->mode = ACQUIRE_MODE_WRITE;
 
 	//printf(WHERESTR "Issued an create for %d, with req %d\n", WHEREARG, id, nextId); 
 	
@@ -701,7 +701,7 @@ unsigned int beginAcquire(GUID id, int type)
 	if (ht_member(itemsById, (void*)id))
 	{
 		dataObject object = ht_get(itemsById, (void*)id);
-		if (type == READ && (object->count == 0 || object->mode == READ) && !pendingInvalidateContains(id, 0))
+		if (type == ACQUIRE_MODE_READ && (object->count == 0 || object->mode == ACQUIRE_MODE_READ) && !pendingInvalidateContains(id, 0))
 		{	
 			//printf(WHERESTR "Reacquire for READ id: %i\n", WHEREARG, id);
 	
@@ -723,10 +723,10 @@ unsigned int beginAcquire(GUID id, int type)
 
 	request = (struct acquireRequest*)&req->request;	
 	
-	if (type == WRITE) {
+	if (type == ACQUIRE_MODE_WRITE) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
-	} else if (type == READ) {
+	} else if (type == ACQUIRE_MODE_READ) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		request->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	} else {
@@ -764,7 +764,7 @@ void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
 	request->packageCode = PACKAGE_RELEASE_REQUEST; 
 	request->requestID = nextId;
 	request->dataItem = req->object->id;
-	request->mode = WRITE;
+	request->mode = ACQUIRE_MODE_WRITE;
 	request->dataSize = req->object->size;
 	request->offset = 0;
 }
@@ -797,7 +797,7 @@ unsigned int beginRelease(void* data)
 		}
 
 
-		if (object->mode == WRITE) {
+		if (object->mode == ACQUIRE_MODE_WRITE) {
 
 			//printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 			req->id = object->id;
@@ -812,7 +812,7 @@ unsigned int beginRelease(void* data)
 			
 			startWriteDMATransfer(req, nextId);
 							
-		} else if (object->mode == READ || object->mode == BLOCKED) {
+		} else if (object->mode == ACQUIRE_MODE_READ || object->mode == BLOCKED) {
 			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 
 			object->count--;
@@ -825,7 +825,7 @@ unsigned int beginRelease(void* data)
 						{
 							pendingRequestBuffer[i].state = ASYNC_STATUS_COMPLETE;
 							object->count++;
-							object->mode = WRITE;
+							object->mode = ACQUIRE_MODE_WRITE;
 							break;
 						}
 
@@ -845,7 +845,7 @@ unsigned int beginRelease(void* data)
 			req->size = object->size;
 			req->state = ASYNC_STATUS_COMPLETE;
 			req->request.packageCode = PACKAGE_INVALID;
-			req->mode = READ;
+			req->mode = ACQUIRE_MODE_READ;
 			
 			if (object->count == 0 && pendingInvalidateContains(object->id, 1) >= 0)
 			{

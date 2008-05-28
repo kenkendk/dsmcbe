@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 	else
 	{
 		printf(WHERESTR "%d: Reading\n", WHEREARG, id);
-		data = acquire(ETTAL, &size, READ);
+		data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 
 		printf(WHERESTR "%d: Read: %d\n", WHEREARG, id, *data);
 		
@@ -66,12 +66,12 @@ int main(int argc, char **argv) {
 	
 	//sleep(10);
 	
-	release(acquire(LOCK_ITEM_SPU, &size, READ));
+	release(acquire(LOCK_ITEM_SPU, &size, ACQUIRE_MODE_READ));
 	//sleep(1);
 	
 	//printf(WHERESTR "Updating data\n", WHEREARG);
 	
-	data = acquire(ETTAL, &size, WRITE);
+	data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 	
 	*data = 210;
 	
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
 	*/
 	
 	printf(WHERESTR "Acquiring SPU item\n", WHEREARG);
-	data = acquire(SPUITEM, &size, WRITE);
+	data = acquire(SPUITEM, &size, ACQUIRE_MODE_WRITE);
 	printf(WHERESTR "Acquired SPU item, value is %d. Expected value 4.\n", WHEREARG, (*data));
 	release(data);
 	printf(WHERESTR "Released SPU item\n", WHEREARG);
