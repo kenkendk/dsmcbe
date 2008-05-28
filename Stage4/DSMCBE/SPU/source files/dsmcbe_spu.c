@@ -484,8 +484,13 @@ void StartDMATransfer(struct acquireResponse* resp)
 	req->object->id = req->id;
 	req->object->EA = resp->data;
 	req->object->size = resp->dataSize;
-	req->object->mode = req->mode;
-	req->object->ready = FALSE;
+	if (req->mode == ACQUIRE_MODE_CREATE) {
+		req->object->mode = ACQUIRE_MODE_WRITE;
+		req->object->ready = TRUE;
+	} else {
+		req->object->mode = req->mode;
+		req->object->ready = FALSE;
+	}
 	req->object->count = 1;
 	
 	req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
