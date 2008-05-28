@@ -146,9 +146,6 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	net_leaseTable = ht_create(10, lessint, hashfc);
 	net_writeInitiator = ht_create(10, lessint, hashfc);
 
-	ht_insert(net_idlookups[0], (void*) 100000, NULL);
-	ht_delete(net_idlookups[0], (void*) 100000);
-
 	/* For portability, explicitly create threads in a joinable state */
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -243,8 +240,8 @@ void* net_Reader(void* data)
 		
 	while(!net_terminate)
 	{
-		//We check each 5 seconds for the termination event
-		res = poll(sockets, active_sockets, 5);
+		//We check each second for the termination event
+		res = poll(sockets, active_sockets, 1000);
 		if (res < 0) {
 			REPORT_ERROR("Poll reported error");
 		} else if (res == 0)
