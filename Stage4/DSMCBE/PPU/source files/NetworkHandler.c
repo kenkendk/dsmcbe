@@ -70,6 +70,9 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		
 	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	
+	if (net_remote_hosts == 0)
+		return;
+	
 	if (item == NULL || item->dataRequest == NULL)
 	{
 		REPORT_ERROR("bad request");
@@ -118,8 +121,12 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	net_remote_hosts = remote_hosts;
 	net_remote_handles = remote_handles;
 	
+	if (net_remote_hosts == 0)
+		return;
+	
 	pthread_mutex_init(&net_work_mutex, NULL);
 	pthread_cond_init (&net_work_ready, NULL);
+	
 	
 	if((net_requestQueues = (queue*)MALLOC(sizeof(queue) * net_remote_hosts)) == NULL)
 		REPORT_ERROR("MALLOC error");
@@ -158,6 +165,9 @@ void NetInvalidate(GUID id)
 	struct invalidateRequest* req;
 	size_t i;
 	
+	if (net_remote_hosts == 0)
+		return;
+	
 	printf(WHERESTR "Processing invalidates\n", WHEREARG);
 	pthread_mutex_lock(&net_work_mutex);
 	for(i = 0; i < net_remote_hosts; i++)
@@ -184,6 +194,9 @@ void TerminateNetworkHandler(int force)
 	size_t i;
 
 	net_terminate = force ? 1 : 1;
+
+	if (net_remote_hosts == 0)
+		return;
 	
 	pthread_mutex_lock(&net_work_mutex);
 	pthread_cond_signal(&net_work_ready);
