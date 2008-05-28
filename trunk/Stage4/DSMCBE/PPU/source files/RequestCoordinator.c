@@ -234,7 +234,7 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 {
 	struct acquireResponse* resp;
 	if ((resp = (struct acquireResponse*)MALLOC(sizeof(struct acquireResponse))) == NULL)
-		fprintf(stderr, WHERESTR "RequestCoordinator.c: MALLOC error\n", WHEREARG);
+		REPORT_ERROR("MALLOC error");
 
 	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
 	resp->dataSize = obj->size;
@@ -327,54 +327,71 @@ void DoInvalidate(GUID dataItem)
 	if (dataItem == PAGE_TABLE_ID && dsmcbe_host_number == 0)
 		return;
 	
+	if (!ht_member(allocatedItems, (void*)dataItem))
+	{
+		REPORT_ERROR("Attempted to invalidate an item that was not registered");
+		return;
+	}
+	obj = ht_get(allocatedItems, (void*)dataItem);
+	
+	if (dsmcbe_host_number != GetMachineID(dataItem))
+	{
+		if(kl != NULL) {
+			// Mark memory as dirty
+			ht_delete(allocatedItems, (void*)dataItem);
+			unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
+			*count = 0;
+			ht_insert(allocatedItemsDirty, obj, count);
+		} else {
+			FREE_ALIGN(obj->EA);
+			obj->EA = NULL;
+			ht_delete(allocatedItems, (void*)dataItem);
+			FREE(obj);
+			obj = NULL;
+			return;
+		}
+	}
+	else
+	{
+		unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
+		*count = 0;
+		ht_insert(allocatedItemsDirty, obj, count);
+	}	
+	
+	
 	pthread_mutex_lock(&invalidate_queue_mutex);
 	kl = invalidateSubscribers->elements;
 	
-	if(dsmcbe_host_number != GetMachineID(dataItem)) {
-		if(kl != NULL) {
-			// Mark memory as dirty
-			if(ht_member(allocatedItems, (void*)dataItem)) {
-				obj = ht_get(allocatedItems, (void*)dataItem);
-				ht_delete(allocatedItems, (void*)dataItem);
-				unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
-				*count = 0;
-				ht_insert(allocatedItemsDirty, obj, count);
-			}
-		} else {
-			if(ht_member(allocatedItems, (void*)dataItem)) {
-				obj = ht_get(allocatedItems, (void*)dataItem);
-				FREE_ALIGN(obj->EA);
-				obj->EA = NULL;
-				ht_delete(allocatedItems, (void*)dataItem);
-				FREE(obj);
-				obj = NULL;
-			}
-		}
-	}
+	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		
 	while(kl != NULL)
 	{
 		struct invalidateRequest* requ;
+	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		if ((requ = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
-			fprintf(stderr, WHERESTR "RequestCoordinator.c: MALLOC error\n", WHEREARG);
+			REPORT_ERROR("MALLOC error");
+	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		
 		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
 		requ->requestID = NEXT_SEQ_NO(sequence_nr, MAX_SEQUENCE_NR);
 		requ->dataItem = dataItem;
+	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		
 		ht_insert(pendingSequenceNr, (void*)requ->requestID, obj);
 		unsigned int* count = ht_get(allocatedItemsDirty, obj);
 		*count = *count + 1;
+	printf(WHERESTR "Invalidating...\n", WHEREARG);
 
 		pthread_mutex_lock((pthread_mutex_t*)kl->data);
 		queue_enq(*((queue*)kl->key), requ); 
 		pthread_mutex_unlock((pthread_mutex_t*)kl->data); 
+	printf(WHERESTR "Invalidating...\n", WHEREARG);
 		
 		kl = kl->next;
 	}
 	pthread_mutex_unlock(&invalidate_queue_mutex);
 
-	//printf(WHERESTR "Invalidate request sent\n", WHEREARG);
+	printf(WHERESTR "Invalidate request sent\n", WHEREARG);
 }
 
 //Performs all actions releated to an acquire request
@@ -479,9 +496,10 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 						//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 						dq_enq_front(q, NULL);
 
+						GUID id = obj->id;
 						RespondAcquire(next, obj);
-						DoInvalidate(obj->id);
-						NetInvalidate(obj->id);
+						DoInvalidate(id);
+						NetInvalidate(id);
 						
 						break; //Done
 					} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
@@ -633,6 +651,40 @@ void HandleReleaseRequest(QueueableItem item)
 	else
 	{
 		printf(WHERESTR "processing release event, owner\n", WHEREARG);
+		if (req->mode == WRITE)
+		{
+			dataObject obj = ht_get(allocatedItems, (void*)req->dataItem);
+			if (ht_member(allocatedItemsDirty, obj))
+			{
+				printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
+				//The object is still in use, re-register, the last invalidate response will free it
+				dqueue tmp = obj->waitqueue;
+				obj->waitqueue = NULL;
+				ht_delete(allocatedItems, (void*)req->dataItem);
+				if ((obj = MALLOC(sizeof(struct dataObjectStruct))) == NULL)
+					REPORT_ERROR("malloc error");
+				
+				obj->EA = req->data;
+				obj->id = req->dataItem;
+				obj->size = req->dataSize;
+				obj->waitqueue = tmp;
+				
+				ht_insert(allocatedItems, (void*)obj->id, obj);
+			}
+			else
+			{
+				printf(WHERESTR "processing release event, object is not in use, updating\n", WHEREARG);
+				//The object is not in use, just copy in the new version
+				if (obj->EA != req->data && req->data != NULL)
+				{
+					memcpy(obj->EA, req->data, obj->size);
+					FREE(req->data);
+					req->data = NULL;
+				}
+			}
+		}
+		
+		printf(WHERESTR "processing release event, owner\n", WHEREARG);
 		DoRelease(item, (struct releaseRequest*)item->dataRequest);
 	}
 	printf(WHERESTR "processed release event\n", WHEREARG);
@@ -670,13 +722,17 @@ void HandleInvalidateResponse(QueueableItem item)
 	unsigned int* count = ht_get(allocatedItemsDirty, (void*)object);
 	*count = *count - 1;
 	if (*count <= 0) {
-		FREE_ALIGN(object->EA);
-		object->EA = NULL;
 		ht_delete(allocatedItemsDirty, (void*)object);
-		FREE(object);
-		object = NULL;
-		FREE(count);
-		count = NULL;
+
+		if (!ht_member(allocatedItems, (void*)object->id) || ht_get(allocatedItems, (void*)object->id) != object)
+		{  		
+			FREE_ALIGN(object->EA);
+			object->EA = NULL;
+			FREE(object);
+			object = NULL;
+			FREE(count);
+			count = NULL;
+		}
 	}
 	ht_delete(pendingSequenceNr, (void*)req->requestID);
 	FREE(item->dataRequest);
@@ -714,7 +770,7 @@ void HandleAcquireResponse(QueueableItem item)
 		ht_insert(allocatedItems, (void*)object->id, object);
 	}
 
-	printf(WHERESTR "testing local copy, obj: %d, %d, %d\n", WHEREARG, object, waiters, object->id);
+	printf(WHERESTR "testing local copy, obj: %d, %d, %d\n", WHEREARG, (int)object, (int)waiters, object->id);
 	
 	//If the response is a pagetable acquire, check if items have been created, that we are awaiting 
 	if (object->id == PAGE_TABLE_ID)
