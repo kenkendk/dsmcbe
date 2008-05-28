@@ -15,6 +15,9 @@
 #define ASYNC_STATUS_DMA_PENDING 2
 #define ASYNC_STATUS_BLOCKED 3
 #define ASYNC_STATUS_COMPLETE 4
+#define ASYNC_STATUS_WRITE_READY 5
+#define TRUE 1
+#define FALSE 0
 
 #define BLOCKED (READ + WRITE + 1)
 
@@ -75,6 +78,7 @@ struct dataObjectStruct{
 	void* data;
 	unsigned long size;
 	int mode;
+	int ready;
 	unsigned int count;
 };
 
@@ -455,6 +459,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 				printf(WHERESTR "Blocked object %d\n", WHEREARG, req->id);
 				req->state = ASYNC_STATUS_BLOCKED;
 				req->object->mode = BLOCKED;
+				req->object->ready = FALSE;
 			}
 			else
 			{
@@ -480,6 +485,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	req->object->EA = resp->data;
 	req->object->size = resp->dataSize;
 	req->object->mode = req->mode;
+	req->object->ready = FALSE;
 	req->object->count = 1;
 	
 	req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
@@ -602,7 +608,16 @@ void readMailbox() {
 
 			invalidate(itemid, requestID);
 			break;
-		
+		case PACKAGE_WRITEBUFFER_READY:
+			//printf(WHERESTR "WRITEBUGGER_READY package recieved\n", WHEREARG);
+			requestID = spu_read_in_mbox();
+			itemid = spu_read_in_mbox();
+
+			if (ht_member(itemsById, (void*)itemid)) {
+				dataObject object = ht_get(itemsById, (void*)itemid);
+				object->ready = TRUE;
+			}
+		break;
 		default:
 			fprintf(stderr, WHERESTR "Unknown package recieved: %i, message: %s", WHEREARG, packagetype, strerror(errno));
 	};	
@@ -719,10 +734,30 @@ unsigned int beginAcquire(GUID id, int type)
 	return nextId;
 }
 
+void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
+	
+	unsigned int transfersize;
+	req->state = ASYNC_STATUS_DMA_PENDING;
+	
+	transfersize = ALIGNED_SIZE(req->object->size);
+	StartDMAWriteTransfer(req->object->data, (int)req->object->EA, transfersize, req->dmaNo);
+
+	//printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, object->id); 
+
+	struct releaseRequest* request = (struct releaseRequest*)&req->request;
+
+	request->packageCode = PACKAGE_RELEASE_REQUEST; 
+	request->requestID = nextId;
+	request->dataItem = req->object->id;
+	request->mode = WRITE;
+	request->dataSize = req->object->size;
+	request->offset = 0;
+}
+
 unsigned int beginRelease(void* data)
 {
 	unsigned int nextId = findFreeItem(&requestNo, MAX_PENDING_REQUESTS, &pendingMap);
-	unsigned int transfersize;
+
 	dataObject object;
 	pendingRequest req;
 	size_t i;
@@ -740,28 +775,21 @@ unsigned int beginRelease(void* data)
 	if (ht_member(itemsByPointer, data)) {
 		object = ht_get(itemsByPointer, data);
 
-		if (object->mode == WRITE) {	
+		if (object->mode == WRITE) {
+
 			//printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 			req->id = object->id;
 			req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 			req->object = object;
-			req->state = ASYNC_STATUS_DMA_PENDING;
 			req->size = object->size;
 			
-			transfersize = ALIGNED_SIZE(object->size);
-			StartDMAWriteTransfer(data, (int)object->EA, transfersize, req->dmaNo);
-
-			//printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, object->id); 
-
-			struct releaseRequest* request = (struct releaseRequest*)&req->request;
-	
-			request->packageCode = PACKAGE_RELEASE_REQUEST; 
-			request->requestID = nextId;
-			request->dataItem = object->id;
-			request->mode = WRITE;
-			request->dataSize = object->size;
-			request->offset = 0;
+			if(object->ready == FALSE) {
+				req->state = ASYNC_STATUS_WRITE_READY;				
+				return nextId;
+			}
 			
+			startWriteDMATransfer(req, nextId);
+							
 		} else if (object->mode == READ || object->mode == BLOCKED) {
 			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 
@@ -862,6 +890,10 @@ int getAsyncStatus(unsigned int requestNo)
 					//printf(WHERESTR "Handling release status for %d\n", WHEREARG, requestNo);
 				}
 			}		
+		} else if (req->state == ASYNC_STATUS_WRITE_READY) {
+			if (req->object->ready == TRUE) {
+				startWriteDMATransfer(req, requestNo);	
+			}			
 		}	
 		return req->state;
 	}
