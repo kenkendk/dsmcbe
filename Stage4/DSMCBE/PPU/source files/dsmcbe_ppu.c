@@ -258,39 +258,47 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	} else
 		dsmcbe_host_number = 0;
 		
-	if ((spe_ids = (spe_context_ptr_t*)MALLOC(thread_count * sizeof(spe_context_ptr_t))) == NULL)
-		REPORT_ERROR("dsmcbe.c: malloc error");
+	if (thread_count > 0)
+	{
+		if ((spe_ids = (spe_context_ptr_t*)MALLOC(thread_count * sizeof(spe_context_ptr_t))) == NULL)
+			REPORT_ERROR("dsmcbe.c: malloc error");
+		
+		if ((spu_threads = (pthread_t*)MALLOC(thread_count * sizeof(pthread_t))) == NULL)
+			REPORT_ERROR("dsmcbe.c: malloc error");
 	
-	if ((spu_threads = (pthread_t*)MALLOC(thread_count * sizeof(pthread_t))) == NULL)
-		REPORT_ERROR("dsmcbe.c: malloc error");
-
-	mustrelease_spe_id = 1;
+		mustrelease_spe_id = 1;
+		
+		// Create several SPE-threads to execute 'SPU'.
+		for(i = 0; i < thread_count; i++){
+			// Create context
+			if ((spe_ids[i] = spe_context_create (0, NULL)) == NULL) 
+			{
+				perror ("Failed creating context");
+				return NULL;
+			}
 	
-	// Create several SPE-threads to execute 'SPU'.
-	for(i = 0; i < thread_count; i++){
-		// Create context
-		if ((spe_ids[i] = spe_context_create (0, NULL)) == NULL) 
-		{
-			perror ("Failed creating context");
-			return NULL;
-		}
-
-		// Load program into context
-		if (spe_program_load (spe_ids[i], &SPU)) 
-		{
-			perror ("Failed loading program");
-			return NULL;
-		}
-
-		//printf(WHERESTR "Starting SPU thread\n", WHEREARG);
-		// Create thread for each SPE context
-		if (pthread_create (&spu_threads[i], NULL,	&ppu_pthread_function, &spe_ids[i])) 
-		{
-			perror ("Failed creating thread");
-			return NULL;
+			// Load program into context
+			if (spe_program_load (spe_ids[i], &SPU)) 
+			{
+				perror ("Failed loading program");
+				return NULL;
+			}
+	
+			//printf(WHERESTR "Starting SPU thread\n", WHEREARG);
+			// Create thread for each SPE context
+			if (pthread_create (&spu_threads[i], NULL,	&ppu_pthread_function, &spe_ids[i])) 
+			{
+				perror ("Failed creating thread");
+				return NULL;
+			}
 		}
 	}
-	
+	else
+	{
+		mustrelease_spe_id = 0;
+		spe_ids = NULL;
+		spu_threads = NULL;
+	}	
 	initialize(spe_ids, thread_count, sockets, socketsCount);
 	
 	return spu_threads;

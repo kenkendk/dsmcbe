@@ -88,7 +88,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	{
 		REPORT_ERROR("MALLOC error");
 		return;
-	} 
+	}
 	
 	w->ui = item;
 	w->origId = ((struct createRequest*)(item->dataRequest))->requestID;; 
@@ -98,7 +98,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	nextId = NEXT_SEQ_NO(net_sequenceNumbers[machineId], NET_MAX_SEQUENCE);
 	((struct createRequest*)(item->dataRequest))->requestID = nextId;
 	
-	printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, MALLOC: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
+	//printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, MALLOC: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
 
 	ht_insert(net_idlookups[machineId], (void*)nextId, w);
 	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
@@ -229,20 +229,22 @@ void* net_Reader(void* data)
 	struct pollfd* sockets;
 	size_t i;
 	int res;
+	unsigned int active_sockets;
 	
 	if ((sockets = MALLOC(sizeof(struct pollfd) * net_remote_hosts)) == NULL)
 		REPORT_ERROR("MALLOC error");
 		
-	for(i = 0; i < net_remote_hosts; i++)
+	active_sockets = net_remote_hosts;
+	for(i = 0; i < active_sockets; i++)
 	{
 		sockets[i].fd = net_remote_handles[i];
-		sockets[i].events = POLLIN | POLLHUP;
+		sockets[i].events = POLLIN | POLLHUP | POLLERR;
 	}
 		
 	while(!net_terminate)
 	{
 		//We check each 5 seconds for the termination event
-		res = poll(sockets, net_remote_hosts, 5);
+		res = poll(sockets, active_sockets, 5);
 		if (res < 0) {
 			REPORT_ERROR("Poll reported error");
 		} else if (res == 0)
@@ -250,16 +252,26 @@ void* net_Reader(void* data)
 		
 		printf(WHERESTR "Network packaged recieved\n", WHEREARG);
 		
-		for(i = 0; i < net_remote_hosts; i++)
+		for(i = 0; i < active_sockets; i++)
 		{
 			if (sockets[i].revents & POLLIN)
 			{
-				printf(WHERESTR "Processing network package from %d\n", WHEREARG, i);
+				//For some reason this keeps happening when the socket is forced closed
+				if (recv(sockets[i].fd, &res, 1, MSG_PEEK) == 0)
+					sockets[i].revents = POLLHUP;
+				
+				printf(WHERESTR "Processing network package from %d, revents: %d, active_sockets: %d\n", WHEREARG, i, sockets[i].revents, active_sockets);
 				net_processPackage(net_readPackage(sockets[i].fd), i);
 				printf(WHERESTR "Processed network package from: %d\n", WHEREARG, i);
 			}
-			else if (sockets[i].revents & POLLHUP)
+
+			if ((sockets[i].revents & POLLHUP) || (sockets[i].revents & POLLERR))
+			{
 				REPORT_ERROR("Socked closed unexpectedly");
+				if (active_sockets != 0)
+					sockets[i].fd = sockets[active_sockets - 1].fd;
+				active_sockets--;
+			}
 		}
 	}
 	
@@ -322,6 +334,8 @@ void* net_Writer(void* data)
 					//Regular invalidate, register as cleared
 					printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
 					slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno);
+					
+					//TODO: Respond
 				}
 				else
 				{
@@ -331,6 +345,8 @@ void* net_Writer(void* data)
 					FREE(package);
 					package = NULL;
 					//printf(WHERESTR "Got \"invalidateRequest\" message, but skipping because SPU is initiator, ID %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
+
+					//TODO: Respond
 				}
 			}
 			else
@@ -339,6 +355,8 @@ void* net_Writer(void* data)
 				//The host has newer seen the data, or actively destroyed it
 				FREE(package);
 				package = NULL;
+				
+				//TODO: Respond
 			}
 		}
 		else if (((struct createRequest*)package)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
@@ -358,8 +376,17 @@ void* net_Writer(void* data)
 		{
 			printf(WHERESTR "Sending package with type: %d, to %d for id: %d.\n", WHEREARG, ((struct createRequest*)package)->packageCode, hostno, ((struct invalidateRequest*)package)->dataItem);
 			net_sendPackage(package, hostno);
-			FREE(package);
-			package = NULL;
+
+			//Clean up responses, requests are dealt with in the request coordinator			
+			switch (((struct acquireResponse*)package)->packageCode)
+			{
+				case PACKAGE_ACQUIRE_RESPONSE:
+				case PACKAGE_INVALIDATE_RESPONSE:
+				case PACKAGE_MIGRATION_RESPONSE:
+				case PACKAGE_RELEASE_RESPONSE:
+					FREE(package);
+					package = NULL;
+			}
 		}
 	}
 	
@@ -466,9 +493,14 @@ void net_processPackage(void* data, unsigned int machineId)
 			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE)
 			{
 				printf(WHERESTR "Acquire response package from %d, for guid: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->dataItem);
-				if (ui->dataRequest != NULL)
-					FREE(ui->dataRequest);
-				ui->dataRequest = data;
+				if ((ui = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+					REPORT_ERROR("malloc error");
+
+				ui->event = NULL;
+				ui->mutex = NULL;
+				ui->queue = NULL;
+				ui->dataRequest = data;				
+
 				//Forward this to the request coordinator, so it may record the data and propagate it
 				EnqueItem(ui);
 			}

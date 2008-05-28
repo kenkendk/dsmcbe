@@ -543,28 +543,28 @@ void RequestPageTable(int mode)
 	}
 	else
 	{
-			if ((acq = MALLOC(sizeof(struct acquireRequest))) == NULL)
-				REPORT_ERROR("MALLOC error");
-			acq->dataItem = PAGE_TABLE_ID;
-			acq->packageCode = mode == READ ? PACKAGE_ACQUIRE_REQUEST_READ : PACKAGE_ACQUIRE_REQUEST_WRITE;
-			acq->requestID = 0;
+		if ((acq = MALLOC(sizeof(struct acquireRequest))) == NULL)
+			REPORT_ERROR("MALLOC error");
+		acq->dataItem = PAGE_TABLE_ID;
+		acq->packageCode = mode == READ ? PACKAGE_ACQUIRE_REQUEST_READ : PACKAGE_ACQUIRE_REQUEST_WRITE;
+		acq->requestID = 0;
 
-			if ((q = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
-				REPORT_ERROR("MALLOC error");
+		if ((q = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+			REPORT_ERROR("MALLOC error");
 
-			q->dataRequest = acq;
-			q->mutex = &queue_mutex;
-			q->event = &queue_ready;
-			q->queue = &pagetableResponses;			
+		q->dataRequest = acq;
+		q->mutex = &queue_mutex;
+		q->event = &queue_ready;
+		q->queue = &pagetableResponses;			
 
-			printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
+		printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 
-			if (dsmcbe_host_number != 0)
-				NetRequest(q, 0);
-			else
-				DoAcquire(q, acq);		
+		if (dsmcbe_host_number != 0)
+			NetRequest(q, 0);
+		else
+			DoAcquire(q, acq);		
 
-			printf(WHERESTR "processed PT event\n", WHEREARG);
+		printf(WHERESTR "processed PT event\n", WHEREARG);
 	}
 }
 
@@ -768,7 +768,9 @@ void HandleAcquireResponse(QueueableItem item)
 
 		if ((object = (dataObject)MALLOC(sizeof(struct dataObjectStruct))) == NULL)
 			fprintf(stderr, WHERESTR "RequestCoordinator.c: MALLOC error\n", WHEREARG);
-			
+		
+		if (req->data == NULL)
+			REPORT_ERROR("Acquire response had empty data");	
 		object->id = req->dataItem;
 		object->EA = req->data;
 		object->size = req->dataSize;
@@ -819,7 +821,9 @@ void HandleAcquireResponse(QueueableItem item)
 		while(!dq_empty(dq))
 		{
 			printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
-			queue_enq(bagOfTasks, dq_deq_front(dq));
+			QueueableItem q = dq_deq_front(dq);
+			printf(WHERESTR "waiter package type: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode);
+			queue_enq(bagOfTasks, q);
 		}
 		pthread_mutex_unlock(&queue_mutex);
 		
@@ -893,8 +897,11 @@ void HandleAcquireResponse(QueueableItem item)
 				
 				break;
 			}
-			else					
+			else
+			{
+				printf(WHERESTR "Reinserted package with type %d, into queue\n", WHEREARG, ((struct createRequest*)cr->dataRequest)->packageCode);					
 				queue_enq(bagOfTasks, cr);
+			}
 		}
 		pthread_mutex_unlock(&queue_mutex);
 		pagetableWaiters = NULL;
@@ -950,6 +957,10 @@ void* ProccessWork(void* data)
 		{
 			printf(WHERESTR "fetching actual job\n", WHEREARG);
 			item = (QueueableItem)queue_deq(bagOfTasks);
+			if (item == NULL)
+				REPORT_ERROR("Empty entry in request queue");
+			if (item->dataRequest == NULL)
+				REPORT_ERROR("Empty request in queued item")
 			isPtResponse = ((struct createRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireRequest*)item->dataRequest)->dataItem == PAGE_TABLE_ID;
 		}
 			
