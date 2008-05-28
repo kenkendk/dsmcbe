@@ -17,12 +17,13 @@
 #define PACKAGE_ACQUIRE_REQUEST_READ 2
 #define PACKAGE_ACQUIRE_REQUEST_WRITE 3
 #define PACKAGE_ACQUIRE_RESPONSE 4
-#define PACKAGE_MIGRATION_RESPONSE 5
-#define PACKAGE_RELEASE_REQUEST 6
-#define PACKAGE_RELEASE_RESPONSE 7
-#define PACKAGE_NACK 8
-#define PACKAGE_INVALIDATE_REQUEST 9
-#define PACKAGE_INVALIDATE_RESPONSE 10
+#define PACKAGE_WRITEBUFFER_READY 5
+#define PACKAGE_MIGRATION_RESPONSE 6
+#define PACKAGE_RELEASE_REQUEST 7
+#define PACKAGE_RELEASE_RESPONSE 8
+#define PACKAGE_NACK 9
+#define PACKAGE_INVALIDATE_REQUEST 10
+#define PACKAGE_INVALIDATE_RESPONSE 11
 
 struct createRequest
 {
@@ -50,9 +51,16 @@ struct acquireResponse
     void* data;
 };
 
+struct writebufferReady
+{
+	unsigned char packageCode; // = 5
+    unsigned int requestID;
+    GUID dataItem;
+}
+
 struct migrationResponse
 {
-    unsigned char packageCode; // = 5
+    unsigned char packageCode; // = 6
     unsigned int requestID;
     unsigned long dataSize;
     unsigned long waitListSize;
@@ -62,7 +70,7 @@ struct migrationResponse
 
 struct releaseRequest
 {
-    unsigned char packageCode; // = 6
+    unsigned char packageCode; // = 7
     unsigned int requestID;
     GUID dataItem;
     int mode;
@@ -73,27 +81,27 @@ struct releaseRequest
 
 struct releaseResponse
 {
-    unsigned char packageCode; // = 7
+    unsigned char packageCode; // = 8
     unsigned int requestID;
 };
 
 struct NACK
 {
-    unsigned char packageCode; // = 8
+    unsigned char packageCode; // = 9
     unsigned int requestID;
     unsigned int hint;
 };
 
 struct invalidateRequest
 {
-    unsigned char packageCode; // = 9
+    unsigned char packageCode; // = 10
     unsigned int requestID;
     GUID dataItem;
 };
 
 struct invalidateResponse
 {
-    unsigned char packageCode; // = 10
+    unsigned char packageCode; // = 11
     unsigned int requestID;
 };
 
