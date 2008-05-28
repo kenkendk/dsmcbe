@@ -49,6 +49,10 @@ void TerminateSPUHandler(int force)
 	
 	//Remove warning about unused parameter
 	spu_terminate = force ? 1 : 1;
+	
+	if (spe_thread_count == 0)
+		return;
+	
 	pthread_join(spu_workthread, NULL);
 	
 	
@@ -81,6 +85,9 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	spe_thread_count = thread_count;
 	spe_threads = threads;
 
+	if (spe_thread_count == 0)
+		return;
+		
 	/* Setup queues */
 
 	if((spu_requestQueues = (queue*)MALLOC(sizeof(queue) * spe_thread_count)) == NULL)

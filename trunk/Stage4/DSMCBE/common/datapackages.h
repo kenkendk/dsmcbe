@@ -56,7 +56,7 @@ struct writebufferReady
 	unsigned char packageCode; // = 5
     unsigned int requestID;
     GUID dataItem;
-}
+};
 
 struct migrationResponse
 {
