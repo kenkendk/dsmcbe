@@ -148,11 +148,11 @@ void InitializeCoordinator()
 		
 		if (dsmcbe_host_number == 0)
 		{
-			if ((obj = malloc(sizeof(struct dataObjectStruct))) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((obj = MALLOC(sizeof(struct dataObjectStruct))) == NULL)
+				REPORT_ERROR("MALLOC error");
 				
 			obj->size = sizeof(unsigned int) * 10000;
-			obj->EA = _malloc_align(obj->size, 7);
+			obj->EA = MALLOC_ALIGN(obj->size, 7);
 			obj->id = PAGE_TABLE_ID;
 			obj->waitqueue = dq_create();
 			
@@ -210,9 +210,9 @@ void RespondAny(QueueableItem item, void* resp)
 		pthread_mutex_unlock(item->mutex);
 	//printf(WHERESTR "responding, done\n", WHEREARG);
 	
-	free(item->dataRequest);
+	FREE(item->dataRequest);
 	item->dataRequest = NULL;
-	free(item);
+	FREE(item);
 	item = NULL;
 }
 
@@ -220,8 +220,8 @@ void RespondAny(QueueableItem item, void* resp)
 void RespondNACK(QueueableItem item)
 {
 	struct NACK* resp;
-	if ((resp = (struct NACK*)malloc(sizeof(struct NACK))) == NULL)
-		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+	if ((resp = (struct NACK*)MALLOC(sizeof(struct NACK))) == NULL)
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: MALLOC error\n", WHEREARG);
 			
 	resp->packageCode = PACKAGE_NACK;
 	resp->hint = 0;
@@ -233,8 +233,8 @@ void RespondNACK(QueueableItem item)
 void RespondAcquire(QueueableItem item, dataObject obj)
 {
 	struct acquireResponse* resp;
-	if ((resp = (struct acquireResponse*)malloc(sizeof(struct acquireResponse))) == NULL)
-		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+	if ((resp = (struct acquireResponse*)MALLOC(sizeof(struct acquireResponse))) == NULL)
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: MALLOC error\n", WHEREARG);
 
 	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
 	resp->dataSize = obj->size;
@@ -250,8 +250,8 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 void RespondRelease(QueueableItem item)
 {
 	struct releaseResponse* resp;
-	if ((resp = (struct releaseResponse*)malloc(sizeof(struct releaseResponse))) == NULL)
-		fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+	if ((resp = (struct releaseResponse*)MALLOC(sizeof(struct releaseResponse))) == NULL)
+		fprintf(stderr, WHERESTR "RequestCoordinator.c: MALLOC error\n", WHEREARG);
 	
 	resp->packageCode = PACKAGE_RELEASE_RESPONSE;
 
@@ -262,6 +262,7 @@ void RespondRelease(QueueableItem item)
 void DoCreate(QueueableItem item, struct createRequest* request)
 {
 	unsigned long size;
+	unsigned int transfersize;
 	void* data;
 	dataObject object;
 	
@@ -275,7 +276,11 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 
 		
 	size = request->dataSize;
-	data = _malloc_align(size + ((16 - size) % 16), 7);
+	transfersize = size + ((16 - size) % 16);
+	if (transfersize == 0)
+		transfersize = 16;
+		
+	data = MALLOC_ALIGN(transfersize, 7);
 	if (data == NULL)
 	{
 		REPORT_ERROR("Failed to allocate buffer for create");
@@ -284,8 +289,8 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	}
 	
 	// Make datastructures for later use
-	if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
-		REPORT_ERROR("malloc error");
+	if ((object = (dataObject)MALLOC(sizeof(struct dataObjectStruct))) == NULL)
+		REPORT_ERROR("MALLOC error");
 	
 	object->id = request->dataItem;
 	object->EA = data;
@@ -331,16 +336,18 @@ void DoInvalidate(GUID dataItem)
 			if(ht_member(allocatedItems, (void*)dataItem)) {
 				obj = ht_get(allocatedItems, (void*)dataItem);
 				ht_delete(allocatedItems, (void*)dataItem);
-				unsigned int* count = (unsigned int*)malloc(sizeof(unsigned int));
+				unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
 				*count = 0;
 				ht_insert(allocatedItemsDirty, obj, count);
 			}
 		} else {
 			if(ht_member(allocatedItems, (void*)dataItem)) {
 				obj = ht_get(allocatedItems, (void*)dataItem);
-				_free_align(obj->EA);
+				FREE_ALIGN(obj->EA);
+				obj->EA = NULL;
 				ht_delete(allocatedItems, (void*)dataItem);
-				free(obj);
+				FREE(obj);
+				obj = NULL;
 			}
 		}
 	}
@@ -348,8 +355,8 @@ void DoInvalidate(GUID dataItem)
 	while(kl != NULL)
 	{
 		struct invalidateRequest* requ;
-		if ((requ = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
-			fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+		if ((requ = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
+			fprintf(stderr, WHERESTR "RequestCoordinator.c: MALLOC error\n", WHEREARG);
 		
 		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
 		requ->requestID = NEXT_SEQ_NO(sequence_nr, MAX_SEQUENCE_NR);
@@ -518,14 +525,14 @@ void RequestPageTable(int mode)
 	}
 	else
 	{
-			if ((acq = malloc(sizeof(struct acquireRequest))) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((acq = MALLOC(sizeof(struct acquireRequest))) == NULL)
+				REPORT_ERROR("MALLOC error");
 			acq->dataItem = PAGE_TABLE_ID;
 			acq->packageCode = mode == READ ? PACKAGE_ACQUIRE_REQUEST_READ : PACKAGE_ACQUIRE_REQUEST_WRITE;
 			acq->requestID = 0;
 
-			if ((q = malloc(sizeof(struct QueueableItemStruct))) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((q = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+				REPORT_ERROR("MALLOC error");
 
 			q->dataRequest = acq;
 			q->mutex = &queue_mutex;
@@ -648,8 +655,10 @@ void HandleInvalidateRequest(QueueableItem item)
 			RequestPageTable(READ);							
 		}
 	}
-	free(item->dataRequest);
-	free(item);
+	FREE(item->dataRequest);
+	item->dataRequest = NULL;
+	FREE(item);
+	item = NULL;
 }
 
 void HandleInvalidateResponse(QueueableItem item)
@@ -661,14 +670,19 @@ void HandleInvalidateResponse(QueueableItem item)
 	unsigned int* count = ht_get(allocatedItemsDirty, (void*)object);
 	*count = *count - 1;
 	if (*count <= 0) {
-		_free_align(object->EA);
+		FREE_ALIGN(object->EA);
+		object->EA = NULL;
 		ht_delete(allocatedItemsDirty, (void*)object);
-		free(object);
-		free(count);
+		FREE(object);
+		object = NULL;
+		FREE(count);
+		count = NULL;
 	}
 	ht_delete(pendingSequenceNr, (void*)req->requestID);
-	free(item->dataRequest);
-	free(item);
+	FREE(item->dataRequest);
+	item->dataRequest = NULL;
+	FREE(item);
+	item  = NULL;
 }
 
 void HandleAcquireResponse(QueueableItem item)
@@ -687,8 +701,8 @@ void HandleAcquireResponse(QueueableItem item)
 	{
 		printf(WHERESTR "registering item locally\n", WHEREARG);
 
-		if ((object = (dataObject)malloc(sizeof(struct dataObjectStruct))) == NULL)
-			fprintf(stderr, WHERESTR "RequestCoordinator.c: malloc error\n", WHEREARG);
+		if ((object = (dataObject)MALLOC(sizeof(struct dataObjectStruct))) == NULL)
+			fprintf(stderr, WHERESTR "RequestCoordinator.c: MALLOC error\n", WHEREARG);
 			
 		object->id = req->dataItem;
 		object->EA = req->data;
@@ -786,10 +800,10 @@ void HandleAcquireResponse(QueueableItem item)
 					QueueableItem qs;
 					struct releaseRequest* rr;
 
-					if ((qs = malloc(sizeof(struct QueueableItemStruct))) == NULL)
-						REPORT_ERROR("malloc error");
-					if ((rr = malloc(sizeof(struct releaseRequest))) == NULL)
-						REPORT_ERROR("malloc error");
+					if ((qs = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+						REPORT_ERROR("MALLOC error");
+					if ((rr = MALLOC(sizeof(struct releaseRequest))) == NULL)
+						REPORT_ERROR("MALLOC error");
 
 					qs->event = NULL;
 					qs->mutex = NULL;
@@ -821,13 +835,11 @@ void HandleAcquireResponse(QueueableItem item)
 		pagetableWaiters = NULL;
 	}
 	
-	printf(WHERESTR "re-inserted pagetable waiters\n", WHEREARG);
-	free (item->dataRequest);
+	FREE(item->dataRequest);
 	item->dataRequest = NULL;
-	printf(WHERESTR "re-inserted pagetable waiters\n", WHEREARG);
-	free(item);				
+	FREE(item);				
 	item = NULL;
-	printf(WHERESTR "re-inserted pagetable waiters\n", WHEREARG);
+	printf(WHERESTR "Handled acquire response\n", WHEREARG);
 }
 
 //This is the main thread function
@@ -840,7 +852,7 @@ void* ProccessWork(void* data)
 	while(!terminate)
 	{
 		//Get the next item, or sleep until it arrives	
-		//printf(WHERESTR "fetching job\n", WHEREARG);
+		printf(WHERESTR "fetching job\n", WHEREARG);
 			
 		pthread_mutex_lock(&queue_mutex);
 		while (queue_empty(bagOfTasks) && queue_empty(pagetableResponses) && !terminate) {
@@ -860,8 +872,9 @@ void* ProccessWork(void* data)
 		//We prioritize page table responses
 		if (!queue_empty(pagetableResponses))
 		{
-			if ((item = malloc(sizeof(struct QueueableItemStruct))) == NULL)
-				REPORT_ERROR("malloc error");
+			printf(WHERESTR "fetching pagetable response\n", WHEREARG);
+			if ((item = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+				REPORT_ERROR("MALLOC error");
 			item->dataRequest = queue_deq(pagetableResponses);
 			item->event = &queue_ready;
 			item->mutex = &queue_mutex;
@@ -870,6 +883,7 @@ void* ProccessWork(void* data)
 		}
 		else
 		{
+			printf(WHERESTR "fetching actual job\n", WHEREARG);
 			item = (QueueableItem)queue_deq(bagOfTasks);
 			isPtResponse = ((struct createRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireRequest*)item->dataRequest)->dataItem == PAGE_TABLE_ID;
 		}

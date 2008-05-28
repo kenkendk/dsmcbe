@@ -30,10 +30,10 @@
   #endif /*SPU_TRACE_MEM*/
   
 #else
-  #define MALLOC(x) malloc(x)
+  #define MALLOC(x) (((x) == 0) ? NULL : malloc(x))
   #define FREE(x) free(x)
-  #define MALLOC_ALIGN(x,y) malloc_align(x,y)
-  #define FREE_ALIGN(x) free_align(x)
+  #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : _malloc_align(x,y))
+  #define FREE_ALIGN(x) _free_align(x)
 #endif /* DSMCBE_SPU */
 
 
