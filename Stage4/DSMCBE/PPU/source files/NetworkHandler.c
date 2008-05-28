@@ -82,9 +82,9 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		return;
 	}
 			
-	if ((w = malloc(sizeof(struct QueueableItemWrapper))) == NULL)
+	if ((w = MALLOC(sizeof(struct QueueableItemWrapper))) == NULL)
 	{
-		REPORT_ERROR("malloc error");
+		REPORT_ERROR("MALLOC error");
 		return;
 	} 
 	
@@ -96,7 +96,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	nextId = NEXT_SEQ_NO(net_sequenceNumbers[machineId], NET_MAX_SEQUENCE);
 	((struct createRequest*)(item->dataRequest))->requestID = nextId;
 	
-	printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, malloc: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
+	printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, MALLOC: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
 
 	ht_insert(net_idlookups[machineId], (void*)nextId, w);
 	printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
@@ -121,14 +121,14 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	pthread_mutex_init(&net_work_mutex, NULL);
 	pthread_cond_init (&net_work_ready, NULL);
 	
-	if((net_requestQueues = (queue*)malloc(sizeof(queue) * net_remote_hosts)) == NULL)
-		REPORT_ERROR("malloc error");
+	if((net_requestQueues = (queue*)MALLOC(sizeof(queue) * net_remote_hosts)) == NULL)
+		REPORT_ERROR("MALLOC error");
 
-	if((net_idlookups = (hashtable*)malloc(sizeof(hashtable) * net_remote_hosts)) == NULL)
-		REPORT_ERROR("malloc error");
+	if((net_idlookups = (hashtable*)MALLOC(sizeof(hashtable) * net_remote_hosts)) == NULL)
+		REPORT_ERROR("MALLOC error");
 		
-	if((net_sequenceNumbers = (unsigned int*)malloc(sizeof(unsigned int) * net_remote_hosts)) == NULL)
-		REPORT_ERROR("malloc error");
+	if((net_sequenceNumbers = (unsigned int*)MALLOC(sizeof(unsigned int) * net_remote_hosts)) == NULL)
+		REPORT_ERROR("MALLOC error");
 
 	for(i = 0; i < net_remote_hosts; i++)
 	{
@@ -165,8 +165,8 @@ void NetInvalidate(GUID id)
 		if (i != dsmcbe_host_number)
 		{
 			printf(WHERESTR "Processing invalidates, target machine: %d, GUID: %d\n", WHEREARG, i, id);
-			if((req = (struct invalidateRequest*)malloc(sizeof(struct invalidateRequest))) == NULL)
-				REPORT_ERROR("malloc error");
+			if((req = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
+				REPORT_ERROR("MALLOC error");
 			req->dataItem = id;
 			req->packageCode = PACKAGE_INVALIDATE_REQUEST;
 			req->requestID = 0;
@@ -196,11 +196,17 @@ void TerminateNetworkHandler(int force)
 	{
 		UnregisterInvalidateSubscriber(&net_requestQueues[i]);
 		queue_destroy(net_requestQueues[i]);
+		net_requestQueues[i] = NULL;
 		ht_destroy(net_idlookups[i]);
+		net_idlookups[i] = NULL;
 	}
-	free(net_requestQueues);
-	free(net_idlookups);
-	free(net_sequenceNumbers);
+	
+	FREE(net_requestQueues);
+	net_requestQueues = NULL;
+	FREE(net_idlookups);
+	net_idlookups = NULL;
+	FREE(net_sequenceNumbers);
+	net_sequenceNumbers = NULL;
 	
 	pthread_mutex_destroy(&net_work_mutex);
 	pthread_cond_destroy(&net_work_ready);
@@ -212,8 +218,8 @@ void* net_Reader(void* data)
 	size_t i;
 	int res;
 	
-	if ((sockets = malloc(sizeof(struct pollfd) * net_remote_hosts)) == NULL)
-		REPORT_ERROR("malloc error");
+	if ((sockets = MALLOC(sizeof(struct pollfd) * net_remote_hosts)) == NULL)
+		REPORT_ERROR("MALLOC error");
 		
 	for(i = 0; i < net_remote_hosts; i++)
 	{
@@ -245,7 +251,8 @@ void* net_Reader(void* data)
 		}
 	}
 	
-	free(sockets);
+	FREE(sockets);
+	sockets = NULL;
 	
 	//Returning the unused argument removes a warning
 	return data;
@@ -309,7 +316,7 @@ void* net_Writer(void* data)
 					//This host initiated the invalidate
 					printf(WHERESTR "Invalidate to %d was discarded because the host initiated the invalidate, id: %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
 					ht_delete(net_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem);
-					free(package);
+					FREE(package);
 					package = NULL;
 					//printf(WHERESTR "Got \"invalidateRequest\" message, but skipping because SPU is initiator, ID %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
 				}
@@ -318,7 +325,7 @@ void* net_Writer(void* data)
 			{
 				printf(WHERESTR "Invalidate to %d was discarded, because the recipient does not have the data, id: %d.\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
 				//The host has newer seen the data, or actively destroyed it
-				free(package);
+				FREE(package);
 				package = NULL;
 			}
 		}
@@ -335,16 +342,13 @@ void* net_Writer(void* data)
 			printf(WHERESTR "Registered %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
 		}
 	
-		
-
-		
 		if (package != NULL)
 		{
 			printf(WHERESTR "Sending package with type: %d, to %d for id: %d.\n", WHEREARG, ((struct createRequest*)package)->packageCode, hostno, ((struct invalidateRequest*)package)->dataItem);
 			net_sendPackage(package, hostno);
-			free(package);
+			FREE(package);
+			package = NULL;
 		}
-
 	}
 	
 	//Returning the unused argument removes a warning
@@ -391,7 +395,8 @@ void net_processPackage(void* data, unsigned int machineId)
 					if (slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId))
 						slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId);
 					//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, i);
-					free(data);
+					FREE(data);
+					data = NULL;
 					return;
 				}
 				else
@@ -411,8 +416,8 @@ void net_processPackage(void* data, unsigned int machineId)
 			}
 		
 		
-			if ((ui = malloc(sizeof(struct QueueableItemStruct))) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((ui = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+				REPORT_ERROR("MALLOC error");
 			ui->dataRequest = data;
 			ui->queue = &net_requestQueues[machineId];
 			ui->mutex = &net_work_mutex;
@@ -443,13 +448,14 @@ void net_processPackage(void* data, unsigned int machineId)
 
 			((struct createRequest*)data)->requestID = w->origId;
 			ui = w->ui;
-			free(w);
+			FREE(w);
+			w = NULL;
 
 			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE)
 			{
 				printf(WHERESTR "Acquire response package from %d, for guid: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->dataItem);
-				if (ui->dataRequest)
-					free(ui->dataRequest);
+				if (ui->dataRequest != NULL)
+					FREE(ui->dataRequest);
 				ui->dataRequest = data;
 				//Forward this to the request coordinator, so it may record the data and propagate it
 				EnqueItem(ui);
@@ -468,7 +474,8 @@ void net_processPackage(void* data, unsigned int machineId)
 				if (ui->mutex != NULL)
 					pthread_mutex_unlock(ui->mutex);
 	
-				free(ui);
+				FREE(ui);
+				ui = NULL;
 			}
 			
 			break;
@@ -495,73 +502,84 @@ void* net_readPackage(int fd)
 		case PACKAGE_CREATE_REQUEST:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct createRequest);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire create package"); 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct acquireRequest);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire read package"); 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct acquireRequest);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire write package"); 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct acquireResponse);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			blocksize -= sizeof(unsigned long);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire response package"); 
 
 			blocksize = ((struct acquireResponse*)data)->dataSize;
-			if ((((struct acquireResponse*)data)->data = _malloc_align(blocksize, 7)) == NULL)
-				REPORT_ERROR("Failed to allocate space for acquire response data");
-			if (recv(fd, ((struct acquireResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
-				REPORT_ERROR("Failed to read package data from acquire response");
-			
+			if (blocksize != 0)
+			{
+				if ((((struct acquireResponse*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
+					REPORT_ERROR("Failed to allocate space for acquire response data");
+				if (recv(fd, ((struct acquireResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
+					REPORT_ERROR("Failed to read package data from acquire response");
+			}
+			else 
+				((struct acquireResponse*)data)->data = NULL;
+				
 			break;
 		case PACKAGE_RELEASE_REQUEST:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct releaseRequest);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			blocksize -= sizeof(unsigned long);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire release request package"); 
 
 			blocksize = ((struct releaseRequest*)data)->dataSize;
-			if ((((struct releaseRequest*)data)->data = _malloc_align(blocksize, 7)) == NULL)
-				REPORT_ERROR("Failed to allocate space for release request data");
-			if (recv(fd, ((struct releaseRequest*)data)->data, blocksize, MSG_WAITALL) != blocksize)
-				REPORT_ERROR("Failed to read package data from release request");
+			if (blocksize != 0)
+			{
+				if ((((struct releaseRequest*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
+					REPORT_ERROR("Failed to allocate space for release request data");
+				if (recv(fd, ((struct releaseRequest*)data)->data, blocksize, MSG_WAITALL) != blocksize)
+					REPORT_ERROR("Failed to read package data from release request");
+			}
+			else
+				((struct releaseRequest*)data)->data = NULL;
 
 			break;
 		case PACKAGE_RELEASE_RESPONSE:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct releaseResponse);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire release response package"); 
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct invalidateRequest);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
-			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
+			printf(WHERESTR "Reading network package, type: %d, size: %d\n", WHEREARG, type, blocksize);
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
+			printf(WHERESTR "Reading network package, type: %d, pointer:%d, fd: %d, size: %d\n", WHEREARG, type, (int)data, fd, blocksize);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire invalidate request package"); 
 			printf(WHERESTR "Read network package, type: %d\n", WHEREARG, type);
@@ -569,40 +587,50 @@ void* net_readPackage(int fd)
 		case PACKAGE_INVALIDATE_RESPONSE:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct invalidateResponse);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire invalidate response package"); 
 			break;
 		case PACKAGE_NACK:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct NACK);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire nack package"); 
 			break;
 		case PACKAGE_MIGRATION_RESPONSE:
 			printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 			blocksize = sizeof(struct migrationResponse);
-			if ((data = malloc(blocksize)) == NULL)
-				REPORT_ERROR("malloc error");
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
 			
 			blocksize -= (sizeof(unsigned long) * 2);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire migration package"); 
 
 			blocksize = ((struct migrationResponse*)data)->dataSize;
-			if ((((struct migrationResponse*)data)->data = _malloc_align(blocksize, 7)) == NULL)
-				REPORT_ERROR("Failed to allocate space for migration response data");
-			if (recv(fd, ((struct migrationResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
-				REPORT_ERROR("Failed to read package data from migration response");
-		
+			if (blocksize != 0)
+			{
+				if ((((struct migrationResponse*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
+					REPORT_ERROR("Failed to allocate space for migration response data");
+				if (recv(fd, ((struct migrationResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
+					REPORT_ERROR("Failed to read package data from migration response");
+			}
+			else
+				((struct migrationResponse*)data)->data = NULL;
+				
 			blocksize = ((struct migrationResponse*)data)->waitListSize;
-			if ((((struct migrationResponse*)data)->waitList = malloc(blocksize)) == NULL)
-				REPORT_ERROR("Failed to allocate space for migration response waitlist");
-			if (recv(fd, ((struct migrationResponse*)data)->waitList, blocksize, MSG_WAITALL) != blocksize)
-				REPORT_ERROR("Failed to read waitlist from migration response");
+			if (blocksize != 0)
+			{
+				if ((((struct migrationResponse*)data)->waitList = MALLOC(blocksize)) == NULL)
+					REPORT_ERROR("Failed to allocate space for migration response waitlist");
+				if (recv(fd, ((struct migrationResponse*)data)->waitList, blocksize, MSG_WAITALL) != blocksize)
+					REPORT_ERROR("Failed to read waitlist from migration response");
+			}
+			else
+				((struct migrationResponse*)data)->waitList = NULL;
 		
 			break;
 		default:
