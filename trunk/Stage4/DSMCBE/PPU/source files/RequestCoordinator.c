@@ -314,8 +314,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	ht_insert(allocatedItems, (void*)object->id, object);
 	
 	//Notify the requestor 
-	RespondAcquire(item, object);
-	
+	RespondAcquire(item, object);	
 }
 
 //Perform all actions related to an invalidate
@@ -737,6 +736,7 @@ void HandleInvalidateResponse(QueueableItem item)
 				
 		if(ht_member(writebufferReady, (void*)object->id)) {
 			struct writebufferReady* req = (struct writebufferReady*)malloc(sizeof(struct writebufferReady));
+			ht_delete(writebufferReady, (void*)object->id);
 			req->packageCode = PACKAGE_WRITEBUFFER_READY;
 			req->requestID = 0;
 			req->dataItem = object->id;

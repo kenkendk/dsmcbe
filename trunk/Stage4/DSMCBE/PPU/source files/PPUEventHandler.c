@@ -151,10 +151,10 @@ void* forwardRequest(void* data)
 		//printf(WHERESTR "queue filled\n", WHEREARG);
 	}
 	
-	struct acquireResponse* data1 = queue_deq(dummy);
+	data = queue_deq(dummy);
 	pthread_mutex_unlock(&m);
 	
-	if (data1->packageCode == PACKAGE_ACQUIRE_RESPONSE && data1->mode == WRITE) {
+	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == WRITE) {
 		while (queue_empty(dummy)) {
 			//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
 			pthread_cond_wait(&e, &m);
@@ -163,10 +163,8 @@ void* forwardRequest(void* data)
 		
 		struct writebufferReady* data2 = queue_deq(dummy);
 		pthread_mutex_unlock(&m);
-		if (data2->packageCode == PACKAGE_WRITEBUFFER_READY)
-			data = data1;
-		else
-			REPORT_ERROR("Exceptet PACKAGE_WRITEBUFFER_READY");
+		if (data2->packageCode != PACKAGE_WRITEBUFFER_READY)
+			REPORT_ERROR("Expected PACKAGE_WRITEBUFFER_READY");
 		
 		FREE(data2);
 		data2 = NULL;
