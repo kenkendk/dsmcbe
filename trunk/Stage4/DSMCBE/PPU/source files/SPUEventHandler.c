@@ -199,7 +199,7 @@ void* SPU_Worker(void* data)
 
 
 						//Only forward write releases
-						if (mode == WRITE)
+						if (mode == ACQUIRE_MODE_WRITE)
 						{
 							//printf(WHERESTR "Release recieved for WRITE, forwarding request and registering initiator\n", WHEREARG);
 							if ((dataItem = MALLOC(sizeof(struct releaseRequest))) == NULL)
@@ -293,7 +293,7 @@ void* SPU_Worker(void* data)
 						queue_enq(spu_mailboxQueues[i], (void*)((struct acquireResponse*)dataItem)->data);
 						
 						//Register this SPU as the initiator
-						if (((struct acquireResponse*)dataItem)->mode == WRITE)
+						if (((struct acquireResponse*)dataItem)->mode == ACQUIRE_MODE_WRITE)
 						{
 							//printf(WHERESTR "Registering SPU %d as initiator for package %d\n", WHEREARG, i, itemid);
 							if (ht_member(spu_writeInitiator, (void*)itemid)) {

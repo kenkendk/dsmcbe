@@ -425,7 +425,7 @@ void net_processPackage(void* data, unsigned int machineId)
 				if (!ht_member(net_leaseTable, (void*)itemid))
 					ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
 
-				if (((struct releaseRequest*)data)->mode == READ)
+				if (((struct releaseRequest*)data)->mode == ACQUIRE_MODE_READ)
 				{
 					printf(WHERESTR "Processing READ release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
 					if (slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId))
