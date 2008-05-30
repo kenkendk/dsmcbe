@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#define REPETITIONS 100000
+
 unsigned int id;
 char* file;
 unsigned int SPU_THREADS;
@@ -41,7 +43,7 @@ int main(int argc, char **argv) {
 
 	if (id == 0)
 	{
-		sleep(5);
+		sleep(1);
 		printf(WHERESTR "%d: Creating\n", WHEREARG, id);
 		data = create(ETTAL, sizeof(int));
 		(*data) = 928;
@@ -142,11 +144,10 @@ int main(int argc, char **argv) {
 		
 		//Step 1, repeated acquire, owner in write mode, others in read mode
 
-		int previous = 10000;
+		int previous = REPETITIONS;
 		
 		printf(WHERESTR "Starting test\n", WHEREARG);
 		
-		sleep(5);
 		if (id == PAGE_TABLE_OWNER)
 		{
 			printf(WHERESTR "Reset number\n", WHEREARG);
@@ -154,13 +155,11 @@ int main(int argc, char **argv) {
 			*data = 0;
 			release(data);
 			printf(WHERESTR  "number was reset\n", WHEREARG);
-			sleep(5);
 		}
 		else
 		{
 			while(previous != 0)
 			{
-				printf(WHERESTR "Acquire was: %d\n", WHEREARG, previous);
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				previous = *data;
 				release(data);
@@ -174,7 +173,7 @@ int main(int argc, char **argv) {
 		
 		if (id == PAGE_TABLE_OWNER)
 		{
-			for(i = 0; i < 100000; i++)
+			for(i = 0; i < REPETITIONS; i++)
 			{
 				printf("i: %d\n", i);
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
@@ -184,11 +183,11 @@ int main(int argc, char **argv) {
 		}
 		else
 		{
-			while(previous < 10000)
+			while(previous < (REPETITIONS - 1))
 			{
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				if (*data >= previous)
-					*data = previous;
+					previous = *data;
 				else	
 					printf(WHERESTR "number decreased?\n", WHEREARG);
 				release(data);
@@ -202,7 +201,7 @@ int main(int argc, char **argv) {
 		sleep(5);
 		
 		//Step 2, repeated acquire, owner in read mode, others in write mode
-		previous = 10000;
+		previous = REPETITIONS;
 
 		if (id != PAGE_TABLE_OWNER)
 		{
@@ -226,7 +225,7 @@ int main(int argc, char **argv) {
 		
 		if (id != PAGE_TABLE_OWNER)
 		{
-			for(i = 0; i < 100000; i++)
+			for(i = 0; i < REPETITIONS; i++)
 			{
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				*data = i;
@@ -235,11 +234,11 @@ int main(int argc, char **argv) {
 		}
 		else
 		{
-			while(previous < 10000)
+			while(previous < (REPETITIONS - 1))
 			{
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				if (*data >= previous)
-					*data = previous;
+					previous = *data;
 				else	
 					printf(WHERESTR "number decreased?\n", WHEREARG);
 				release(data);
