@@ -368,13 +368,13 @@ void DoInvalidate(GUID dataItem)
 	
 	if (!ht_member(allocatedItems, (void*)dataItem))
 	{
-		printf(WHERESTR "Id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
+		//printf(WHERESTR "Id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
 		
 		REPORT_ERROR("Attempted to invalidate an item that was not registered");
 		return;
 	}
 
-	printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
+	//printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
 
 	obj = ht_get(allocatedItems, (void*)dataItem);
 	
@@ -772,7 +772,7 @@ void HandleInvalidateRequest(QueueableItem item)
 	{
 		if (pagetableWaiters == NULL || queue_empty(pagetableWaiters))
 		{
-			printf(WHERESTR "issuing automatic request for page table\n", WHEREARG);
+			//printf(WHERESTR "issuing automatic request for page table\n", WHEREARG);
 			pagetableWaiters = queue_create();
 			RequestPageTable(ACQUIRE_MODE_READ);							
 		}
@@ -865,14 +865,14 @@ void HandleAcquireResponse(QueueableItem item)
 	struct acquireResponse* req = item->dataRequest;
 	dataObject object;
 
-	printf(WHERESTR "processing acquire response event for %d\n", WHEREARG, req->dataItem);
+	//printf(WHERESTR "processing acquire response event for %d\n", WHEREARG, req->dataItem);
 	
 	if (req->dataSize == 0 || (dsmcbe_host_number == PAGE_TABLE_OWNER && req->dataItem == PAGE_TABLE_ID))
 	{
 		if (!ht_member(allocatedItems, (void*)req->dataItem))
 			REPORT_ERROR("Requester had sent response without data for non-existing local object");
 			
-		printf(WHERESTR "acquire response had local copy\n", WHEREARG);
+		//printf(WHERESTR "acquire response had local copy\n", WHEREARG);
 		object = ht_get(allocatedItems, (void*)req->dataItem);
 
 		if (req->dataSize != 0 && req->data != NULL && object->EA != NULL)
@@ -880,7 +880,7 @@ void HandleAcquireResponse(QueueableItem item)
 	}
 	else
 	{
-		printf(WHERESTR "registering item locally\n", WHEREARG);
+		//printf(WHERESTR "registering item locally\n", WHEREARG);
 
 		if ((object = (dataObject)MALLOC(sizeof(struct dataObjectStruct))) == NULL)
 			REPORT_ERROR("MALLOC error");
@@ -892,8 +892,8 @@ void HandleAcquireResponse(QueueableItem item)
 		object->size = req->dataSize;
 		object->waitqueue = NULL;
 
-		if (req->dataItem == PAGE_TABLE_ID)
-			//printf(WHERESTR "pagetable entry 1 = %d\n", WHEREARG, ((unsigned int*)object->EA)[1]);
+		/*if (req->dataItem == PAGE_TABLE_ID)
+			printf(WHERESTR "pagetable entry 1 = %d\n", WHEREARG, ((unsigned int*)object->EA)[1]);*/
 		ht_insert(allocatedItems, (void*)object->id, object);
 	}
 
@@ -902,19 +902,19 @@ void HandleAcquireResponse(QueueableItem item)
 	//If the response is a pagetable acquire, check if items have been created, that we are awaiting 
 	if (object->id == PAGE_TABLE_ID)
 	{
-		printf(WHERESTR "Releasing local waiters\n", WHEREARG);
+		//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
 		hashtableIterator it = ht_iter_create(waiters);
 		while(ht_iter_next(it))
 		{
-			printf(WHERESTR "Trying item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
+			//printf(WHERESTR "Trying item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
 			if (((unsigned int*)object->EA)[(GUID)ht_iter_get_key(it)] != UINT_MAX)
 			{
-				printf(WHERESTR "Matched, emptying queue item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
+				//printf(WHERESTR "Matched, emptying queue item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
 				dqueue dq = ht_get(waiters, ht_iter_get_key(it));
 				while(!dq_empty(dq))
 				{
-					printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
+					//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
 					queue_enq(bagOfTasks, dq_deq_front(dq));
 				}
 					
@@ -1060,7 +1060,7 @@ void* ProccessWork(void* data)
 		//We prioritize page table responses
 		if (!queue_empty(priorityResponses))
 		{
-			printf(WHERESTR "fetching priority response\n", WHEREARG);
+			//printf(WHERESTR "fetching priority response\n", WHEREARG);
 			if ((item = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 				REPORT_ERROR("MALLOC error");
 			item->dataRequest = queue_deq(priorityResponses);
@@ -1071,7 +1071,7 @@ void* ProccessWork(void* data)
 		}
 		else
 		{
-			printf(WHERESTR "fetching actual job\n", WHEREARG);
+			//printf(WHERESTR "fetching actual job\n", WHEREARG);
 			item = (QueueableItem)queue_deq(bagOfTasks);
 			if (item == NULL)
 				REPORT_ERROR("Empty entry in request queue");
