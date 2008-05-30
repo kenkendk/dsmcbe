@@ -344,11 +344,6 @@ void sendMailbox(void* dataItem) {
 			spu_write_out_mbox((int)((struct releaseRequest*)dataItem)->data);			
 			break;
 		
-		/*case PACKAGE_INVALIDATE_RESPONSE:
-			spu_write_out_mbox(((struct invalidateResponse*)dataItem)->packageCode);
-			spu_write_out_mbox(((struct invalidateResponse*)dataItem)->requestID);
-			break;*/
-		
 		default:
 			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, ((struct releaseRequest*)dataItem)->packageCode);
 	}
@@ -356,16 +351,10 @@ void sendMailbox(void* dataItem) {
 
 
 void sendInvalidateResponse(unsigned int requestID) {
-	printf(WHERESTR "Sending invalidateResponse on data with id: %i\n", WHEREARG, requestID);
-	struct invalidateResponse* resp;
+	printf(WHERESTR "Sending invalidateResponse for requestid: %i\n", WHEREARG, requestID);
 	
-	if ((resp = MALLOC(sizeof(struct invalidateResponse))) == NULL)
-		fprintf(stderr, WHERESTR "malloc error\n", WHEREARG);
-	
-	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
-	resp->requestID = requestID;
-	
-	sendMailbox(resp);
+	spu_write_out_mbox(PACKAGE_INVALIDATE_RESPONSE);
+	spu_write_out_mbox(requestID);
 }
 
 void invalidate(GUID id, unsigned int requestID) {
@@ -380,7 +369,6 @@ void invalidate(GUID id, unsigned int requestID) {
 			ht_delete(itemsById, (void*)id);
 			ht_delete(itemsByPointer, object->data);
 			removeAllocatedID(id);
-			int index =	pendingInvalidateContains(id, 1);
 			
 			//printf(WHERESTR "Invalidated id %d\n", WHEREARG, object->id);
 			FREE_ALIGN(object->data);
@@ -388,16 +376,22 @@ void invalidate(GUID id, unsigned int requestID) {
 			FREE(object);		
 			object = NULL;
 			
-			sendInvalidateResponse(pendingInvalidates[index].requestID);	
+			sendInvalidateResponse(requestID);
+			
+			int index =	pendingInvalidateContains(id, 1);
+			if (index > 0)
+				sendInvalidateResponse(pendingInvalidates[index].requestID);
+			
 		}
 		else
 		{
 			//printf(WHERESTR "Inserting a pending invalidate\n", WHEREARG);
 			if (!pendingInvalidateContains(id, 0))
 			{
+				unsigned int pendingIndex = findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap);
 				//printf(WHERESTR "Inserted a pending invalidate before: %d\n", WHEREARG, pendingInvalidateMap);
-				pendingInvalidates[findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap)].guid = id;
-				pendingInvalidates[findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap)].requestID = requestID;
+				pendingInvalidates[pendingIndex].guid = id;
+				pendingInvalidates[pendingIndex].requestID = requestID;
 				//printf(WHERESTR "Inserted a pending invalidate after: %d\n", WHEREARG, pendingInvalidateMap);
 			}
 		}
@@ -421,11 +415,9 @@ void StartDMATransfer(struct acquireResponse* resp)
 		REPORT_ERROR("Invalid request number");
 	}
 
-	if (spu_stat_in_mbox() > 0)
-		readMailbox();	
 	processPendingInvalidate(req->id);
 	
-	//printf(WHERESTR "Processing ACQUIRE package for %d, %d\n", WHEREARG, req->id, resp->requestID);
+	printf(WHERESTR "Processing ACQUIRE package for %d, %d, mode: %d\n", WHEREARG, req->id, resp->requestID, resp->mode);
 	
 	if (ht_member(itemsById, (void*)(req->id))) {
 		req->object = (dataObject)ht_get(itemsById, (void*)(req->id));
@@ -484,11 +476,13 @@ void StartDMATransfer(struct acquireResponse* resp)
 	req->object->id = req->id;
 	req->object->EA = resp->data;
 	req->object->size = resp->dataSize;
-	if (req->mode == ACQUIRE_MODE_CREATE) {
+	if (resp->mode == ACQUIRE_MODE_CREATE) {
+		printf(WHERESTR "Object was in create mode %d\n", WHEREARG, req->id);
 		req->object->mode = ACQUIRE_MODE_WRITE;
 		req->object->ready = TRUE;
 	} else {
-		req->object->mode = req->mode;
+		printf(WHERESTR "Object was in read or write mode %d\n", WHEREARG, req->id);
+		req->object->mode = resp->mode;
 		req->object->ready = FALSE;
 	}
 	req->object->count = 1;
@@ -550,7 +544,7 @@ void readMailbox() {
 	switch(packagetype)
 	{
 		case PACKAGE_ACQUIRE_RESPONSE:
-			//printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
+			printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
 			
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
@@ -562,17 +556,18 @@ void readMailbox() {
 				REPORT_ERROR("Recieved a request with an unexpected requestID\n");
 			} else {
 				
-				//printf(WHERESTR "ID was %d\n", WHEREARG, requestID);
+				printf(WHERESTR "ID was %d, mode was: %d\n", WHEREARG, itemid, mode);
 				acqResp = (struct acquireResponse*)&pendingRequestBuffer[requestID].request;
 				
 				acqResp->packageCode = packagetype;									
 				acqResp->requestID = requestID; 
 				acqResp->dataItem = itemid;
-				acqResp->dataItem = mode;
+				acqResp->mode = mode;
 				acqResp->dataSize = datasize;
 				acqResp->data = datapointer;
 
 				StartDMATransfer(acqResp);
+				
 			}
 			
 			//printf(WHERESTR "Done with ACQUIRE package\n", WHEREARG);			
@@ -609,12 +604,12 @@ void readMailbox() {
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
 			
-			//printf(WHERESTR "INVALIDATE package read\n", WHEREARG);
+			printf(WHERESTR "INVALIDATE package read, id: %d, requestID: %d\n", WHEREARG, itemid, requestID);
 
 			invalidate(itemid, requestID);
 			break;
 		case PACKAGE_WRITEBUFFER_READY:
-			//printf(WHERESTR "WRITEBUGGER_READY package recieved\n", WHEREARG);
+			printf(WHERESTR "WRITEBUGGER_READY package recieved\n", WHEREARG);
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
 
@@ -622,7 +617,10 @@ void readMailbox() {
 				dataObject object = ht_get(itemsById, (void*)itemid);
 				object->ready = TRUE;
 			}
-		break;
+			else {
+				REPORT_ERROR("Writebuffer signal recieved but package was unknown");
+			}
+			break;
 		default:
 			fprintf(stderr, WHERESTR "Unknown package recieved: %i, message: %s", WHEREARG, packagetype, strerror(errno));
 	};	
@@ -762,7 +760,7 @@ void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
 	transfersize = ALIGNED_SIZE(req->object->size);
 	StartDMAWriteTransfer(req->object->data, (int)req->object->EA, transfersize, req->dmaNo);
 
-	//printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, object->id); 
+	printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, req->id); 
 
 	struct releaseRequest* request = (struct releaseRequest*)&req->request;
 
@@ -782,7 +780,7 @@ unsigned int beginRelease(void* data)
 	pendingRequest req;
 	size_t i;
 	
-	//printf(WHERESTR "Starting a release\n", WHEREARG); 
+	printf(WHERESTR "Starting a release\n", WHEREARG); 
 	
 	if (itemsById == NULL)
 	{
@@ -804,13 +802,14 @@ unsigned int beginRelease(void* data)
 
 		if (object->mode == ACQUIRE_MODE_WRITE) {
 
-			//printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
+			printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 			req->id = object->id;
 			req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 			req->object = object;
 			req->size = object->size;
 			
 			if(object->ready == FALSE) {
+				printf(WHERESTR "Starting a release for %d in write mode, awaiting write signal\n", WHEREARG, (int)object->id);
 				req->state = ASYNC_STATUS_WRITE_READY;				
 				return nextId;
 			}

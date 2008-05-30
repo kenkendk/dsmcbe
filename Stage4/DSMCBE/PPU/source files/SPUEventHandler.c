@@ -273,7 +273,7 @@ void* SPU_Worker(void* data)
 				switch(datatype)
 				{
 					case PACKAGE_ACQUIRE_RESPONSE:
-						//printf(WHERESTR "Got acquire response message, converting to MBOX messages (%d:%d)\n", WHEREARG, (int)((struct acquireResponse*)dataItem)->data, (int)((struct acquireResponse*)dataItem)->dataSize);
+						printf(WHERESTR "Got acquire response message, converting to MBOX messages (%d:%d), mode: %d\n", WHEREARG, (int)((struct acquireResponse*)dataItem)->data, (int)((struct acquireResponse*)dataItem)->dataSize, ((struct acquireResponse*)dataItem)->mode);
 						
 						//Register this ID for the current SPE
 						itemid = ((struct acquireResponse*)dataItem)->dataItem;
@@ -290,7 +290,7 @@ void* SPU_Worker(void* data)
 						queue_enq(spu_mailboxQueues[i], (void*)((struct acquireResponse*)dataItem)->data);
 						
 						//Register this SPU as the initiator
-						if (((struct acquireResponse*)dataItem)->mode == ACQUIRE_MODE_WRITE)
+						if (((struct acquireResponse*)dataItem)->mode != ACQUIRE_MODE_READ)
 						{
 							//printf(WHERESTR "Registering SPU %d as initiator for package %d\n", WHEREARG, i, itemid);
 							if (ht_member(spu_writeInitiator, (void*)itemid)) {
@@ -352,6 +352,7 @@ void* SPU_Worker(void* data)
 							
 						break;
 					case PACKAGE_WRITEBUFFER_READY:
+						printf(WHERESTR "Sending WRITEBUFFER_READY to SPU %d\n", WHEREARG, i);
 						queue_enq(spu_mailboxQueues[i], (void*)datatype);
 						queue_enq(spu_mailboxQueues[i], (void*)((struct writebufferReady*)dataItem)->requestID);
 						queue_enq(spu_mailboxQueues[i], (void*)((struct writebufferReady*)dataItem)->dataItem);						
