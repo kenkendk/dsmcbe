@@ -143,15 +143,15 @@ int main(int argc, char **argv) {
 		release(allocation);
 		*allocation = 111;
 
-		//printf(WHERESTR "Thread #%d, released, creating SPU lock.\n", WHEREARG, threadNo);
+		printf(WHERESTR "Thread #%d, released, creating SPU lock.\n", WHEREARG, threadNo);
 
 		release(create(LOCK_ITEM_SPU, 0));
 		//sleep(2);		
 
-		//printf(WHERESTR "Thread #%d, waiting for PPU lock.\n", WHEREARG, threadNo);
+		printf(WHERESTR "Thread #%d, waiting for PPU lock.\n", WHEREARG, threadNo);
 		release(acquire(LOCK_ITEM_PPU, &size, ACQUIRE_MODE_READ));
 		
-		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
+		printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
 		allocation = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 
 		/*if (*allocation != 210)

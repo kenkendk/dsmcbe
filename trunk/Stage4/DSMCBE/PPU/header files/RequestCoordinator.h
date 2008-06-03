@@ -39,7 +39,7 @@ extern void TerminateCoordinator(int force);
 void EnqueInvalidateResponse(unsigned int requestNumber);
 
 //Threads wishing to recieve invalidation notification must register/unregister with the two calls below
-extern void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, queue* q);
+extern void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, queue* q);
 extern void UnregisterInvalidateSubscriber(queue* q);
 
 #endif /*REQUESTCOORDINATOR_H_*/

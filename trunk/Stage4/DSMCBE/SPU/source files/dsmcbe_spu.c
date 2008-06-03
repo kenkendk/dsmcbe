@@ -19,7 +19,7 @@
 #define TRUE 1
 #define FALSE 0
 
-#define BLOCKED (ACQUIRE_MODE_READ + ACQUIRE_MODE_WRITE + 1)
+#define BLOCKED (ACQUIRE_MODE_READ + ACQUIRE_MODE_WRITE + ACQUIRE_MODE_CREATE + 1)
 
 //#define REPORT_MALLOC(x) printf(WHERESTR "Malloc gave %d, balance: %d\n", WHEREARG, (int)x, ++balance);
 //#define REPORT_FREE(x) printf(WHERESTR "Free'd %d, balance: %d\n", WHEREARG, (int)x, --balance);

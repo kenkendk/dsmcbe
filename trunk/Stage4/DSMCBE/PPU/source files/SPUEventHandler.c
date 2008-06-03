@@ -104,7 +104,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	{
 		spu_requestQueues[i] = queue_create();
 		spu_mailboxQueues[i] = queue_create();
-		RegisterInvalidateSubscriber(&spu_work_mutex, &spu_requestQueues[i]);
+		RegisterInvalidateSubscriber(&spu_work_mutex, NULL, &spu_requestQueues[i]);
 	}
 
 	/* Setup the lease table */

@@ -32,10 +32,23 @@ int main(int argc, char **argv) {
 	
 	printf(WHERESTR "id: %i, file %s, SPU_THREADS %i\n", WHEREARG, id, file, SPU_THREADS);
 	
-	//printf(WHERESTR "Starting\n", WHEREARG);
+	
+	
+	printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
 	spu_threads = simpleInitialize(id, file, SPU_THREADS);
+
+	/*printf(WHERESTR "Starting\n", WHEREARG);
+	release(create(700, 4));
+	printf(WHERESTR "Starting\n", WHEREARG);
+
+	for(i = 0; i < 10000000; i++)
+	{
+		if (i % 1000 == 0)
+			printf("i: %d\n", i);
+		release(acquire(700, &size, ACQUIRE_MODE_WRITE));
+	}*/
 
 	int* data;
 
@@ -73,20 +86,20 @@ int main(int argc, char **argv) {
 		release(acquire(LOCK_ITEM_SPU, &size, ACQUIRE_MODE_READ));
 		//sleep(1);
 		
-		//printf(WHERESTR "Updating data\n", WHEREARG);
+		printf(WHERESTR "Updating data\n", WHEREARG);
 		
 		data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 		
 		*data = 210;
 		
 		//printf(WHERESTR "Data location is %i\n", WHEREARG, (unsigned int)data);
-		//printf(WHERESTR "Value is %i. The expected value is 210.\n", WHEREARG, *data);
+		printf(WHERESTR "Value is %i. The expected value is 210.\n", WHEREARG, *data);
 		
 		//printf(WHERESTR "Releasing, this should invalidate SPU\n", WHEREARG);
 		release(data);
 		
 		release(create(LOCK_ITEM_PPU, 0)); 
-		//printf(WHERESTR "Released\n", WHEREARG, *data);
+		printf(WHERESTR "Released\n", WHEREARG);
 	
 		
 		items = 16 * 1025;
@@ -187,12 +200,16 @@ int main(int argc, char **argv) {
 			{
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				if (*data >= previous)
+				{
+					if (*data != previous)
+						printf("i: %d\n", *data);
 					previous = *data;
+				}
 				else	
 					printf(WHERESTR "number decreased?\n", WHEREARG);
 				release(data);
 
-				printf("prev: %d\n", previous);
+				//printf("prev: %d\n", previous);
 			}
 		}
 

@@ -51,7 +51,8 @@ typedef struct invalidateSubscriber* invalidateSubscriber;
 struct invalidateSubscriber
 {
 	pthread_mutex_t* mutex;
-	queue queue;
+	pthread_cond_t* event;
+	queue* queue;
 };
 
 //This list contains all current invalidate subscribers;
@@ -75,10 +76,20 @@ void* ProccessWork(void* data);
 void processInvalidates();
 
 //Add another subscriber to the list
-void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, queue* q)
+void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, queue* q)
 {
+	invalidateSubscriber sub;
+	
 	pthread_mutex_lock(&invalidate_queue_mutex);
-	slset_insert(invalidateSubscribers, q, mutex);
+	
+	if ((sub = malloc(sizeof(struct invalidateSubscriber))) == NULL)
+		REPORT_ERROR("malloc error");	
+	
+	sub->mutex = mutex;
+	sub->event = event;
+	sub->queue = q; 
+	
+	slset_insert(invalidateSubscribers, q, sub);
 	pthread_mutex_unlock(&invalidate_queue_mutex);
 }
 
@@ -86,7 +97,10 @@ void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, queue* q)
 void UnregisterInvalidateSubscriber(queue* q)
 {
 	pthread_mutex_lock(&invalidate_queue_mutex);
+	
+	FREE(slset_get(invalidateSubscribers, q));
 	slset_delete(invalidateSubscribers, q);
+	
 	pthread_mutex_unlock(&invalidate_queue_mutex);
 }
 
@@ -360,6 +374,7 @@ void DoInvalidate(GUID dataItem)
 {
 	keylist kl;
 	dataObject obj;
+	invalidateSubscriber sub;
 
 	//printf(WHERESTR "Invalidating...\n", WHEREARG);
 	
@@ -378,6 +393,9 @@ void DoInvalidate(GUID dataItem)
 
 	obj = ht_get(allocatedItems, (void*)dataItem);
 	
+	pthread_mutex_lock(&invalidate_queue_mutex);
+	kl = invalidateSubscribers->elements;
+
 	if (dsmcbe_host_number != GetMachineID(dataItem))
 	{
 		if(kl != NULL) {
@@ -392,6 +410,7 @@ void DoInvalidate(GUID dataItem)
 			ht_delete(allocatedItems, (void*)dataItem);
 			FREE(obj);
 			obj = NULL;
+			pthread_mutex_unlock(&invalidate_queue_mutex);
 			return;
 		}
 	}
@@ -401,10 +420,6 @@ void DoInvalidate(GUID dataItem)
 		*count = 0;
 		ht_insert(allocatedItemsDirty, obj, count);
 	}	
-	
-	
-	pthread_mutex_lock(&invalidate_queue_mutex);
-	kl = invalidateSubscribers->elements;
 		
 	while(kl != NULL)
 	{
@@ -416,22 +431,23 @@ void DoInvalidate(GUID dataItem)
 		requ->requestID = NEXT_SEQ_NO(sequence_nr, MAX_SEQUENCE_NR);
 		requ->dataItem = dataItem;
 		
+		sub = kl->data;
+		
 		ht_insert(pendingSequenceNr, (void*)requ->requestID, obj);
 		unsigned int* count = ht_get(allocatedItemsDirty, obj);
 		*count = *count + 1;
 
-		pthread_mutex_lock((pthread_mutex_t*)kl->data);
-		queue_enq(*((queue*)kl->key), requ); 
-		pthread_mutex_unlock((pthread_mutex_t*)kl->data); 
+		pthread_mutex_lock(sub->mutex);
+		queue_enq(*sub->queue, requ);
+		if (sub->event != NULL)
+			pthread_cond_signal(sub->event);
+		pthread_mutex_unlock(sub->mutex); 
 		
 		//printf(WHERESTR "Sent invalidate request sent\n", WHEREARG);
 		
 		kl = kl->next;
 	}
 	pthread_mutex_unlock(&invalidate_queue_mutex);
-
-	//Clean out the PPU cache
-	processInvalidates();
 
 	//printf(WHERESTR "Invalidate request sent\n", WHEREARG);
 }
@@ -450,6 +466,7 @@ void RecordBufferRequest(QueueableItem item)
 	if (((struct acquireRequest*)item->dataRequest)->packageCode != PACKAGE_ACQUIRE_REQUEST_WRITE)
 		REPORT_ERROR("Recording buffer entry for non acquire or non write");
 
+	//printf(WHERESTR "Inserting into writebuffer table: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
 	if(!ht_member(writebufferReady, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
 	{
 		//printf(WHERESTR "Inserted item into writebuffer table: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
@@ -482,10 +499,14 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
 				
-				RecordBufferRequest(item);
+				if (obj->id != PAGE_TABLE_ID)
+					RecordBufferRequest(item);
+					
 				RespondAcquire(item, obj);
 					
-				DoInvalidate(obj->id);
+				if (request->dataItem != PAGE_TABLE_ID)
+					DoInvalidate(obj->id);
+					
 				NetInvalidate(obj->id);
 			}
 
@@ -564,9 +585,11 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 						dq_enq_front(q, NULL);
 
 						GUID id = obj->id;
-						RecordBufferRequest(next);
+						if (id != PAGE_TABLE_ID)
+							RecordBufferRequest(next);
 						RespondAcquire(next, obj);
-						DoInvalidate(id);
+						if (id != PAGE_TABLE_ID)
+							DoInvalidate(id);
 						NetInvalidate(id);
 						
 						break; //Done
@@ -801,6 +824,7 @@ void HandleInvalidateResponse(QueueableItem item)
 	}
 
 	object = ht_get(pendingSequenceNr, (void*)req->requestID);
+	//printf(WHERESTR "processing invalidate response for %d\n", WHEREARG, object->id);
 	
 	if (!ht_member(allocatedItemsDirty, (void*)object))
 	{
@@ -865,7 +889,7 @@ void HandleAcquireResponse(QueueableItem item)
 	struct acquireResponse* req = item->dataRequest;
 	dataObject object;
 
-	//printf(WHERESTR "processing acquire response event for %d\n", WHEREARG, req->dataItem);
+	//printf(WHERESTR "processing acquire response event for %d, reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
 	
 	if (req->dataSize == 0 || (dsmcbe_host_number == PAGE_TABLE_OWNER && req->dataItem == PAGE_TABLE_ID))
 	{
@@ -938,7 +962,7 @@ void HandleAcquireResponse(QueueableItem item)
 		{
 			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
 			QueueableItem q = dq_deq_front(dq);
-			//printf(WHERESTR "waiter package type: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode);
+			//printf(WHERESTR "waiter package type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID);
 			queue_enq(bagOfTasks, q);
 		}
 		pthread_mutex_unlock(&queue_mutex);
