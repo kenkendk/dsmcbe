@@ -66,6 +66,8 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 {
 	unsigned int nextId;
 	struct QueueableItemWrapper* w;
+	
+	void* datacopy;
 		
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	
@@ -89,6 +91,14 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		REPORT_ERROR("MALLOC error");
 		return;
 	}
+
+	if ((datacopy = MALLOC(MAX_PACKAGE_SIZE)) == NULL)
+	{
+		REPORT_ERROR("MALLOC error");
+		return;
+	}
+	
+	memcpy(datacopy, item->dataRequest, MAX_PACKAGE_SIZE);
 	
 	w->ui = item;
 	w->origId = ((struct createRequest*)(item->dataRequest))->requestID;; 
@@ -96,13 +106,15 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	pthread_mutex_lock(&net_work_mutex);
 
 	nextId = NEXT_SEQ_NO(net_sequenceNumbers[machineId], NET_MAX_SEQUENCE);
-	((struct createRequest*)(item->dataRequest))->requestID = nextId;
+	((struct createRequest*)(datacopy))->requestID = nextId;
 	
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, MALLOC: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
 
+	
+	//printf(WHERESTR "Mapping request id %d to %d\n", WHEREARG, w->origId, nextId);
 	ht_insert(net_idlookups[machineId], (void*)nextId, w);
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
-	queue_enq(net_requestQueues[machineId], item->dataRequest);
+	queue_enq(net_requestQueues[machineId], datacopy);
 	
 	pthread_cond_signal(&net_work_ready);
 	
@@ -203,7 +215,6 @@ void TerminateNetworkHandler(int force)
 
 	for(i = 0; i < net_remote_hosts; i++)
 	{
-		UnregisterInvalidateSubscriber(&net_requestQueues[i]);
 		queue_destroy(net_requestQueues[i]);
 		net_requestQueues[i] = NULL;
 		ht_destroy(net_idlookups[i]);
@@ -364,16 +375,8 @@ void* net_Writer(void* data)
 			//printf(WHERESTR "Sending package with type: %d, to %d for id: %d.\n", WHEREARG, ((struct createRequest*)package)->packageCode, hostno, ((struct invalidateRequest*)package)->dataItem);
 			net_sendPackage(package, hostno);
 
-			//Clean up responses, requests are dealt with in the request coordinator			
-			switch (((struct acquireResponse*)package)->packageCode)
-			{
-				case PACKAGE_ACQUIRE_RESPONSE:
-				case PACKAGE_INVALIDATE_RESPONSE:
-				case PACKAGE_MIGRATION_RESPONSE:
-				case PACKAGE_RELEASE_RESPONSE:
-					FREE(package);
-					package = NULL;
-			}
+			FREE(package);
+			package = NULL;
 		}
 	}
 	
@@ -472,6 +475,7 @@ void net_processPackage(void* data, unsigned int machineId)
 
 			pthread_mutex_unlock(&net_work_mutex);
 
+			//printf(WHERESTR "Altering request id from %d to %d\n", WHEREARG, ((struct createRequest*)data)->requestID, w->origId);
 			((struct createRequest*)data)->requestID = w->origId;
 			ui = w->ui;
 			FREE(w);
@@ -479,7 +483,7 @@ void net_processPackage(void* data, unsigned int machineId)
 
 			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE)
 			{
-				//printf(WHERESTR "Acquire response package from %d, for guid: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->dataItem);
+				//printf(WHERESTR "Acquire response package from %d, for guid: %d, reqId: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->dataItem, ((struct acquireResponse*)data)->requestID);
 				if ((ui = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 					REPORT_ERROR("malloc error");
 

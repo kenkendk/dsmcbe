@@ -20,7 +20,7 @@ pthread_mutex_t pointer_mutex;
 pthread_mutex_t pointerOld_mutex;
 //This mutex protects the invalidate queue
 pthread_mutex_t ppu_invalidate_mutex;
-//This signals when an item has bee released
+//This signals when an item has been released
 pthread_cond_t pointerOld_cond;
 
 //These two tables contains the registered pointers, either active or retired
@@ -28,6 +28,19 @@ hashtable pointers, pointersOld;
 
 //This is the queue of pending invalidates
 queue pendingInvalidate;
+
+volatile unsigned int terminate;
+
+#define MAX_SEQUENCE_NUMBER 1000000
+unsigned int request_sequence_number = 0;
+
+hashtable pendingRequests;
+
+pthread_mutex_t ppu_queue_mutex;
+pthread_cond_t ppu_queue_cond;
+queue ppu_work_queue;
+pthread_t dispatchthread;
+
 
 #define BLOCKED (ACQUIRE_MODE_READ + ACQUIRE_MODE_WRITE + ACQUIRE_MODE_CREATE + 1)
 
@@ -47,9 +60,13 @@ struct PointerEntryStruct
 int lessint(void* a, void* b);
 int hashfc(void* a, unsigned int count);
 
+void* requestDispatcher(void* data);
+
 //Setup the PPUHandler
 void InitializePPUHandler()
 {
+	pthread_attr_t attr;
+	
 	pointers = ht_create(10, lessint, hashfc);
 	pthread_mutex_init(&pointer_mutex, NULL);
 	pointersOld = ht_create(10, lessint, hashfc);
@@ -58,7 +75,17 @@ void InitializePPUHandler()
 	pthread_mutex_init(&ppu_invalidate_mutex, NULL);
 	pthread_cond_init(&pointerOld_cond, NULL);
 	
-	RegisterInvalidateSubscriber(&ppu_invalidate_mutex, &pendingInvalidate);
+	pendingRequests = ht_create(10, lessint, hashfc);
+	pthread_mutex_init(&ppu_queue_mutex, NULL);
+	pthread_cond_init(&ppu_queue_cond, NULL);
+	ppu_work_queue = queue_create();
+	
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_create(&dispatchthread, &attr, requestDispatcher, NULL);
+	pthread_attr_destroy(&attr);
+	
+	RegisterInvalidateSubscriber(&ppu_queue_mutex, &ppu_queue_cond, &ppu_work_queue);
 }
 
 //Terminate the PPUHandler and release all resources
@@ -67,6 +94,10 @@ void TerminatePPUHandler()
 	hashtableIterator it;
 	queue keys;
 	PointerEntry pe;
+	
+	terminate = 1;
+	
+	pthread_join(dispatchthread, NULL);
 	
 	it = ht_iter_create(pointers);
 	keys = queue_create();
@@ -114,6 +145,35 @@ void TerminatePPUHandler()
 	pthread_mutex_destroy(&ppu_invalidate_mutex);
 	pthread_cond_destroy(&pointerOld_cond);
 	queue_destroy(pendingInvalidate);
+
+	ht_destroy(pendingRequests);
+	pthread_mutex_destroy(&ppu_queue_mutex);
+	pthread_cond_destroy(&ppu_queue_cond);
+	queue_destroy(ppu_work_queue);
+
+}
+
+void RelayEnqueItem(QueueableItem q)
+{
+	QueueableItem relay;
+	
+	if((relay = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+		REPORT_ERROR("malloc error");
+		
+	relay->dataRequest = q->dataRequest;
+	relay->event = &ppu_queue_cond;
+	relay->mutex= &ppu_queue_mutex;
+	relay->queue = &ppu_work_queue;
+	
+	q->dataRequest = NULL;
+	
+	pthread_mutex_lock(relay->mutex);
+	((struct createRequest*)relay->dataRequest)->requestID = NEXT_SEQ_NO(request_sequence_number, MAX_SEQUENCE_NUMBER);
+	ht_insert(pendingRequests, (void*)(((struct createRequest*)relay->dataRequest)->requestID), q);
+	//printf(WHERESTR "Sending request with type %d, and reqId: %d\n", WHEREARG, ((struct createRequest*)relay->dataRequest)->packageCode, ((struct createRequest*)relay->dataRequest)->requestID);	
+	pthread_mutex_unlock(relay->mutex);
+	
+	EnqueItem(relay);
 }
 
 //Sends a request into the coordinator, and awaits the response (blocking)
@@ -138,7 +198,7 @@ void* forwardRequest(void* data)
 	q->queue = &dummy;
 	
 	//printf(WHERESTR "adding item to queue\n", WHEREARG);
-	EnqueItem(q);
+	RelayEnqueItem(q);
 	//printf(WHERESTR "item added to queue %i\n", WHEREARG, (int)q);
 	
 	pthread_mutex_lock(&m);
@@ -155,10 +215,12 @@ void* forwardRequest(void* data)
 	pthread_mutex_unlock(&m);
 	
 	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE) {
+	
+		pthread_mutex_lock(&m);
 		while (queue_empty(dummy)) {
-			//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
+			//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
 			pthread_cond_wait(&e, &m);
-			//printf(WHERESTR "queue filled\n", WHEREARG);
+			//printf(WHERESTR "got for writebuffer signal\n", WHEREARG);
 		}
 		
 		struct writebufferReady* data2 = queue_deq(dummy);
@@ -168,9 +230,11 @@ void* forwardRequest(void* data)
 		
 		FREE(data2);
 		data2 = NULL;
+	
+		pthread_mutex_unlock(&m);
 	}
 
-	//printf(WHERESTR "returning response\n", WHEREARG);
+	//printf(WHERESTR "returning response (%d)\n", WHEREARG, (int)data);
 	
 	queue_destroy(dummy);
 	pthread_mutex_destroy(&m);
@@ -198,9 +262,9 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 		}
 		else
 		{
-			//printf(WHERESTR "recording entry\n", WHEREARG);
+			//printf(WHERESTR "recording entry for %d, EA: %d\n", WHEREARG, id, (int)retval);
 			if ((ent = (PointerEntry)MALLOC(sizeof(struct PointerEntryStruct))) == NULL)
-				REPORT_ERROR("PPUEventHandler.c: malloc error");
+				REPORT_ERROR("malloc error");
 			ent->data = retval;
 			ent->id = id;
 			ent->offset = offset;
@@ -208,6 +272,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 			ent->mode = type;
 			ent->count = 1;
 		}
+		
 		ht_insert(pointers, retval, ent);
 		pthread_mutex_unlock(&pointer_mutex);
 	}	
@@ -241,7 +306,7 @@ void* threadCreate(GUID id, unsigned long size)
 	ar = (struct acquireResponse*)forwardRequest(cr);
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
-		printf(WHERESTR "response was negative\n", WHEREARG);
+		//printf(WHERESTR "response was negative\n", WHEREARG);
 		if (ar->packageCode != PACKAGE_NACK)
 			REPORT_ERROR("Unexcepted response for a Create request");
 	}
@@ -258,40 +323,58 @@ void* threadCreate(GUID id, unsigned long size)
 		#endif
 	}
 
-	recordPointer(retval, id, size, 0, ACQUIRE_MODE_WRITE);	
+	//recordPointer(retval, id, size, 0, ACQUIRE_MODE_WRITE);	
 	
 	free(ar);
 	ar = NULL;
 	return retval;	
 }
 
-void processInvalidates()
+void processInvalidates(struct invalidateRequest* incoming)
 {
 	struct invalidateRequest* req;
 	queue temp;
 	PointerEntry pe;
 	hashtableIterator it;
 	
+	//printf(WHERESTR "In processInvalidates\n", WHEREARG);
 	pthread_mutex_lock(&ppu_invalidate_mutex);
+	
+	if (incoming != NULL)
+	{
+		//printf(WHERESTR "Inserted item in queue: %d, reqId: %d\n", WHEREARG, incoming->dataItem, incoming->requestID);
+		queue_enq(pendingInvalidate, incoming);
+	}
+
+	//printf(WHERESTR "Testing queue\n", WHEREARG);
+	
 	if (!queue_empty(pendingInvalidate))
 	{
+		//printf(WHERESTR "Queue is not empty\n", WHEREARG);
+
 		temp = queue_create();
 		while(!queue_empty(pendingInvalidate))
 		{
 			req = queue_deq(pendingInvalidate);
+			//printf(WHERESTR "Processing request for %d with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
+
 			pthread_mutex_lock(&pointerOld_mutex);
 			if (ht_member(pointersOld, (void*)req->dataItem))
 			{
 				pe = ht_get(pointersOld, (void*)req->dataItem);
-				if (pe->count == 0 && pe->mode != BLOCKED)
+				if (pe->count == 0 && pe->mode != BLOCKED )
 				{
 					ht_delete(pointersOld, (void*)req->dataItem);
 					
 					free(pe);
 					pe = NULL;
+			
+					//printf(WHERESTR "Item was correctly freed: %d\n", WHEREARG, req->dataItem);
+					
 				}
 				else
 				{
+					//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
 					queue_enq(temp, req);
 					req = NULL;
 				}
@@ -307,8 +390,9 @@ void processInvalidates()
 				while(ht_iter_next(it))
 				{
 					pe = ht_iter_get_value(it);
-					if (pe->id == req->dataItem)
+					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE)
 					{
+						//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
 						queue_enq(temp, req);
 						req = NULL;
 						break;
@@ -319,6 +403,8 @@ void processInvalidates()
 			}
 			
 			if (req != NULL) {
+				//printf(WHERESTR "Responding to invalidate for %d, with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
+				
 				EnqueInvalidateResponse(req->requestID);
 				
 				free(req);
@@ -371,7 +457,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	// If acquire is of type read and id is in pointerOld, then we
 	// reacquire, without notifying system.
 	
-	processInvalidates();
+	processInvalidates(NULL);
 	
 	pthread_mutex_lock(&pointerOld_mutex);
 	if (ht_member(pointersOld, (void*)id)) {
@@ -428,11 +514,6 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		retval = ar->data;
 		(*size) = ar->dataSize;
 		
-		#if DEBUG
-		if (ar->requestID != 0)
-			REPORT_ERROR("Bad request ID returned in create");
-		#endif
-
 		if (type == ACQUIRE_MODE_WRITE)
 		{
 			pthread_mutex_lock(&pointerOld_mutex);
@@ -447,7 +528,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 			pthread_mutex_unlock(&pointerOld_mutex);
 		}	
 	
-		recordPointer(retval, id, *size, 0, type);
+		//recordPointer(retval, id, *size, 0, type);
 	}
 	
 	free(ar);
@@ -516,7 +597,7 @@ void threadRelease(void* data)
 		pthread_cond_broadcast(&pointerOld_cond);
 		pthread_mutex_unlock(&pointerOld_mutex);
 
-		processInvalidates();
+		processInvalidates(NULL);
 		
 	}
 	else
@@ -526,3 +607,89 @@ void threadRelease(void* data)
 	}
 }
 
+
+//This is a very simple thread that exists to remove race conditions
+//It ensures that no two requests are overlapping, and processes invalidate requests
+void* requestDispatcher(void* dummy)
+{
+	void* data;
+	struct acquireResponse* resp;
+	unsigned int reqId;
+	QueueableItem ui;
+	
+	while(!terminate)
+	{
+		pthread_mutex_lock(&ppu_queue_mutex);
+		data = NULL;
+		while(!terminate && queue_empty(ppu_work_queue))
+			pthread_cond_wait(&ppu_queue_cond, &ppu_queue_mutex);
+		
+		if (terminate)
+		{
+			pthread_mutex_unlock(&ppu_queue_mutex);
+			return dummy;
+		}	
+		
+		data = queue_deq(ppu_work_queue);
+		
+		pthread_mutex_unlock(&ppu_queue_mutex);
+		
+		if (data != NULL)
+		{
+			//printf(WHERESTR "Processing package with type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID);
+
+			switch (((struct createRequest*)data)->packageCode)
+			{
+				case PACKAGE_INVALIDATE_REQUEST:
+					//printf(WHERESTR "Processing invalidate\n", WHEREARG);
+					processInvalidates((struct invalidateRequest*)data);
+					data = NULL;
+					break;
+				case PACKAGE_ACQUIRE_RESPONSE:
+					//printf(WHERESTR "Processing acquire response\n", WHEREARG);
+					resp = (struct acquireResponse*)data;
+					recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode != ACQUIRE_MODE_READ ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
+					break;
+			}
+		}
+		
+		if (data != NULL)
+		{
+			reqId = ((struct createRequest*)data)->requestID;
+		
+			pthread_mutex_lock(&ppu_queue_mutex);
+			
+			if (!ht_member(pendingRequests, (void*)reqId)) {
+				printf(WHERESTR "* ERROR * Response was for ID: %d, package type: %d\n", WHEREARG, reqId, ((struct createRequest*)data)->packageCode);
+				
+				REPORT_ERROR("Recieved unexpected request");				
+			} else {
+				ui = ht_get(pendingRequests, (void*)reqId);
+				
+				if (ui->mutex != NULL)
+					pthread_mutex_lock(ui->mutex);
+				if (ui->queue != NULL) {
+					queue_enq(*ui->queue, data);
+				} else {
+					REPORT_ERROR("queue was NULL");
+				}
+				if (ui->event != NULL)
+					pthread_cond_signal(ui->event);
+				if (ui->mutex != NULL)
+					pthread_mutex_unlock(ui->mutex);
+				
+				if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE)
+				{
+					ht_delete(pendingRequests, (void*)reqId);
+					FREE(ui);
+					ui = NULL;
+				}
+			}
+
+			pthread_mutex_unlock(&ppu_queue_mutex);
+			
+		}
+	}
+	
+	return dummy;
+}
