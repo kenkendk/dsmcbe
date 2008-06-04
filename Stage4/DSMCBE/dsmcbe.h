@@ -5,7 +5,6 @@ typedef unsigned int GUID;
 
 #define ACQUIRE_MODE_READ 1
 #define ACQUIRE_MODE_WRITE 2
-#define ACQUIRE_MODE_CREATE 3
 
 #define PAGE_TABLE_ID 0
 #define PAGE_TABLE_OWNER 0
