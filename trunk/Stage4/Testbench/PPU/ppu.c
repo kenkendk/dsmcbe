@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
 	
 	//sleep(10);
 	
-	
+
 	if (SPU_THREADS != 0)
 	{
 		release(acquire(LOCK_ITEM_SPU, &size, ACQUIRE_MODE_READ));
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
 		//Step 1, repeated acquire, owner in write mode, others in read mode
 
 		int previous = REPETITIONS;
-		
+/*		
 		printf(WHERESTR "Starting test\n", WHEREARG);
 		
 		if (id == PAGE_TABLE_OWNER)
@@ -212,6 +212,7 @@ int main(int argc, char **argv) {
 				//printf("prev: %d\n", previous);
 			}
 		}
+*/
 
 		printf(WHERESTR "Test 1 complete, starting test 2\n", WHEREARG);
 				
@@ -222,18 +223,26 @@ int main(int argc, char **argv) {
 
 		if (id != PAGE_TABLE_OWNER)
 		{
-			printf(WHERESTR "Reset number\n", WHEREARG);
+			printf(WHERESTR "Starting acquire\n", WHEREARG);
 			data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+			printf(WHERESTR "data is %i\n", WHEREARG, *data);
 			*data = 0;
-			release(data);
+			printf(WHERESTR "data is %i\n", WHEREARG, *data);			
+			release(data);			
+			printf(WHERESTR "Reset number\n", WHEREARG);
 		}
 		else
 		{
+			sleep(100);
 			while(previous != 0)
 			{
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
+				printf(WHERESTR "Starting acquire\n", WHEREARG);
+				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);			
 				previous = *data;
+				printf(WHERESTR "data is %i\n", WHEREARG, previous);
 				release(data);
+				printf(WHERESTR "data is %i\n", WHEREARG, previous);
+
 			}				
 			printf(WHERESTR "Reset detected\n", WHEREARG);
 		}

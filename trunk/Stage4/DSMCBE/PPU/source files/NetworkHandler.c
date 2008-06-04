@@ -112,7 +112,10 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 
 	
 	//printf(WHERESTR "Mapping request id %d to %d\n", WHEREARG, w->origId, nextId);
-	ht_insert(net_idlookups[machineId], (void*)nextId, w);
+	if (!ht_member(net_idlookups[machineId], (void*)nextId))
+		ht_insert(net_idlookups[machineId], (void*)nextId, w);
+	else
+		REPORT_ERROR("Could not insert into net_idlookups")
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	queue_enq(net_requestQueues[machineId], datacopy);
 	
@@ -532,7 +535,7 @@ void* net_readPackage(int fd)
 	
 	if (recv(fd, &type, sizeof(unsigned char), MSG_PEEK) != 0)
 	{
-		//printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
+		printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 		switch(type)
 		{
 		case PACKAGE_CREATE_REQUEST:
@@ -681,7 +684,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 	
 	fd = net_remote_handles[machineId];
 		
-	//printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
+	printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 	switch(((struct createRequest*)package)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
