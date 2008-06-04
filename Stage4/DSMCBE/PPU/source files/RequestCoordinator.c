@@ -178,8 +178,11 @@ void InitializeCoordinator()
 			for(i = 0; i < 10000; i++)
 				((unsigned int*)obj->EA)[i] = UINT_MAX;
 
-			((unsigned int*)obj->EA)[PAGE_TABLE_ID] = PAGE_TABLE_OWNER; 
-			ht_insert(allocatedItems, (void*)obj->id, obj);
+			((unsigned int*)obj->EA)[PAGE_TABLE_ID] = PAGE_TABLE_OWNER;
+			if(!ht_member(allocatedItems, (void*)obj->id)) 
+				ht_insert(allocatedItems, (void*)obj->id, obj);
+			else
+				REPORT_ERROR("Could not insert into acllocatedItems");
 		}
 
 		pthread_attr_init(&attr);
@@ -230,25 +233,30 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
 //It sets the requestID on the response, and frees the data structures
 void RespondAny(QueueableItem item, void* resp)
 {
-	//printf(WHERESTR "responding to %i\n", WHEREARG, (int)item);
+	printf(WHERESTR "responding to %i\n", WHEREARG, (int)item);
 	//The actual type is not important, since the first two fields are 
 	// layed out the same way for all packages
 	((struct acquireResponse*)resp)->requestID = ((struct acquireRequest*)item->dataRequest)->requestID;
 
-	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
+	printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
+	
 	if (item->mutex != NULL)
 		pthread_mutex_lock(item->mutex);
-	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
+	
+	printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
 	
 	if (item->queue != NULL)
 		queue_enq(*(item->queue), resp);
 		
 	if (item->event != NULL)
 		pthread_cond_signal(item->event);
-	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
+	
+	printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
+	
 	if (item->mutex != NULL)
 		pthread_mutex_unlock(item->mutex);
-	//printf(WHERESTR "responding, done\n", WHEREARG);
+	
+	printf(WHERESTR "responding, done\n", WHEREARG);
 	
 	FREE(item->dataRequest);
 	item->dataRequest = NULL;
@@ -276,7 +284,7 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	if ((resp = (struct acquireResponse*)MALLOC(sizeof(struct acquireResponse))) == NULL)
 		REPORT_ERROR("MALLOC error");
 
-	//printf(WHERESTR "Responding to acquire for item for %d\n", WHEREARG, obj->id);
+	printf(WHERESTR "Responding to acquire for item for %d\n", WHEREARG, obj->id);
 
 	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
 	resp->dataSize = obj->size;
@@ -363,7 +371,10 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	dq_enq_front(object->waitqueue, NULL);
 	
 	//Register this item as created
-	ht_insert(allocatedItems, (void*)object->id, object);
+	if (!ht_member(allocatedItems, (void*)object->id))
+		ht_insert(allocatedItems, (void*)object->id, object);
+	else 
+		REPORT_ERROR("Could not insert into allocatedItems");
 	
 	//Notify the requestor 
 	RespondAcquire(item, object);	
@@ -403,7 +414,10 @@ void DoInvalidate(GUID dataItem)
 			ht_delete(allocatedItems, (void*)dataItem);
 			unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
 			*count = 0;
-			ht_insert(allocatedItemsDirty, obj, count);
+			if(!ht_member(allocatedItemsDirty, obj))
+				ht_insert(allocatedItemsDirty, obj, count);
+			else
+				REPORT_ERROR("Could not insert into allocatedItemsDirty");
 		} else {
 			FREE_ALIGN(obj->EA);
 			obj->EA = NULL;
@@ -418,7 +432,10 @@ void DoInvalidate(GUID dataItem)
 	{
 		unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
 		*count = 0;
-		ht_insert(allocatedItemsDirty, obj, count);
+		if(!ht_member(allocatedItemsDirty, obj))
+			ht_insert(allocatedItemsDirty, obj, count);
+		else
+			REPORT_ERROR("Could not insert into allocatedItemsDirty");
 	}	
 		
 	while(kl != NULL)
@@ -433,7 +450,10 @@ void DoInvalidate(GUID dataItem)
 		
 		sub = kl->data;
 		
-		ht_insert(pendingSequenceNr, (void*)requ->requestID, obj);
+		if (!ht_member(pendingSequenceNr, (void*)requ->requestID))		
+			ht_insert(pendingSequenceNr, (void*)requ->requestID, obj);
+		else
+			REPORT_ERROR("Could not insert into pendingSequenceNr");
 		unsigned int* count = ht_get(allocatedItemsDirty, obj);
 		*count = *count + 1;
 
@@ -481,6 +501,8 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
 	dqueue q;
 	dataObject obj;
+			
+	printf(WHERESTR "Start acquire on id %i\n", WHEREARG, request->dataItem);
 	
 	//Check that the item exists
 	if (ht_member(allocatedItems, (void*)request->dataItem))
@@ -493,10 +515,10 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 		{
 			//printf(WHERESTR "Object not locked\n", WHEREARG);
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
-				//printf(WHERESTR "Acquiring READ on not locked object\n", WHEREARG);
+				printf(WHERESTR "Acquiring READ on not locked object\n", WHEREARG);
 				RespondAcquire(item, obj);
 			} else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE) {			
-				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
+				printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				dq_enq_front(q, NULL);
 				
 				if (obj->id != PAGE_TABLE_ID)
@@ -690,22 +712,22 @@ void HandleAcquireRequest(QueueableItem item)
 	struct acquireRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
 	
-	//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+	printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 	
 	if (machineId != dsmcbe_host_number && machineId != UINT_MAX)
 	{
-		//printf(WHERESTR "Acquire for item %d must be handled remotely, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+		printf(WHERESTR "Acquire for item %d must be handled remotely, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 		if (ht_member(allocatedItems, (void*)req->dataItem) && req->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
 		{
-			//printf(WHERESTR "Read acquire for item %d, machineid: %d, machine id: %d, returned from local cache\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+			printf(WHERESTR "Read acquire for item %d, machineid: %d, machine id: %d, returned from local cache\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 			RespondAcquire(item, ht_get(allocatedItems, (void*)req->dataItem));
 		}
 		else
 		{
-			//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, registering\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+			printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, registering\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 			if (!ht_member(waiters, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
 			{
-				//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, sending remote request\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+				printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, sending remote request\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 				ht_insert(waiters, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
 				NetRequest(item, machineId);
 			}
@@ -762,7 +784,10 @@ void HandleReleaseRequest(QueueableItem item)
 				obj->size = req->dataSize;
 				obj->waitqueue = tmp;
 				
-				ht_insert(allocatedItems, (void*)obj->id, obj);
+				if (!ht_member(allocatedItems, (void*)obj->id))
+					ht_insert(allocatedItems, (void*)obj->id, obj);
+				else
+					REPORT_ERROR("Could not insert into allocatedItems");
 			}
 			else
 			{
@@ -811,7 +836,7 @@ void HandleInvalidateResponse(QueueableItem item)
 	dataObject object;
 	struct invalidateResponse* req = item->dataRequest;
 	
-	//printf(WHERESTR "processing invalidate response for\n", WHEREARG);
+	printf(WHERESTR "processing invalidate response for\n", WHEREARG);
 	if (!ht_member(pendingSequenceNr, (void*)req->requestID))
 	{
 		FREE(item->dataRequest);
@@ -824,7 +849,7 @@ void HandleInvalidateResponse(QueueableItem item)
 	}
 
 	object = ht_get(pendingSequenceNr, (void*)req->requestID);
-	//printf(WHERESTR "processing invalidate response for %d\n", WHEREARG, object->id);
+	printf(WHERESTR "processing invalidate response for %d\n", WHEREARG, object->id);
 	
 	if (!ht_member(allocatedItemsDirty, (void*)object))
 	{
@@ -841,14 +866,14 @@ void HandleInvalidateResponse(QueueableItem item)
 	unsigned int* count = ht_get(allocatedItemsDirty, (void*)object);
 	*count = *count - 1;
 	if (*count <= 0) {
-		//printf(WHERESTR "The last response is in for: %d\n", WHEREARG, object->id);
+		printf(WHERESTR "The last response is in for: %d\n", WHEREARG, object->id);
 		ht_delete(allocatedItemsDirty, (void*)object);
 	
 		FREE(count);
 		count = NULL;
 		
 		if(ht_member(writebufferReady, (void*)object->id)) {
-			//printf(WHERESTR "The last response is in for: %d, sending writebuffer signal\n", WHEREARG, object->id);
+			printf(WHERESTR "The last response is in for: %d, sending writebuffer signal\n", WHEREARG, object->id);
 			
 			QueueableItem reciever = ht_get(writebufferReady, (void*)object->id);
 			
@@ -866,7 +891,7 @@ void HandleInvalidateResponse(QueueableItem item)
 
 		if (!ht_member(allocatedItems, (void*)object->id) || ht_get(allocatedItems, (void*)object->id) != object)
 		{  		
-			//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d)\n", WHEREARG, object->id, (int)object, (int)object->EA);
+			printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d)\n", WHEREARG, object->id, (int)object, (int)object->EA);
 			FREE_ALIGN(object->EA);
 			object->EA = NULL;
 			FREE(object);
@@ -874,14 +899,13 @@ void HandleInvalidateResponse(QueueableItem item)
 		}
 	}
 
-	//printf(WHERESTR "removing pending invalidate response\n", WHEREARG);
+	printf(WHERESTR "removing pending invalidate response\n", WHEREARG);
 	ht_delete(pendingSequenceNr, (void*)req->requestID);
 	FREE(item->dataRequest);
 	item->dataRequest = NULL;
 	FREE(item);
 	item  = NULL;
-	//printf(WHERESTR "processing invalidate response for\n", WHEREARG);
-	
+	printf(WHERESTR "processing invalidate response for\n", WHEREARG);	
 }
 
 void HandleAcquireResponse(QueueableItem item)
@@ -918,7 +942,18 @@ void HandleAcquireResponse(QueueableItem item)
 
 		/*if (req->dataItem == PAGE_TABLE_ID)
 			printf(WHERESTR "pagetable entry 1 = %d\n", WHEREARG, ((unsigned int*)object->EA)[1]);*/
-		ht_insert(allocatedItems, (void*)object->id, object);
+
+						
+		if(!ht_member(allocatedItems, (void*)object->id))
+			ht_insert(allocatedItems, (void*)object->id, object);
+		else
+		{
+			DoInvalidate(object->id);
+			if (!ht_member(allocatedItems, (void*)object->id))
+				ht_insert(allocatedItems, (void*)object->id, object);
+			else
+				REPORT_ERROR("Could not insert into allocatedItems");
+		}
 	}
 
 	//printf(WHERESTR "testing local copy, obj: %d, %d, %d\n", WHEREARG, (int)object, (int)waiters, object->id);
@@ -953,17 +988,20 @@ void HandleAcquireResponse(QueueableItem item)
 	//If this is an acquire for an object we requested, release the waiters
 	if (ht_member(waiters, (void*)object->id))
 	{
-		//printf(WHERESTR "testing local copy\n", WHEREARG);
+		printf(WHERESTR "testing local copy\n", WHEREARG);
 		dqueue dq = ht_get(waiters, (void*)object->id);
 		ht_delete(waiters, (void*)object->id);
 		
 		pthread_mutex_lock(&queue_mutex);
 		while(!dq_empty(dq))
 		{
-			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
+			printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
 			QueueableItem q = dq_deq_front(dq);
-			//printf(WHERESTR "waiter package type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID);
-			queue_enq(bagOfTasks, q);
+			printf(WHERESTR "waiter package type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID);
+			if (((struct createRequest*)q->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+				RespondAcquire(q, ht_get(allocatedItems, (void*)object->id));
+			else
+				queue_enq(bagOfTasks, q);
 		}
 		pthread_mutex_unlock(&queue_mutex);
 		
@@ -1064,13 +1102,13 @@ void* ProccessWork(void* data)
 	while(!terminate)
 	{
 		//Get the next item, or sleep until it arrives	
-		//printf(WHERESTR "fetching job\n", WHEREARG);
+		printf(WHERESTR "fetching job\n", WHEREARG);
 			
 		pthread_mutex_lock(&queue_mutex);
 		while (queue_empty(bagOfTasks) && queue_empty(priorityResponses) && !terminate) {
-			//printf(WHERESTR "waiting for event\n", WHEREARG);
+			printf(WHERESTR "waiting for event\n", WHEREARG);
 			pthread_cond_wait(&queue_ready, &queue_mutex);
-			//printf(WHERESTR "event recieved\n", WHEREARG);
+			printf(WHERESTR "event recieved\n", WHEREARG);
 		}
 		
 		if (terminate)
@@ -1129,7 +1167,7 @@ void* ProccessWork(void* data)
 			continue;
 		}
 		
-		//printf(WHERESTR "processing type %d\n", WHEREARG, datatype);
+		printf(WHERESTR "processing type %d\n", WHEREARG, datatype);
 		switch(datatype)
 		{
 			case PACKAGE_CREATE_REQUEST:

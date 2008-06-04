@@ -197,6 +197,8 @@ void* forwardRequest(void* data)
 	q->mutex = &m;
 	q->queue = &dummy;
 	
+	printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);	
+	
 	//printf(WHERESTR "adding item to queue\n", WHEREARG);
 	RelayEnqueItem(q);
 	//printf(WHERESTR "item added to queue %i\n", WHEREARG, (int)q);
@@ -485,11 +487,11 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		REPORT_ERROR("malloc error");
 
 	if (type == ACQUIRE_MODE_WRITE) {
-		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
+		printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
 	}
 	else if (type == ACQUIRE_MODE_READ) {
-		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
+		printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	}
 	else
@@ -509,7 +511,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	}
 	else
 	{
-		//printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
+		printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
 		//The request was positive
 		retval = ar->data;
 		(*size) = ar->dataSize;
