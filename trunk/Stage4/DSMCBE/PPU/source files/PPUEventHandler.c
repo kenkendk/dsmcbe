@@ -504,6 +504,9 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		
 	//Perform the request and await the response
 	ar = (struct acquireResponse*)forwardRequest(cr);
+	
+	printf(WHERESTR "Recieved response %i\n", WHEREARG, ar->packageCode);
+	
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
 		REPORT_ERROR("Unexcepted response for an Acquire request");
@@ -638,17 +641,17 @@ void* requestDispatcher(void* dummy)
 		
 		if (data != NULL)
 		{
-			//printf(WHERESTR "Processing package with type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID);
+			printf(WHERESTR "Processing package with type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID);
 
 			switch (((struct createRequest*)data)->packageCode)
 			{
 				case PACKAGE_INVALIDATE_REQUEST:
-					//printf(WHERESTR "Processing invalidate\n", WHEREARG);
+					printf(WHERESTR "Processing invalidate\n", WHEREARG);
 					processInvalidates((struct invalidateRequest*)data);
 					data = NULL;
 					break;
 				case PACKAGE_ACQUIRE_RESPONSE:
-					//printf(WHERESTR "Processing acquire response\n", WHEREARG);
+					printf(WHERESTR "Processing acquire response\n", WHEREARG);
 					resp = (struct acquireResponse*)data;
 					recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode != ACQUIRE_MODE_READ ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
 					break;
@@ -667,6 +670,8 @@ void* requestDispatcher(void* dummy)
 				REPORT_ERROR("Recieved unexpected request");				
 			} else {
 				ui = ht_get(pendingRequests, (void*)reqId);
+		
+				printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i \n", WHEREARG, (int)ui->event, (int)ui->mutex, (int)ui->queue);
 				
 				if (ui->mutex != NULL)
 					pthread_mutex_lock(ui->mutex);
@@ -680,7 +685,7 @@ void* requestDispatcher(void* dummy)
 				if (ui->mutex != NULL)
 					pthread_mutex_unlock(ui->mutex);
 				
-				if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE)
+				if ((((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE) || ((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 				{
 					ht_delete(pendingRequests, (void*)reqId);
 					FREE(ui);
@@ -688,8 +693,7 @@ void* requestDispatcher(void* dummy)
 				}
 			}
 
-			pthread_mutex_unlock(&ppu_queue_mutex);
-			
+			pthread_mutex_unlock(&ppu_queue_mutex);			
 		}
 	}
 	

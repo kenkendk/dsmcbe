@@ -711,8 +711,7 @@ void HandleAcquireRequest(QueueableItem item)
 {
 	struct acquireRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
-	
-	printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+	printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number, req->requestID);
 	
 	if (machineId != dsmcbe_host_number && machineId != UINT_MAX)
 	{
