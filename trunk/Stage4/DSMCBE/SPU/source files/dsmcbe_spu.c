@@ -19,8 +19,6 @@
 #define TRUE 1
 #define FALSE 0
 
-#define BLOCKED (ACQUIRE_MODE_READ + ACQUIRE_MODE_WRITE + ACQUIRE_MODE_CREATE + 1)
-
 //#define REPORT_MALLOC(x) printf(WHERESTR "Malloc gave %d, balance: %d\n", WHEREARG, (int)x, ++balance);
 //#define REPORT_FREE(x) printf(WHERESTR "Free'd %d, balance: %d\n", WHEREARG, (int)x, --balance);
 
@@ -439,19 +437,24 @@ void StartDMATransfer(struct acquireResponse* resp)
 			
 			printf(WHERESTR "Re-used object %d in mode %d\n", WHEREARG, req->id, req->mode);
 			
-			if (req->mode == ACQUIRE_MODE_READ || req->object->count == 0)
+			if (req->mode == ACQUIRE_MODE_READ || req->object->count == 0 )
 			{
 				//printf(WHERESTR "Item %d (%d) was known, returning local copy\n", WHEREARG, req->id, (int)req->object->data);
 				req->object->count++;
 				req->object->mode = req->mode;
 				req->state = ASYNC_STATUS_COMPLETE;
 			}
-			else if (req->mode == ACQUIRE_MODE_WRITE)
+			else if (req->mode == ACQUIRE_MODE_WRITE || req->mode == ACQUIRE_MODE_WRITE_OK)
 			{
 				printf(WHERESTR "Blocked object %d\n", WHEREARG, req->id);
 				req->state = ASYNC_STATUS_BLOCKED;
-				req->object->mode = BLOCKED;
-				req->object->ready = FALSE;
+				req->object->mode = ACQUIRE_MODE_BLOCKED;
+				if (req->mode == ACQUIRE_MODE_WRITE)
+					req->object->ready = FALSE;
+				else {
+					req->object->ready = TRUE;
+					req->mode = ACQUIRE_MODE_WRITE;
+				}
 			}
 			else
 			{
@@ -476,7 +479,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	req->object->id = req->id;
 	req->object->EA = resp->data;
 	req->object->size = resp->dataSize;
-	if (resp->mode == ACQUIRE_MODE_CREATE) {
+	if (resp->mode == ACQUIRE_MODE_CREATE || resp->mode == ACQUIRE_MODE_WRITE_OK) {
 		printf(WHERESTR "Object was in create mode %d\n", WHEREARG, req->id);
 		req->object->mode = ACQUIRE_MODE_WRITE;
 		req->object->ready = TRUE;
@@ -816,12 +819,12 @@ unsigned int beginRelease(void* data)
 			
 			startWriteDMATransfer(req, nextId);
 							
-		} else if (object->mode == ACQUIRE_MODE_READ || object->mode == BLOCKED) {
+		} else if (object->mode == ACQUIRE_MODE_READ || object->mode == ACQUIRE_MODE_BLOCKED) {
 			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 
 			object->count--;
 			
-			if (object->mode == BLOCKED) {
+			if (object->mode == ACQUIRE_MODE_BLOCKED) {
 				if (object->count == 0)
 				{
 					for(i = 0; i < MAX_PENDING_REQUESTS; i++)

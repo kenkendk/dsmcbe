@@ -225,7 +225,6 @@ int main(int argc, char **argv) {
 		{
 			printf(WHERESTR "Starting acquire\n", WHEREARG);
 			data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
-			printf(WHERESTR "data is %i\n", WHEREARG, *data);
 			*data = 0;
 			printf(WHERESTR "data is %i\n", WHEREARG, *data);			
 			release(data);			

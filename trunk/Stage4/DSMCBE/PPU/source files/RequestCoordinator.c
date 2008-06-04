@@ -291,7 +291,10 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	resp->data = obj->EA;
 	resp->dataItem = obj->id;
 	if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
-		resp->mode = ACQUIRE_MODE_WRITE;
+		if (dsmcbe_host_number != GetMachineID(obj->id))
+			resp->mode = ACQUIRE_MODE_WRITE_OK;
+		else
+			resp->mode = ACQUIRE_MODE_WRITE;
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
 		resp->mode = ACQUIRE_MODE_READ;
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)

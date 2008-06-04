@@ -41,9 +41,6 @@ pthread_cond_t ppu_queue_cond;
 queue ppu_work_queue;
 pthread_t dispatchthread;
 
-
-#define BLOCKED (ACQUIRE_MODE_READ + ACQUIRE_MODE_WRITE + ACQUIRE_MODE_CREATE + 1)
-
 typedef struct PointerEntryStruct *PointerEntry;
 struct PointerEntryStruct
 {
@@ -208,9 +205,9 @@ void* forwardRequest(void* data)
 
 
 	while (queue_empty(dummy)) {
-		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
+		printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
 		pthread_cond_wait(&e, &m);
-		//printf(WHERESTR "queue filled\n", WHEREARG);
+		printf(WHERESTR "queue filled\n", WHEREARG);
 	}
 	
 	data = queue_deq(dummy);
@@ -235,6 +232,9 @@ void* forwardRequest(void* data)
 	
 		pthread_mutex_unlock(&m);
 	}
+	
+	if(((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE_OK)
+		((struct acquireResponse*)data)->mode = ACQUIRE_MODE_WRITE;
 
 	//printf(WHERESTR "returning response (%d)\n", WHEREARG, (int)data);
 	
@@ -364,7 +364,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 			if (ht_member(pointersOld, (void*)req->dataItem))
 			{
 				pe = ht_get(pointersOld, (void*)req->dataItem);
-				if (pe->count == 0 && pe->mode != BLOCKED )
+				if (pe->count == 0 && pe->mode != ACQUIRE_MODE_BLOCKED )
 				{
 					ht_delete(pointersOld, (void*)req->dataItem);
 					
@@ -525,7 +525,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 			if (ht_member(pointersOld, (void*)id))
 			{
 				pe = ht_get(pointersOld, (void*)id);
-				pe->mode = BLOCKED;
+				pe->mode = ACQUIRE_MODE_BLOCKED;
 				
 				while(pe->count != 0)
 					pthread_cond_wait(&pointerOld_cond, &pointerOld_mutex);
