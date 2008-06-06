@@ -233,12 +233,12 @@ int main(int argc, char **argv) {
 		{
 			while(previous != 0)
 			{
-				printf(WHERESTR "Starting acquire\n", WHEREARG);
+				//printf(WHERESTR "Starting acquire\n", WHEREARG);
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);			
 				previous = *data;
-				printf(WHERESTR "data is %i\n", WHEREARG, previous);
+				//printf(WHERESTR "data is %i\n", WHEREARG, previous);
 				release(data);
-				printf(WHERESTR "data is %i\n", WHEREARG, previous);
+				//printf(WHERESTR "data is %i\n", WHEREARG, previous);
 
 			}				
 			printf(WHERESTR "Reset detected\n", WHEREARG);
@@ -251,6 +251,7 @@ int main(int argc, char **argv) {
 		{
 			for(i = 0; i < REPETITIONS; i++)
 			{
+				printf("i: %d\n", i);
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				*data = i;
 				release(data);
@@ -262,7 +263,11 @@ int main(int argc, char **argv) {
 			{
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				if (*data >= previous)
+				{
+					if (*data != previous)
+						printf("i: %d\n", *data);
 					previous = *data;
+				}
 				else	
 					printf(WHERESTR "number decreased?\n", WHEREARG);
 				release(data);

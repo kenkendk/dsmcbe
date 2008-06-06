@@ -418,7 +418,7 @@ void net_processPackage(void* data, unsigned int machineId)
 				itemid = ((struct releaseRequest*)data)->dataItem;
 				//printf(WHERESTR "Processing release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
 				
-				//The release request implies that the sender has destroyed the copy
+				//The read release request implies that the sender has destroyed the copy
 				if (!ht_member(net_leaseTable, (void*)itemid))
 					ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
 
@@ -455,7 +455,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			ui->queue = &net_requestQueues[machineId];
 			ui->mutex = &net_work_mutex;
 			ui->event = &net_work_ready;
-			EnqueItem(ui);		
+			EnqueItem(ui);
 			break;
 		
 		case PACKAGE_ACQUIRE_RESPONSE:
