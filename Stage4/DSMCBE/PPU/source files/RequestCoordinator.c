@@ -243,6 +243,7 @@ void RespondAny(QueueableItem item, void* resp)
 	if (item->mutex != NULL)
 		pthread_mutex_lock(item->mutex);
 	
+	printf(WHERESTR "responding, locking %i, packagetype: %d\n", WHEREARG, (int)item->mutex, ((struct acquireRequest*)resp)->packageCode);
 	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
 	
 	if (item->queue != NULL)
@@ -253,6 +254,7 @@ void RespondAny(QueueableItem item, void* resp)
 	
 	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
 	
+	printf(WHERESTR "responded, unlocking %i\n", WHEREARG, (int)item->mutex);
 	if (item->mutex != NULL)
 		pthread_mutex_unlock(item->mutex);
 	
@@ -475,7 +477,7 @@ void DoInvalidate(GUID dataItem)
 	//printf(WHERESTR "Invalidate request sent\n", WHEREARG);
 }
 
-void RecordBufferRequest(QueueableItem item)
+void RecordBufferRequest(QueueableItem item, dataObject obj)
 {
 	QueueableItem temp;
 	if ((temp = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
@@ -489,14 +491,17 @@ void RecordBufferRequest(QueueableItem item)
 	if (((struct acquireRequest*)item->dataRequest)->packageCode != PACKAGE_ACQUIRE_REQUEST_WRITE)
 		REPORT_ERROR("Recording buffer entry for non acquire or non write");
 
-	//printf(WHERESTR "Inserting into writebuffer table: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
-	if(!ht_member(writebufferReady, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
+	printf(WHERESTR "Inserting into writebuffer table: %d, %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem, (int)obj);
+	if(!ht_member(writebufferReady, obj))
 	{
 		//printf(WHERESTR "Inserted item into writebuffer table: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
-		ht_insert(writebufferReady, (void*)((struct acquireRequest*)item->dataRequest)->dataItem ,temp);
+		ht_insert(writebufferReady, obj, temp);
 	}
 	else
+	{
+		printf(WHERESTR "*EXT*\n", WHEREARG);
 		REPORT_ERROR("Could not insert into writebufferReady, element exists");
+	}
 }
 
 //Performs all actions releated to an acquire request
@@ -525,13 +530,14 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				dq_enq_front(q, NULL);
 				
 				if (obj->id != PAGE_TABLE_ID)
-					RecordBufferRequest(item);
+					RecordBufferRequest(item, obj);
 					
 				RespondAcquire(item, obj);
 					
 				if (request->dataItem != PAGE_TABLE_ID)
 					DoInvalidate(obj->id);
 					
+				printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, obj->id);
 				NetInvalidate(obj->id);
 			}
 
@@ -611,10 +617,12 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 
 						GUID id = obj->id;
 						if (id != PAGE_TABLE_ID)
-							RecordBufferRequest(next);
+							RecordBufferRequest(next, obj);
 						RespondAcquire(next, obj);
 						if (id != PAGE_TABLE_ID)
 							DoInvalidate(id);
+						
+						printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
 						NetInvalidate(id);
 						
 						break; //Done
@@ -769,10 +777,11 @@ void HandleReleaseRequest(QueueableItem item)
 		if (req->mode == ACQUIRE_MODE_WRITE)
 		{
 			dataObject obj = ht_get(allocatedItems, (void*)req->dataItem);
-			if (ht_member(allocatedItemsDirty, obj))
+			if (ht_member(allocatedItemsDirty, obj) || ht_member(writebufferReady, obj))
 			{
-				//printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
+				printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
 				//The object is still in use, re-register, the last invalidate response will free it
+				
 				dqueue tmp = obj->waitqueue;
 				obj->waitqueue = NULL;
 				if (req->data == NULL)
@@ -866,7 +875,7 @@ void HandleInvalidateResponse(QueueableItem item)
 		return;
 	}
 	
-	unsigned int* count = ht_get(allocatedItemsDirty, (void*)object);
+	unsigned int* count = ht_get(allocatedItemsDirty, object);
 	*count = *count - 1;
 	if (*count <= 0) {
 		//printf(WHERESTR "The last response is in for: %d\n", WHEREARG, object->id);
@@ -875,21 +884,27 @@ void HandleInvalidateResponse(QueueableItem item)
 		FREE(count);
 		count = NULL;
 		
-		if(ht_member(writebufferReady, (void*)object->id)) {
-			//printf(WHERESTR "The last response is in for: %d, sending writebuffer signal\n", WHEREARG, object->id);
+		if(ht_member(writebufferReady, object)) {
+			printf(WHERESTR "The last response is in for: %d, sending writebuffer signal, %d\n", WHEREARG, object->id, (int)object);
 			
-			QueueableItem reciever = ht_get(writebufferReady, (void*)object->id);
+			QueueableItem reciever = ht_get(writebufferReady, object);
 			
-			struct writebufferReady* req = (struct writebufferReady*)MALLOC(sizeof(struct writebufferReady));
-			if (req == NULL)
+			struct writebufferReady* invReq = (struct writebufferReady*)MALLOC(sizeof(struct writebufferReady));
+			if (invReq == NULL)
 				REPORT_ERROR("malloc error");
-				
-			ht_delete(writebufferReady, (void*)object->id);
-			req->packageCode = PACKAGE_WRITEBUFFER_READY;
-			req->requestID = ((struct acquireRequest*)reciever->dataRequest)->requestID;
-			req->dataItem = object->id;
+			
+			ht_delete(writebufferReady, object);
+			
+			invReq->packageCode = PACKAGE_WRITEBUFFER_READY;
+			invReq->requestID = ((struct acquireRequest*)reciever->dataRequest)->requestID;
+			invReq->dataItem = object->id;
 		
-			RespondAny(reciever, req);
+			printf(WHERESTR "Sending package code: %d\n", WHEREARG, invReq->packageCode);
+			RespondAny(reciever, invReq);
+		}
+		else
+		{
+			printf(WHERESTR "Not member: %d, %d\n", WHEREARG, object->id, (int)object);
 		}
 
 		if (!ht_member(allocatedItems, (void*)object->id) || ht_get(allocatedItems, (void*)object->id) != object)
@@ -900,6 +915,10 @@ void HandleInvalidateResponse(QueueableItem item)
 			FREE(object);
 			object = NULL;
 		}
+	}
+	else
+	{
+		printf(WHERESTR "Count was: %d, %d\n", WHEREARG, *count, (int)object);
 	}
 
 	//printf(WHERESTR "removing pending invalidate response\n", WHEREARG);
