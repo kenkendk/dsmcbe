@@ -58,9 +58,9 @@ struct acquireResponse
 
 struct writebufferReady
 {
-	unsigned char packageCode; // = 5
+    unsigned char packageCode; // = 5
     unsigned int requestID;
-    GUID dataItem;
+    GUID dataItem; 
 };
 
 struct migrationResponse

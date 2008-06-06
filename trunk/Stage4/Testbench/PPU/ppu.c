@@ -161,7 +161,7 @@ int main(int argc, char **argv) {
 		
 		printf(WHERESTR "Starting test\n", WHEREARG);
 		
-		if (id == PAGE_TABLE_OWNER)
+		/*if (id == PAGE_TABLE_OWNER)
 		{
 			printf(WHERESTR "Reset number\n", WHEREARG);
 			data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
 
 		printf(WHERESTR "Test 1 complete, starting test 2\n", WHEREARG);
 				
-		sleep(5);
+		sleep(5);*/
 		
 		//Step 2, repeated acquire, owner in read mode, others in write mode
 		previous = REPETITIONS;

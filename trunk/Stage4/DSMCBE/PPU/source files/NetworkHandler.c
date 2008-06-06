@@ -36,6 +36,9 @@ pthread_t net_write_thread;
 pthread_mutex_t net_work_mutex;
 pthread_cond_t net_work_ready;
 
+//This mutex protects the lease table and write initiator
+pthread_mutex_t net_leaseLock;
+
 //Each remote host has its own requestQueue
 queue* net_requestQueues;
 
@@ -158,6 +161,7 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 		net_sequenceNumbers[i] = 0;
 	}
 	
+	pthread_mutex_init(&net_leaseLock, NULL); 
 	net_leaseTable = ht_create(10, lessint, hashfc);
 	net_writeInitiator = ht_create(10, lessint, hashfc);
 
@@ -179,8 +183,8 @@ void NetInvalidate(GUID id)
 	if (net_remote_hosts == 0)
 		return;
 	
-	//printf(WHERESTR "Processing invalidates\n", WHEREARG);
 	pthread_mutex_lock(&net_work_mutex);
+	//printf(WHERESTR "Taking lock: %d\n", WHEREARG, (int)&net_work_mutex);
 	for(i = 0; i < net_remote_hosts; i++)
 	{
 		if (i != dsmcbe_host_number)
@@ -196,6 +200,8 @@ void NetInvalidate(GUID id)
 	}
 	
 	pthread_cond_signal(&net_work_ready);
+
+	//printf(WHERESTR "Releasing lock: %d\n", WHEREARG, (int)&net_work_mutex);
 	pthread_mutex_unlock(&net_work_mutex);
 	//printf(WHERESTR "Processed invalidates\n", WHEREARG);
 }
@@ -230,6 +236,8 @@ void TerminateNetworkHandler(int force)
 	net_idlookups = NULL;
 	FREE(net_sequenceNumbers);
 	net_sequenceNumbers = NULL;
+	
+	pthread_mutex_destroy(&net_leaseLock);
 	
 	pthread_mutex_destroy(&net_work_mutex);
 	pthread_cond_destroy(&net_work_ready);
@@ -321,11 +329,16 @@ void* net_Writer(void* data)
 		if (net_terminate || package == NULL)
 			continue;
 
+
 		//printf(WHERESTR "Sending a package to machine: %d, type: %d\n", WHEREARG, hostno, ((struct createRequest*)package)->packageCode);
 		
 		//Catch and filter invalidates
 		if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 		{
+			pthread_mutex_lock(&net_leaseLock);
+			
+			itemid = ((struct invalidateRequest*)package)->dataItem;
+			
 			if (!ht_member(net_leaseTable, (void*)itemid))
 				ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
 				
@@ -360,18 +373,33 @@ void* net_Writer(void* data)
 				FREE(package);
 				package = NULL;
 			}
+			pthread_mutex_unlock(&net_leaseLock);
 		}
 		else if (((struct createRequest*)package)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
 		{
+			pthread_mutex_lock(&net_leaseLock);
 			//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
-
+			
+			itemid = ((struct acquireResponse*)package)->dataItem;
+			
 			if (!ht_member(net_leaseTable, (void*)itemid))
 				ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
 				
 			if (!slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno))
 				slset_insert((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno, NULL);
+				
+			if (((struct acquireResponse*)package)->mode == ACQUIRE_MODE_WRITE)
+			{
+				//printf(WHERESTR "Registering host %d as initiator for package %d\n", WHEREARG, hostno, itemid);
+				if (ht_member(net_writeInitiator, (void*)itemid)) {
+					REPORT_ERROR("Same Host was registered twice for write");
+				} else {							
+					ht_insert(net_writeInitiator, (void*)itemid, (void*)hostno);
+				}
+			}
 
 			//printf(WHERESTR "Registered %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
+			pthread_mutex_unlock(&net_leaseLock);
 		}
 	
 		if (package != NULL)
@@ -413,11 +441,22 @@ void net_processPackage(void* data, unsigned int machineId)
 
 			//printf(WHERESTR "Processing network package from %d, with type: %d\n", WHEREARG, machineId, ((struct createRequest*)data)->packageCode);
 			
+			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+			{
+				printf(WHERESTR "Processing REQUEST WRITE package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct acquireRequest*)data)->packageCode, ((struct acquireRequest*)data)->dataItem);
+			}
+
+			if (((struct createRequest*)data)->packageCode == PACKAGE_INVALIDATE_REQUEST)
+			{
+				printf(WHERESTR "Processing invalidate package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct invalidateRequest*)data)->packageCode, ((struct invalidateRequest*)data)->dataItem);
+			}
+			
 			if (((struct createRequest*)data)->packageCode == PACKAGE_RELEASE_REQUEST)
 			{
 				itemid = ((struct releaseRequest*)data)->dataItem;
 				//printf(WHERESTR "Processing release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
 				
+				pthread_mutex_lock(&net_leaseLock);
 				//The read release request implies that the sender has destroyed the copy
 				if (!ht_member(net_leaseTable, (void*)itemid))
 					ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
@@ -432,20 +471,9 @@ void net_processPackage(void* data, unsigned int machineId)
 					data = NULL;
 					return;
 				}
-				else
-				{
-					//printf(WHERESTR "Processing WRITE release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
-					//Register host for invalidate messages, if required
-					if (!slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId))
-						slset_insert((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId, NULL);
-						
-					//printf(WHERESTR "Registering SPU %d as initiator for package %d\n", WHEREARG, machineId, itemid);
-					if (ht_member(net_writeInitiator, (void*)itemid)) {
-						REPORT_ERROR("Same Host was registered twice for write");
-					} else {							
-						ht_insert(net_writeInitiator, (void*)itemid, (void*)machineId);
-					}
-				}
+
+				pthread_mutex_unlock(&net_leaseLock);
+				
 			}
 		
 		
