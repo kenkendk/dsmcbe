@@ -278,6 +278,7 @@ void* net_Reader(void* data)
 			{
 				REPORT_ERROR("Socked closed unexpectedly");
 				sockets[i].fd = -1;
+				exit(0);
 			}
 		}
 	}
@@ -426,7 +427,7 @@ void net_processPackage(void* data, unsigned int machineId)
 					//printf(WHERESTR "Processing READ release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
 					if (slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId))
 						slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId);
-					//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, i);
+					//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, machineId);
 					FREE(data);
 					data = NULL;
 					return;
@@ -438,7 +439,7 @@ void net_processPackage(void* data, unsigned int machineId)
 					if (!slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId))
 						slset_insert((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId, NULL);
 						
-					//printf(WHERESTR "Registering SPU %d as initiator for package %d\n", WHEREARG, i, itemid);
+					//printf(WHERESTR "Registering SPU %d as initiator for package %d\n", WHEREARG, machineId, itemid);
 					if (ht_member(net_writeInitiator, (void*)itemid)) {
 						REPORT_ERROR("Same Host was registered twice for write");
 					} else {							
@@ -535,7 +536,7 @@ void* net_readPackage(int fd)
 	
 	if (recv(fd, &type, sizeof(unsigned char), MSG_PEEK) != 0)
 	{
-		printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
+		//printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 		switch(type)
 		{
 		case PACKAGE_CREATE_REQUEST:
@@ -594,10 +595,9 @@ void* net_readPackage(int fd)
 					REPORT_ERROR("Failed to allocate space for release request data");
 				if (recv(fd, ((struct releaseRequest*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 					REPORT_ERROR("Failed to read package data from release request");
-			}
-			else
+			} else {
 				((struct releaseRequest*)data)->data = NULL;
-
+			}
 			break;
 		case PACKAGE_RELEASE_RESPONSE:
 			blocksize = sizeof(struct releaseResponse);
@@ -684,7 +684,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 	
 	fd = net_remote_handles[machineId];
 		
-	printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
+	//printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 	switch(((struct createRequest*)package)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:

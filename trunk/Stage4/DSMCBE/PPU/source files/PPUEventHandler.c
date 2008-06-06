@@ -194,7 +194,7 @@ void* forwardRequest(void* data)
 	q->mutex = &m;
 	q->queue = &dummy;
 	
-	printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);	
+	//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);	
 	
 	//printf(WHERESTR "adding item to queue\n", WHEREARG);
 	RelayEnqueItem(q);
@@ -205,9 +205,9 @@ void* forwardRequest(void* data)
 
 
 	while (queue_empty(dummy)) {
-		printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
+		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
 		pthread_cond_wait(&e, &m);
-		printf(WHERESTR "queue filled\n", WHEREARG);
+		//printf(WHERESTR "queue filled\n", WHEREARG);
 	}
 	
 	data = queue_deq(dummy);
@@ -487,11 +487,11 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		REPORT_ERROR("malloc error");
 
 	if (type == ACQUIRE_MODE_WRITE) {
-		printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
+		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
 	}
 	else if (type == ACQUIRE_MODE_READ) {
-		printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
+		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	}
 	else
@@ -505,7 +505,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	//Perform the request and await the response
 	ar = (struct acquireResponse*)forwardRequest(cr);
 	
-	printf(WHERESTR "Recieved response %i\n", WHEREARG, ar->packageCode);
+	//printf(WHERESTR "Recieved response %i\n", WHEREARG, ar->packageCode);
 	
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
@@ -514,7 +514,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	}
 	else
 	{
-		printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
+		//printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
 		//The request was positive
 		retval = ar->data;
 		(*size) = ar->dataSize;
@@ -641,17 +641,17 @@ void* requestDispatcher(void* dummy)
 		
 		if (data != NULL)
 		{
-			printf(WHERESTR "Processing package with type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID);
+			//printf(WHERESTR "Processing package with type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID);
 
 			switch (((struct createRequest*)data)->packageCode)
 			{
 				case PACKAGE_INVALIDATE_REQUEST:
-					printf(WHERESTR "Processing invalidate\n", WHEREARG);
+					//printf(WHERESTR "Processing invalidate\n", WHEREARG);
 					processInvalidates((struct invalidateRequest*)data);
 					data = NULL;
 					break;
 				case PACKAGE_ACQUIRE_RESPONSE:
-					printf(WHERESTR "Processing acquire response\n", WHEREARG);
+					//printf(WHERESTR "Processing acquire response\n", WHEREARG);
 					resp = (struct acquireResponse*)data;
 					recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode != ACQUIRE_MODE_READ ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
 					break;
@@ -665,13 +665,13 @@ void* requestDispatcher(void* dummy)
 			pthread_mutex_lock(&ppu_queue_mutex);
 			
 			if (!ht_member(pendingRequests, (void*)reqId)) {
-				printf(WHERESTR "* ERROR * Response was for ID: %d, package type: %d\n", WHEREARG, reqId, ((struct createRequest*)data)->packageCode);
+				//printf(WHERESTR "* ERROR * Response was for ID: %d, package type: %d\n", WHEREARG, reqId, ((struct createRequest*)data)->packageCode);
 				
 				REPORT_ERROR("Recieved unexpected request");				
 			} else {
 				ui = ht_get(pendingRequests, (void*)reqId);
 		
-				printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i \n", WHEREARG, (int)ui->event, (int)ui->mutex, (int)ui->queue);
+				//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i \n", WHEREARG, (int)ui->event, (int)ui->mutex, (int)ui->queue);
 				
 				if (ui->mutex != NULL)
 					pthread_mutex_lock(ui->mutex);
