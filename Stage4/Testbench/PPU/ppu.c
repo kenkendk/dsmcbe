@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
 		//Step 1, repeated acquire, owner in write mode, others in read mode
 
 		int previous = REPETITIONS;
-/*		
+		
 		printf(WHERESTR "Starting test\n", WHEREARG);
 		
 		if (id == PAGE_TABLE_OWNER)
@@ -212,7 +212,6 @@ int main(int argc, char **argv) {
 				//printf("prev: %d\n", previous);
 			}
 		}
-*/
 
 		printf(WHERESTR "Test 1 complete, starting test 2\n", WHEREARG);
 				
@@ -232,7 +231,6 @@ int main(int argc, char **argv) {
 		}
 		else
 		{
-			sleep(100);
 			while(previous != 0)
 			{
 				printf(WHERESTR "Starting acquire\n", WHEREARG);
@@ -247,6 +245,7 @@ int main(int argc, char **argv) {
 		}
 		
 		printf(WHERESTR "Starting contetion test 2\n", WHEREARG);
+		sleep(10);
 		
 		if (id != PAGE_TABLE_OWNER)
 		{
