@@ -755,23 +755,23 @@ void HandleReleaseRequest(QueueableItem item)
 	struct releaseRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
 
-	//printf(WHERESTR "processing release event\n", WHEREARG);
+	printf(WHERESTR "processing release event\n", WHEREARG);
 	if (machineId != dsmcbe_host_number)
 	{
-		//printf(WHERESTR "processing release event, not owner\n", WHEREARG);
+		printf(WHERESTR "processing release event, not owner\n", WHEREARG);
 		if (req->mode == ACQUIRE_MODE_WRITE)
 			DoInvalidate(req->dataItem);
 		NetRequest(item, machineId);
 	}
 	else
 	{
-		//printf(WHERESTR "processing release event, owner\n", WHEREARG);
+		printf(WHERESTR "processing release event, owner\n", WHEREARG);
 		if (req->mode == ACQUIRE_MODE_WRITE)
 		{
 			dataObject obj = ht_get(allocatedItems, (void*)req->dataItem);
 			if (ht_member(allocatedItemsDirty, obj))
 			{
-				//printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
+				printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
 				//The object is still in use, re-register, the last invalidate response will free it
 				dqueue tmp = obj->waitqueue;
 				obj->waitqueue = NULL;
@@ -793,10 +793,11 @@ void HandleReleaseRequest(QueueableItem item)
 			}
 			else
 			{
-				//printf(WHERESTR "processing release event, object is not in use, updating\n", WHEREARG);
+				printf(WHERESTR "processing release event, object is not in use, updating\n", WHEREARG);
 				//The object is not in use, just copy in the new version
 				if (obj->EA != req->data && req->data != NULL)
 				{
+					printf(WHERESTR "Size(req) %i, Size(obj): %i, Data(req) %i, Data(obj) %i\n", WHEREARG, (int)req->dataSize, (int)obj->size, (int)req->data, (int)obj->EA);
 					memcpy(obj->EA, req->data, obj->size);
 					FREE(req->data);
 					req->data = NULL;
@@ -804,10 +805,10 @@ void HandleReleaseRequest(QueueableItem item)
 			}
 		}
 		
-		//printf(WHERESTR "processing release event, owner\n", WHEREARG);
+		printf(WHERESTR "processing release event, owner\n", WHEREARG);
 		DoRelease(item, (struct releaseRequest*)item->dataRequest);
 	}
-	//printf(WHERESTR "processed release event\n", WHEREARG);
+	printf(WHERESTR "processed release event\n", WHEREARG);
 	
 }
 
