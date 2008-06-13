@@ -180,9 +180,11 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 				conres = connect(sockfd[j], (struct sockaddr *)&network[j], sizeof(struct sockaddr));
 				if (conres == -1)
 				{
-					printf(WHERESTR "Host %d did not respond, retry in 5 sec, attempt %d of 5\n", WHEREARG, j + 1, k + 1);
+					printf(WHERESTR "Host %d did not respond, retry in 5 sec, attempt %d of 5\n", WHEREARG, j, k + 1);
 					sleep(5);
 				}
+				else
+					break;
 			}
 			
 			if (conres == -1)
