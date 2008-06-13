@@ -7,7 +7,7 @@
 
 #include "../../DSMCBE/common/datapackages.h"
 
-#define REPETITIONS 100000
+#define REPETITIONS 500
 
 unsigned int id;
 char* file;
@@ -55,7 +55,11 @@ int main(int argc, char **argv) {
 
 	printf(WHERESTR "%d: Connected, starting\n", WHEREARG, id);
 
-	if (id == 0)
+	#define STEP1
+	#define STEP2
+	#define STEP3
+		
+	if (id != 0)
 	{
 		sleep(1);
 		printf(WHERESTR "%d: Creating\n", WHEREARG, id);
@@ -168,9 +172,6 @@ int main(int argc, char **argv) {
 		
 		printf(WHERESTR "Starting test\n", WHEREARG);
 		
-#define STEP1
-#define STEP2
-		
 #ifdef STEP1
 		if (id == PAGE_TABLE_OWNER)
 		{
@@ -187,6 +188,7 @@ int main(int argc, char **argv) {
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				previous = *data;
 				release(data);
+				sleep(5);
 			}				
 			printf(WHERESTR "Reset detected\n", WHEREARG);
 		}
@@ -291,7 +293,78 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Test complete\n", WHEREARG);
 		sleep(10);
 #endif				
+
+#ifdef STEP3
+		
 		//Step 3, repeated acquire, both in write mode
+		previous = REPETITIONS;
+
+		if (id != PAGE_TABLE_OWNER)
+		{
+			printf(WHERESTR "Starting acquire\n", WHEREARG);
+			data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+			*data = 0;
+			printf(WHERESTR "data is %i\n", WHEREARG, *data);			
+			release(data);			
+			printf(WHERESTR "Reset number\n", WHEREARG);
+		}
+		else
+		{
+			while(previous != 0)
+			{
+				//printf(WHERESTR "Starting acquire\n", WHEREARG);
+				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);			
+				previous = *data;
+				//printf(WHERESTR "data is %i\n", WHEREARG, previous);
+				release(data);
+				//printf(WHERESTR "data is %i\n", WHEREARG, previous);
+
+			}				
+			printf(WHERESTR "Reset detected\n", WHEREARG);
+		}
+		
+		printf(WHERESTR "Starting contetion test 3\n", WHEREARG);
+		sleep(10);
+	
+		
+		if (id != PAGE_TABLE_OWNER)
+		{
+			for(i = 0; i < REPETITIONS; i++)
+			{
+				printf("i: %d\n", i);
+				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				while(*data % 2 == 0){
+					release(data);
+					data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				}
+
+				printf(WHERESTR "ID %i: Data was %i\n", WHEREARG, id, *data);
+				*data = *data + 1;
+				previous = *data;				
+				release(data);
+			}
+		}
+		else
+		{
+			for(i = 0; i < REPETITIONS; i++)
+			{
+				printf("i: %d\n", i);
+				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				while(*data % 2 != 0){
+					release(data);
+					data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				}
+
+				printf(WHERESTR "ID %i: Data was %i\n", WHEREARG, id, *data);
+				*data = *data + 1;
+				previous = *data;				
+				release(data);
+			}
+		}
+		
+		printf(WHERESTR "Test complete\n", WHEREARG);
+		sleep(10);
+#endif				
 		
 		//Step 4, repeated create, owner in read mode, others in write mode
 
