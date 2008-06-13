@@ -62,6 +62,7 @@ void* requestDispatcher(void* data);
 //Setup the PPUHandler
 void InitializePPUHandler()
 {
+	
 	pthread_attr_t attr;
 	
 	pointers = ht_create(10, lessint, hashfc);
@@ -88,6 +89,7 @@ void InitializePPUHandler()
 //Terminate the PPUHandler and release all resources
 void TerminatePPUHandler()
 {
+	
 	hashtableIterator it;
 	queue keys;
 	PointerEntry pe;
@@ -152,6 +154,7 @@ void TerminatePPUHandler()
 
 void RelayEnqueItem(QueueableItem q)
 {
+	
 	QueueableItem relay;
 	
 	if((relay = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
@@ -176,6 +179,7 @@ void RelayEnqueItem(QueueableItem q)
 //Sends a request into the coordinator, and awaits the response (blocking)
 void* forwardRequest(void* data)
 {
+	
 	queue dummy;
 	pthread_mutex_t m;
 	pthread_cond_t e;
@@ -248,6 +252,7 @@ void* forwardRequest(void* data)
 //Record information about the returned pointer
 void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offset, int type)
 {
+	
 	PointerEntry ent;
 	
 	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE)
@@ -283,6 +288,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 //Perform a create in the current thread
 void* threadCreate(GUID id, unsigned long size)
 {
+	
 	struct createRequest* cr;
 	struct acquireResponse* ar;
 	void* retval;
@@ -334,6 +340,7 @@ void* threadCreate(GUID id, unsigned long size)
 
 void processInvalidates(struct invalidateRequest* incoming)
 {
+	
 	struct invalidateRequest* req;
 	queue temp;
 	PointerEntry pe;
@@ -425,6 +432,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 
 int isPendingInvalidate(GUID id)
 {
+	
 	list *l;
 	
 	if (queue_empty(pendingInvalidate))
@@ -445,6 +453,7 @@ int isPendingInvalidate(GUID id)
 //Perform an acquire in the current thread
 void* threadAcquire(GUID id, unsigned long* size, int type)
 {
+	
 	void* retval;
 	struct acquireRequest* cr;
 	struct acquireResponse* ar;
@@ -544,6 +553,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 //Perform a release on the current thread
 void threadRelease(void* data)
 {
+	
 	PointerEntry pe;
 	struct releaseRequest* re;
 	struct releaseResponse* rr;
@@ -619,6 +629,7 @@ void threadRelease(void* data)
 //It ensures that no two requests are overlapping, and processes invalidate requests
 void* requestDispatcher(void* dummy)
 {
+	
 	void* data;
 	struct acquireResponse* resp;
 	unsigned int reqId;

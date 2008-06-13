@@ -96,6 +96,7 @@ void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event,
 //Remove a subscriber from the list
 void UnregisterInvalidateSubscriber(queue* q)
 {
+	
 	pthread_mutex_lock(&invalidate_queue_mutex);
 	
 	FREE(slset_get(invalidateSubscribers, q));
@@ -107,6 +108,7 @@ void UnregisterInvalidateSubscriber(queue* q)
 //Stops the coordination thread and releases all resources
 void TerminateCoordinator(int force)
 {
+	
 	int queueEmpty;
 	
 	if (force)
@@ -142,6 +144,7 @@ void TerminateCoordinator(int force)
 //This method initializes all items related to the coordinator and starts the handler thread
 void InitializeCoordinator()
 {
+	
 	pthread_attr_t attr;
 	dataObject obj;
 	size_t i;
@@ -196,6 +199,7 @@ void InitializeCoordinator()
 //This method can be called from outside the module to set up a request
 void EnqueItem(QueueableItem item)
 {
+	
 	//printf(WHERESTR "adding item to queue: %i\n", WHEREARG, (int)item);
  	pthread_mutex_lock(&queue_mutex);
  	
@@ -211,6 +215,7 @@ void EnqueItem(QueueableItem item)
 //This method enques a response for an invalidate
 void EnqueInvalidateResponse(unsigned int requestNumber)
 {
+	
 	struct invalidateResponse* resp;
 	
 	if((resp = MALLOC(sizeof(struct invalidateResponse))) == NULL)
@@ -233,6 +238,7 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
 //It sets the requestID on the response, and frees the data structures
 void RespondAny(QueueableItem item, void* resp)
 {
+	
 	//printf(WHERESTR "responding to %i\n", WHEREARG, (int)item);
 	//The actual type is not important, since the first two fields are 
 	// layed out the same way for all packages
@@ -269,6 +275,7 @@ void RespondAny(QueueableItem item, void* resp)
 //Responds with NACK to a request
 void RespondNACK(QueueableItem item)
 {
+	
 	struct NACK* resp;
 	if ((resp = (struct NACK*)MALLOC(sizeof(struct NACK))) == NULL)
 		REPORT_ERROR("MALLOC error");
@@ -282,6 +289,7 @@ void RespondNACK(QueueableItem item)
 //Responds to an acquire request
 void RespondAcquire(QueueableItem item, dataObject obj)
 {
+	
 	struct acquireResponse* resp;
 	if ((resp = (struct acquireResponse*)MALLOC(sizeof(struct acquireResponse))) == NULL)
 		REPORT_ERROR("MALLOC error");
@@ -312,6 +320,7 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 //Responds to a release request
 void RespondRelease(QueueableItem item)
 {
+	
 	struct releaseResponse* resp;
 	
 	if ((resp = (struct releaseResponse*)MALLOC(sizeof(struct releaseResponse))) == NULL)
@@ -325,6 +334,7 @@ void RespondRelease(QueueableItem item)
 //Performs all actions releated to a create request
 void DoCreate(QueueableItem item, struct createRequest* request)
 {
+	
 	unsigned long size;
 	unsigned int transfersize;
 	void* data;
@@ -390,6 +400,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 //Perform all actions related to an invalidate
 void DoInvalidate(GUID dataItem)
 {
+	
 	keylist kl;
 	dataObject obj;
 	invalidateSubscriber sub;
@@ -481,6 +492,7 @@ void DoInvalidate(GUID dataItem)
 
 void RecordBufferRequest(QueueableItem item, dataObject obj)
 {
+	
 	QueueableItem temp;
 	if ((temp = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 		REPORT_ERROR("malloc error");
@@ -509,6 +521,7 @@ void RecordBufferRequest(QueueableItem item, dataObject obj)
 //Performs all actions releated to an acquire request
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
+	
 	dqueue q;
 	dataObject obj;
 			
@@ -567,6 +580,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 //Performs all actions releated to a release
 void DoRelease(QueueableItem item, struct releaseRequest* request)
 {
+	
 	dqueue q;
 	dataObject obj;
 	QueueableItem next;
@@ -646,6 +660,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 
 int isPageTableAvalible()
 {
+	
 	if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 	{
 		if (!ht_member(allocatedItems, (void*)PAGE_TABLE_ID))
@@ -696,6 +711,7 @@ void RequestPageTable(int mode)
 
 unsigned int GetMachineID(GUID id)
 {
+	
 	//printf(WHERESTR "Getting machine id for item %d\n", WHEREARG, id);
 	dataObject obj = ht_get(allocatedItems, PAGE_TABLE_ID);
 	//printf(WHERESTR "Getting machine id for item EA: %d\n", WHEREARG, obj);
@@ -706,6 +722,7 @@ unsigned int GetMachineID(GUID id)
 
 void HandleCreateRequest(QueueableItem item)
 {
+	
 	struct createRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
 	//printf(WHERESTR "processing create event\n", WHEREARG);
@@ -722,6 +739,7 @@ void HandleCreateRequest(QueueableItem item)
 
 void HandleAcquireRequest(QueueableItem item)
 {
+	
 	struct acquireRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
 	//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number, req->requestID);
@@ -763,6 +781,7 @@ void HandleAcquireRequest(QueueableItem item)
 
 void HandleReleaseRequest(QueueableItem item)
 {
+	
 	struct releaseRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
 
@@ -827,6 +846,7 @@ void HandleReleaseRequest(QueueableItem item)
 
 void HandleInvalidateRequest(QueueableItem item)
 {
+	
 	struct invalidateRequest* req = item->dataRequest;
 	
 	//printf(WHERESTR "processing network invalidate request for: %d\n", WHEREARG, req->dataItem);
@@ -849,6 +869,7 @@ void HandleInvalidateRequest(QueueableItem item)
 
 void HandleInvalidateResponse(QueueableItem item)
 {
+	
 	dataObject object;
 	struct invalidateResponse* req = item->dataRequest;
 	
@@ -936,6 +957,7 @@ void HandleInvalidateResponse(QueueableItem item)
 
 void HandleAcquireResponse(QueueableItem item)
 {
+	
 	struct acquireResponse* req = item->dataRequest;
 	dataObject object;
 
@@ -1125,6 +1147,7 @@ void HandleAcquireResponse(QueueableItem item)
 //This is the main thread function
 void* ProccessWork(void* data)
 {
+	
 	QueueableItem item;
 	unsigned int datatype;
 	int isPtResponse;
