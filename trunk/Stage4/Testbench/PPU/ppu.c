@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#define REPETITIONS 100000
+#define REPETITIONS 1000000
 
 unsigned int id;
 char* file;
@@ -161,7 +161,11 @@ int main(int argc, char **argv) {
 		
 		printf(WHERESTR "Starting test\n", WHEREARG);
 		
-		/*if (id == PAGE_TABLE_OWNER)
+#define STEP1
+#define STEP2
+		
+#ifdef STEP1
+		if (id == PAGE_TABLE_OWNER)
 		{
 			printf(WHERESTR "Reset number\n", WHEREARG);
 			data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
@@ -215,7 +219,10 @@ int main(int argc, char **argv) {
 
 		printf(WHERESTR "Test 1 complete, starting test 2\n", WHEREARG);
 				
-		sleep(5);*/
+		sleep(5);
+#endif
+
+#ifdef STEP2
 		
 		//Step 2, repeated acquire, owner in read mode, others in write mode
 		previous = REPETITIONS;
@@ -276,7 +283,7 @@ int main(int argc, char **argv) {
 		
 		printf(WHERESTR "Test complete\n", WHEREARG);
 		sleep(10);
-				
+#endif				
 		//Step 3, repeated acquire, both in write mode
 		
 		//Step 4, repeated create, owner in read mode, others in write mode
