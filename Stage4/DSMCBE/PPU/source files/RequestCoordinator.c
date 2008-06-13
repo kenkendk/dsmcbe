@@ -173,12 +173,12 @@ void InitializeCoordinator()
 			if ((obj = MALLOC(sizeof(struct dataObjectStruct))) == NULL)
 				REPORT_ERROR("MALLOC error");
 				
-			obj->size = sizeof(unsigned int) * 10000;
+			obj->size = sizeof(unsigned int) * PAGE_TABLE_SIZE;
 			obj->EA = MALLOC_ALIGN(obj->size, 7);
 			obj->id = PAGE_TABLE_ID;
 			obj->waitqueue = dq_create();
 			
-			for(i = 0; i < 10000; i++)
+			for(i = 0; i < PAGE_TABLE_SIZE; i++)
 				((unsigned int*)obj->EA)[i] = UINT_MAX;
 
 			((unsigned int*)obj->EA)[PAGE_TABLE_ID] = PAGE_TABLE_OWNER;
@@ -638,7 +638,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 						if (id != PAGE_TABLE_ID)
 							DoInvalidate(id);
 						
-						printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
+						//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
 						NetInvalidate(id);
 						
 						break; //Done
@@ -943,7 +943,7 @@ void HandleInvalidateResponse(QueueableItem item)
 	}
 	else
 	{
-		printf(WHERESTR "Count was: %d, %d\n", WHEREARG, *count, (int)object);
+		//printf(WHERESTR "Count was: %d, %d\n", WHEREARG, *count, (int)object);
 	}
 
 	//printf(WHERESTR "removing pending invalidate response\n", WHEREARG);

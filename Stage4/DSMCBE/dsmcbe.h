@@ -8,6 +8,7 @@ typedef unsigned int GUID;
 
 #define PAGE_TABLE_ID 0
 #define PAGE_TABLE_OWNER 0
+#define PAGE_TABLE_SIZE 25000
  
 extern void* create(GUID id, unsigned long size);
 extern void* acquire(GUID id, unsigned long* size, int type);
