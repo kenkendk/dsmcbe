@@ -268,7 +268,7 @@ void* SPU_Worker(void* data)
 				dataItem = queue_deq(spu_requestQueues[i]);
 				pthread_mutex_unlock(&spu_work_mutex);
 				
-				datatype = ((unsigned char*)dataItem)[0];
+				datatype = ((unsigned int*)dataItem)[0];
 				//printf(WHERESTR "Got response from Coordinator\n", WHEREARG);
 				switch(datatype)
 				{

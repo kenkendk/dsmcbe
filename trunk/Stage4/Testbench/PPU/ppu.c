@@ -5,7 +5,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#define REPETITIONS 1000000
+#include "../../DSMCBE/common/datapackages.h"
+
+#define REPETITIONS 100000
 
 unsigned int id;
 char* file;
@@ -16,7 +18,7 @@ int main(int argc, char **argv) {
 	unsigned long size;
 	unsigned int items;
 	size_t i;
-		
+
 	if(argc == 4) {
 		id = atoi(argv[1]);
 		file = argv[2]; 	
@@ -32,8 +34,7 @@ int main(int argc, char **argv) {
 	
 	printf(WHERESTR "id: %i, file %s, SPU_THREADS %i\n", WHEREARG, id, file, SPU_THREADS);
 	
-	
-	
+
 	printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
