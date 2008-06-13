@@ -243,7 +243,7 @@ void RespondAny(QueueableItem item, void* resp)
 	if (item->mutex != NULL)
 		pthread_mutex_lock(item->mutex);
 	
-	printf(WHERESTR "responding, locking %i, packagetype: %d\n", WHEREARG, (int)item->mutex, ((struct acquireRequest*)resp)->packageCode);
+	//printf(WHERESTR "responding, locking %i, packagetype: %d\n", WHEREARG, (int)item->mutex, ((struct acquireRequest*)resp)->packageCode);
 	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
 	
 	if (item->queue != NULL)
@@ -254,7 +254,7 @@ void RespondAny(QueueableItem item, void* resp)
 	
 	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
 	
-	printf(WHERESTR "responded, unlocking %i\n", WHEREARG, (int)item->mutex);
+	//printf(WHERESTR "responded, unlocking %i\n", WHEREARG, (int)item->mutex);
 	if (item->mutex != NULL)
 		pthread_mutex_unlock(item->mutex);
 	
@@ -491,7 +491,7 @@ void RecordBufferRequest(QueueableItem item, dataObject obj)
 	if (((struct acquireRequest*)item->dataRequest)->packageCode != PACKAGE_ACQUIRE_REQUEST_WRITE)
 		REPORT_ERROR("Recording buffer entry for non acquire or non write");
 
-	printf(WHERESTR "Inserting into writebuffer table: %d, %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem, (int)obj);
+	//printf(WHERESTR "Inserting into writebuffer table: %d, %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem, (int)obj);
 	if(!ht_member(writebufferReady, obj))
 	{
 		//printf(WHERESTR "Inserted item into writebuffer table: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
@@ -537,7 +537,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				if (request->dataItem != PAGE_TABLE_ID)
 					DoInvalidate(obj->id);
 					
-				printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, obj->id);
+				//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, obj->id);
 				NetInvalidate(obj->id);
 			}
 
@@ -779,7 +779,7 @@ void HandleReleaseRequest(QueueableItem item)
 			dataObject obj = ht_get(allocatedItems, (void*)req->dataItem);
 			if (ht_member(allocatedItemsDirty, obj) || ht_member(writebufferReady, obj))
 			{
-				printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
+				//printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
 				//The object is still in use, re-register, the last invalidate response will free it
 				
 				dqueue tmp = obj->waitqueue;
@@ -885,7 +885,7 @@ void HandleInvalidateResponse(QueueableItem item)
 		count = NULL;
 		
 		if(ht_member(writebufferReady, object)) {
-			printf(WHERESTR "The last response is in for: %d, sending writebuffer signal, %d\n", WHEREARG, object->id, (int)object);
+			//printf(WHERESTR "The last response is in for: %d, sending writebuffer signal, %d\n", WHEREARG, object->id, (int)object);
 			
 			QueueableItem reciever = ht_get(writebufferReady, object);
 			
@@ -899,12 +899,12 @@ void HandleInvalidateResponse(QueueableItem item)
 			invReq->requestID = ((struct acquireRequest*)reciever->dataRequest)->requestID;
 			invReq->dataItem = object->id;
 		
-			printf(WHERESTR "Sending package code: %d\n", WHEREARG, invReq->packageCode);
+			//printf(WHERESTR "Sending package code: %d\n", WHEREARG, invReq->packageCode);
 			RespondAny(reciever, invReq);
 		}
 		else
 		{
-			printf(WHERESTR "Not member: %d, %d\n", WHEREARG, object->id, (int)object);
+			//printf(WHERESTR "Not member: %d, %d\n", WHEREARG, object->id, (int)object);
 		}
 
 		if (!ht_member(allocatedItems, (void*)object->id) || ht_get(allocatedItems, (void*)object->id) != object)
@@ -1170,7 +1170,7 @@ void* ProccessWork(void* data)
 		//printf(WHERESTR "fetching event\n", WHEREARG);
 		datatype = ((struct acquireRequest*)item->dataRequest)->packageCode;
 
-		//printf(WHERESTR "processing package type %d\n", WHEREARG, datatype);
+		printf(WHERESTR "processing package type: %s (%d)\n", WHEREARG, PACKAGE_NAME(datatype), datatype);
 
 
 		//If we do not have an idea where to forward this, save it for later, 

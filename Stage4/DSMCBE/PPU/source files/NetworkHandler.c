@@ -443,12 +443,12 @@ void net_processPackage(void* data, unsigned int machineId)
 			
 			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			{
-				printf(WHERESTR "Processing REQUEST WRITE package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct acquireRequest*)data)->packageCode, ((struct acquireRequest*)data)->dataItem);
+				//printf(WHERESTR "Processing REQUEST WRITE package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct acquireRequest*)data)->packageCode, ((struct acquireRequest*)data)->dataItem);
 			}
 
 			if (((struct createRequest*)data)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 			{
-				printf(WHERESTR "Processing invalidate package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct invalidateRequest*)data)->packageCode, ((struct invalidateRequest*)data)->dataItem);
+				//printf(WHERESTR "Processing invalidate package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct invalidateRequest*)data)->packageCode, ((struct invalidateRequest*)data)->dataItem);
 			}
 			
 			if (((struct createRequest*)data)->packageCode == PACKAGE_RELEASE_REQUEST)
@@ -711,42 +711,59 @@ void net_sendPackage(void* package, unsigned int machineId)
 	}
 	
 	fd = net_remote_handles[machineId];
+	
+	if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+		
 		
 	//printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 	switch(((struct createRequest*)package)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct createRequest), 0);
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct acquireRequest), 0);
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct acquireRequest), 0);
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct acquireResponse) - sizeof(unsigned long), MSG_MORE);
+			if (((struct acquireResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize, 0); 
 			break;
 		case PACKAGE_RELEASE_REQUEST:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct releaseRequest) - sizeof(unsigned long), MSG_MORE);
+			if (((struct releaseRequest*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, ((struct releaseRequest*)package)->data, ((struct releaseRequest*)package)->dataSize, 0); 
 			break;
 		case PACKAGE_RELEASE_RESPONSE:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct releaseResponse), 0);
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct invalidateRequest), 0);
 			break;
 		case PACKAGE_INVALIDATE_RESPONSE:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct invalidateResponse), 0);
 			break;
 		case PACKAGE_NACK:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct NACK), 0);
 			break;
 		case PACKAGE_MIGRATION_RESPONSE:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct migrationResponse) - (2 * sizeof(unsigned long)), MSG_MORE);
+			if (((struct migrationResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, ((struct migrationResponse*)package)->data, ((struct migrationResponse*)package)->dataSize, MSG_MORE); 
+			if (((struct migrationResponse*)package)->waitList == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, ((struct migrationResponse*)package)->waitList, ((struct migrationResponse*)package)->waitListSize, 0); 
 			break;
 	}

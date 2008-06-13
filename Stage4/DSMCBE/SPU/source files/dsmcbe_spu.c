@@ -1054,18 +1054,15 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 }
  
 void* acquire(GUID id, unsigned long* size, int type) {
-	unsigned int req = beginAcquire(id, type);
-	return (void*)endAsync(req, size);
+	return endAsync(beginAcquire(id, type), size);
 }
 
 void release(void* data){
-	unsigned int req = beginRelease(data);
-	endAsync(req, NULL);
+	endAsync(beginRelease(data), NULL);
 }
 
 void* create(GUID id, unsigned long size)
 {
-	unsigned int req = beginCreate(id, size);
-	return (void*)endAsync(req, NULL);
+	return endAsync(beginCreate(id, size), NULL);
 }
 
