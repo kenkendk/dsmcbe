@@ -382,7 +382,10 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		ht_delete(waiters, (void*)object->id);
 	}
 	else
+	{
+		//printf(WHERESTR "Create request for %d, waitqueue was empty\n", WHEREARG, request->dataItem);
 		object->waitqueue = dq_create();
+	}
 		
 	//Acquire the item for the creator
 	dq_enq_front(object->waitqueue, NULL);
@@ -418,7 +421,7 @@ void DoInvalidate(GUID dataItem)
 		return;
 	}
 
-	//printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
+	printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
 
 	obj = ht_get(allocatedItems, (void*)dataItem);
 	
@@ -585,7 +588,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 	dataObject obj;
 	QueueableItem next;
 	
-	//printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
+	printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
 	if (request->mode == ACQUIRE_MODE_READ)
 	{
 		//printf(WHERESTR "Performing read-release for %d\n", WHEREARG, request->dataItem);
@@ -598,7 +601,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
 		q = obj->waitqueue;
 		
-		//printf(WHERESTR "%d queue pointer: %d\n", WHEREARG, request->dataItem, (int)q);
+		printf(WHERESTR "%d queue pointer: %d\n", WHEREARG, request->dataItem, (int)q);
 		
 		//Ensure that the item was actually locked
 		if (dq_empty(q))
@@ -619,7 +622,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 			else
 			{
 				//Respond to the releaser
-				//printf(WHERESTR "Respond to the releaser for %d\n", WHEREARG, request->dataItem);
+				printf(WHERESTR "Respond to the releaser for %d\n", WHEREARG, request->dataItem);
 				RespondRelease(item);
 
 				while (!dq_empty(q))
@@ -731,7 +734,7 @@ void HandleCreateRequest(QueueableItem item)
 		NetRequest(item, machineId);
 		//printf(WHERESTR "Sent network request event\n", WHEREARG);
 	} else { 
-		//printf(WHERESTR "Sending local request event\n", WHEREARG);
+		//printf(WHERESTR "Sending local request event\n", WHEREARG); 
 		DoCreate(item, req);
 		//printf(WHERESTR "Sent local request event\n", WHEREARG);
 	}
@@ -781,11 +784,10 @@ void HandleAcquireRequest(QueueableItem item)
 
 void HandleReleaseRequest(QueueableItem item)
 {
-	
+	printf(WHERESTR "processing release event\n", WHEREARG);	
 	struct releaseRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
 
-	//printf(WHERESTR "processing release event\n", WHEREARG);
 	if (machineId != dsmcbe_host_number)
 	{
 		//printf(WHERESTR "processing release event, not owner\n", WHEREARG);
@@ -1193,6 +1195,7 @@ void* ProccessWork(void* data)
 			if (item->dataRequest == NULL)
 				REPORT_ERROR("Empty request in queued item")
 			isPtResponse = ((struct createRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireRequest*)item->dataRequest)->dataItem == PAGE_TABLE_ID;
+			isPtResponse |= ((struct releaseRequest*)item->dataRequest)->packageCode == PACKAGE_RELEASE_REQUEST && ((struct releaseRequest*)item->dataRequest)->dataItem == PAGE_TABLE_ID;
 		}
 			
 		pthread_mutex_unlock(&queue_mutex);
@@ -1201,7 +1204,7 @@ void* ProccessWork(void* data)
 		//printf(WHERESTR "fetching event\n", WHEREARG);
 		datatype = ((struct acquireRequest*)item->dataRequest)->packageCode;
 
-		//printf(WHERESTR "processing package type: %s (%d)\n", WHEREARG, PACKAGE_NAME(datatype), datatype);
+		printf(WHERESTR "processing package type: %s (%d)\n", WHEREARG, PACKAGE_NAME(datatype), datatype);
 
 
 		//If we do not have an idea where to forward this, save it for later, 
@@ -1220,7 +1223,7 @@ void* ProccessWork(void* data)
 			continue;
 		}
 		
-		//printf(WHERESTR "processing type %d\n", WHEREARG, datatype);
+		printf(WHERESTR "processing type %d\n", WHEREARG, datatype);
 		switch(datatype)
 		{
 			case PACKAGE_CREATE_REQUEST:
