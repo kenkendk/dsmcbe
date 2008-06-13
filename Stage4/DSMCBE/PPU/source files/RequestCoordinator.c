@@ -288,6 +288,7 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 
 	//printf(WHERESTR "Responding to acquire for item for %d\n", WHEREARG, obj->id);
 
+	resp->requestID = ((struct acquireRequest*)(item->dataRequest))->requestID;
 	resp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
 	resp->dataSize = obj->size;
 	resp->data = obj->EA;
@@ -312,6 +313,7 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 void RespondRelease(QueueableItem item)
 {
 	struct releaseResponse* resp;
+	
 	if ((resp = (struct releaseResponse*)MALLOC(sizeof(struct releaseResponse))) == NULL)
 		REPORT_ERROR("MALLOC error");
 	
@@ -534,7 +536,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 					
 				RespondAcquire(item, obj);
 					
-				if (request->dataItem != PAGE_TABLE_ID)
+				if (obj->id != PAGE_TABLE_ID)
 					DoInvalidate(obj->id);
 					
 				//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, obj->id);
@@ -683,9 +685,9 @@ void RequestPageTable(int mode)
 
 		//printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 
-		if (dsmcbe_host_number != PAGE_TABLE_OWNER)
+		if (dsmcbe_host_number != PAGE_TABLE_OWNER) {
 			NetRequest(q, PAGE_TABLE_OWNER);
-		else
+		} else
 			DoAcquire(q, acq);		
 
 		//printf(WHERESTR "processed PT event\n", WHEREARG);
@@ -739,6 +741,7 @@ void HandleAcquireRequest(QueueableItem item)
 			{
 				//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, sending remote request\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 				ht_insert(waiters, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
+				
 				NetRequest(item, machineId);
 			}
 			dq_enq_back(ht_get(waiters, (void*)req->dataItem), item);
@@ -769,6 +772,7 @@ void HandleReleaseRequest(QueueableItem item)
 		//printf(WHERESTR "processing release event, not owner\n", WHEREARG);
 		if (req->mode == ACQUIRE_MODE_WRITE)
 			DoInvalidate(req->dataItem);
+
 		NetRequest(item, machineId);
 	}
 	else
@@ -942,10 +946,10 @@ void HandleAcquireResponse(QueueableItem item)
 		if (!ht_member(allocatedItems, (void*)req->dataItem))
 			REPORT_ERROR("Requester had sent response without data for non-existing local object");
 			
-		//printf(WHERESTR "acquire response had local copy\n", WHEREARG);
+		//printf(WHERESTR "acquire response had local copy, id: %d, size: %d\n", WHEREARG, req->dataItem, (int)req->dataSize);
 		object = ht_get(allocatedItems, (void*)req->dataItem);
 
-		if (req->dataSize != 0 && req->data != NULL && object->EA != NULL)
+		if (req->dataSize != 0 && req->data != NULL && object->EA != NULL && req->data != object->EA)
 			memcpy(object->EA, req->data, req->dataSize);
 	}
 	else
@@ -998,9 +1002,10 @@ void HandleAcquireResponse(QueueableItem item)
 					//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
 					queue_enq(bagOfTasks, dq_deq_front(dq));
 				}
-					
+				
 				ht_delete(waiters, ht_iter_get_key(it));
 				ht_iter_reset(it);							 
+				dq_destroy(dq);
 			}
 		}
 		ht_iter_destroy(it);
@@ -1026,6 +1031,7 @@ void HandleAcquireResponse(QueueableItem item)
 				queue_enq(bagOfTasks, q);
 		}
 		pthread_mutex_unlock(&queue_mutex);
+		dq_destroy(dq);
 		
 	}
 
@@ -1092,7 +1098,9 @@ void HandleAcquireResponse(QueueableItem item)
 					if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 						DoRelease(qs, (struct releaseRequest*)qs->dataRequest);
 					else
+					{
 						NetRequest(qs, PAGE_TABLE_OWNER);
+					}
 				}
 				
 				break;
@@ -1170,7 +1178,7 @@ void* ProccessWork(void* data)
 		//printf(WHERESTR "fetching event\n", WHEREARG);
 		datatype = ((struct acquireRequest*)item->dataRequest)->packageCode;
 
-		printf(WHERESTR "processing package type: %s (%d)\n", WHEREARG, PACKAGE_NAME(datatype), datatype);
+		//printf(WHERESTR "processing package type: %s (%d)\n", WHEREARG, PACKAGE_NAME(datatype), datatype);
 
 
 		//If we do not have an idea where to forward this, save it for later, 

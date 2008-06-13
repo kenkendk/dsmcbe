@@ -102,9 +102,9 @@ void TerminatePPUHandler()
 	{
 		pe = ht_iter_get_value(it);
 		queue_enq(keys, ht_iter_get_key(it)); 
-		free(pe->data);
+		FREE_ALIGN(pe->data);
 		pe->data = NULL;
-		free(pe);
+		FREE(pe);
 		pe = NULL;
 	}
 	ht_iter_destroy(it);
@@ -122,9 +122,9 @@ void TerminatePPUHandler()
 	{
 		pe = ht_iter_get_value(it);
 		queue_enq(keys, ht_iter_get_key(it)); 
-		free(pe->data);
+		FREE_ALIGN(pe->data);
 		pe->data = NULL;
-		free(pe);
+		FREE(pe);
 		pe = NULL;
 	}
 	ht_iter_destroy(it);
@@ -233,8 +233,8 @@ void* forwardRequest(void* data)
 		pthread_mutex_unlock(&m);
 	}
 	
-	if(((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE_OK)
-		((struct acquireResponse*)data)->mode = ACQUIRE_MODE_WRITE;
+	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE_OK)
+			((struct acquireResponse*)data)->mode = ACQUIRE_MODE_WRITE;
 
 	//printf(WHERESTR "returning response (%d)\n", WHEREARG, (int)data);
 	
@@ -368,7 +368,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 				{
 					ht_delete(pointersOld, (void*)req->dataItem);
 					
-					free(pe);
+					FREE(pe);
 					pe = NULL;
 			
 					//printf(WHERESTR "Item was correctly freed: %d\n", WHEREARG, req->dataItem);
@@ -569,7 +569,7 @@ void threadRelease(void* data)
 		{
 			pthread_mutex_unlock(&pointerOld_mutex);
 			
-			pthread_mutex_lock(&pointer_mutex);
+			pthread_mutex_lock(&pointer_mutex);			
 			ht_delete(pointers, data);
 			pthread_mutex_unlock(&pointer_mutex);
 		}
@@ -599,6 +599,8 @@ void threadRelease(void* data)
 		}
 
 		pthread_mutex_lock(&pointerOld_mutex);
+		if (pe->count == 0 && !ht_member(pointersOld, data))
+			FREE(pe);
 		pthread_cond_broadcast(&pointerOld_cond);
 		pthread_mutex_unlock(&pointerOld_mutex);
 
@@ -673,6 +675,8 @@ void* requestDispatcher(void* dummy)
 		
 				//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i \n", WHEREARG, (int)ui->event, (int)ui->mutex, (int)ui->queue);
 				
+				int freeReq = (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE) || ((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE;
+				
 				if (ui->mutex != NULL)
 					pthread_mutex_lock(ui->mutex);
 				if (ui->queue != NULL) {
@@ -685,7 +689,7 @@ void* requestDispatcher(void* dummy)
 				if (ui->mutex != NULL)
 					pthread_mutex_unlock(ui->mutex);
 				
-				if ((((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE) || ((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE)
+				if (freeReq)
 				{
 					ht_delete(pendingRequests, (void*)reqId);
 					FREE(ui);

@@ -69,6 +69,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 {
 	unsigned int nextId;
 	struct QueueableItemWrapper* w;
+	int packagesize;
 	
 	void* datacopy;
 		
@@ -95,16 +96,23 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		return;
 	}
 
-	if ((datacopy = MALLOC(MAX_PACKAGE_SIZE)) == NULL)
+	packagesize = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
+
+	if ((datacopy = MALLOC(packagesize)) == NULL)
 	{
 		REPORT_ERROR("MALLOC error");
 		return;
 	}
 	
-	memcpy(datacopy, item->dataRequest, MAX_PACKAGE_SIZE);
+	void* ix = item;
+	ix = item->dataRequest;
+	ix = datacopy;
+	ix = (void*)((struct createRequest*)(item->dataRequest))->requestID;
+	
+	memcpy(datacopy, item->dataRequest, packagesize);
 	
 	w->ui = item;
-	w->origId = ((struct createRequest*)(item->dataRequest))->requestID;; 
+	w->origId = ((struct createRequest*)(item->dataRequest))->requestID;
 	
 	pthread_mutex_lock(&net_work_mutex);
 
@@ -192,6 +200,7 @@ void NetInvalidate(GUID id)
 			//printf(WHERESTR "Processing invalidates, target machine: %d, GUID: %d\n", WHEREARG, i, id);
 			if((req = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
 				REPORT_ERROR("MALLOC error");
+				
 			req->dataItem = id;
 			req->packageCode = PACKAGE_INVALIDATE_REQUEST;
 			req->requestID = 0;
@@ -252,10 +261,14 @@ void* net_Reader(void* data)
 	if ((sockets = MALLOC(sizeof(struct pollfd) * net_remote_hosts)) == NULL)
 		REPORT_ERROR("MALLOC error");
 		
+	//Valgrind reports uninitialized data here, but apparently it is a problem in poll()
+	memset(sockets, 0, sizeof(struct pollfd) * net_remote_hosts);
+
 	for(i = 0; i < net_remote_hosts; i++)
 	{
-		sockets[i].fd = net_remote_handles[i];
-		sockets[i].events = POLLIN | POLLHUP | POLLERR;
+		sockets[i].fd = i == dsmcbe_host_number ? -1 : net_remote_handles[i];
+		sockets[i].events = i == dsmcbe_host_number ? 0 : POLLIN | POLLHUP | POLLERR;
+		sockets[i].revents = 0;
 	}
 		
 	while(!net_terminate)
@@ -556,13 +569,13 @@ void net_processPackage(void* data, unsigned int machineId)
 
 void* net_readPackage(int fd)
 {
-	unsigned char type;
+	unsigned int type;
 	void* data;
 	int blocksize;
 	
 	data = NULL;
 	
-	if (recv(fd, &type, sizeof(unsigned char), MSG_PEEK) != 0)
+	if (recv(fd, &type, sizeof(unsigned int), MSG_PEEK) != 0)
 	{
 		//printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 		switch(type)

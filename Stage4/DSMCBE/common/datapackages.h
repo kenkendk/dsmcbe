@@ -32,7 +32,7 @@
 
 struct createRequest
 {
-	unsigned char packageCode; // = 1
+	unsigned int packageCode; // = 1
 	unsigned int requestID;
 	GUID dataItem;
 	unsigned long dataSize;
@@ -41,14 +41,14 @@ struct createRequest
 struct acquireRequest
 {
     //2 for read, 3 for write
-    unsigned char packageCode; // = 2
+    unsigned int packageCode; // = 2
     unsigned int requestID;
     GUID dataItem;
 };
 
 struct acquireResponse
 {
-    unsigned char packageCode; // = 4
+    unsigned int packageCode; // = 4
     unsigned int requestID;
     GUID dataItem; 
     int mode;
@@ -58,14 +58,14 @@ struct acquireResponse
 
 struct writebufferReady
 {
-    unsigned char packageCode; // = 5
+    unsigned int packageCode; // = 5
     unsigned int requestID;
     GUID dataItem; 
 };
 
 struct migrationResponse
 {
-    unsigned char packageCode; // = 6
+    unsigned int packageCode; // = 6
     unsigned int requestID;
     unsigned long dataSize;
     unsigned long waitListSize;
@@ -75,7 +75,7 @@ struct migrationResponse
 
 struct releaseRequest
 {
-    unsigned char packageCode; // = 7
+    unsigned int packageCode; // = 7
     unsigned int requestID;
     GUID dataItem;
     int mode;
@@ -86,27 +86,27 @@ struct releaseRequest
 
 struct releaseResponse
 {
-    unsigned char packageCode; // = 8
+    unsigned int packageCode; // = 8
     unsigned int requestID;
 };
 
 struct NACK
 {
-    unsigned char packageCode; // = 9
+    unsigned int packageCode; // = 9
     unsigned int requestID;
     unsigned int hint;
 };
 
 struct invalidateRequest
 {
-    unsigned char packageCode; // = 10
+    unsigned int packageCode; // = 10
     unsigned int requestID;
     GUID dataItem;
 };
 
 struct invalidateResponse
 {
-    unsigned char packageCode; // = 11
+    unsigned int packageCode; // = 11
     unsigned int requestID;
 };
 
@@ -114,12 +114,14 @@ struct invalidateResponse
 #define MAX(a,b) (a > b ? a : b)
 #endif
 
-#define MAX_PACKAGE_SIZE MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(sizeof(struct createRequest), sizeof(struct acquireRequest)), sizeof(struct acquireResponse)), sizeof(struct migrationResponse)), sizeof(struct releaseRequest)), sizeof(struct releaseResponse)), sizeof(struct NACK)), sizeof(struct invalidateRequest)), sizeof(struct invalidateResponse))
+#define MAX_PACKAGE_SIZE MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(sizeof(struct createRequest), sizeof(struct acquireRequest)), sizeof(struct acquireResponse)), sizeof(struct writebufferReady)), sizeof(struct migrationResponse)), sizeof(struct releaseRequest)), sizeof(struct releaseResponse)), sizeof(struct NACK)), sizeof(struct invalidateRequest)), sizeof(struct invalidateResponse))
 
 struct packageBuffer
 {
-	unsigned char packageCode;
-	unsigned char buffer[MAX_PACKAGE_SIZE - sizeof(unsigned char)];
+	unsigned int packageCode;
+	unsigned char buffer[MAX_PACKAGE_SIZE - sizeof(unsigned int)];
 };
+
+#define PACKAGE_SIZE(x) (x == 0 ? 0 : (x == 1 ? sizeof(struct createRequest) : ( x == 2 ? sizeof(struct acquireRequest) : ( x == 3 ? sizeof(struct acquireRequest) : ( x == 4 ? sizeof(struct acquireResponse) : ( x == 5  ? sizeof(struct writebufferReady) : ( x == 6 ? sizeof(struct migrationResponse) : ( x == 7 ? sizeof(struct releaseRequest) : ( x == 8 ? sizeof(struct releaseResponse) : ( x == 9 ? sizeof(struct NACK) : ( x == 10 ? sizeof(struct invalidateRequest) : ( x == 11 ? sizeof(struct invalidateResponse) : 0))))))))))))
 
 #endif /*DATAPACKAGES_H_*/
