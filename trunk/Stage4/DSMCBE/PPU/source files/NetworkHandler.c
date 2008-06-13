@@ -67,6 +67,7 @@ unsigned int* net_sequenceNumbers;
 
 void NetRequest(QueueableItem item, unsigned int machineId)
 {
+		
 	unsigned int nextId;
 	struct QueueableItemWrapper* w;
 	int packagesize;
@@ -139,6 +140,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 
 void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 {
+	
 	size_t i;
 	pthread_attr_t attr;
 	net_terminate = 0;
@@ -185,6 +187,7 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 
 void NetInvalidate(GUID id)
 {
+	
 	struct invalidateRequest* req;
 	size_t i;
 	
@@ -217,6 +220,7 @@ void NetInvalidate(GUID id)
 
 void TerminateNetworkHandler(int force)
 {
+	
 	size_t i;
 
 	net_terminate = force ? 1 : 1;
@@ -254,6 +258,7 @@ void TerminateNetworkHandler(int force)
 
 void* net_Reader(void* data)
 {
+	
 	struct pollfd* sockets;
 	size_t i;
 	int res;
@@ -280,7 +285,7 @@ void* net_Reader(void* data)
 		} else if (res == 0)
 			continue;		
 		
-		//printf(WHERESTR "Network packaged recieved\n", WHEREARG);
+		printf(WHERESTR "Network packaged recieved\n", WHEREARG);
 		
 		for(i = 0; i < net_remote_hosts; i++)
 		{
@@ -313,6 +318,7 @@ void* net_Reader(void* data)
 
 void* net_Writer(void* data)
 {
+	
 	size_t i;
 	unsigned int hostno;
 	void* package;
@@ -321,6 +327,7 @@ void* net_Writer(void* data)
 	
 	while(!net_terminate)
 	{
+		printf(WHERESTR "Network packaged ready to send\n", WHEREARG);
 		hostno = net_remote_hosts + 1;
 		package = NULL;
 		pthread_mutex_lock(&net_work_mutex);
@@ -431,6 +438,7 @@ void* net_Writer(void* data)
 
 void net_processPackage(void* data, unsigned int machineId)
 {
+	
 	QueueableItem ui;
 	struct QueueableItemWrapper* w;
 	GUID itemid;
@@ -715,6 +723,7 @@ void* net_readPackage(int fd)
 
 void net_sendPackage(void* package, unsigned int machineId)
 {
+	
 	int fd;
 	
 	if (machineId > net_remote_hosts)
