@@ -299,6 +299,12 @@ void* threadCreate(GUID id, unsigned long size)
 		return NULL;
 	}
 	
+	if (id >= PAGE_TABLE_SIZE)
+	{
+		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
+		return NULL;
+	}
+	
 	//printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
 	if ((cr = (struct createRequest*)MALLOC(sizeof(struct createRequest))) == NULL)
@@ -462,6 +468,12 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	if (id == PAGE_TABLE_ID)
 	{
 		REPORT_ERROR("cannot request pagetable");
+		return NULL;
+	}
+	
+	if (id >= PAGE_TABLE_SIZE)
+	{
+		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
 		return NULL;
 	}
 	

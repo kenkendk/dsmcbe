@@ -145,7 +145,7 @@ int pendingInvalidateContains(GUID id, int clear)
 	for(i = 0; i < MAX_PENDING_INVALIDATES; i++)
 		if (GETBIT(i, MAX_PENDING_INVALIDATES, pendingInvalidateMap) && pendingInvalidates[i].guid == id)
 		{
-			printf(WHERESTR "Found a pending invalidate\n", WHEREARG);
+			//printf(WHERESTR "Found a pending invalidate\n", WHEREARG);
 			if (clear)
 				CLEARBIT(i, MAX_PENDING_INVALIDATES, pendingInvalidateMap);
 			return i;
@@ -343,13 +343,13 @@ void sendMailbox(void* dataItem) {
 			break;
 		
 		default:
-			printf(WHERESTR "Unknown package code: %i\n", WHEREARG, ((struct releaseRequest*)dataItem)->packageCode);
+			fprintf(stderr, WHERESTR "Unknown package code: %i\n", WHEREARG, ((struct releaseRequest*)dataItem)->packageCode);
 	}
 }
 
 
 void sendInvalidateResponse(unsigned int requestID) {
-	printf(WHERESTR "Sending invalidateResponse for requestid: %i\n", WHEREARG, requestID);
+	//printf(WHERESTR "Sending invalidateResponse for requestid: %i\n", WHEREARG, requestID);
 	
 	spu_write_out_mbox(PACKAGE_INVALIDATE_RESPONSE);
 	spu_write_out_mbox(requestID);
@@ -396,7 +396,7 @@ void invalidate(GUID id, unsigned int requestID) {
 	}
 	else	
 	{
-		printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
+		//printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
 		pendingInvalidateContains(id, 1);
 	}
 	
@@ -415,7 +415,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 
 	processPendingInvalidate(req->id);
 	
-	printf(WHERESTR "Processing ACQUIRE package for %d, %d, mode: %d\n", WHEREARG, req->id, resp->requestID, resp->mode);
+	//printf(WHERESTR "Processing ACQUIRE package for %d, %d, mode: %d\n", WHEREARG, req->id, resp->requestID, resp->mode);
 	
 	if (ht_member(itemsById, (void*)(req->id))) {
 		req->object = (dataObject)ht_get(itemsById, (void*)(req->id));
@@ -435,7 +435,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 		} else 	{
 			//printf(WHERESTR "Removed id %d\n", WHEREARG, req->id);
 			
-			printf(WHERESTR "Re-used object %d in mode %d\n", WHEREARG, req->id, req->mode);
+			//printf(WHERESTR "Re-used object %d in mode %d\n", WHEREARG, req->id, req->mode);
 			
 			if (req->mode == ACQUIRE_MODE_READ || req->object->count == 0 )
 			{
@@ -446,7 +446,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 			}
 			else if (req->mode == ACQUIRE_MODE_WRITE || req->mode == ACQUIRE_MODE_WRITE_OK)
 			{
-				printf(WHERESTR "Blocked object %d\n", WHEREARG, req->id);
+				//printf(WHERESTR "Blocked object %d\n", WHEREARG, req->id);
 				req->state = ASYNC_STATUS_BLOCKED;
 				req->object->mode = ACQUIRE_MODE_BLOCKED;
 				if (req->mode == ACQUIRE_MODE_WRITE)
@@ -480,11 +480,11 @@ void StartDMATransfer(struct acquireResponse* resp)
 	req->object->EA = resp->data;
 	req->object->size = resp->dataSize;
 	if (resp->mode == ACQUIRE_MODE_CREATE || resp->mode == ACQUIRE_MODE_WRITE_OK) {
-		printf(WHERESTR "Object was in create mode %d\n", WHEREARG, req->id);
+		//printf(WHERESTR "Object was in create mode %d\n", WHEREARG, req->id);
 		req->object->mode = ACQUIRE_MODE_WRITE;
 		req->object->ready = TRUE;
 	} else {
-		printf(WHERESTR "Object was in read or write mode %d\n", WHEREARG, req->id);
+		//printf(WHERESTR "Object was in read or write mode %d\n", WHEREARG, req->id);
 		req->object->mode = resp->mode;
 		req->object->ready = FALSE;
 	}
@@ -547,7 +547,7 @@ void readMailbox() {
 	switch(packagetype)
 	{
 		case PACKAGE_ACQUIRE_RESPONSE:
-			printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
+			//printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
 			
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
@@ -559,7 +559,7 @@ void readMailbox() {
 				REPORT_ERROR("Recieved a request with an unexpected requestID\n");
 			} else {
 				
-				printf(WHERESTR "ID was %d, mode was: %d\n", WHEREARG, itemid, mode);
+				//printf(WHERESTR "ID was %d, mode was: %d\n", WHEREARG, itemid, mode);
 				acqResp = (struct acquireResponse*)&pendingRequestBuffer[requestID].request;
 				
 				acqResp->packageCode = packagetype;									
@@ -607,12 +607,12 @@ void readMailbox() {
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
 			
-			printf(WHERESTR "INVALIDATE package read, id: %d, requestID: %d\n", WHEREARG, itemid, requestID);
+			//printf(WHERESTR "INVALIDATE package read, id: %d, requestID: %d\n", WHEREARG, itemid, requestID);
 
 			invalidate(itemid, requestID);
 			break;
 		case PACKAGE_WRITEBUFFER_READY:
-			printf(WHERESTR "WRITEBUGGER_READY package recieved\n", WHEREARG);
+			//printf(WHERESTR "WRITEBUGGER_READY package recieved\n", WHEREARG);
 			requestID = spu_read_in_mbox();
 			itemid = spu_read_in_mbox();
 
@@ -644,6 +644,13 @@ unsigned int beginCreate(GUID id, unsigned long size)
 	if (id == PAGE_TABLE_ID)
 	{
 		REPORT_ERROR("cannot request pagetable");
+		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
+		return 0;
+	}
+
+	if (id >= PAGE_TABLE_SIZE)
+	{
+		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
 		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
 		return 0;
 	}
@@ -684,6 +691,13 @@ unsigned int beginAcquire(GUID id, int type)
 	if (id == PAGE_TABLE_ID)
 	{
 		REPORT_ERROR("cannot request pagetable");
+		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
+		return 0;
+	}
+
+	if (id >= PAGE_TABLE_SIZE)
+	{
+		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
 		CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
 		return 0;
 	}
@@ -763,7 +777,7 @@ void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
 	transfersize = ALIGNED_SIZE(req->object->size);
 	StartDMAWriteTransfer(req->object->data, (int)req->object->EA, transfersize, req->dmaNo);
 
-	printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, req->id); 
+	//printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, req->id); 
 
 	struct releaseRequest* request = (struct releaseRequest*)&req->request;
 
@@ -783,7 +797,7 @@ unsigned int beginRelease(void* data)
 	pendingRequest req;
 	size_t i;
 	
-	printf(WHERESTR "Starting a release\n", WHEREARG); 
+	//printf(WHERESTR "Starting a release\n", WHEREARG); 
 	
 	if (itemsById == NULL)
 	{
@@ -805,14 +819,14 @@ unsigned int beginRelease(void* data)
 
 		if (object->mode == ACQUIRE_MODE_WRITE) {
 
-			printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
+			//printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 			req->id = object->id;
 			req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 			req->object = object;
 			req->size = object->size;
 			
 			if(object->ready == FALSE) {
-				printf(WHERESTR "Starting a release for %d in write mode, awaiting write signal\n", WHEREARG, (int)object->id);
+				//printf(WHERESTR "Starting a release for %d in write mode, awaiting write signal\n", WHEREARG, (int)object->id);
 				req->state = ASYNC_STATUS_WRITE_READY;				
 				return nextId;
 			}
@@ -1028,9 +1042,9 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 	{
 		if (!ht_member(itemsById, (void*)req->object->id))
 		{
-			printf(WHERESTR "Dataobject %d (%d) was not registered anymore\n", WHEREARG, req->id, (int)req->object->data); 
+			//printf(WHERESTR "Dataobject %d (%d) was not registered anymore\n", WHEREARG, req->id, (int)req->object->data); 
 			removeAllocatedID(req->object->id);
-			printf(WHERESTR "Removed id %d\n", WHEREARG, req->object->id);
+			//printf(WHERESTR "Removed id %d\n", WHEREARG, req->object->id);
 
 			pendingInvalidateContains(req->object->id, 1);
 

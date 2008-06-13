@@ -131,7 +131,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	struct sockaddr_in addr;
 	unsigned int port;
 	char ip[15];
-	unsigned int networkcount, j;
+	unsigned int networkcount, j, k;
 		
 	printf(WHERESTR "Starting network setup\n", WHEREARG);
 	
@@ -172,8 +172,21 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 				REPORT_ERROR("socket()");
 				exit(1);
 			}
-						
-			if(connect(sockfd[j], (struct sockaddr *)&network[j], sizeof(struct sockaddr)) == -1) {
+			
+			int conres = -1;
+			
+			for(k = 0; k < 5; k++)
+			{
+				conres = connect(sockfd[j], (struct sockaddr *)&network[j], sizeof(struct sockaddr));
+				if (conres == -1)
+				{
+					printf(WHERESTR "Host %d did not respond, retry in 5 sec, attempt %d of 5\n", WHEREARG, j + 1, k + 1);
+					sleep(5);
+				}
+			}
+			
+			if (conres == -1)
+			{
 				REPORT_ERROR("connect()");
 				exit(1);
 			}

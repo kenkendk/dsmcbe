@@ -116,7 +116,13 @@ int main(int argc, char **argv) {
 	
 		printf(WHERESTR "Creating large sequence, %d blocks of size %d\n", WHEREARG, SEQUENCE_COUNT, items * sizeof(unsigned int));
 		for(i = 0; i < SEQUENCE_COUNT; i++)
-			release(create(LARGE_SEQUENCE + i, items * sizeof(unsigned int)));
+		{
+			void* dataitem = create(LARGE_SEQUENCE + i, items * sizeof(unsigned int));
+			if (dataitem == NULL)
+				printf(WHERESTR "Failed to create item with ID: %d\n", WHEREARG, LARGE_SEQUENCE + i);
+			else
+				release(dataitem);
+		}
 	
 		/*printf(WHERESTR "Creating small sequence, %d blocks of size %d\n", WHEREARG, SMALL_SEQUENCE_COUNT, sizeof(unsigned int));
 		for(i = 0; i < SMALL_SEQUENCE_COUNT; i++)

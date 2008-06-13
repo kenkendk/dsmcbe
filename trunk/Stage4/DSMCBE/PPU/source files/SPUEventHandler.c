@@ -226,7 +226,7 @@ void* SPU_Worker(void* data)
 						break;
 			
 					case PACKAGE_INVALIDATE_RESPONSE:
-						printf(WHERESTR "Invalidate Response\n", WHEREARG);
+						//printf(WHERESTR "Invalidate Response\n", WHEREARG);
 
 						ReadMBOXBlocking(spe_threads[i], &requestID, 1);
 						EnqueInvalidateResponse(requestID);
@@ -273,7 +273,7 @@ void* SPU_Worker(void* data)
 				switch(datatype)
 				{
 					case PACKAGE_ACQUIRE_RESPONSE:
-						printf(WHERESTR "Got acquire response message, converting to MBOX messages (%d:%d), mode: %d\n", WHEREARG, (int)((struct acquireResponse*)dataItem)->data, (int)((struct acquireResponse*)dataItem)->dataSize, ((struct acquireResponse*)dataItem)->mode);
+						//printf(WHERESTR "Got acquire response message, converting to MBOX messages (%d:%d), mode: %d\n", WHEREARG, (int)((struct acquireResponse*)dataItem)->data, (int)((struct acquireResponse*)dataItem)->dataSize, ((struct acquireResponse*)dataItem)->mode);
 						
 						//Register this ID for the current SPE
 						itemid = ((struct acquireResponse*)dataItem)->dataItem;
@@ -352,7 +352,7 @@ void* SPU_Worker(void* data)
 							
 						break;
 					case PACKAGE_WRITEBUFFER_READY:
-						printf(WHERESTR "Sending WRITEBUFFER_READY to SPU %d\n", WHEREARG, i);
+						//printf(WHERESTR "Sending WRITEBUFFER_READY to SPU %d\n", WHEREARG, i);
 						queue_enq(spu_mailboxQueues[i], (void*)datatype);
 						queue_enq(spu_mailboxQueues[i], (void*)((struct writebufferReady*)dataItem)->requestID);
 						queue_enq(spu_mailboxQueues[i], (void*)((struct writebufferReady*)dataItem)->dataItem);						
