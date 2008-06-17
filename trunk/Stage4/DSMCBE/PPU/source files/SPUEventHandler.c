@@ -40,6 +40,8 @@ hashtable spu_leaseTable;
 //This table contains the initiator of a write, key is GUID, value is SPU id
 hashtable spu_writeInitiator;
 
+int* spe_isAlive;
+
 
 void* SPU_Worker(void* data);
 
@@ -73,6 +75,7 @@ void TerminateSPUHandler(int force)
 	spu_requestQueues = NULL;
 	FREE(spu_mailboxQueues);
 	spu_mailboxQueues = NULL;
+	FREE(spe_isAlive);
 }
 
 void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
@@ -91,25 +94,30 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	/* Setup queues */
 
 	if((spu_requestQueues = (queue*)MALLOC(sizeof(queue) * spe_thread_count)) == NULL)
-		perror("SPUEventHandler.c: malloc error");
+		perror("malloc error");
 		
 	if((spu_mailboxQueues = (queue*)MALLOC(sizeof(queue) * spe_thread_count)) == NULL)
-		perror("SPUEventHandler.c: malloc error");;
+		perror("malloc error");;
 	
 	/* Initialize mutex and condition variable objects */
 	pthread_mutex_init(&spu_work_mutex, NULL);
 	pthread_cond_init (&spu_work_ready, NULL);
 
+	if ((spe_isAlive = MALLOC(sizeof(int) * spe_thread_count)) == NULL)
+		REPORT_ERROR("malloc error");  
+
 	for(i = 0; i < spe_thread_count; i++)
 	{
 		spu_requestQueues[i] = queue_create();
 		spu_mailboxQueues[i] = queue_create();
+		spe_isAlive[i] = 1;
 		RegisterInvalidateSubscriber(&spu_work_mutex, NULL, &spu_requestQueues[i]);
 	}
 
 	/* Setup the lease table */
 	spu_leaseTable = ht_create(10, lessint, hashfc);
 	spu_writeInitiator = ht_create(10, lessint, hashfc);
+	
 
 	/* For portability, explicitly create threads in a joinable state */
 	pthread_attr_init(&attr);
@@ -150,7 +158,7 @@ void* SPU_Worker(void* data)
 		//printf(WHERESTR "Inside loop\n", WHEREARG);
 		//Step 1, process SPU mailboxes
 		for(i = 0; i < spe_thread_count; i++)
-			if (spe_out_mbox_status(spe_threads[i]) != 0)
+			if (spe_isAlive[i] && spe_out_mbox_status(spe_threads[i]) != 0)
 			{
 				datatype = 8000;
 				dataItem = NULL;
@@ -160,6 +168,10 @@ void* SPU_Worker(void* data)
 					
 				switch(datatype)
 				{
+					case PACKAGE_TERMINATE_REQUEST:
+						queue_enq(spu_mailboxQueues[i], (void*)PACKAGE_TERMINATE_RESPONSE);
+						spe_isAlive[i] = 0;
+						break;
 					case PACKAGE_CREATE_REQUEST:
 						//printf(WHERESTR "Create recieved\n", WHEREARG);
 						if ((dataItem = MALLOC(sizeof(struct createRequest))) == NULL)
@@ -316,13 +328,13 @@ void* SPU_Worker(void* data)
 						queue_enq(spu_mailboxQueues[i], (void*)((struct NACK*)dataItem)->hint);
 						break;
 					case PACKAGE_INVALIDATE_REQUEST:
-
+					
 						itemid = ((struct invalidateRequest*)dataItem)->dataItem;
 						requestID = ((struct invalidateRequest*)dataItem)->requestID;
 						if (!ht_member(spu_leaseTable,  (void*)itemid))
 							ht_insert(spu_leaseTable, (void*)itemid, slset_create(lessint));
 							
-						if (slset_member((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i))
+						if (spe_isAlive[i] && slset_member((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i))
 						{
 							initiatorNo = -1;
 							if (ht_member(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem))
@@ -340,13 +352,14 @@ void* SPU_Worker(void* data)
 							}
 							else
 							{
+								//printf(WHERESTR "Got \"invalidateRequest\" message, but skipping because SPU is initiator, ID %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
 								EnqueInvalidateResponse(requestID);
 								ht_delete(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem);
-								//printf(WHERESTR "Got \"invalidateRequest\" message, but skipping because SPU is initiator, ID %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
 							}
 						}
 						else
 						{
+							//printf(WHERESTR "Got \"invalidateRequest\" message, but skipping because SPU does not have data, ID %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
 							EnqueInvalidateResponse(requestID);
 						}
 							

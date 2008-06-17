@@ -30,6 +30,9 @@
 #define PACKAGE_INVALIDATE_REQUEST 10
 #define PACKAGE_INVALIDATE_RESPONSE 11
 
+#define PACKAGE_TERMINATE_REQUEST 14
+#define PACKAGE_TERMINATE_RESPONSE 15
+
 struct createRequest
 {
 	unsigned int packageCode; // = 1
