@@ -285,7 +285,7 @@ void* net_Reader(void* data)
 		} else if (res == 0)
 			continue;		
 		
-		printf(WHERESTR "Network packaged recieved\n", WHEREARG);
+		//printf(WHERESTR "Network packaged recieved\n", WHEREARG);
 		
 		for(i = 0; i < net_remote_hosts; i++)
 		{
@@ -295,9 +295,9 @@ void* net_Reader(void* data)
 				if (recv(sockets[i].fd, &res, 1, MSG_PEEK) == 0)
 					sockets[i].revents = POLLHUP;
 				
-				printf(WHERESTR "Processing network package from %d, revents: %d\n", WHEREARG, i, sockets[i].revents);
+				//printf(WHERESTR "Processing network package from %d, revents: %d\n", WHEREARG, i, sockets[i].revents);
 				net_processPackage(net_readPackage(sockets[i].fd), i);
-				printf(WHERESTR "Processed network package from: %d\n", WHEREARG, i);
+				//printf(WHERESTR "Processed network package from: %d\n", WHEREARG, i);
 			}
 
 			if ((sockets[i].revents & POLLHUP) || (sockets[i].revents & POLLERR))
@@ -327,7 +327,7 @@ void* net_Writer(void* data)
 	
 	while(!net_terminate)
 	{
-		printf(WHERESTR "Network packaged ready to send\n", WHEREARG);
+		//printf(WHERESTR "Network packaged ready to send\n", WHEREARG);
 		hostno = net_remote_hosts + 1;
 		package = NULL;
 		pthread_mutex_lock(&net_work_mutex);
@@ -350,7 +350,7 @@ void* net_Writer(void* data)
 			continue;
 
 
-		printf(WHERESTR "Sending a package to machine: %d, type: %d\n", WHEREARG, hostno, ((struct createRequest*)package)->packageCode);
+		//printf(WHERESTR "Sending a package to machine: %d, type: %d\n", WHEREARG, hostno, ((struct createRequest*)package)->packageCode);
 		
 		//Catch and filter invalidates
 		if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
@@ -362,7 +362,7 @@ void* net_Writer(void* data)
 			if (!ht_member(net_leaseTable, (void*)itemid))
 				ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
 				
-			printf(WHERESTR "Processing invalidate package to: %d\n", WHEREARG, hostno);
+			//printf(WHERESTR "Processing invalidate package to: %d\n", WHEREARG, hostno);
 			
 			if (slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno))
 			{
@@ -373,13 +373,13 @@ void* net_Writer(void* data)
 				if ((int)hostno != initiatorNo)
 				{
 					//Regular invalidate, register as cleared
-					printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
+					//printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
 					slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno);
 				}
 				else
 				{
 					//This host initiated the invalidate
-					printf(WHERESTR "Invalidate to %d was discarded because the host initiated the invalidate, id: %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
+					//printf(WHERESTR "Invalidate to %d was discarded because the host initiated the invalidate, id: %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
 					ht_delete(net_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem);
 					FREE(package);
 					package = NULL;
@@ -387,7 +387,7 @@ void* net_Writer(void* data)
 			}
 			else
 			{
-				printf(WHERESTR "Invalidate to %d was discarded, because the recipient does not have the data, id: %d.\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
+				//printf(WHERESTR "Invalidate to %d was discarded, because the recipient does not have the data, id: %d.\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
 				//The host has newer seen the data, or actively destroyed it
 				FREE(package);
 				package = NULL;
@@ -397,7 +397,7 @@ void* net_Writer(void* data)
 		else if (((struct createRequest*)package)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
 		{
 			pthread_mutex_lock(&net_leaseLock);
-			printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
+			//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
 			
 			itemid = ((struct acquireResponse*)package)->dataItem;
 			
@@ -409,7 +409,7 @@ void* net_Writer(void* data)
 				
 			if (((struct acquireResponse*)package)->mode == ACQUIRE_MODE_WRITE)
 			{
-				printf(WHERESTR "Registering host %d as initiator for package %d\n", WHEREARG, hostno, itemid);
+				//printf(WHERESTR "Registering host %d as initiator for package %d\n", WHEREARG, hostno, itemid);
 				if (ht_member(net_writeInitiator, (void*)itemid)) {
 					REPORT_ERROR("Same Host was registered twice for write");
 				} else {							
@@ -417,13 +417,13 @@ void* net_Writer(void* data)
 				}
 			}
 
-			printf(WHERESTR "Registered %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
+			//printf(WHERESTR "Registered %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
 			pthread_mutex_unlock(&net_leaseLock);
 		}
 	
 		if (package != NULL)
 		{
-			printf(WHERESTR "Sending package with type: %d, to %d for id: %d.\n", WHEREARG, ((struct createRequest*)package)->packageCode, hostno, ((struct invalidateRequest*)package)->dataItem);
+			//printf(WHERESTR "Sending package with type: %d, to %d for id: %d.\n", WHEREARG, ((struct createRequest*)package)->packageCode, hostno, ((struct invalidateRequest*)package)->dataItem);
 			net_sendPackage(package, hostno);
 
 			FREE(package);
@@ -459,7 +459,7 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_RELEASE_REQUEST:
 		case PACKAGE_INVALIDATE_REQUEST:
 
-			printf(WHERESTR "Processing network package from %d, with type: %s\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode));
+			//printf(WHERESTR "Processing network package from %d, with type: %s\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode));
 			
 			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			{

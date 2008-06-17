@@ -7,7 +7,7 @@
 
 #include "../../DSMCBE/common/datapackages.h"
 
-#define REPETITIONS 500
+#define REPETITIONS 100000
 
 unsigned int id;
 char* file;
@@ -188,14 +188,13 @@ int main(int argc, char **argv) {
 				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				previous = *data;
 				release(data);
-				sleep(5);
 			}				
 			printf(WHERESTR "Reset detected\n", WHEREARG);
 		}
 		
 		printf(WHERESTR "Contention test 1\n", WHEREARG);
 
-		sleep(5);
+		sleep(10);
 		
 		if (id == PAGE_TABLE_OWNER)
 		{
@@ -338,7 +337,7 @@ int main(int argc, char **argv) {
 					data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				}
 
-				printf(WHERESTR "ID %i: Data was %i\n", WHEREARG, id, *data);
+				//printf(WHERESTR "ID %i: Data was %i\n", WHEREARG, id, *data);
 				*data = *data + 1;
 				previous = *data;				
 				release(data);
@@ -355,7 +354,7 @@ int main(int argc, char **argv) {
 					data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				}
 
-				printf(WHERESTR "ID %i: Data was %i\n", WHEREARG, id, *data);
+				//printf(WHERESTR "ID %i: Data was %i\n", WHEREARG, id, *data);
 				*data = *data + 1;
 				previous = *data;				
 				release(data);
