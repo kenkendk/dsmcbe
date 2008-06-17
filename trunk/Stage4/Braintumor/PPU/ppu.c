@@ -28,6 +28,8 @@ extern spe_program_handle_t SPU;
 int WIDTH;
 int HEIGTH;
 int SPU_THREADS;
+unsigned int id;
+char* file;
 
 int MAPOFFSET(int x, int y)
 {
@@ -109,17 +111,30 @@ void calc(int id, struct IMAGE_FORMAT_GREY* grid) {
 
 int main(int argc, char* argv[])
 {
-	if(argc != 4)
-	{
-		printf("Wrong number of arguments \"./PPU input output spu_threads\"\n");
+
+	char* input = NULL;
+	char* output = NULL;
+	
+	if(argc == 7) {
+		input = argv[1];
+		output = argv[2]; 	
+		SPU_THREADS = atoi(argv[3]);
+		id = atoi(argv[4]);
+		file = argv[5]; 	
+		SPU_THREADS = atoi(argv[6]);		 
+
+	} else if (argc == 4) {
+		id = 0;
+		file = NULL; 		 		
+		input = argv[1];
+		output = argv[2]; 	
+		SPU_THREADS = atoi(argv[3]);
+	} else {
+		printf("Wrong number of arguments \"./PPU id network-file spu-threads\"\n");
 		return -1;
 	}
-	char* input = argv[1];
-	char* output = argv[2]; 	
-	SPU_THREADS = atoi(argv[3]);
 	
-	pthread_t* threads;
-	
+	pthread_t* threads;	
 	struct IMAGE_FORMAT result;
 	unsigned char* energy;
 	unsigned char* cmap;
@@ -131,47 +146,49 @@ int main(int argc, char* argv[])
 	WIDTH = 576;
 	HEIGTH = 708;
 
-	threads = simpleInitialize(0, NULL, SPU_THREADS);
+	threads = simpleInitialize(id, file, SPU_THREADS);
 
-	//printf("Starting loading images!\n");
-
-			
-	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT00.ppm", grid00, GRID00IMAGE);
-	release(grid00);			
-	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT01.ppm", grid01, GRID01IMAGE);
-	release(grid01);			
-	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT02.ppm", grid02, GRID02IMAGE);
-	release(grid02);			
-
-	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT10.ppm", grid10, GRID10IMAGE);
-	release(grid10);			
-	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT11.ppm", grid11, GRID11IMAGE);
-	release(grid11);			
-	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT12.ppm", grid12, GRID12IMAGE);
-	release(grid12);			
-
-	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT20.ppm", grid20, GRID20IMAGE);
-	release(grid20);			
-	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT21.ppm", grid21, GRID21IMAGE);
-	release(grid21);			
-	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY));
-	readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
-	release(grid22);			
-	
-	//printf("Finished loading images!\n");
-	
-	for(i = 0; i < (SHOTS / SHOTS_SPU); i++)
+	if (id != 0)
 	{
-		struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * SHOTS_SPU);
-		release(points);	
+		printf("Starting loading images!\n");
+	
+		struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT00.ppm", grid00, GRID00IMAGE);
+		release(grid00);			
+		struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT01.ppm", grid01, GRID01IMAGE);
+		release(grid01);			
+		struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT02.ppm", grid02, GRID02IMAGE);
+		release(grid02);			
+	
+		struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT10.ppm", grid10, GRID10IMAGE);
+		release(grid10);			
+		struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT11.ppm", grid11, GRID11IMAGE);
+		release(grid11);			
+		struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT12.ppm", grid12, GRID12IMAGE);
+		release(grid12);			
+	
+		struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT20.ppm", grid20, GRID20IMAGE);
+		release(grid20);			
+		struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT21.ppm", grid21, GRID21IMAGE);
+		release(grid21);			
+		struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY));
+		readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
+		release(grid22);			
+		
+		//printf("Finished loading images!\n");
+		
+		for(i = 0; i < (SHOTS / SHOTS_SPU); i++)
+		{
+			struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * SHOTS_SPU);
+			release(points);	
+		}	
 	}
 	
 	energy = (unsigned char*)malloc(sizeof(unsigned char) * (HEIGTH * WIDTH));
