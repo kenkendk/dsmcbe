@@ -196,6 +196,34 @@ void InitializeCoordinator()
 	}
 }
 
+void ProcessWaiters(unsigned int* data)
+{
+	//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
+	pthread_mutex_lock(&queue_mutex);
+	hashtableIterator it = ht_iter_create(waiters);
+	while(ht_iter_next(it))
+	{
+		//printf(WHERESTR "Trying item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
+		if (((unsigned int*)data)[(GUID)ht_iter_get_key(it)] != UINT_MAX)
+		{
+			//printf(WHERESTR "Matched, emptying queue item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
+			dqueue dq = ht_get(waiters, ht_iter_get_key(it));
+			while(!dq_empty(dq))
+			{
+				//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
+				queue_enq(bagOfTasks, dq_deq_front(dq));
+			}
+			
+			ht_delete(waiters, ht_iter_get_key(it));
+			ht_iter_reset(it);							 
+			dq_destroy(dq);
+		}
+	}
+	ht_iter_destroy(it);
+	pthread_mutex_unlock(&queue_mutex);
+}
+
+
 //This method can be called from outside the module to set up a request
 void EnqueItem(QueueableItem item)
 {
@@ -421,7 +449,7 @@ void DoInvalidate(GUID dataItem)
 		return;
 	}
 
-	printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
+	//printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
 
 	obj = ht_get(allocatedItems, (void*)dataItem);
 	
@@ -588,7 +616,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 	dataObject obj;
 	QueueableItem next;
 	
-	printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
+	//printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
 	if (request->mode == ACQUIRE_MODE_READ)
 	{
 		//printf(WHERESTR "Performing read-release for %d\n", WHEREARG, request->dataItem);
@@ -601,7 +629,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		obj = ht_get(allocatedItems, (void*)request->dataItem);
 		q = obj->waitqueue;
 		
-		printf(WHERESTR "%d queue pointer: %d\n", WHEREARG, request->dataItem, (int)q);
+		//printf(WHERESTR "%d queue pointer: %d\n", WHEREARG, request->dataItem, (int)q);
 		
 		//Ensure that the item was actually locked
 		if (dq_empty(q))
@@ -622,9 +650,18 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 			else
 			{
 				//Respond to the releaser
-				printf(WHERESTR "Respond to the releaser for %d\n", WHEREARG, request->dataItem);
+				//printf(WHERESTR "Respond to the releaser for %d\n", WHEREARG, request->dataItem);
 				RespondRelease(item);
-
+				
+				//if(dq_empty(q))
+					//printf(WHERESTR "Queue is empty\n", WHEREARG);
+					
+				if (obj->id == PAGE_TABLE_ID && dsmcbe_host_number == PAGE_TABLE_OWNER)
+				{	
+					ProcessWaiters(obj->EA == NULL ? ht_get(allocatedItems, PAGE_TABLE_ID) : obj->EA);
+				}
+				
+			
 				while (!dq_empty(q))
 				{
 					//Acquire for the next in the queue
@@ -651,7 +688,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 					else
 						REPORT_ERROR("packageCode was neither WRITE or READ");						 
 				}
-			}					
+			}		
 		}
 	}
 	else
@@ -784,7 +821,7 @@ void HandleAcquireRequest(QueueableItem item)
 
 void HandleReleaseRequest(QueueableItem item)
 {
-	printf(WHERESTR "processing release event\n", WHEREARG);	
+	//printf(WHERESTR "processing release event\n", WHEREARG);	
 	struct releaseRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
 
@@ -1011,29 +1048,7 @@ void HandleAcquireResponse(QueueableItem item)
 	//If the response is a pagetable acquire, check if items have been created, that we are awaiting 
 	if (object->id == PAGE_TABLE_ID)
 	{
-		//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
-		pthread_mutex_lock(&queue_mutex);
-		hashtableIterator it = ht_iter_create(waiters);
-		while(ht_iter_next(it))
-		{
-			//printf(WHERESTR "Trying item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
-			if (((unsigned int*)object->EA)[(GUID)ht_iter_get_key(it)] != UINT_MAX)
-			{
-				//printf(WHERESTR "Matched, emptying queue item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
-				dqueue dq = ht_get(waiters, ht_iter_get_key(it));
-				while(!dq_empty(dq))
-				{
-					//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
-					queue_enq(bagOfTasks, dq_deq_front(dq));
-				}
-				
-				ht_delete(waiters, ht_iter_get_key(it));
-				ht_iter_reset(it);							 
-				dq_destroy(dq);
-			}
-		}
-		ht_iter_destroy(it);
-		pthread_mutex_unlock(&queue_mutex);
+		ProcessWaiters(object->EA);
 	}
 
 	//If this is an acquire for an object we requested, release the waiters
@@ -1204,7 +1219,7 @@ void* ProccessWork(void* data)
 		//printf(WHERESTR "fetching event\n", WHEREARG);
 		datatype = ((struct acquireRequest*)item->dataRequest)->packageCode;
 
-		printf(WHERESTR "processing package type: %s (%d)\n", WHEREARG, PACKAGE_NAME(datatype), datatype);
+		//printf(WHERESTR "processing package type: %s (%d)\n", WHEREARG, PACKAGE_NAME(datatype), datatype);
 
 
 		//If we do not have an idea where to forward this, save it for later, 
@@ -1223,7 +1238,7 @@ void* ProccessWork(void* data)
 			continue;
 		}
 		
-		printf(WHERESTR "processing type %d\n", WHEREARG, datatype);
+		//printf(WHERESTR "processing type %d\n", WHEREARG, datatype);
 		switch(datatype)
 		{
 			case PACKAGE_CREATE_REQUEST:
