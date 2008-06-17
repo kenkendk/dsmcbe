@@ -219,6 +219,8 @@ void* forwardRequest(void* data)
 	
 	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE) {
 	
+		//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
+		
 		pthread_mutex_lock(&m);
 		while (queue_empty(dummy)) {
 			//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);

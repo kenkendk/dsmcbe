@@ -19,6 +19,9 @@
 #define TRUE 1
 #define FALSE 0
 
+/*extern unsigned int thread_id;
+extern int thread_no;*/
+
 //#define REPORT_MALLOC(x) printf(WHERESTR "Malloc gave %d, balance: %d\n", WHEREARG, (int)x, ++balance);
 //#define REPORT_FREE(x) printf(WHERESTR "Free'd %d, balance: %d\n", WHEREARG, (int)x, --balance);
 
@@ -48,6 +51,9 @@ static unsigned int DMAGroupNo = 0;
 
 //The map of used pending request
 static unsigned int pendingMap = 0;
+
+//The termination status
+static unsigned int terminated = 0;
 
 //The list of items requested for invalidate
 
@@ -167,9 +173,13 @@ int pendingContains(dataObject obj)
 
 void processPendingInvalidate(GUID id)
 {
+	//printf(WHERESTR "Processing pending invalidates for id %d (%d:%d)\n", WHEREARG, id, thread_id, thread_no);	
 	int index = pendingInvalidateContains(id, 1);
 	if (index >= 0)
+	{
+		//printf(WHERESTR "Found a pending invalidate for %d (%d:%d)\n", WHEREARG, id, thread_id, thread_no);	
 		invalidate(id, pendingInvalidates[index].requestID);
+	}
 }
 
 void removeAllocatedID(GUID id)
@@ -356,19 +366,37 @@ void sendInvalidateResponse(unsigned int requestID) {
 }
 
 void invalidate(GUID id, unsigned int requestID) {
-	//printf(WHERESTR "Trying to invalidate data with id: %i\n", WHEREARG, item->dataItem);
+	size_t i;
+	int inTransit = 0;
+	//printf(WHERESTR "Trying to invalidate data with id: %i (%d:%d)\n", WHEREARG, id, thread_id, thread_no);
 
 	if(ht_member(itemsById, (void*)id)) {
-		//printf(WHERESTR "Data with id: %i is allocated but has been released\n", WHEREARG, id);
 		dataObject object = ht_get(itemsById, (void*)id);
+		//printf(WHERESTR "Data with id: %i is allocated but has been released, count: %d\n", WHEREARG, id, object->count);
 		
-		if (object->count == 0 && !pendingContains(object))
+			
+	for(i = 0; i < MAX_PENDING_REQUESTS; i++)
+		if (GETBIT(i, MAX_PENDING_REQUESTS, pendingMap) && pendingRequestBuffer[i].object == object)
+			if (pendingRequestBuffer[i].state == ASYNC_STATUS_DMA_PENDING || pendingRequestBuffer[i].state == ASYNC_STATUS_WRITE_READY)
+			{
+				inTransit = 1;
+				break;
+			}
+	
+	
+		
+		if (object->count == 0 && !inTransit)
 		{
 			ht_delete(itemsById, (void*)id);
 			ht_delete(itemsByPointer, object->data);
 			removeAllocatedID(id);
 			
-			//printf(WHERESTR "Invalidated id %d\n", WHEREARG, object->id);
+			for(i = 0; i < MAX_PENDING_REQUESTS; i++)
+				if (GETBIT(i, MAX_PENDING_REQUESTS, pendingMap) && pendingRequestBuffer[i].object == object)
+					pendingRequestBuffer[i].object = NULL;
+				
+			
+			//printf(WHERESTR "Invalidated id %d (%d:%d)\n", WHEREARG, object->id, thread_id, thread_no);
 			FREE_ALIGN(object->data);
 			object->data = NULL;
 			FREE(object);		
@@ -383,11 +411,11 @@ void invalidate(GUID id, unsigned int requestID) {
 		}
 		else
 		{
-			//printf(WHERESTR "Inserting a pending invalidate\n", WHEREARG);
+			//printf(WHERESTR "Inserting a pending invalidate for id: %d (%d:%d)\n", WHEREARG, id, thread_id, thread_no);
 			if (!pendingInvalidateContains(id, 0))
 			{
 				unsigned int pendingIndex = findFreeItem(0, MAX_PENDING_INVALIDATES, &pendingInvalidateMap);
-				//printf(WHERESTR "Inserted a pending invalidate before: %d\n", WHEREARG, pendingInvalidateMap);
+				//printf(WHERESTR "Inserted a pending invalidate before: %d (%d:%d)\n", WHEREARG, pendingInvalidateMap, thread_id, thread_no);
 				pendingInvalidates[pendingIndex].guid = id;
 				pendingInvalidates[pendingIndex].requestID = requestID;
 				//printf(WHERESTR "Inserted a pending invalidate after: %d\n", WHEREARG, pendingInvalidateMap);
@@ -396,8 +424,9 @@ void invalidate(GUID id, unsigned int requestID) {
 	}
 	else	
 	{
-		//printf(WHERESTR "Discarded invalidate message with id: %i\n", WHEREARG, id);
+		//printf(WHERESTR "Discarded invalidate message with id: %i (%d:%d)\n", WHEREARG, id, thread_id, thread_no);
 		pendingInvalidateContains(id, 1);
+		sendInvalidateResponse(requestID);
 	}
 	
 }
@@ -546,6 +575,9 @@ void readMailbox() {
 	int packagetype = spu_read_in_mbox();
 	switch(packagetype)
 	{
+		case PACKAGE_TERMINATE_RESPONSE:
+			terminated = 1;
+			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			//printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
 			
@@ -815,6 +847,8 @@ unsigned int beginRelease(void* data)
 			CLEARBIT(nextId, MAX_PENDING_REQUESTS, pendingMap);
 			return 0;
 		}
+	
+		//printf(WHERESTR "Starting a release for id: %d (%d:%d)\n", WHEREARG, object->id, thread_id, thread_no); 
 
 
 		if (object->mode == ACQUIRE_MODE_WRITE) {
@@ -883,12 +917,18 @@ unsigned int beginRelease(void* data)
 }
 
 void initialize(){
+	terminated = 0;
 	itemsByPointer = ht_create(10, lessint, hashfc);
 	itemsById = ht_create(10, lessint, hashfc);
 	allocatedID = queue_create();
 }
 
 void terminate() {
+	
+	spu_write_out_mbox(PACKAGE_TERMINATE_REQUEST);
+	while(!terminated)
+		readMailbox();
+	
 	ht_destroy(itemsByPointer);
 	ht_destroy(itemsById);
 	queue_destroy(allocatedID);

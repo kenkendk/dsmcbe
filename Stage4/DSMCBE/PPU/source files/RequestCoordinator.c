@@ -200,6 +200,8 @@ void ProcessWaiters(unsigned int* data)
 {
 	//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
 	pthread_mutex_lock(&queue_mutex);
+	//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
+	
 	hashtableIterator it = ht_iter_create(waiters);
 	while(ht_iter_next(it))
 	{
@@ -221,6 +223,7 @@ void ProcessWaiters(unsigned int* data)
 	}
 	ht_iter_destroy(it);
 	pthread_mutex_unlock(&queue_mutex);
+	//printf(WHERESTR "Released local waiters\n", WHEREARG);
 }
 
 
@@ -252,6 +255,7 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
 	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
 	resp->requestID = requestNumber;
 	
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
  	pthread_mutex_lock(&queue_mutex);
  	
  	queue_enq(priorityResponses, resp);
@@ -259,6 +263,7 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
  	
  	pthread_cond_signal(&queue_ready);
  	pthread_mutex_unlock(&queue_mutex);
+	//printf(WHERESTR "unlocking mutext\n", WHEREARG);
 	
 }
 
@@ -1058,6 +1063,7 @@ void HandleAcquireResponse(QueueableItem item)
 		dqueue dq = ht_get(waiters, (void*)object->id);
 		ht_delete(waiters, (void*)object->id);
 		
+		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
 		while(!dq_empty(dq))
 		{
@@ -1070,6 +1076,7 @@ void HandleAcquireResponse(QueueableItem item)
 				queue_enq(bagOfTasks, q);
 		}
 		pthread_mutex_unlock(&queue_mutex);
+		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 		dq_destroy(dq);
 		
 	}
@@ -1083,6 +1090,7 @@ void HandleAcquireResponse(QueueableItem item)
 		//printf(WHERESTR "fixing pagetable waiters\n", WHEREARG);
 
 		//TODO: Must be a double queue
+		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
 		while(!queue_empty(pagetableWaiters))
 		{
@@ -1094,6 +1102,7 @@ void HandleAcquireResponse(QueueableItem item)
 				//printf(WHERESTR "waiter was for create %d\n", WHEREARG, ((struct createRequest*)cr->dataRequest)->dataItem);
 				if (((struct acquireResponse*)item->dataRequest)->mode != ACQUIRE_MODE_READ)
 				{
+					pthread_mutex_unlock(&queue_mutex);
 					//printf(WHERESTR "incoming response was for write %d\n", WHEREARG, req->dataItem);
 					unsigned int* pagetable = (unsigned int*)req->data;
 					GUID id = ((struct createRequest*)cr->dataRequest)->dataItem;
@@ -1137,9 +1146,10 @@ void HandleAcquireResponse(QueueableItem item)
 					if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 						DoRelease(qs, (struct releaseRequest*)qs->dataRequest);
 					else
-					{
 						NetRequest(qs, PAGE_TABLE_OWNER);
-					}
+
+					pthread_mutex_lock(&queue_mutex);
+					
 				}
 				
 				break;
@@ -1150,6 +1160,7 @@ void HandleAcquireResponse(QueueableItem item)
 				queue_enq(bagOfTasks, cr);
 			}
 		}
+		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 		pthread_mutex_unlock(&queue_mutex);
 		pagetableWaiters = NULL;
 	}
@@ -1174,6 +1185,7 @@ void* ProccessWork(void* data)
 		//Get the next item, or sleep until it arrives	
 		//printf(WHERESTR "fetching job\n", WHEREARG);
 			
+		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
 		while (queue_empty(bagOfTasks) && queue_empty(priorityResponses) && !terminate) {
 			//printf(WHERESTR "waiting for event\n", WHEREARG);
@@ -1183,6 +1195,7 @@ void* ProccessWork(void* data)
 		
 		if (terminate)
 		{
+			//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 			pthread_mutex_unlock(&queue_mutex);
 			break;
 		}
@@ -1213,6 +1226,7 @@ void* ProccessWork(void* data)
 			isPtResponse |= ((struct releaseRequest*)item->dataRequest)->packageCode == PACKAGE_RELEASE_REQUEST && ((struct releaseRequest*)item->dataRequest)->dataItem == PAGE_TABLE_ID;
 		}
 			
+		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 		pthread_mutex_unlock(&queue_mutex);
 		
 		//Get the type of the package and perform the corresponding action
