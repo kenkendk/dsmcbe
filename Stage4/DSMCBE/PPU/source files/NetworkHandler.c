@@ -7,6 +7,8 @@
 #include <poll.h>
 #include <stropts.h>
 
+#define TRACE_NETWORK_PACKAGES
+
 #include "../../common/datastructures.h"
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"
@@ -378,9 +380,6 @@ void* net_Writer(void* data)
 		if (net_terminate || package == NULL)
 			continue;
 
-
-		//printf(WHERESTR "Sending a package to machine: %d, type: %d\n", WHEREARG, hostno, ((struct createRequest*)package)->packageCode);
-				
 		//Catch and filter invalidates
 		if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 		{
@@ -480,6 +479,11 @@ void net_processPackage(void* data, unsigned int machineId)
 		return;
 	}
 	
+#ifdef TRACE_NETWORK_PACKAGES
+		printf(WHERESTR "Recieved a package from machine: %d, type: %s (%d), reqId: %d, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode), ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID, ((struct createRequest*)data)->dataItem);
+#endif
+	
+	
 	switch(((struct createRequest*)data)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
@@ -544,9 +548,8 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_RELEASE_RESPONSE:
 		case PACKAGE_INVALIDATE_RESPONSE:
 		case PACKAGE_MIGRATION_RESPONSE:
+		//case PACKAGE_NACK:
 		
-			//printf(WHERESTR "Processing network package from %d, with type: %d\n", WHEREARG, machineId, ((struct createRequest*)data)->packageCode);
-			
 			pthread_mutex_lock(&net_work_mutex);
 
 			if (!ht_member(net_idlookups[machineId], (void*)((struct createRequest*)data)->requestID))
@@ -602,7 +605,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			break;
 		
 		default:
-			fprintf(stderr, WHERESTR "Package code: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode);
+			//fprintf(stderr, WHERESTR "Package code: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID);
 			REPORT_ERROR("Invalid package type detected");
 		 
 	}
@@ -751,7 +754,7 @@ void* net_readPackage(int fd)
 		
 		}
 	}
-	
+
 	return data;
 }
 
@@ -769,7 +772,10 @@ void net_sendPackage(void* package, unsigned int machineId)
 	fd = net_remote_handles[machineId];
 	
 	if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-		
+
+#ifdef TRACE_NETWORK_PACKAGES
+		printf(WHERESTR "Sending a package to machine: %d, type: %s (%d), reqId: %d, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)package)->packageCode), ((struct createRequest*)package)->packageCode, ((struct createRequest*)package)->requestID, ((struct createRequest*)package)->dataItem);
+#endif
 		
 	//printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 	switch(((struct createRequest*)package)->packageCode)
