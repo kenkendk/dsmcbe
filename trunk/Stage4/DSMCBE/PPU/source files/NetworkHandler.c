@@ -47,7 +47,7 @@ hashtable net_leaseTable;
 hashtable net_writeInitiator;
 
 //The number of hosts
-unsigned int net_remote_hosts;
+static unsigned int net_remote_hosts;
 //An array of file descriptors for the remote hosts
 int* net_remote_handles;
 
@@ -77,7 +77,10 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	
 	if (net_remote_hosts == 0)
+	{
+		printf(WHERESTR "Returning\n", WHEREARG);
 		return;
+	}
 	
 	if (item == NULL || item->dataRequest == NULL)
 	{
@@ -104,7 +107,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		REPORT_ERROR("MALLOC error");
 		return;
 	}
-	
+		
 	void* ix = item;
 	ix = item->dataRequest;
 	ix = datacopy;
@@ -115,8 +118,10 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	w->ui = item;
 	w->origId = ((struct createRequest*)(item->dataRequest))->requestID;
 	
+	//printf(WHERESTR "Locking\n", WHEREARG);
 	pthread_mutex_lock(&net_work_mutex);
-
+	//printf(WHERESTR "Locked\n", WHEREARG);
+	
 	nextId = NEXT_SEQ_NO(net_sequenceNumbers[machineId], NET_MAX_SEQUENCE);
 	((struct createRequest*)(datacopy))->requestID = nextId;
 	
@@ -128,12 +133,15 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		ht_insert(net_idlookups[machineId], (void*)nextId, w);
 	else
 		REPORT_ERROR("Could not insert into net_idlookups")
+	
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
 	queue_enq(net_requestQueues[machineId], datacopy);
 	
+	//printf(WHERESTR "Signaling\n", WHEREARG);
 	pthread_cond_signal(&net_work_ready);
-	
+	//printf(WHERESTR "Unlokcing\n", WHEREARG);
 	pthread_mutex_unlock(&net_work_mutex);
+	//printf(WHERESTR "Unlocked\n", WHEREARG);
 
 	//printf(WHERESTR "Netrequest inserted for target machine: %d\n", WHEREARG, machineId);
 }
@@ -144,17 +152,20 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	size_t i;
 	pthread_attr_t attr;
 	net_terminate = 0;
-	
+
+	//printf(WHERESTR "Remote hosts %u\n", WHEREARG, remote_hosts);
 	net_remote_hosts = remote_hosts;
+	//printf(WHERESTR "Remote hosts %u\n", WHEREARG, net_remote_hosts);
 	net_remote_handles = remote_handles;
 	
 	if (net_remote_hosts == 0)
+	{
+		//printf(WHERESTR "Cannot initialize network, no remote hosts found!\n", WHEREARG);
 		return;
-	
+	}
 	pthread_mutex_init(&net_work_mutex, NULL);
 	pthread_cond_init (&net_work_ready, NULL);
-	
-	
+		
 	if((net_requestQueues = (queue*)MALLOC(sizeof(queue) * net_remote_hosts)) == NULL)
 		REPORT_ERROR("MALLOC error");
 
@@ -263,6 +274,8 @@ void* net_Reader(void* data)
 	size_t i;
 	int res;
 	
+	//printf(WHERESTR "Remote hosts %u\n", WHEREARG, net_remote_hosts);
+	
 	if ((sockets = MALLOC(sizeof(struct pollfd) * net_remote_hosts)) == NULL)
 		REPORT_ERROR("MALLOC error");
 		
@@ -308,7 +321,7 @@ void* net_Reader(void* data)
 			}
 		}
 	}
-	
+		
 	FREE(sockets);
 	sockets = NULL;
 	
@@ -325,33 +338,49 @@ void* net_Writer(void* data)
 	GUID itemid;
 	int initiatorNo;
 	
+	//printf(WHERESTR "Remote hosts %u\n", WHEREARG, net_remote_hosts);
+	
 	while(!net_terminate)
 	{
 		//printf(WHERESTR "Network packaged ready to send\n", WHEREARG);
 		hostno = net_remote_hosts + 1;
 		package = NULL;
+		//printf(WHERESTR "Locking\n", WHEREARG);
 		pthread_mutex_lock(&net_work_mutex);
+		//printf(WHERESTR "Locked\n", WHEREARG);
 		while(package == NULL && !net_terminate)
 		{
 			for(i = 0; i < net_remote_hosts; i++)
 				if (!queue_empty(net_requestQueues[i]))
 				{
+					//printf(WHERESTR "Queue is NOT empty\n", WHEREARG);
 					package = queue_deq(net_requestQueues[i]);
 					hostno = i;
+					//printf(WHERESTR "Hostno is %i\n", WHEREARG, hostno);
 					break;
 				}
-			if (package == NULL && !net_terminate)
+				else
+				{
+					//printf(WHERESTR "Queue is empty\n", WHEREARG);
+				}
+			if (package == NULL && !net_terminate) 
+			{
+				//printf(WHERESTR "Waiting\n", WHEREARG);
 				pthread_cond_wait(&net_work_ready, &net_work_mutex);
+				//printf(WHERESTR "Recieved signal\n", WHEREARG);
+			}
 		}
 		
+		//printf(WHERESTR "Unlocking\n", WHEREARG);
 		pthread_mutex_unlock(&net_work_mutex);
+		//printf(WHERESTR "Unlocked\n", WHEREARG);
 		
 		if (net_terminate || package == NULL)
 			continue;
 
 
 		//printf(WHERESTR "Sending a package to machine: %d, type: %d\n", WHEREARG, hostno, ((struct createRequest*)package)->packageCode);
-		
+				
 		//Catch and filter invalidates
 		if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 		{
@@ -460,6 +489,11 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_INVALIDATE_REQUEST:
 
 			//printf(WHERESTR "Processing network package from %d, with type: %s\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode));
+			
+			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
+			{
+				//printf(WHERESTR "Processing REQUEST READ package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct acquireRequest*)data)->packageCode, ((struct acquireRequest*)data)->dataItem);
+			}
 			
 			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			{
@@ -581,7 +615,7 @@ void* net_readPackage(int fd)
 	int blocksize;
 	
 	data = NULL;
-	
+
 	if (recv(fd, &type, sizeof(unsigned int), MSG_PEEK) != 0)
 	{
 		//printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);

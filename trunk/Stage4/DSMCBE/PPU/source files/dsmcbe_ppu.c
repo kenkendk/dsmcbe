@@ -322,9 +322,9 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sockets, unsigned int socketsCount)
 {
 	InitializeCoordinator();
+	InitializeNetworkHandler(sockets, socketsCount);
 	InitializePPUHandler();
-	InitializeSPUHandler(threads, thread_count);
-	InitializeNetworkHandler(sockets, socketsCount);	
+	InitializeSPUHandler(threads, thread_count);	
 }
 
 void* create(GUID id, unsigned long size){

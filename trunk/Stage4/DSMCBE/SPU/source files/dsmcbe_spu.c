@@ -813,7 +813,8 @@ void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
 
 	struct releaseRequest* request = (struct releaseRequest*)&req->request;
 
-	request->packageCode = PACKAGE_RELEASE_REQUEST; 
+	request->packageCode = PACKAGE_RELEASE_REQUEST;
+	request->data = req->object->EA; 
 	request->requestID = nextId;
 	request->dataItem = req->object->id;
 	request->mode = ACQUIRE_MODE_WRITE;

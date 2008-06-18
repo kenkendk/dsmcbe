@@ -28,10 +28,10 @@
 #define GRID22 1220
 #define GRID22IMAGE 1221
 
-#define RESULT 10000
+#define RESULT 5000
 
-#define JOB 20000
+#define JOB 10000
 
-#define COUNT 30000
+#define COUNT 15000
 
 #endif /*GUIDS_H_*/

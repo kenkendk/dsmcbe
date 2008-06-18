@@ -705,7 +705,6 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 
 int isPageTableAvalible()
 {
-	
 	if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 	{
 		if (!ht_member(allocatedItems, (void*)PAGE_TABLE_ID))
@@ -714,7 +713,9 @@ int isPageTableAvalible()
 		return dq_empty(((dataObject)ht_get(allocatedItems, (void*)PAGE_TABLE_ID))->waitqueue);
 	}
 	else
+	{
 		return ht_member(allocatedItems, (void*)PAGE_TABLE_ID);
+	}
 }
 
 void RequestPageTable(int mode)
@@ -746,9 +747,12 @@ void RequestPageTable(int mode)
 		//printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 
 		if (dsmcbe_host_number != PAGE_TABLE_OWNER) {
+			//printf(WHERESTR "Sending PagetableRequest through Network\n", WHEREARG);
 			NetRequest(q, PAGE_TABLE_OWNER);
-		} else
-			DoAcquire(q, acq);		
+		} else {
+			//printf(WHERESTR "Sending PagetableRequest Local\n", WHEREARG);
+			DoAcquire(q, acq);
+		}		
 
 		//printf(WHERESTR "processed PT event\n", WHEREARG);
 	}
@@ -876,7 +880,7 @@ void HandleReleaseRequest(QueueableItem item)
 					//printf(WHERESTR "Req: %i, Size(req) %i, Size(obj): %i, Data(req) %i, Data(obj) %i\n", WHEREARG, (int)req, (int)req->dataSize, (int)obj->size, (int)req->data, (int)obj->EA);
 					memcpy(obj->EA, req->data, obj->size);
 					FREE_ALIGN(req->data);
-					req->data = NULL;
+					req->data = NULL;				
 				}
 			}
 		}
