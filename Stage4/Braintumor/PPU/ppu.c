@@ -23,7 +23,8 @@ extern spe_program_handle_t SPU;
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #define SHOTS_SPU 2048
-#define SHOTS (SHOTS_SPU * 480)
+#define SHOTS (SHOTS_SPU * 40)
+//#define SHOTS (SHOTS_SPU * 480)
 
 int WIDTH;
 int HEIGTH;
@@ -115,14 +116,12 @@ int main(int argc, char* argv[])
 	char* input = NULL;
 	char* output = NULL;
 	
-	if(argc == 7) {
+	if(argc == 6) {
 		input = argv[1];
 		output = argv[2]; 	
 		SPU_THREADS = atoi(argv[3]);
 		id = atoi(argv[4]);
 		file = argv[5]; 	
-		SPU_THREADS = atoi(argv[6]);		 
-
 	} else if (argc == 4) {
 		id = 0;
 		file = NULL; 		 		
@@ -130,7 +129,7 @@ int main(int argc, char* argv[])
 		output = argv[2]; 	
 		SPU_THREADS = atoi(argv[3]);
 	} else {
-		printf("Wrong number of arguments \"./PPU id network-file spu-threads\"\n");
+		printf("Wrong number of arguments %i\n", argc);
 		return -1;
 	}
 	
@@ -148,7 +147,7 @@ int main(int argc, char* argv[])
 
 	threads = simpleInitialize(id, file, SPU_THREADS);
 
-	if (id != 0)
+	if (id == 0)
 	{
 		printf("Starting loading images!\n");
 	
@@ -189,77 +188,81 @@ int main(int argc, char* argv[])
 			struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * SHOTS_SPU);
 			release(points);	
 		}	
+	
+		energy = (unsigned char*)malloc(sizeof(unsigned char) * (HEIGTH * WIDTH));
+		memset(energy, 0, sizeof(unsigned char) * (HEIGTH * WIDTH));
+	
+		cmap = (unsigned char*)malloc(sizeof(unsigned char)*(9*3));
+		cmap[0] = 0; cmap[1] = 0; cmap[2] = 85;
+		cmap[3] = 0; cmap[4] = 0; cmap[5] = 170;
+		cmap[6] = 0; cmap[7] = 0; cmap[8] = 255;
+		cmap[9] = 0; cmap[10] = 85; cmap[11] = 0;
+		cmap[12] = 0; cmap[13] = 170; cmap[14] = 0;
+		cmap[15] = 0; cmap[16] = 255; cmap[17] = 0;
+		cmap[18] = 85; cmap[19] = 0; cmap[20] = 0;
+		cmap[21] = 170; cmap[22] = 0; cmap[23] = 0;
+		cmap[24] = 255; cmap[25] = 0; cmap[26] = 0;
+	
+		scale = (unsigned char*)malloc(sizeof(unsigned char));
+		scale[0] = 10; scale[1] = 20; scale[2] = 30;
+		scale[3] = 40; scale[4] = 50; scale[5] = 60;
+		scale[6] = 70; scale[7] = 80; scale[8] = 90;
+		
+		srand(1);
+	
+		//Start timer!
+		sw_init();
+		sw_start();
+		printf("Timer started\n");
+	
+		printf("Start firering canon #1\n");
+		canon(0, SHOTS, SHOTS_SPU, 85, 75, 1.0, 0.8, energy);
+		printf("Stopped firering canon #1\n");
+	
+		printf("Start firering canon #2\n");
+		canon(1, SHOTS, SHOTS_SPU, 10, 230, 1.0, 0.0, energy);
+		printf("Stopped firering canon #2\n");
+	
+		printf("Start firering canon #3\n");
+		canon(2, SHOTS, SHOTS_SPU, 550, 230, -1.0, 0.0, energy);
+		printf("Stopped firering canon #3\n");
+	
+		printf("Start firering canon #4\n");
+		canon(3, SHOTS, SHOTS_SPU, 475, 90, -1.0, 0.75, energy);
+		printf("Stopped firering canon #4\n");
+	
+		printf("Start firering canon #5\n");
+		canon(4, SHOTS, SHOTS_SPU, 280, 0, 0.0, 1.0, energy);
+		printf("Stopped firering canon #5\n");
+	
+		// Stop timer!
+		sw_stop();
+		sw_timeString(timer_buffer);
+		printf("Time used: %s\n", timer_buffer);
+	
+		readimage_rgb(input, malloc, &result);
+			
+		// Save energy map to image
+		for(y=0; y<HEIGTH; y++)
+			for(x=0; x<WIDTH; x++)
+				if(energy[MAPOFFSET(x,y)] > 0)
+				{
+					int offset = 3 * fpos(scale, scale_size, energy[MAPOFFSET(x,y)]);
+					result.image[MAPOFFSET(x,y)].r = cmap[offset];
+					result.image[MAPOFFSET(x,y)].g = cmap[offset+1];
+					result.image[MAPOFFSET(x,y)].b = cmap[offset+2];
+				}
+	
+		writeimage_rgb(output, &result);
+	
+		free(energy);
+		free(cmap);
+		free(scale);
+		
 	}
 	
-	energy = (unsigned char*)malloc(sizeof(unsigned char) * (HEIGTH * WIDTH));
-	memset(energy, 0, sizeof(unsigned char) * (HEIGTH * WIDTH));
-
-	cmap = (unsigned char*)malloc(sizeof(unsigned char)*(9*3));
-	cmap[0] = 0; cmap[1] = 0; cmap[2] = 85;
-	cmap[3] = 0; cmap[4] = 0; cmap[5] = 170;
-	cmap[6] = 0; cmap[7] = 0; cmap[8] = 255;
-	cmap[9] = 0; cmap[10] = 85; cmap[11] = 0;
-	cmap[12] = 0; cmap[13] = 170; cmap[14] = 0;
-	cmap[15] = 0; cmap[16] = 255; cmap[17] = 0;
-	cmap[18] = 85; cmap[19] = 0; cmap[20] = 0;
-	cmap[21] = 170; cmap[22] = 0; cmap[23] = 0;
-	cmap[24] = 255; cmap[25] = 0; cmap[26] = 0;
-
-	scale = (unsigned char*)malloc(sizeof(unsigned char));
-	scale[0] = 10; scale[1] = 20; scale[2] = 30;
-	scale[3] = 40; scale[4] = 50; scale[5] = 60;
-	scale[6] = 70; scale[7] = 80; scale[8] = 90;
-	
-	srand(1);
-
-	//Start timer!
-	sw_init();
-	sw_start();
-	printf("Timer started\n");
-
-	printf("Start firering canon #1\n");
-	canon(0, SHOTS, SHOTS_SPU, 85, 75, 1.0, 0.8, energy);
-	printf("Stopped firering canon #1\n");
-
-	printf("Start firering canon #2\n");
-	canon(1, SHOTS, SHOTS_SPU, 10, 230, 1.0, 0.0, energy);
-	printf("Stopped firering canon #2\n");
-
-	printf("Start firering canon #3\n");
-	canon(2, SHOTS, SHOTS_SPU, 550, 230, -1.0, 0.0, energy);
-	printf("Stopped firering canon #3\n");
-
-	printf("Start firering canon #4\n");
-	canon(3, SHOTS, SHOTS_SPU, 475, 90, -1.0, 0.75, energy);
-	printf("Stopped firering canon #4\n");
-
-	printf("Start firering canon #5\n");
-	canon(4, SHOTS, SHOTS_SPU, 280, 0, 0.0, 1.0, energy);
-	printf("Stopped firering canon #5\n");
-
-	// Stop timer!
-	sw_stop();
-	sw_timeString(timer_buffer);
-	printf("Time used: %s\n", timer_buffer);
-
-	readimage_rgb(input, malloc, &result);
-		
-	// Save energy map to image
-	for(y=0; y<HEIGTH; y++)
-		for(x=0; x<WIDTH; x++)
-			if(energy[MAPOFFSET(x,y)] > 0)
-			{
-				int offset = 3 * fpos(scale, scale_size, energy[MAPOFFSET(x,y)]);
-				result.image[MAPOFFSET(x,y)].r = cmap[offset];
-				result.image[MAPOFFSET(x,y)].g = cmap[offset+1];
-				result.image[MAPOFFSET(x,y)].b = cmap[offset+2];
-			}
-
-	writeimage_rgb(output, &result);
-
-	free(energy);
-	free(cmap);
-	free(scale);
+	for(i = 0; i < SPU_THREADS; i++)
+		pthread_join(threads[i], NULL);
 
 	return 0;
 }

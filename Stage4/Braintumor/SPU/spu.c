@@ -206,6 +206,7 @@ int main()
 			CTHEIGTH = package->heigth;			
 		
 			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
+			printf("spu.c: pid: %i, maxpid %i\n", pid, maxpid);
 				
 			//if ((pid % (maxpid / 10)) == 0)
 				//printf(WHERESTR "Canon %i with PID: %i out of %i\n", WHEREARG, jobID + 1, pid, maxpid);
@@ -222,6 +223,7 @@ int main()
 				
 			package->id = pid + 1;
 			release(package);
+			clean(JOB+jobID);
 			
 			//printf("spu.c: Trying to acquire RESULT\n");
 			points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
@@ -267,6 +269,7 @@ int main()
 						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
 						//printf("spu.c: Trying to release BUFFER\n");
 						release(buffer);
+						clean(id);
 						//printf("spu.c: Finished releasing BUFFER\n");
 						if(!more_to_do)
 						{
