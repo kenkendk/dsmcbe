@@ -602,6 +602,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			break;
 		
 		default:
+			fprintf(stderr, WHERESTR "Package code: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode);
 			REPORT_ERROR("Invalid package type detected");
 		 
 	}
