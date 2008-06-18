@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <spu_intrinsics.h>
 #include <spu_mfcio.h>
-#include <profile.h>
 #include <math.h>
 #include <libmisc.h>
 #include <dsmcbe_spu.h>
@@ -157,14 +156,11 @@ void calc(int id, unsigned char* buffer) {
 			sum += buffer[(y * GRIDWIDTH)+x];
 		}
 	}
-	printf("SPU: Buffer with id: %i value is: %i\n", id, sum);
+	//printf("SPU: Buffer with id: %i value is: %i\n", id, sum);
 }
 
 int main()
 {
-	prof_clear();
-	prof_start();
-	
 	srand(1);
 	unsigned int i;
 	
@@ -223,11 +219,8 @@ int main()
 				
 			package->id = pid + 1;
 			release(package);
-			clean(JOB+jobID);
 			
-			//printf("spu.c: Trying to acquire RESULT\n");
 			points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
-			//printf("spu.c: Finished acquiring RESULT\n");
 	
 			// Set current_grid
 			struct CURRENT_GRID current_grid;
@@ -244,7 +237,8 @@ int main()
 				points[i].x = canonX;
 				points[i].y = canonY;
 			}
-					
+			
+			release(points);		
 			int more_to_do = TRUE;
 			
 			while(more_to_do)
@@ -253,10 +247,9 @@ int main()
 				unsigned int id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10));
 				unsigned long size;
 				
-				//printf("spu.c: Trying to acquire BUFFER\n");
 				unsigned char* buffer;
-				buffer = acquire(id, &size, ACQUIRE_MODE_READ);			
-				//printf(WHERESTR "Finished acquiring BUFFER %i\n", WHEREARG, id);
+				buffer = acquire(id, &size, ACQUIRE_MODE_READ);				
+				points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
 						
 				next_grid.x = current_grid.x + 1;
 				if(next_grid.x == 3)
@@ -267,20 +260,16 @@ int main()
 					if(next_grid.y == 3)
 					{
 						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
-						//printf("spu.c: Trying to release BUFFER\n");
-						release(buffer);
-						clean(id);
-						//printf("spu.c: Finished releasing BUFFER\n");
+						release(points);
+						release(buffer);						
 						if(!more_to_do)
 						{
-							//printf("All points in POINTS are dead!!\n");
 							break;
 						}
 						next_grid.x = 0;
 						next_grid.y = 0;
 						current_grid.x = next_grid.x;
 						current_grid.y = next_grid.y;						
-						//printf("Starting all over because there is more work to do!\n");
 						continue;
 					}				
 				}
@@ -289,25 +278,14 @@ int main()
 																							
 				current_grid.x = next_grid.x;
 				current_grid.y = next_grid.y;
-				/*
-				if(more_to_do)	
-					printf("More work to do\n");
-				else
-					printf("No more work to do\n");
-				*/
-				//printf("spu.c: Trying to release BUFFER\n");			
+		
+				release(points);	
 				release(buffer);
-				//printf("spu.c: Finished releasing BUFFER\n");
 			}
-			release(points);
-			clean(RESULT + pid);
 		}
 		if (SPU_FIBERS > 1)
 			TerminateThread();
 	}
-
-	prof_stop();
- 	
 	return 0;
 }
 

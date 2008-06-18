@@ -3,7 +3,7 @@
 
 #ifdef DSMCBE_SPU
 
-//#define SPU_TRACE_MEM
+  //#define SPU_TRACE_MEM
   extern void* clear(unsigned long size);
   extern void* clearAlign(unsigned long size, int base);
 
