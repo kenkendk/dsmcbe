@@ -76,7 +76,7 @@ int FoldPrototein(unsigned long long id)
     winner = MALLOC((sizeof(struct coordinate) * prototein_length));
 
 	places = (struct coordinate*)MALLOC(sizeof(struct coordinate) * prototein_length);
-    //printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
+    printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
     release(prototein_object);
     
     if (places == NULL)
@@ -148,19 +148,20 @@ int FoldPrototein(unsigned long long id)
 	}
 
     //printf(WHERESTR "SPU %d has completed %d jobs\n", WHEREARG, thread_id, totalwork);
-    //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
+    printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
     winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2));
-    //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
+    printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
     memcpy(winner_object + (sizeof(int) * 2), winner, sizeof(struct coordinate) * prototein_length);
     ((int*)winner_object)[0] = bestscore;
     ((int*)winner_object)[1] = totalwork;
 	release(winner_object);
-    //printf(WHERESTR "SPU %d has written back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
+    printf(WHERESTR "SPU %d has written back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
 	
    	FREE(prototein);
     FREE(places);
    	FREE(map);
-
+	
+	//sleep(5);
     //printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
     terminate();
 	return 0;

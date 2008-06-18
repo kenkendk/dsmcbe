@@ -14,6 +14,8 @@
 
 #include "../../common/debug.h"
 
+#define DEBUG_PACKAGES
+
 volatile int terminate;
 
 pthread_mutex_t invalidate_queue_mutex;
@@ -25,14 +27,23 @@ pthread_t workthread;
 #define MAX_SEQUENCE_NR 1000000
 unsigned int sequence_nr;
 
+//This is the table of all allocated active items
 hashtable allocatedItems;
+//This is a temporary table with objects that are slated for deletion
 hashtable allocatedItemsDirty;
+//This is a table that keeps track of un-answered invalidates
 hashtable pendingSequenceNr;
+//This is a table of items that await object creation
 hashtable waiters;
+//This is a table with QueuableItems that should be notified when all invalidates are in
 hashtable writebufferReady;
+//This is a table with acquireRequests that are sent over the network, but not yet responded to
+hashtable pendingRequests;
 
 queue pagetableWaiters;
 queue priorityResponses;
+
+
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -134,6 +145,7 @@ void TerminateCoordinator(int force)
 	ht_destroy(allocatedItems);
 	ht_destroy(allocatedItemsDirty);
 	ht_destroy(waiters);
+	ht_destroy(pendingRequests);
 	
 	pthread_join(workthread, NULL);
 	
@@ -164,6 +176,7 @@ void InitializeCoordinator()
 		pendingSequenceNr = ht_create(10, lessint, hashfc);
 		waiters = ht_create(10, lessint, hashfc);
 		writebufferReady = ht_create(10, lessint, hashfc);
+		pendingRequests = ht_create(10, lessint, hashfc);
 		pagetableWaiters = NULL;
 		invalidateSubscribers = slset_create(lessint);
 		priorityResponses = queue_create();
@@ -196,7 +209,7 @@ void InitializeCoordinator()
 	}
 }
 
-void ProcessWaiters(unsigned int* data)
+void ProcessWaiters(unsigned int* pageTable)
 {
 	//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
 	pthread_mutex_lock(&queue_mutex);
@@ -206,7 +219,7 @@ void ProcessWaiters(unsigned int* data)
 	while(ht_iter_next(it))
 	{
 		//printf(WHERESTR "Trying item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
-		if (((unsigned int*)data)[(GUID)ht_iter_get_key(it)] != UINT_MAX)
+		if (((unsigned int*)pageTable)[(GUID)ht_iter_get_key(it)] != UINT_MAX)
 		{
 			//printf(WHERESTR "Matched, emptying queue item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
 			dqueue dq = ht_get(waiters, ht_iter_get_key(it));
@@ -448,8 +461,7 @@ void DoInvalidate(GUID dataItem)
 	
 	if (!ht_member(allocatedItems, (void*)dataItem))
 	{
-		//printf(WHERESTR "Id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
-		
+		printf(WHERESTR "Id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
 		REPORT_ERROR("Attempted to invalidate an item that was not registered");
 		return;
 	}
@@ -710,7 +722,8 @@ int isPageTableAvalible()
 		if (!ht_member(allocatedItems, (void*)PAGE_TABLE_ID))
 			REPORT_ERROR("Host zero did not have the page table");
 		
-		return dq_empty(((dataObject)ht_get(allocatedItems, (void*)PAGE_TABLE_ID))->waitqueue);
+		return 1;
+		//return dq_empty(((dataObject)ht_get(allocatedItems, (void*)PAGE_TABLE_ID))->waitqueue);
 	}
 	else
 	{
@@ -804,14 +817,19 @@ void HandleAcquireRequest(QueueableItem item)
 		else
 		{
 			//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, registering\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-			if (!ht_member(waiters, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
+			if (!ht_member(pendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
 			{
 				//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, sending remote request\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-				ht_insert(waiters, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
+				ht_insert(pendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
 				
 				NetRequest(item, machineId);
 			}
-			dq_enq_back(ht_get(waiters, (void*)req->dataItem), item);
+			else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+			{
+				NetRequest(item, machineId);
+			}
+			
+			dq_enq_back(ht_get(pendingRequests, (void*)req->dataItem), item);
 		}
 	}
 	else if (machineId == UINT_MAX)
@@ -1061,11 +1079,10 @@ void HandleAcquireResponse(QueueableItem item)
 	}
 
 	//If this is an acquire for an object we requested, release the waiters
-	if (ht_member(waiters, (void*)object->id))
+	if (ht_member(pendingRequests, (void*)object->id))
 	{
 		//printf(WHERESTR "testing local copy\n", WHEREARG);
-		dqueue dq = ht_get(waiters, (void*)object->id);
-		ht_delete(waiters, (void*)object->id);
+		dqueue dq = ht_get(pendingRequests, (void*)object->id);
 		
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
@@ -1075,13 +1092,20 @@ void HandleAcquireResponse(QueueableItem item)
 			QueueableItem q = dq_deq_front(dq);
 			//printf(WHERESTR "waiter package type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID);
 			if (((struct createRequest*)q->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+			{
 				RespondAcquire(q, ht_get(allocatedItems, (void*)object->id));
+				break;
+			}
 			else
 				queue_enq(bagOfTasks, q);
 		}
 		pthread_mutex_unlock(&queue_mutex);
 		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
-		dq_destroy(dq);
+		if (dq_empty(dq))
+		{
+			ht_delete(pendingRequests, (void*)object->id);
+			dq_destroy(dq);
+		}
 		
 	}
 
@@ -1160,7 +1184,7 @@ void HandleAcquireResponse(QueueableItem item)
 			}
 			else
 			{
-				//printf(WHERESTR "Reinserted package with type %d, into queue\n", WHEREARG, ((struct createRequest*)cr->dataRequest)->packageCode);					
+				//printf(WHERESTR "Reinserted package with type %s (%d), requestId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(((struct createRequest*)cr->dataRequest)->packageCode), ((struct createRequest*)cr->dataRequest)->packageCode, ((struct createRequest*)cr->dataRequest)->requestID, ((struct createRequest*)cr->dataRequest)->dataItem);					
 				queue_enq(bagOfTasks, cr);
 			}
 		}
@@ -1244,7 +1268,9 @@ void* ProccessWork(void* data)
 		//but let pagetable responses go through		
 		if ((!isPageTableAvalible() || datatype == PACKAGE_CREATE_REQUEST) && !isPtResponse )
 		{
-			//printf(WHERESTR "defering package type %d, page table is missing\n", WHEREARG, datatype);
+#ifdef DEBUG_PACKAGES
+			printf(WHERESTR "defering package type %s (%d), page table is missing, reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(datatype), datatype, ((struct acquireRequest*)item->dataRequest)->requestID, ((struct acquireRequest*)item->dataRequest)->dataItem);
+#endif
 			if (pagetableWaiters == NULL)
 			{
 				RequestPageTable(datatype == PACKAGE_CREATE_REQUEST ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
@@ -1256,6 +1282,9 @@ void* ProccessWork(void* data)
 			continue;
 		}
 		
+#ifdef DEBUG_PACKAGES
+		printf(WHERESTR "processing type %s (%d), reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(datatype), datatype, ((struct acquireRequest*)item->dataRequest)->requestID, ((struct acquireRequest*)item->dataRequest)->dataItem);
+#endif		
 		//printf(WHERESTR "processing type %d\n", WHEREARG, datatype);
 		switch(datatype)
 		{

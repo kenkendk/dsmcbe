@@ -10,6 +10,8 @@
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
 
+#define DEBUG_PACKAGES
+
 #define ASYNC_STATUS_ERROR -1
 #define ASYNC_STATUS_REQUEST_SENT 1
 #define ASYNC_STATUS_DMA_PENDING 2
@@ -340,7 +342,9 @@ void* clearAlign(unsigned long size, int base) {
 }
 
 void sendMailbox(void* dataItem) {
-	//printf(WHERESTR "Sending request with no %d\n", WHEREARG, ((struct createRequest*)dataItem)->requestID);
+#ifdef DEBUG_PACKAGES
+	printf(WHERESTR "Sending request type %s (%d) with reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(((struct createRequest*)dataItem)->packageCode), ((struct createRequest*)dataItem)->packageCode, ((struct createRequest*)dataItem)->requestID, ((struct createRequest*)dataItem)->dataItem);
+#endif
 	switch(((struct releaseRequest*)dataItem)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
@@ -374,6 +378,9 @@ void sendMailbox(void* dataItem) {
 
 void sendInvalidateResponse(unsigned int requestID) {
 	//printf(WHERESTR "Sending invalidateResponse for requestid: %i\n", WHEREARG, requestID);
+#ifdef DEBUG_PACKAGES
+	printf(WHERESTR "Sending request type InvalidateResponse with reqId: %d\n", WHEREARG, requestID);
+#endif
 	
 	spu_write_out_mbox(PACKAGE_INVALIDATE_RESPONSE);
 	spu_write_out_mbox(requestID);
@@ -576,6 +583,11 @@ void readMailbox() {
 	struct releaseResponse* relResp;
 	
 	int packagetype = spu_read_in_mbox();
+	
+#ifdef DEBUG_PACKAGES
+	printf(WHERESTR "Read package with type %s (%d)\n", WHEREARG, PACKAGE_NAME(packagetype), packagetype);
+#endif
+	
 	switch(packagetype)
 	{
 		case PACKAGE_TERMINATE_RESPONSE:
