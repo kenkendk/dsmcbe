@@ -217,6 +217,20 @@ void unsubscribe(dataObject object)
 	spu_write_out_mbox((int)object->EA);
 }
 
+void cleanup()
+{
+	dataObject object;
+	hashtableIterator iter = ht_iter_create(itemsById);
+	while(ht_iter_next(iter))
+	{
+		object = ht_iter_get_value(iter);
+		FREE_ALIGN(object->data);
+		object->data = NULL;
+		FREE(object);
+		object = NULL;			
+	}
+}
+
 void clean(GUID id)
 {
 	dataObject object;
@@ -500,6 +514,16 @@ void StartDMATransfer(struct acquireResponse* resp)
 			
 	//printf(WHERESTR "Allocation: %i\n", WHEREARG, (int)allocation);
 
+
+	// TEST AREA
+	void* temp = NULL;
+	transfer_size = ALIGNED_SIZE(resp->dataSize);
+
+	if ((temp = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
+		printf(WHERESTR "Pending invalidate (bitmap): %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d\n", WHEREARG, pendingInvalidateMap, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID));
+		REPORT_ERROR("Failed to allocate memory on SPU");		
+	}
+
 	// Make datastructures for later use
 	req->object = MALLOC(sizeof(struct dataObjectStruct));
 	if (req->object == NULL)
@@ -522,29 +546,8 @@ void StartDMATransfer(struct acquireResponse* resp)
 	req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 	req->size = req->object->size;
 
-	//printf(WHERESTR "Item %d was not known, starting DMA transfer\n", WHEREARG, req->id);
-	transfer_size = ALIGNED_SIZE(resp->dataSize);
-
-	if ((req->object->data = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
-		printf(WHERESTR "Pending invalidate (bitmap): %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d\n", WHEREARG, pendingInvalidateMap, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID));
-		REPORT_ERROR("Failed to allocate memory on SPU");
-		
-		void* test1 = _malloc_align(transfer_size / 4, 7);
-		void* test2 = _malloc_align(transfer_size / 4, 7);
-		void* test3 = _malloc_align(transfer_size / 4, 7);
-		void* test4 = _malloc_align(transfer_size / 4, 7);
-		
-		if (test1 != NULL)
-			printf(WHERESTR "Test1 succes\n", WHEREARG);
-		if (test2 != NULL)
-			printf(WHERESTR "Test2 succes\n", WHEREARG);
-		if (test3 != NULL)
-			printf(WHERESTR "Test3 succes\n", WHEREARG);
-		if (test4 != NULL)
-			printf(WHERESTR "Test4 succes\n", WHEREARG);
-
-		sleep(1000);		
-	}
+	req->object->data = temp;
+	temp = NULL;
 
 	if (ht_member(itemsByPointer, req->object->data)) {
 		REPORT_ERROR("Newly created item already existed in table?");
@@ -929,6 +932,8 @@ void terminate() {
 	spu_write_out_mbox(PACKAGE_TERMINATE_REQUEST);
 	while(!terminated)
 		readMailbox();
+		
+	cleanup();
 	
 	ht_destroy(itemsByPointer);
 	ht_destroy(itemsById);
