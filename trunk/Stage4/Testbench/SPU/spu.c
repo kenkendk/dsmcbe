@@ -205,13 +205,18 @@ int main(int argc, char **argv) {
 		release(allocation);
 		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
 */
-
+		int j = 0;
 		printf(WHERESTR "Reading large sequence...\n", WHEREARG);
 		for(i = 0; i < SEQUENCE_COUNT; i++)
 		{
 			release(acquire(LARGE_SEQUENCE + i, &size, ACQUIRE_MODE_READ));
 			if (i % 1000 == 0)
-				printf(WHERESTR "Read large sequence %d\n", WHEREARG, i);	
+				printf(WHERESTR "Read large sequence %d\n", WHEREARG, i);
+			for(j = 0; j < 10; j++)			
+				printf("DMA Transfer status value: %i\n", mfc_read_tag_status_immediate());
+				
+			mfc_stat_tag_status()
+				
 		}
 
 		/*printf(WHERESTR "Reading small sequence...\n", WHEREARG);

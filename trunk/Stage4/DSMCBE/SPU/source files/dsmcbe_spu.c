@@ -28,7 +28,7 @@ extern int thread_no;*/
 //#define REPORT_FREE(x) printf(WHERESTR "Free'd %d, balance: %d\n", WHEREARG, (int)x, --balance);
 
 //There are only 32 DMA tags avalible
-#define MAX_DMA_GROUPS 32
+#define MAX_DMA_GROUPS 10
 
 //There can be no more than this many ongoing requests
 #define MAX_PENDING_REQUESTS 10
@@ -375,7 +375,7 @@ void sendMailbox(void* dataItem) {
 	}
 }
 
-
+/*
 void sendInvalidateResponse(unsigned int requestID) {
 	//printf(WHERESTR "Sending invalidateResponse for requestid: %i\n", WHEREARG, requestID);
 #ifdef DEBUG_PACKAGES
@@ -385,6 +385,7 @@ void sendInvalidateResponse(unsigned int requestID) {
 	spu_write_out_mbox(PACKAGE_INVALIDATE_RESPONSE);
 	spu_write_out_mbox(requestID);
 }
+*/
 
 void invalidate(GUID id, unsigned int requestID) {
 	size_t i;
@@ -423,12 +424,11 @@ void invalidate(GUID id, unsigned int requestID) {
 			FREE(object);		
 			object = NULL;
 			
-			sendInvalidateResponse(requestID);
+			//sendInvalidateResponse(requestID);
 			
-			int index =	pendingInvalidateContains(id, 1);
-			if (index > 0)
-				sendInvalidateResponse(pendingInvalidates[index].requestID);
-			
+			//int index =	pendingInvalidateContains(id, 1);
+			//if (index > 0)
+				//sendInvalidateResponse(pendingInvalidates[index].requestID);
 		}
 		else
 		{
@@ -447,7 +447,7 @@ void invalidate(GUID id, unsigned int requestID) {
 	{
 		//printf(WHERESTR "Discarded invalidate message with id: %i (%d:%d)\n", WHEREARG, id, thread_id, thread_no);
 		pendingInvalidateContains(id, 1);
-		sendInvalidateResponse(requestID);
+		//sendInvalidateResponse(requestID);
 	}
 	
 }
@@ -528,6 +528,17 @@ void StartDMATransfer(struct acquireResponse* resp)
 
 	if ((temp = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
 		printf(WHERESTR "Pending invalidate (bitmap): %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d\n", WHEREARG, pendingInvalidateMap, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID));
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
+		printf("Force print\n");
 		REPORT_ERROR("Failed to allocate memory on SPU");		
 	}
 
@@ -982,6 +993,14 @@ int getAsyncStatus(unsigned int requestNo)
 			if (IsDMATransferGroupCompleted(req->dmaNo))
 			{
 				req->state = ASYNC_STATUS_COMPLETE;
+				
+				// Send mailbox message to SPUEventHandler
+				if (req->request.packageCode == PACKAGE_ACQUIRE_RESPONSE && req->mode == ACQUIRE_MODE_READ)
+				{
+					spu_write_out_mbox(PACKAGE_DMA_COMPLETED);
+					spu_write_out_mbox(req->id);
+				}
+
 				if (req->request.packageCode == PACKAGE_RELEASE_REQUEST)
 				{
 					req->state = ASYNC_STATUS_REQUEST_SENT;

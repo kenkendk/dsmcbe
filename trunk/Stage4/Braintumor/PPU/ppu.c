@@ -23,8 +23,9 @@ extern spe_program_handle_t SPU;
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #define SHOTS_SPU 2048
-#define SHOTS (SHOTS_SPU * 50)
-//#define SHOTS (SHOTS_SPU * 480)
+//#define SHOTS (SHOTS_SPU * 60)
+#define SHOTS (SHOTS_SPU * 480)
+//#define SHOTS (SHOTS_SPU * 960)
 
 int WIDTH;
 int HEIGTH;
@@ -114,8 +115,8 @@ int main(int argc, char* argv[])
 {
 
 	char* input = NULL;
-	char* output = NULL;
-	
+	char* output = NULL;	
+
 	if(argc == 6) {
 		input = argv[1];
 		output = argv[2]; 	
@@ -261,8 +262,8 @@ int main(int argc, char* argv[])
 		
 	}
 	
-	for(i = 0; i < SPU_THREADS; i++)
+/*	for(i = 0; i < SPU_THREADS; i++)
 		pthread_join(threads[i], NULL);
-
+*/
 	return 0;
 }

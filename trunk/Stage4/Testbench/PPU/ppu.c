@@ -3,6 +3,7 @@
 #include "../guids.h"
 #include <common/debug.h>
 #include <unistd.h>
+#include <libspe2.h>
 #include <stdlib.h>
 
 #include "../../DSMCBE/common/datapackages.h"
@@ -12,6 +13,7 @@
 unsigned int id;
 char* file;
 unsigned int SPU_THREADS;
+extern spe_context_ptr_t* spe_threads;
 
 int main(int argc, char **argv) {
 	
@@ -55,11 +57,11 @@ int main(int argc, char **argv) {
 
 	printf(WHERESTR "%d: Connected, starting\n", WHEREARG, id);
 
-	#define STEP1
-	#define STEP2
-	#define STEP3
-		
-	if (id != 0)
+//	#define STEP1
+//	#define STEP2
+//	#define STEP3
+
+	if (id == 0)
 	{
 		sleep(1);
 		printf(WHERESTR "%d: Creating\n", WHEREARG, id);
@@ -107,7 +109,7 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Released\n", WHEREARG);
 	
 		
-		items = 16 * 1025;
+		items = 25 * 1024;
 		unsigned int* largeblock = create(LARGE_ITEM, items * sizeof(unsigned int));
 	
 		printf(WHERESTR "Created large block at %d\n", WHEREARG, (unsigned int)largeblock);
@@ -132,6 +134,15 @@ int main(int argc, char **argv) {
 		for(i = 0; i < SMALL_SEQUENCE_COUNT; i++)
 			release(create(SMALL_SEQUENCE + i, sizeof(unsigned int)));
 		*/
+		
+		unsigned int result = 0;
+		int value = 0;
+		
+		
+		while(1){			
+			value = spe_mfcio_tag_status_read(spe_threads[0], 0, SPE_TAG_IMMEDIATE, &result);
+			printf("DMA Transfer status value: %i result: %u errno: %d\n", value, result , errno);
+}
 		
 		printf(WHERESTR "Acquiring SPU item\n", WHEREARG);
 		data = acquire(SPUITEM, &size, ACQUIRE_MODE_WRITE);
@@ -158,7 +169,7 @@ int main(int argc, char **argv) {
 		*/
 		
 		//printf(WHERESTR "Released, waiting for SPU to complete\n", WHEREARG);
-		
+				
 		for(i = 0; i < SPU_THREADS; i++)
 			pthread_join(spu_threads[i], NULL);
 	

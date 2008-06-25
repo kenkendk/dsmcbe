@@ -28,7 +28,7 @@ int threadNo;
 struct CURRENT_GRID
 {
 	unsigned char x;
-	unsigned char y;
+	unsigned char y;	
 };
 
 unsigned int CTWIDTH;
@@ -60,7 +60,8 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 	int i;
 	int more = FALSE;
 	int skip;
-							
+					
+						
 	//printf("Canon firering %i shots in grid(%i,%i)\n", pcnt, current_grid.x, current_grid.y);
 		
 	int width = MIN(GRIDWIDTH, CTWIDTH-(current_grid.x * GRIDWIDTH));	
@@ -177,8 +178,8 @@ int main()
 		
 	if (threadNo >= 0) 
 	{				
-		while(1) {
-			
+		while(1) 
+		{
 			// Make points buffer
 			struct POINTS* points;
 			struct PACKAGE* package;
@@ -202,7 +203,7 @@ int main()
 			CTHEIGTH = package->heigth;			
 		
 			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
-			printf("spu.c: pid: %i, maxpid %i\n", pid, maxpid);
+			//printf("spu.c: pid: %i, maxpid %i\n", pid, maxpid);
 				
 			//if ((pid % (maxpid / 10)) == 0)
 				//printf(WHERESTR "Canon %i with PID: %i out of %i\n", WHEREARG, jobID + 1, pid, maxpid);
@@ -238,7 +239,6 @@ int main()
 				points[i].y = canonY;
 			}
 			
-			release(points);		
 			int more_to_do = TRUE;
 			
 			while(more_to_do)
@@ -248,9 +248,8 @@ int main()
 				unsigned long size;
 				
 				unsigned char* buffer;
-				buffer = acquire(id, &size, ACQUIRE_MODE_READ);				
-				points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
-						
+				buffer = acquire(id, &size, ACQUIRE_MODE_READ);			
+									
 				next_grid.x = current_grid.x + 1;
 				if(next_grid.x == 3)
 				{
@@ -260,8 +259,8 @@ int main()
 					if(next_grid.y == 3)
 					{
 						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
-						release(points);
-						release(buffer);						
+						release(buffer);
+						clean(id);
 						if(!more_to_do)
 						{
 							break;
@@ -279,9 +278,11 @@ int main()
 				current_grid.x = next_grid.x;
 				current_grid.y = next_grid.y;
 		
-				release(points);	
 				release(buffer);
+				clean(id);
 			}
+			release(points);
+			clean(RESULT + pid);
 		}
 		if (SPU_FIBERS > 1)
 			TerminateThread();
