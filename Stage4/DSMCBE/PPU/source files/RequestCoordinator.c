@@ -14,7 +14,7 @@
 
 #include "../../common/debug.h"
 
-#define DEBUG_PACKAGES
+//#define DEBUG_PACKAGES
 
 volatile int terminate;
 
@@ -855,8 +855,9 @@ void HandleReleaseRequest(QueueableItem item)
 	if (machineId != dsmcbe_host_number)
 	{
 		//printf(WHERESTR "processing release event, not owner\n", WHEREARG);
-		if (req->mode == ACQUIRE_MODE_WRITE)
-			DoInvalidate(req->dataItem);
+		//TODO: Is it legal to not discard the local copy?
+		/*if (req->mode == ACQUIRE_MODE_WRITE)
+			DoInvalidate(req->dataItem);*/
 
 		NetRequest(item, machineId);
 	}
@@ -1021,6 +1022,27 @@ void HandleInvalidateResponse(QueueableItem item)
 	//printf(WHERESTR "processing invalidate response for\n", WHEREARG);	
 }
 
+void SingleInvalidate(QueueableItem item, GUID id)
+{
+	struct invalidateRequest* req;
+	if ((req = MALLOC(sizeof(struct invalidateRequest))) == NULL)
+		REPORT_ERROR("malloc error");
+		
+	req->packageCode = PACKAGE_INVALIDATE_REQUEST;
+	req->dataItem = id;
+	req->requestID = 0;
+	
+	if (item->mutex != NULL)
+		pthread_mutex_lock(item->mutex);
+	queue_enq(*(item->queue), req);
+	
+	if (item->event != NULL)
+		pthread_cond_signal(item->event);
+		
+	if (item->mutex != NULL)
+		pthread_mutex_unlock(item->mutex);
+}
+
 void HandleAcquireResponse(QueueableItem item)
 {
 	
@@ -1094,6 +1116,8 @@ void HandleAcquireResponse(QueueableItem item)
 			if (((struct createRequest*)q->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			{
 				RespondAcquire(q, ht_get(allocatedItems, (void*)object->id));
+				//DoInvalidate(object->id);
+				//SingleInvalidate(q, object->id);
 				break;
 			}
 			else
@@ -1190,7 +1214,8 @@ void HandleAcquireResponse(QueueableItem item)
 		}
 		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 		pthread_mutex_unlock(&queue_mutex);
-		pagetableWaiters = NULL;
+		if (queue_empty(pagetableWaiters))
+			pagetableWaiters = NULL;
 	}
 	
 	FREE(item->dataRequest);
@@ -1275,6 +1300,11 @@ void* ProccessWork(void* data)
 			{
 				RequestPageTable(datatype == PACKAGE_CREATE_REQUEST ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
 				pagetableWaiters = queue_create();
+			}
+			else if (datatype == PACKAGE_CREATE_REQUEST)
+			{
+				printf(WHERESTR "Special case: %d", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
+				RequestPageTable(ACQUIRE_MODE_WRITE);
 			}
 			
 			queue_enq(pagetableWaiters, item);

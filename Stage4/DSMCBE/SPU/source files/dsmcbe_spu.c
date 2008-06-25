@@ -10,7 +10,7 @@
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
 
-#define DEBUG_PACKAGES
+//#define DEBUG_PACKAGES
 
 #define ASYNC_STATUS_ERROR -1
 #define ASYNC_STATUS_REQUEST_SENT 1

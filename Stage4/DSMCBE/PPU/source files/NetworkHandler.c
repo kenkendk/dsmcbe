@@ -7,7 +7,7 @@
 #include <poll.h>
 #include <stropts.h>
 
-#define TRACE_NETWORK_PACKAGES
+//#define TRACE_NETWORK_PACKAGES
 
 #include "../../common/datastructures.h"
 #include "../header files/RequestCoordinator.h"
@@ -66,6 +66,46 @@ hashtable* net_idlookups;
 
 //These are the sequence numbers assigned to the packages, a unique sequence for each host
 unsigned int* net_sequenceNumbers;
+
+void NetUnsubscribe(GUID dataitem, unsigned int machineId)
+{
+	struct releaseRequest* req;
+
+	if (net_remote_hosts == 0)
+	{
+		printf(WHERESTR "Returning\n", WHEREARG);
+		return;
+	}
+	
+	if (dataitem == 0)
+	{
+		REPORT_ERROR("bad request");
+		return;
+	}
+
+	if (machineId > net_remote_hosts)
+	{
+		REPORT_ERROR("Invalid machineId detected");
+		return;
+	}
+
+
+	if ((req = MALLOC(sizeof(struct releaseRequest))) == NULL)
+		REPORT_ERROR("malloc error");
+		
+	req->packageCode = PACKAGE_RELEASE_REQUEST;
+	req->requestID = 0; 
+	req->mode = ACQUIRE_MODE_READ;
+	req->data = NULL;
+	req->dataSize = 0;
+	req->offset = 0;
+	
+	pthread_mutex_lock(&net_work_mutex);
+	queue_enq(net_requestQueues[machineId], req);
+	pthread_cond_signal(&net_work_ready);
+	pthread_mutex_unlock(&net_work_mutex);
+	
+}
 
 void NetRequest(QueueableItem item, unsigned int machineId)
 {
@@ -401,7 +441,8 @@ void* net_Writer(void* data)
 				if ((int)hostno != initiatorNo)
 				{
 					//Regular invalidate, register as cleared
-					//printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
+					//printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, itemid);
+					((struct invalidateRequest*)package)->requestID = NET_MAX_SEQUENCE + 1;
 					slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno);
 				}
 				else
@@ -425,15 +466,18 @@ void* net_Writer(void* data)
 		else if (((struct createRequest*)package)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
 		{
 			pthread_mutex_lock(&net_leaseLock);
-			//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
-			
 			itemid = ((struct acquireResponse*)package)->dataItem;
+			
+			//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
 			
 			if (!ht_member(net_leaseTable, (void*)itemid))
 				ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
 				
 			if (!slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno))
+			{
+				//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
 				slset_insert((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno, NULL);
+			}
 				
 			if (((struct acquireResponse*)package)->mode == ACQUIRE_MODE_WRITE)
 			{
@@ -506,7 +550,7 @@ void net_processPackage(void* data, unsigned int machineId)
 
 			if (((struct createRequest*)data)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 			{
-				//printf(WHERESTR "Processing invalidate package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct invalidateRequest*)data)->packageCode, ((struct invalidateRequest*)data)->dataItem);
+				//printf(WHERESTR "Processing invalidate package from %d, with type: %d, for id: %d, reqId: %d\n", WHEREARG, machineId, ((struct invalidateRequest*)data)->packageCode, ((struct invalidateRequest*)data)->dataItem, ((struct invalidateRequest*)data)->requestID);
 			}
 			
 			if (((struct createRequest*)data)->packageCode == PACKAGE_RELEASE_REQUEST)
@@ -551,6 +595,12 @@ void net_processPackage(void* data, unsigned int machineId)
 		//case PACKAGE_NACK:
 		
 			pthread_mutex_lock(&net_work_mutex);
+			
+			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
+			{
+				//printf(WHERESTR "Processing Acquire Response package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->packageCode, ((struct acquireResponse*)data)->dataItem);
+			}
+			
 
 			if (!ht_member(net_idlookups[machineId], (void*)((struct createRequest*)data)->requestID))
 			{
