@@ -131,7 +131,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	
 	struct sockaddr_in addr;
 	unsigned int port;
-	char ip[15];
+	char ip[256];
 	unsigned int networkcount, j, k;
 		
 	printf(WHERESTR "Starting network setup\n", WHEREARG);
@@ -143,6 +143,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 			
 	networkcount = 0;	
 	while(!feof(filesource)) { 
+		//What happens if hostname > 256 chars?
 		if (fscanf(filesource, "%s %u", ip, &port) != 2 && feof(filesource))			
 			break;
 		
