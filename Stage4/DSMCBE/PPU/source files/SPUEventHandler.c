@@ -40,6 +40,9 @@ hashtable spu_leaseTable;
 //This table contains the initiator of a write, key is GUID, value is SPU id
 hashtable spu_writeInitiator;
 
+//This table contains list with completed DMA transfers, key is GUID, value is 1
+hashtable spu_InCompleteDMAtransfers;
+
 int* spe_isAlive;
 
 
@@ -71,6 +74,7 @@ void TerminateSPUHandler(int force)
 	
 	ht_destroy(spu_leaseTable);
 	ht_destroy(spu_writeInitiator);
+	ht_destroy(spu_InCompleteDMAtransfers);
 	FREE(spu_requestQueues);
 	spu_requestQueues = NULL;
 	FREE(spu_mailboxQueues);
@@ -117,6 +121,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	/* Setup the lease table */
 	spu_leaseTable = ht_create(10, lessint, hashfc);
 	spu_writeInitiator = ht_create(10, lessint, hashfc);
+	spu_InCompleteDMAtransfers = ht_create(10, lessint, hashfc);
 	
 
 	/* For portability, explicitly create threads in a joinable state */
@@ -152,7 +157,7 @@ void* SPU_Worker(void* data)
 	QueueableItem queueItem;
 	int mode;
 	int initiatorNo;
-	
+		
 	while(!spu_terminate)
 	{
 		//printf(WHERESTR "Inside loop\n", WHEREARG);
@@ -167,7 +172,18 @@ void* SPU_Worker(void* data)
 					REPORT_ERROR("Read MBOX failed (1)!");
 					
 				switch(datatype)
-				{
+				{	
+					case PACKAGE_DMA_COMPLETED:
+						ReadMBOXBlocking(spe_threads[i], &itemid, 1);
+						if(ht_member(spu_InCompleteDMAtransfers, (void*)itemid))
+						{
+							requestID = (unsigned int)ht_get(spu_InCompleteDMAtransfers, (void*)itemid);
+							if (requestID != UINT_MAX)
+								EnqueInvalidateResponse(requestID);
+								
+							ht_delete(spu_InCompleteDMAtransfers, (void*)itemid);							
+						}							
+						break;					
 					case PACKAGE_TERMINATE_REQUEST:
 						queue_enq(spu_mailboxQueues[i], (void*)PACKAGE_TERMINATE_RESPONSE);
 						spe_isAlive[i] = 0;
@@ -311,6 +327,11 @@ void* SPU_Worker(void* data)
 								ht_insert(spu_writeInitiator, (void*)itemid, (void*)i);
 							}
 						}
+						else
+						{
+							if(!ht_member(spu_InCompleteDMAtransfers, (void*)((struct acquireResponse*)dataItem)->dataItem))
+								ht_insert(spu_InCompleteDMAtransfers, (void*)((struct acquireResponse*)dataItem)->dataItem, UINT_MAX);
+						}
 						
 						break;
 					case PACKAGE_MIGRATION_RESPONSE:
@@ -334,7 +355,7 @@ void* SPU_Worker(void* data)
 						if (!ht_member(spu_leaseTable,  (void*)itemid))
 							ht_insert(spu_leaseTable, (void*)itemid, slset_create(lessint));
 							
-						if (spe_isAlive[i] && slset_member((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i))
+						if ((spe_isAlive[i] && slset_member((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i)))
 						{
 							initiatorNo = -1;
 							if (ht_member(spu_writeInitiator, (void*)((struct invalidateRequest*)dataItem)->dataItem))
@@ -349,6 +370,16 @@ void* SPU_Worker(void* data)
 								
 								//printf(WHERESTR "Forwarding invalidate for id %d to SPU %d\n", WHEREARG, itemid, i);
 								slset_delete((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i);
+								
+								if(!ht_member(spu_InCompleteDMAtransfers, (void*)itemid))
+								{
+									EnqueInvalidateResponse(requestID);
+								}
+								else
+								{
+									ht_delete(spu_InCompleteDMAtransfers, (void*)itemid);
+									ht_insert(spu_InCompleteDMAtransfers, (void*)itemid, requestID);
+								}
 							}
 							else
 							{
