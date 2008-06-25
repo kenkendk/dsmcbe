@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include "../header files/PPUEventHandler.h"
 #include "../header files/SPUEventHandler.h"
@@ -144,9 +145,20 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	while(!feof(filesource)) { 
 		if (fscanf(filesource, "%s %u", ip, &port) != 2 && feof(filesource))			
 			break;
-				
+		
+		struct hostent *he;
+		he = gethostbyname(ip);
 		addr.sin_family = AF_INET;
-		inet_aton(ip,&(addr.sin_addr));		
+
+		if (he == NULL)
+		{
+			if (inet_aton(ip,&(addr.sin_addr)) == 0)
+			{		
+				fprintf(stderr, WHERESTR "Failed to find/parse host: %s\n", WHEREARG, ip);
+				exit(-1);
+			} 
+		}
+		
 		addr.sin_port = port;
 		memset(&(addr.sin_zero),'\0',8);
 		network[networkcount] = addr;
