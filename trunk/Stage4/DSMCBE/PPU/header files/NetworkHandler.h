@@ -11,6 +11,7 @@ int SetMachineID(GUID itemId, unsigned int machineId, unsigned int expectedId);
 
 void NetInvalidate(GUID id);
 void NetRequest(QueueableItem item, unsigned int machineId);
+void NetUnsubscribe(GUID dataitem, unsigned int machineId);
 
 extern unsigned int dsmcbe_host_number;
 

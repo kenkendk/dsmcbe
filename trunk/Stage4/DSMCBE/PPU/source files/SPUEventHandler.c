@@ -225,7 +225,6 @@ void* SPU_Worker(void* data)
 						ReadMBOXBlocking(spe_threads[i], (unsigned int*)&datasize, 1);
 						ReadMBOXBlocking(spe_threads[i], (unsigned int*)&datapointer, 1);
 
-
 						//Only forward write releases
 						if (mode == ACQUIRE_MODE_WRITE)
 						{
