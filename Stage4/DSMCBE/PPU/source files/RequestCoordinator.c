@@ -171,12 +171,12 @@ void InitializeCoordinator()
 		pthread_cond_init (&queue_ready, NULL);
 
 		/* For portability, explicitly create threads in a joinable state */
-		allocatedItems = ht_create(10, lessint, hashfc);
-		allocatedItemsDirty = ht_create(10, lessint, hashfc);
-		pendingSequenceNr = ht_create(10, lessint, hashfc);
-		waiters = ht_create(10, lessint, hashfc);
-		writebufferReady = ht_create(10, lessint, hashfc);
-		pendingRequests = ht_create(10, lessint, hashfc);
+		allocatedItems = ht_create(2000, lessint, hashfc);
+		allocatedItemsDirty = ht_create(50, lessint, hashfc);
+		pendingSequenceNr = ht_create(51, lessint, hashfc);
+		waiters = ht_create(52, lessint, hashfc);
+		writebufferReady = ht_create(53, lessint, hashfc);
+		pendingRequests = ht_create(54, lessint, hashfc);
 		pagetableWaiters = NULL;
 		invalidateSubscribers = slset_create(lessint);
 		priorityResponses = queue_create();

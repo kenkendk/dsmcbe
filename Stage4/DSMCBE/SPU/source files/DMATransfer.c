@@ -13,6 +13,8 @@ struct DMA_LIST_ELEMENT {
 	unsigned int ea_low;
 };
 
+static unsigned int zero = 0;
+
 static struct DMA_LIST_ELEMENT list[16] __attribute__ ((aligned (16)));
 
 int IsDMATransferGroupCompleted(int groupid)
@@ -74,8 +76,9 @@ void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int
 	
 }
 
-void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid)
+void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid, unsigned int dmaComplete)
 {
+	//printf(WHERESTR "dmaComplete %i\n", WHEREARG, dmaComplete);
 	if (((unsigned int)buffer % 128) != 0)
 		printf(WHERESTR "Warning detected non-aligned DMA transfer\n", WHEREARG);
 
@@ -92,6 +95,8 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 	if (size < 16384 ) {
 		//printf(WHERESTR "Single DMA read-transfer, target: %d, ea: %d, size: %d, tag: %d\n", WHEREARG, buffer, ea, size, groupid);
 		mfc_get(buffer, ea, size, groupid, 0, 0);
+		if(dmaComplete != 0)
+			mfc_putf(&zero, dmaComplete, sizeof(unsigned int), groupid, 0, 0);
 	} else {
 		//printf(WHERESTR "DMA list read-transfer, target: %d, ea: %d, size: %d, tag: %d\n", WHEREARG, buffer, ea, size, groupid);
 		unsigned int i = 0;
@@ -111,6 +116,9 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 		}
 		
 		listsize = i * sizeof(struct DMA_LIST_ELEMENT);
-		mfc_getl(buffer, list[0].ea_low, list, listsize, groupid, 0, 0);		
+		mfc_getl(buffer, list[0].ea_low, list, listsize, groupid, 0, 0);
+		if(dmaComplete != 0)
+			mfc_putf(&zero, dmaComplete,  sizeof(unsigned int), groupid, 0, 0);				
 	}
+	//printf(WHERESTR "DMA done\n", WHEREARG);
 }

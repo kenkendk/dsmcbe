@@ -29,7 +29,6 @@
 #define PACKAGE_NACK 9
 #define PACKAGE_INVALIDATE_REQUEST 10
 #define PACKAGE_INVALIDATE_RESPONSE 11
-#define PACKAGE_DMA_COMPLETED 99
 
 #define PACKAGE_TERMINATE_REQUEST 14
 #define PACKAGE_TERMINATE_RESPONSE 15
@@ -58,6 +57,7 @@ struct acquireResponse
     int mode;
     unsigned long dataSize;
     void* data;
+    void* dmaComplete;
 };
 
 struct writebufferReady

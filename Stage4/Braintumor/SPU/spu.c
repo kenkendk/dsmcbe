@@ -10,10 +10,11 @@
 #include "../Common/Common.h"
 #include "../DSMCBE/common/debug.h"
 
-#define BLOCKSIZE (GRIDWIDTH * GRIDHEIGTH) // In bytes
-#define NUM_OF_BUFFERS 2
-#define AVALIBLE_STORAGE (BLOCKSIZE * NUM_OF_BUFFERS) // In bytes
-#define MAX_BUFFER_SIZE (AVALIBLE_STORAGE / NUM_OF_BUFFERS) // In bytes
+#define Y 3
+#define X 3
+//#define Y 6
+//#define X 5
+
 #define RANDOM(max) ((float)(((float)rand() / (float)RAND_MAX) * (float)(max)))
 #define CEIL(x) (((int)((x)/GRIDWIDTH))+1)
 #define FALSE 0
@@ -151,6 +152,7 @@ void calc(int id, unsigned char* buffer) {
 
 	int x, y;
 	int sum = 0;
+	id = id	; 
 					
 	for(y = 0; y < GRIDHEIGTH; y++) {
 		for(x = 0; x < GRIDWIDTH; x++) {
@@ -169,15 +171,15 @@ int main()
 
 	//printf("SPU: Ready to start\n");
 	
-	int jobID = 0;
-	
 	if (SPU_FIBERS > 1)
 		threadNo = CreateThreads(SPU_FIBERS);
 	else
 		threadNo = 0;
-		
+	
 	if (threadNo >= 0) 
 	{				
+		int jobID = 0;
+		
 		while(1) 
 		{
 			// Make points buffer
@@ -185,12 +187,14 @@ int main()
 			struct PACKAGE* package;
 	
 			unsigned long size;
-			//printf("spu.c: Trying to acquire JOB\n");
+			unsigned int pid = 0;
+			//printf(WHERESTR "%i - Acquire package: %i\n", WHEREARG, pid, JOB+jobID);
 			package = acquire(JOB+jobID, &size, ACQUIRE_MODE_WRITE);
-			//printf("spu.c: Finished acquiring JOB\n");
+
+			pid = package->id;
+
 			// Get canon information
 			// Position(x,y) Angel(ax,ay), Shots(S)	
-			unsigned int pid = package->id;
 			unsigned int maxpid = package->maxid;
 			unsigned int canonS = package->shots_spu;
 			unsigned int canonX = package->canonX;
@@ -205,11 +209,12 @@ int main()
 			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
 			//printf("spu.c: pid: %i, maxpid %i\n", pid, maxpid);
 				
-			//if ((pid % (maxpid / 10)) == 0)
-				//printf(WHERESTR "Canon %i with PID: %i out of %i\n", WHEREARG, jobID + 1, pid, maxpid);
+			if ((pid % (maxpid / 10)) == 0 && pid != maxpid)
+				printf("-\n");
 					
 			if(pid >= maxpid) {
 				release(package);
+				//printf(WHERESTR "%i - Released package: %i\n", WHEREARG, pid, JOB+jobID);
 				unsigned long size; 
 				int* count = acquire(COUNT+jobID, &size, ACQUIRE_MODE_WRITE);
 				*count += 1;
@@ -220,7 +225,9 @@ int main()
 				
 			package->id = pid + 1;
 			release(package);
+			//printf(WHERESTR "%i - Released package: %i\n", WHEREARG, pid, JOB+jobID);
 			
+			//printf(WHERESTR "%i - Acquire point: %i\n", WHEREARG, pid, RESULT + pid);
 			points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
 	
 			// Set current_grid
@@ -248,21 +255,24 @@ int main()
 				unsigned long size;
 				
 				unsigned char* buffer;
+				//printf(WHERESTR "%i - Acquire buffer: %i\n", WHEREARG, pid, id);
 				buffer = acquire(id, &size, ACQUIRE_MODE_READ);			
 									
 				next_grid.x = current_grid.x + 1;
-				if(next_grid.x == 3)
+				if(next_grid.x == X)
 				{
 					next_grid.y = (current_grid.y + 1);
 					next_grid.x = 0;
 					i = 0;
-					if(next_grid.y == 3)
+					if(next_grid.y == Y)
 					{
 						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
 						release(buffer);
+						//printf(WHERESTR "%i - Released buffer: %i\n", WHEREARG, pid, id);
 						clean(id);
 						if(!more_to_do)
 						{
+							//printf(WHERESTR "%i - No more to do\n", WHEREARG, pid);
 							break;
 						}
 						next_grid.x = 0;
@@ -279,9 +289,11 @@ int main()
 				current_grid.y = next_grid.y;
 		
 				release(buffer);
+				//printf(WHERESTR "%i - Released buffer: %i\n", WHEREARG, pid, id);
 				clean(id);
 			}
 			release(points);
+			//printf(WHERESTR "%i - Released point: %i\n", WHEREARG, pid, RESULT + pid);
 			clean(RESULT + pid);
 		}
 		if (SPU_FIBERS > 1)

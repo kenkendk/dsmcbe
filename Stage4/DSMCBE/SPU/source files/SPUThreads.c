@@ -178,7 +178,7 @@ int CreateThreads(int threadCount)
 			return -2;
 	}
 
-	main_env = (jmp_buf*) malloc(sizeof(jmp_buf));
+	main_env = (jmp_buf*)malloc(sizeof(jmp_buf));
 	if (main_env == NULL)
 	{
 			printf("Out of memory\n");

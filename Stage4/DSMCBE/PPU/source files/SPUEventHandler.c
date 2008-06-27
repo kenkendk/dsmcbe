@@ -15,6 +15,14 @@
 int lessint(void* a, void* b);
 int hashfc(void* a, unsigned int count);
 
+struct DMAtranfersCompleteStruct 
+{
+	volatile unsigned int status;
+	unsigned int requestID;
+};
+
+typedef struct DMAtranfersCompleteStruct DMAtranfersComplete;
+
 //This is used to terminate the thread
 volatile int spu_terminate;
 
@@ -41,16 +49,18 @@ hashtable spu_leaseTable;
 hashtable spu_writeInitiator;
 
 //This table contains list with completed DMA transfers, key is GUID, value is 1
-hashtable spu_InCompleteDMAtransfers;
+hashtable* spu_InCompleteDMAtransfers;
+
+DMAtranfersComplete** DMAtransfers;
+unsigned int* DMAtransfersCount;
 
 int* spe_isAlive;
-
 
 void* SPU_Worker(void* data);
 
 void TerminateSPUHandler(int force)
 {
-	size_t i;
+	size_t i, j;
 	
 	//Remove warning about unused parameter
 	spu_terminate = force ? 1 : 1;
@@ -71,10 +81,25 @@ void TerminateSPUHandler(int force)
 		queue_destroy(spu_requestQueues[i]);
 		UnregisterInvalidateSubscriber(&spu_mailboxQueues[i]);
 	}
+
+	for(i = 0; i < spe_thread_count; i++)
+	{	
+		ht_destroy(spu_InCompleteDMAtransfers[i]);
+	}
+	
+	for(i = 0; i < spe_thread_count; i++)
+	{	
+		for(j= 0; j < 32; j++)
+		{
+			FREE(DMAtransfers[(i * 32) + j]);	
+		}
+	}
+	
+	FREE(DMAtransfers);
+	FREE(DMAtransfersCount);
 	
 	ht_destroy(spu_leaseTable);
 	ht_destroy(spu_writeInitiator);
-	ht_destroy(spu_InCompleteDMAtransfers);
 	FREE(spu_requestQueues);
 	spu_requestQueues = NULL;
 	FREE(spu_mailboxQueues);
@@ -84,7 +109,7 @@ void TerminateSPUHandler(int force)
 
 void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 {
-	size_t i;
+	size_t i, j;
 	
 	pthread_attr_t attr;
 	spu_terminate = 0;
@@ -102,6 +127,9 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		
 	if((spu_mailboxQueues = (queue*)MALLOC(sizeof(queue) * spe_thread_count)) == NULL)
 		perror("malloc error");;
+
+	if((spu_InCompleteDMAtransfers = (hashtable*)MALLOC(sizeof(hashtable) * spe_thread_count)) == NULL)
+		perror("malloc error");
 	
 	/* Initialize mutex and condition variable objects */
 	pthread_mutex_init(&spu_work_mutex, NULL);
@@ -119,10 +147,28 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	}
 
 	/* Setup the lease table */
-	spu_leaseTable = ht_create(10, lessint, hashfc);
-	spu_writeInitiator = ht_create(10, lessint, hashfc);
-	spu_InCompleteDMAtransfers = ht_create(10, lessint, hashfc);
+	spu_leaseTable = ht_create(2000, lessint, hashfc);
+	spu_writeInitiator = ht_create(61, lessint, hashfc);
 	
+	printf(WHERESTR "Starting init\n", WHEREARG);	   
+	
+	for(i = 0; i < spe_thread_count; i++)
+	{	
+		spu_InCompleteDMAtransfers[i] = ht_create(50, lessint, hashfc);
+	}
+	
+	// Setup DMAtransfer array
+	DMAtransfersCount = MALLOC(sizeof(unsigned int) * spe_thread_count);
+	DMAtransfers = MALLOC(sizeof(void*) * spe_thread_count * 32);
+	for(i = 0; i < spe_thread_count; i++)
+	{	
+		for(j= 0; j < 32; j++)
+		{	
+			DMAtransfers[(i * 32) + j] = MALLOC_ALIGN(sizeof(DMAtranfersComplete), 7);
+		}
+	}
+	
+	printf(WHERESTR "Done Init\n", WHEREARG);	   			
 
 	/* For portability, explicitly create threads in a joinable state */
 	pthread_attr_init(&attr);
@@ -157,12 +203,39 @@ void* SPU_Worker(void* data)
 	QueueableItem queueItem;
 	int mode;
 	int initiatorNo;
+	hashtableIterator iter;
+	DMAtranfersComplete* DMAobj = NULL;
 		
 	while(!spu_terminate)
 	{
 		//printf(WHERESTR "Inside loop\n", WHEREARG);
 		//Step 1, process SPU mailboxes
 		for(i = 0; i < spe_thread_count; i++)
+		{
+			if (spe_isAlive[i] && spu_InCompleteDMAtransfers[i]->fill > 0)
+			{
+				//printf(WHERESTR "Checking spu_InCompleteDMAtransfers\n", WHEREARG);
+				iter = ht_iter_create(spu_InCompleteDMAtransfers[i]);
+				while(ht_iter_next(iter))
+				{
+					DMAobj = (DMAtranfersComplete*)ht_iter_get_value(iter);
+					
+					if (DMAobj->status == 0)
+					{
+						//printf(WHERESTR "Request is %u, Key %i, uintmax %u\n", WHEREARG, DMAobj->requestID, (int)ht_iter_get_key(iter), UINT_MAX);
+						if (DMAobj->requestID != UINT_MAX)
+							EnqueInvalidateResponse(DMAobj->requestID);
+						
+						//printf(WHERESTR "Deleting from HT\n", WHEREARG);
+						ht_delete(spu_InCompleteDMAtransfers[i], ht_iter_get_key(iter));
+						ht_iter_reset(iter);
+					}
+
+				}
+				ht_iter_destroy(iter);
+				//printf(WHERESTR "Done checking spu_InCompleteDMAtransfers\n", WHEREARG);
+			}	
+																					
 			if (spe_isAlive[i] && spe_out_mbox_status(spe_threads[i]) != 0)
 			{
 				datatype = 8000;
@@ -172,18 +245,7 @@ void* SPU_Worker(void* data)
 					REPORT_ERROR("Read MBOX failed (1)!");
 					
 				switch(datatype)
-				{	
-					case PACKAGE_DMA_COMPLETED:
-						ReadMBOXBlocking(spe_threads[i], &itemid, 1);
-						if(ht_member(spu_InCompleteDMAtransfers, (void*)itemid))
-						{
-							requestID = (unsigned int)ht_get(spu_InCompleteDMAtransfers, (void*)itemid);
-							if (requestID != UINT_MAX)
-								EnqueInvalidateResponse(requestID);
-								
-							ht_delete(spu_InCompleteDMAtransfers, (void*)itemid);							
-						}							
-						break;					
+				{					
 					case PACKAGE_TERMINATE_REQUEST:
 						queue_enq(spu_mailboxQueues[i], (void*)PACKAGE_TERMINATE_RESPONSE);
 						spe_isAlive[i] = 0;
@@ -282,7 +344,7 @@ void* SPU_Worker(void* data)
 				}
 				
 			}
-		
+		}
 		//Step 2, proccess any responses
 		//printf(WHERESTR "checking for coordinator reponses\n", WHEREARG);
 		
@@ -328,8 +390,17 @@ void* SPU_Worker(void* data)
 						}
 						else
 						{
-							if(!ht_member(spu_InCompleteDMAtransfers, (void*)((struct acquireResponse*)dataItem)->dataItem))
-								ht_insert(spu_InCompleteDMAtransfers, (void*)((struct acquireResponse*)dataItem)->dataItem, UINT_MAX);
+							if(!ht_member(spu_InCompleteDMAtransfers[i], (void*)((struct acquireResponse*)dataItem)->dataItem))
+							{
+								DMAtransfersCount[i] = (DMAtransfersCount[i] + 1) % 32;
+								DMAobj = DMAtransfers[(i * 32) + DMAtransfersCount[i]];
+								DMAobj->status = 1;
+								DMAobj->requestID = UINT_MAX;
+								ht_insert(spu_InCompleteDMAtransfers[i], (void*)((struct acquireResponse*)dataItem)->dataItem, DMAobj);
+								queue_enq(spu_mailboxQueues[i], DMAobj);
+							}
+							else								
+								REPORT_ERROR("Could not insert into Incomplete DMA transfers HT");
 						}
 						
 						break;
@@ -370,14 +441,16 @@ void* SPU_Worker(void* data)
 								//printf(WHERESTR "Forwarding invalidate for id %d to SPU %d\n", WHEREARG, itemid, i);
 								slset_delete((slset)ht_get(spu_leaseTable, (void*)itemid), (void*)i);
 								
-								if(!ht_member(spu_InCompleteDMAtransfers, (void*)itemid))
+								if(!ht_member(spu_InCompleteDMAtransfers[i], (void*)itemid))
 								{
+									//printf(WHERESTR "Sending invaliResp ID into thing %i %i %i\n", WHEREARG, requestID, i, initiatorNo);
 									EnqueInvalidateResponse(requestID);
 								}
 								else
 								{
-									ht_delete(spu_InCompleteDMAtransfers, (void*)itemid);
-									ht_insert(spu_InCompleteDMAtransfers, (void*)itemid, requestID);
+									//printf(WHERESTR "Inserting request ID into thing %i %i %i\n", WHEREARG, requestID, i, initiatorNo);
+									DMAobj = ht_get(spu_InCompleteDMAtransfers[i], (void*)itemid);
+									DMAobj->requestID = requestID;
 								}
 							}
 							else

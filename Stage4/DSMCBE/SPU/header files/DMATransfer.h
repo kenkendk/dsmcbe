@@ -11,7 +11,7 @@
 #define malloc_align _malloc_align
 #define free_align _free_align
 
-void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid);
+void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid, unsigned int dmaComplete);
 void WaitForDMATransferByGroup(int groupid);
 void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid);
 int IsDMATransferGroupCompleted(int groupid);

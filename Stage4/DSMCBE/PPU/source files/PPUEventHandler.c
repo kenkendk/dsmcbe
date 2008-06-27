@@ -65,15 +65,15 @@ void InitializePPUHandler()
 	
 	pthread_attr_t attr;
 	
-	pointers = ht_create(10, lessint, hashfc);
+	pointers = ht_create(40, lessint, hashfc);
 	pthread_mutex_init(&pointer_mutex, NULL);
-	pointersOld = ht_create(10, lessint, hashfc);
+	pointersOld = ht_create(41, lessint, hashfc);
 	pthread_mutex_init(&pointerOld_mutex, NULL);
 	pendingInvalidate = queue_create();
 	pthread_mutex_init(&ppu_invalidate_mutex, NULL);
 	pthread_cond_init(&pointerOld_cond, NULL);
 	
-	pendingRequests = ht_create(10, lessint, hashfc);
+	pendingRequests = ht_create(42, lessint, hashfc);
 	pthread_mutex_init(&ppu_queue_mutex, NULL);
 	pthread_cond_init(&ppu_queue_cond, NULL);
 	ppu_work_queue = queue_create();
