@@ -491,9 +491,9 @@ void ht_destroy(hashtable ht)
 
 void ht_insert(hashtable ht, void* key, void* data)
 {
-	if (((ht->fill + 1) * 2) > ht->count && ht->fill >= ht->wrapsize)
+	if (((ht->fill + 1) * 2) > ht->count && ht->fill >= ht->wrapsize)	
 		ht_resize(ht, (ht->count + 1) * 2);
-
+		
 	if(ht->count > ht->wrapsize)
 		slset_insert(ht->buffer[ht->hash(key, ht->count)], key, data);
 	 else
@@ -537,10 +537,13 @@ void* ht_get(hashtable ht, void* key)
 
 void ht_resize(hashtable ht, unsigned int newsize)
 {
+	fprintf(stderr, WHERESTR "Resize called on hashtable", WHEREARG);
 	unsigned int i;
 	keylist kl;
 	hashtable newtable;
 
+	fprintf(stderr, WHERESTR "Before resize %i / %i\n", WHEREARG, ht->fill, ht->count);
+	
 	newtable = ht_create_internal(newsize, ht->less, ht->hash, ht->wrapsize);
 
 	for(i = 0; i < ht->count; i++)
@@ -581,6 +584,7 @@ void ht_resize(hashtable ht, unsigned int newsize)
 	
 	FREE(newtable);
 	newtable = NULL;
+	fprintf(stderr, WHERESTR "After resize  %i / %i\n", WHEREARG, ht->fill, ht->count);
 }
 
 /*********************/

@@ -28,7 +28,7 @@ extern int thread_no;*/
 //#define REPORT_FREE(x) printf(WHERESTR "Free'd %d, balance: %d\n", WHEREARG, (int)x, --balance);
 
 //There are only 32 DMA tags avalible
-#define MAX_DMA_GROUPS 10
+#define MAX_DMA_GROUPS 32
 
 //There can be no more than this many ongoing requests
 #define MAX_PENDING_REQUESTS 10
@@ -315,9 +315,9 @@ void* clearAlign(unsigned long size, int base) {
 					cur = &((*cur)->next);
 				//printf(WHERESTR "Cleared id %i\n", WHEREARG, id);
 			} else {
-				printf(WHERESTR "ID is %d (%d)\n", WHEREARG, id, queue_count(allocatedID));
 				REPORT_ERROR("allocatedID not found in itemsById");
-				sleep(10);
+				fprintf(stderr, WHERESTR "ID is %d (%d, %i/%i)\n", WHEREARG, id, queue_count(allocatedID), itemsById->fill, itemsById->count);
+				*cur = cdr_and_free(*cur);
 			}		
 		}
 		
@@ -426,7 +426,7 @@ void invalidate(GUID id, unsigned int requestID) {
 			
 			//sendInvalidateResponse(requestID);
 			
-			//int index =	pendingInvalidateContains(id, 1);
+			pendingInvalidateContains(id, 1);
 			//if (index > 0)
 				//sendInvalidateResponse(pendingInvalidates[index].requestID);
 		}
@@ -527,19 +527,13 @@ void StartDMATransfer(struct acquireResponse* resp)
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
 	if ((temp = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
-		printf(WHERESTR "Pending invalidate (bitmap): %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d\n", WHEREARG, pendingInvalidateMap, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID));
+		printf(WHERESTR "Pending invalidate (bitmap): %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d, transfersize %i\n", WHEREARG, pendingInvalidateMap, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID), transfer_size);
+		REPORT_ERROR("Failed to allocate memory on SPU");
 		printf("Force print\n");
 		printf("Force print\n");
 		printf("Force print\n");
 		printf("Force print\n");
 		printf("Force print\n");
-		printf("Force print\n");
-		printf("Force print\n");
-		printf("Force print\n");
-		printf("Force print\n");
-		printf("Force print\n");
-		printf("Force print\n");
-		REPORT_ERROR("Failed to allocate memory on SPU");		
 	}
 
 	// Make datastructures for later use
@@ -580,7 +574,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	}
 	//printf(WHERESTR "Registered dataobject with id: %d\n", WHEREARG, object->id);
 
-	StartDMAReadTransfer(req->object->data, (unsigned int)resp->data, transfer_size, req->dmaNo);
+	StartDMAReadTransfer(req->object->data, (unsigned int)resp->data, transfer_size, req->dmaNo, (unsigned int)resp->dmaComplete);
 }
 
 void readMailbox() {
@@ -588,6 +582,7 @@ void readMailbox() {
 	unsigned long datasize;
 	GUID itemid;
 	void* datapointer;
+	void* dmaComplete;
 	int mode;
 		
 	struct acquireResponse* acqResp;
@@ -613,6 +608,11 @@ void readMailbox() {
 			datasize = spu_read_in_mbox();
 			datapointer = (void*)spu_read_in_mbox();
 
+			if (mode == ACQUIRE_MODE_READ)
+				dmaComplete = (void*)spu_read_in_mbox();
+			else
+				dmaComplete = NULL;
+				
 			if (!GETBIT(requestID, MAX_PENDING_REQUESTS, pendingMap)) {
 				REPORT_ERROR("Recieved a request with an unexpected requestID\n");
 			} else {
@@ -626,9 +626,9 @@ void readMailbox() {
 				acqResp->mode = mode;
 				acqResp->dataSize = datasize;
 				acqResp->data = datapointer;
+				acqResp->dmaComplete = dmaComplete;
 
-				StartDMATransfer(acqResp);
-				
+				StartDMATransfer(acqResp);				
 			}
 			
 			//printf(WHERESTR "Done with ACQUIRE package\n", WHEREARG);			
@@ -994,13 +994,6 @@ int getAsyncStatus(unsigned int requestNo)
 			{
 				req->state = ASYNC_STATUS_COMPLETE;
 				
-				// Send mailbox message to SPUEventHandler
-				if (req->request.packageCode == PACKAGE_ACQUIRE_RESPONSE && req->mode == ACQUIRE_MODE_READ)
-				{
-					spu_write_out_mbox(PACKAGE_DMA_COMPLETED);
-					spu_write_out_mbox(req->id);
-				}
-
 				if (req->request.packageCode == PACKAGE_RELEASE_REQUEST)
 				{
 					req->state = ASYNC_STATUS_REQUEST_SENT;
