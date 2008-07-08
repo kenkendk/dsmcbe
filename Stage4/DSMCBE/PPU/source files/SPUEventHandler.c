@@ -61,7 +61,6 @@ void* SPU_Worker(void* data);
 void TerminateSPUHandler(int force)
 {
 	size_t i, j;
-	
 	//Remove warning about unused parameter
 	spu_terminate = force ? 1 : 1;
 	
@@ -276,6 +275,7 @@ void* SPU_Worker(void* data)
 						((struct acquireRequest*)dataItem)->dataItem = itemid;
 						((struct acquireRequest*)dataItem)->packageCode = datatype;
 						((struct acquireRequest*)dataItem)->requestID = requestID;
+						//((struct acquireRequest*)dataItem)->spe = spe_threads[i];
 						//printf(WHERESTR "Got %d, %d, %d\n", WHEREARG, itemid, datatype, requestID);
 						break;
 						
@@ -392,6 +392,7 @@ void* SPU_Worker(void* data)
 						{
 							if(!ht_member(spu_InCompleteDMAtransfers[i], (void*)((struct acquireResponse*)dataItem)->dataItem))
 							{
+								//printf(WHERESTR "Value: %i\n", WHEREARG, ((struct acquireResponse*)dataItem)->dataItem);
 								DMAtransfersCount[i] = (DMAtransfersCount[i] + 1) % 32;
 								DMAobj = DMAtransfers[(i * 32) + DMAtransfersCount[i]];
 								DMAobj->status = 1;
@@ -400,7 +401,10 @@ void* SPU_Worker(void* data)
 								queue_enq(spu_mailboxQueues[i], DMAobj);
 							}
 							else								
+							{
+								//printf(WHERESTR "Value: %i\n", WHEREARG, ((struct acquireResponse*)dataItem)->dataItem);
 								REPORT_ERROR("Could not insert into Incomplete DMA transfers HT");
+							}
 						}
 						
 						break;
@@ -469,6 +473,10 @@ void* SPU_Worker(void* data)
 						break;
 					case PACKAGE_WRITEBUFFER_READY:
 						//printf(WHERESTR "Sending WRITEBUFFER_READY to SPU %d\n", WHEREARG, i);
+						// Could try to send a signal instead of at mailbox!
+						//printf("Sending signal\n");
+						//spe_signal_write(spe_threads[i], SPE_SIG_NOTIFY_REG_1, ((struct writebufferReady*)dataItem)->dataItem);
+						//printf("Signal send\n");
 						queue_enq(spu_mailboxQueues[i], (void*)datatype);
 						queue_enq(spu_mailboxQueues[i], (void*)((struct writebufferReady*)dataItem)->requestID);
 						queue_enq(spu_mailboxQueues[i], (void*)((struct writebufferReady*)dataItem)->dataItem);						

@@ -524,16 +524,37 @@ void StartDMATransfer(struct acquireResponse* resp)
 
 	// TEST AREA
 	void* temp = NULL;
+	int i;
 	transfer_size = ALIGNED_SIZE(resp->dataSize);
 
 	if ((temp = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
 		printf(WHERESTR "Pending invalidate (bitmap): %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d, transfersize %i\n", WHEREARG, pendingInvalidateMap, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID), transfer_size);
+/*
+		unsigned int size = transfer_size;
+		unsigned int totSize = 0;
+		unsigned int segments = 0;
+		void* ptr;
+		while(totSize != transfer_size && size != 0)
+		{
+			size = transfer_size;
+			while(size != 0 && (ptr = MALLOC_ALIGN(size, 7)) == NULL)
+				size--;
+	
+			if(size > 0)
+			{		
+				printf("Allocated %u at %u to %u\n", size, (unsigned int)ptr, (unsigned int)ptr + size);
+				segments++;
+				totSize += size;
+			}
+		}
+			
+		printf("Could allocate %i bytes in %i segments (%i bytes)\n", totSize, segments, transfer_size); 
+*/
+		
+		for(i = 0; i < 5000; i++)
+			printf("Force print\n");
+
 		REPORT_ERROR("Failed to allocate memory on SPU");
-		printf("Force print\n");
-		printf("Force print\n");
-		printf("Force print\n");
-		printf("Force print\n");
-		printf("Force print\n");
 	}
 
 	// Make datastructures for later use
@@ -848,6 +869,29 @@ void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
 	request->offset = 0;
 }
 
+/*
+void readSignal()
+{
+	int itemid;
+	//printf(WHERESTR "Checking signal status\n", WHEREARG);
+	int temp = spu_stat_signal1();
+	//printf(WHERESTR "Signal status was %i\n", WHEREARG, temp); 
+	if (temp == 1)
+	{
+		//printf(WHERESTR "Reading signal\n", WHEREARG);
+		itemid = spu_read_signal1();
+		//printf(WHERESTR "Signal was: %i\n", WHEREARG, itemid);
+		if (ht_member(itemsById, (void*)itemid)) {
+			dataObject object = ht_get(itemsById, (void*)itemid);
+			object->ready = TRUE;
+		}
+		else {
+			REPORT_ERROR("Writebuffer signal recieved but package was unknown");
+		}	
+	}
+}
+*/
+
 unsigned int beginRelease(void* data)
 {
 	unsigned int nextId = findFreeItem(&requestNo, MAX_PENDING_REQUESTS, &pendingMap);
@@ -885,6 +929,9 @@ unsigned int beginRelease(void* data)
 			req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
 			req->object = object;
 			req->size = object->size;
+
+			// If we use signaling instead of mailbox messages.			
+			//readSignal();
 			
 			if(object->ready == FALSE) {
 				//printf(WHERESTR "Starting a release for %d in write mode, awaiting write signal\n", WHEREARG, (int)object->id);
@@ -944,6 +991,28 @@ unsigned int beginRelease(void* data)
 }
 
 void initialize(){
+/*
+	unsigned int transfer_size = 200*1024;
+	unsigned int size = transfer_size;
+	unsigned int totSize = 0;
+	unsigned int segments = 0;
+	void* ptr;
+	while(totSize != transfer_size && size != 0)
+	{
+		size = transfer_size;
+		while(size != 0 && (ptr = MALLOC_ALIGN(size, 7)) == NULL)
+			size = size - 1024;
+
+		if(size > 0)
+		{		
+			printf("Allocated %u at %u to %u\n", size, (unsigned int)ptr, (unsigned int)ptr + size);
+			segments++;
+			totSize += size;
+		}
+	}
+		
+	printf("Could allocate %i bytes in %i segments (%i bytes)\n", totSize, segments, transfer_size);
+*/		
 	terminated = 0;
 	itemsByPointer = ht_create(10, lessint, hashfc);
 	itemsById = ht_create(10, lessint, hashfc);
@@ -1004,6 +1073,7 @@ int getAsyncStatus(unsigned int requestNo)
 				}
 			}		
 		} else if (req->state == ASYNC_STATUS_WRITE_READY) {
+			//readSignal();
 			if (req->object->ready == TRUE) {
 				startWriteDMATransfer(req, requestNo);	
 			}			

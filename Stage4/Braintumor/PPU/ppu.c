@@ -291,6 +291,7 @@ int main(int argc, char* argv[])
 	{
 		//printf("Starting loading images!\n");	
 		loadImageNormal();
+		//loadImageSmall();
 		//printf("Finished loading images!\n");
 		
 		for(i = 0; i < (SHOTS / SHOTS_SPU); i++)
