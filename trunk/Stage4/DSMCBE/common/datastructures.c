@@ -512,9 +512,9 @@ void ht_delete(hashtable ht, void* key)
 	ht->fill--;
 	if (ht->count > ht->wrapsize)
 	{
-		if (ht->fill < ht->wrapsize)
+		/*if (ht->fill < ht->wrapsize)
 			ht_resize(ht, ht->wrapsize);
-		else if (ht->fill * 3 < ht->count) 
+		else*/ if (ht->fill * 3 < ht->count) 
 			ht_resize(ht, (ht->count / 2) > ht->wrapsize ?  (ht->count / 2) : ht->wrapsize);
 	}
 }
@@ -537,7 +537,7 @@ void* ht_get(hashtable ht, void* key)
 
 void ht_resize(hashtable ht, unsigned int newsize)
 {
-	fprintf(stderr, WHERESTR "Resize called on hashtable", WHEREARG);
+	fprintf(stderr, WHERESTR "Resize called on hashtable\n", WHEREARG);
 	unsigned int i;
 	keylist kl;
 	hashtable newtable;

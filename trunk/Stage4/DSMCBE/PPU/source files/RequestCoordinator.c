@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <limits.h>
+#include <libspe2.h>
 #include "../header files/RequestCoordinator.h"
 #include "../header files/NetworkHandler.h"
 
@@ -311,6 +312,7 @@ void RespondAny(QueueableItem item, void* resp)
 		pthread_mutex_unlock(item->mutex);
 	
 	//printf(WHERESTR "responding, done\n", WHEREARG);
+	
 	
 	FREE(item->dataRequest);
 	item->dataRequest = NULL;
@@ -978,15 +980,16 @@ void HandleInvalidateResponse(QueueableItem item)
 		
 		if(ht_member(writebufferReady, object)) {
 			//printf(WHERESTR "The last response is in for: %d, sending writebuffer signal, %d\n", WHEREARG, object->id, (int)object);
+
 			
 			QueueableItem reciever = ht_get(writebufferReady, object);
-			
+
 			struct writebufferReady* invReq = (struct writebufferReady*)MALLOC(sizeof(struct writebufferReady));
 			if (invReq == NULL)
 				REPORT_ERROR("malloc error");
 			
 			ht_delete(writebufferReady, object);
-			
+					
 			invReq->packageCode = PACKAGE_WRITEBUFFER_READY;
 			invReq->requestID = ((struct acquireRequest*)reciever->dataRequest)->requestID;
 			invReq->dataItem = object->id;

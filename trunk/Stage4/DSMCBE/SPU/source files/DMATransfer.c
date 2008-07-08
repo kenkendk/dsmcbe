@@ -118,7 +118,7 @@ void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int 
 		listsize = i * sizeof(struct DMA_LIST_ELEMENT);
 		mfc_getl(buffer, list[0].ea_low, list, listsize, groupid, 0, 0);
 		if(dmaComplete != 0)
-			mfc_putf(&zero, dmaComplete,  sizeof(unsigned int), groupid, 0, 0);				
+			mfc_putf(&zero, dmaComplete,  sizeof(unsigned int), groupid, 0, 0);
 	}
 	//printf(WHERESTR "DMA done\n", WHEREARG);
 }
