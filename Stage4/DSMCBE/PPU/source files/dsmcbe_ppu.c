@@ -68,6 +68,8 @@ void itoa(int n, char s[])
 
 void updateNetworkFile(char* path, unsigned int networkcount)
 {
+	return;
+	
 	FILE* filesource; 
 	FILE* filetarget;
 	unsigned int port;
@@ -151,6 +153,14 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		he = gethostbyname(ip);
 		addr.sin_family = AF_INET;
 
+		if (he != NULL)
+		{
+			if (*((unsigned long*)(he->h_addr_list[0])) == 0)
+				he = NULL;
+			else
+				addr.sin_addr.s_addr = *((unsigned long*)(he->h_addr_list[0]));
+		}
+
 		if (he == NULL)
 		{
 			if (inet_aton(ip,&(addr.sin_addr)) == 0)
@@ -159,6 +169,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 				exit(-1);
 			} 
 		}
+		
+		//printf("IP parsed gave: %d, name gave: %d\n", addr.sin_addr.s_addr, he->h_addr);
 		
 		addr.sin_port = port;
 		memset(&(addr.sin_zero),'\0',8);
@@ -193,7 +205,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 				conres = connect(sockfd[j], (struct sockaddr *)&network[j], sizeof(struct sockaddr));
 				if (conres == -1)
 				{
-					printf(WHERESTR "Host %d did not respond, retry in 5 sec, attempt %d of 5\n", WHEREARG, j, k + 1);
+					printf(WHERESTR "Host %d did not respond, retry in 5 sec, attempt %d of 5 (port: %d)\n", WHEREARG, j, k + 1, network[j].sin_port);
 					sleep(5);
 				}
 				else
@@ -219,12 +231,19 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 			REPORT_ERROR("socket()");
 			exit(1);
 		}
+
+		printf(WHERESTR "This machine starts to listen on port: %i\n", WHEREARG, network[id].sin_port);
 		  
 		if(bind(sockfd[id], (struct sockaddr *)&network[id], sizeof(struct sockaddr)) == -1)
 		{
 			REPORT_ERROR("bind()");
 			exit(1);
 		}
+
+		printf(WHERESTR "This machine listens on port: %i\n", WHEREARG, network[id].sin_port);
+
+		/*printf(WHERESTR "All done, bailing: %i\n", WHEREARG, network[id].sin_port);
+		exit(2);*/
 		
 		if(listen(sockfd[id], BACKLOG) == -1)
 		{
@@ -238,7 +257,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		  	REPORT_ERROR("accept()");
 		  	exit(1);
 		}
-		
+
 		for(j = networkcount - 1; j > id; j--) {		
 			printf(WHERESTR "This machine needs to connect to machine with id: %i\n", WHEREARG, j);
 
