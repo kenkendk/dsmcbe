@@ -67,9 +67,10 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 		
 	int width = MIN(GRIDWIDTH, CTWIDTH-(current_grid.x * GRIDWIDTH));	
 	int heigth = MIN(GRIDHEIGTH, CTHEIGTH-(current_grid.y * GRIDHEIGTH));
-		
-	//int memory_width = width + ((128 - width) % 128);
+	
 	int memory_width = GRIDWIDTH + ((128 - GRIDWIDTH) % 128);
+
+	//int memory_width = GRIDWIDTH + ((128 - GRIDWIDTH) % 128);
 
 	int minx = current_grid.x * GRIDWIDTH;		
 	int maxx = minx + width; 
@@ -82,7 +83,10 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 	int xx, yy;
 	
 	for(i=0; i<pcnt; i++)
-	{
+	{		
+		if (i % 1000 == 0)
+			getAsyncStatus(NextID);
+			
 		if (i % 1000 == 0)
 			getAsyncStatus(NextID);
 			
@@ -213,8 +217,8 @@ int main()
 			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
 			//printf("spu.c: pid: %i, maxpid %i\n", pid, maxpid);
 				
-			if ((pid % (maxpid / 10)) == 0 && pid != maxpid)
-				printf("-\n");
+			//if ((pid % (maxpid / 10)) == 0 && pid != maxpid)
+				//printf("-\n");
 					
 			if(pid >= maxpid) {
 				release(package);
@@ -252,13 +256,16 @@ int main()
 			}
 			
 			int more_to_do = TRUE;
+
 			unsigned char* buffer;
 			unsigned int id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10)); 
-	
 			unsigned int bufferID1;
 			unsigned int bufferID2;
-    		unsigned int currentID;
-			
+    		unsigned int currentID;			
+
+			bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);
+			currentID = bufferID1;
+
 			bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);
 			currentID = bufferID1;
 			
@@ -275,7 +282,7 @@ int main()
 						next_grid.x = 0;
 						next_grid.y = 0;
 
-						id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));				
+						id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));
 						if (currentID == bufferID1)
 							bufferID2 = beginAcquire(id, ACQUIRE_MODE_READ);
 						else
@@ -301,13 +308,13 @@ int main()
 					}				
 				}
 				
-				id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));				
+				id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));
+
 				if (currentID == bufferID1)
 					bufferID2 = beginAcquire(id, ACQUIRE_MODE_READ);
 				else
 					bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);			
-				
-				
+								
 				buffer = endAsync(currentID, &size);
 				more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid, currentID == bufferID1 ? bufferID2 : bufferID1);
 				release(buffer);
@@ -318,11 +325,9 @@ int main()
 					release(buffer);
 					//printf(WHERESTR "No more to do - Middel\n", WHEREARG);
 				}
-																											
 				current_grid.x = next_grid.x;
 				current_grid.y = next_grid.y;		
 				currentID = currentID == bufferID1 ? bufferID2 : bufferID1;
-		
 				//printf(WHERESTR "%i - Released buffer: %i\n", WHEREARG, pid, id);
 			}
 			release(points);
