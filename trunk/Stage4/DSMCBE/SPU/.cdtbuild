@@ -10,6 +10,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.debug.1545673114" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.debug">
 <option id="gnu.c.compiler.option.include.paths.1262667757" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/prototype/usr/spu/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 </option>
 <option id="gnu.c.compiler.option.preprocessor.def.symbols.46996743" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols">

@@ -1,8 +1,9 @@
-#include <stdio.h>
 #include <spu_intrinsics.h>
 #include <libmisc.h>
 #include <spu_mfcio.h>
 #include <unistd.h>  
+
+#include <spu_timer.h>
 
 #include "../../dsmcbe_spu.h"
 #include "../../common/datapackages.h"
@@ -20,6 +21,52 @@
 #define ASYNC_STATUS_WRITE_READY 5
 #define TRUE 1
 #define FALSE 0
+
+extern unsigned long long speID;
+
+unsigned long long real_clock = 0;
+unsigned long long real_last_clock = 0;
+
+unsigned long long start = 0;
+unsigned long long beforeDMA = 0;
+unsigned long long afterDMA = 0;
+unsigned long long end = 0;
+
+unsigned int acquireReadCount = 0;
+unsigned int acquireRead = 0;
+unsigned int beforeDMAReadRead = 0;
+unsigned int dmaReadRead = 0;
+unsigned int afterDMAReadRead = 0;
+
+unsigned int acquireWriteCount = 0;
+unsigned int acquireWrite = 0;
+unsigned int beforeDMAReadWrite = 0;
+unsigned int dmaReadWrite = 0;
+unsigned int afterDMAReadWrite = 0;
+
+unsigned int releaseReadCount = 0;
+unsigned int releaseRead = 0;
+
+unsigned int releaseWriteCount = 0;
+unsigned int releaseWrite = 0;
+unsigned int beforeDMAWrite = 0;
+unsigned int dmaWrite = 0;
+unsigned int afterDMAWrite = 0;
+
+unsigned int READWRITE = 0;
+
+unsigned long long ReadClock()
+{
+	unsigned long long temp = spu_clock_read();
+	if(temp < real_last_clock)
+		real_clock += (UINT_MAX - real_last_clock) + temp;
+	else
+		real_clock += temp - real_last_clock;
+		
+	real_last_clock = spu_clock_read();
+		
+	return real_clock;
+}
 
 /*extern unsigned int thread_id;
 extern int thread_no;*/
@@ -595,7 +642,19 @@ void StartDMATransfer(struct acquireResponse* resp)
 	}
 	//printf(WHERESTR "Registered dataobject with id: %d\n", WHEREARG, object->id);
 
+	beforeDMA = ReadClock();
+	if (READWRITE == ACQUIRE_MODE_READ)
+		beforeDMAReadRead = (((acquireReadCount - 1.0) / acquireReadCount) * beforeDMAReadRead) + ((1.0 / acquireReadCount) * (beforeDMA - start));	
+	else if (READWRITE == ACQUIRE_MODE_WRITE)
+		beforeDMAReadWrite = (((acquireWriteCount - 1.0) / acquireWriteCount) * beforeDMAReadWrite) + ((1.0 / acquireWriteCount) * (beforeDMA - start));	
+
 	StartDMAReadTransfer(req->object->data, (unsigned int)resp->data, transfer_size, req->dmaNo, (unsigned int)resp->dmaComplete);
+	afterDMA = ReadClock();
+
+	if (READWRITE == ACQUIRE_MODE_READ)
+		dmaReadRead = (((acquireReadCount - 1.0) / acquireReadCount) * dmaReadRead) + ((1.0 / acquireReadCount) * (afterDMA - beforeDMA));	
+	else if (READWRITE == ACQUIRE_MODE_WRITE)
+		dmaReadWrite = (((acquireWriteCount - 1.0) / acquireWriteCount) * dmaReadWrite) + ((1.0 / acquireWriteCount) * (afterDMA - beforeDMA));	
 }
 
 void readMailbox() {
@@ -854,8 +913,15 @@ void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
 	req->state = ASYNC_STATUS_DMA_PENDING;
 	
 	transfersize = ALIGNED_SIZE(req->object->size);
+	
+	beforeDMA = ReadClock();
+	
+	beforeDMAWrite = (((releaseWriteCount - 1.0) / releaseWriteCount) * beforeDMAWrite) + ((1.0 / releaseWriteCount) * (beforeDMA - start));	
+	
 	StartDMAWriteTransfer(req->object->data, (int)req->object->EA, transfersize, req->dmaNo);
-
+	afterDMA = ReadClock();
+	dmaWrite = (((releaseWriteCount - 1.0) / releaseWriteCount) * dmaWrite) + ((1.0 / releaseWriteCount) * (afterDMA - beforeDMA));
+	
 	//printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, req->id); 
 
 	struct releaseRequest* request = (struct releaseRequest*)&req->request;
@@ -924,6 +990,8 @@ unsigned int beginRelease(void* data)
 
 		if (object->mode == ACQUIRE_MODE_WRITE) {
 
+			READWRITE = ACQUIRE_MODE_WRITE;
+			releaseWriteCount++;
 			//printf(WHERESTR "Starting a release for %d in write mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 			req->id = object->id;
 			req->dmaNo = NEXT_SEQ_NO(DMAGroupNo, MAX_DMA_GROUPS);
@@ -942,6 +1010,9 @@ unsigned int beginRelease(void* data)
 			startWriteDMATransfer(req, nextId);
 							
 		} else if (object->mode == ACQUIRE_MODE_READ || object->mode == ACQUIRE_MODE_BLOCKED) {
+			
+			READWRITE = ACQUIRE_MODE_READ;
+			releaseReadCount++;
 			//printf(WHERESTR "Starting a release for %d in read mode (ls: %d, data: %d)\n", WHEREARG, (int)object->id, (int)object->data, (int)data); 
 
 			object->count--;
@@ -1012,7 +1083,8 @@ void initialize(){
 	}
 		
 	printf("Could allocate %i bytes in %i segments (%i bytes)\n", totSize, segments, transfer_size);
-*/		
+*/
+	spu_clock_start();
 	terminated = 0;
 	itemsByPointer = ht_create(10, lessint, hashfc);
 	itemsById = ht_create(10, lessint, hashfc);
@@ -1020,7 +1092,6 @@ void initialize(){
 }
 
 void terminate() {
-	
 	spu_write_out_mbox(PACKAGE_TERMINATE_REQUEST);
 	while(!terminated)
 		readMailbox();
@@ -1208,11 +1279,66 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 }
  
 void* acquire(GUID id, unsigned long* size, int type) {
-	return endAsync(beginAcquire(id, type), size);
+	READWRITE = type;
+	if (READWRITE == ACQUIRE_MODE_READ)
+		acquireReadCount++;
+	else if (READWRITE == ACQUIRE_MODE_WRITE)
+		acquireWriteCount++;		
+		
+	start = ReadClock();
+	void* temp = endAsync(beginAcquire(id, type), size);		
+	end = ReadClock();
+	if (READWRITE == ACQUIRE_MODE_READ)
+	{
+		afterDMAReadRead = (((acquireReadCount - 1.0) / acquireReadCount) * afterDMAReadRead) + ((1.0 / acquireReadCount) * (end - afterDMA));
+		acquireRead = (((acquireReadCount - 1.0) / acquireReadCount) * acquireRead) + ((1.0 / acquireReadCount) * (end - start));	
+	}
+	else if (READWRITE == ACQUIRE_MODE_WRITE)
+	{
+		afterDMAReadWrite = (((acquireWriteCount - 1.0) / acquireWriteCount) * afterDMAReadWrite) + ((1.0 / acquireWriteCount) * (end - afterDMA));
+		acquireWrite = (((acquireWriteCount - 1.0) / acquireWriteCount) * acquireWrite) + ((1.0 / acquireWriteCount) * (end - start));	
+	}
+	return temp;	
 }
 
 void release(void* data){
+	start = ReadClock();
 	endAsync(beginRelease(data), NULL);
+	end = ReadClock();
+	if (READWRITE == ACQUIRE_MODE_READ)
+	{
+		releaseRead = (((releaseReadCount - 1.0) / releaseReadCount) * releaseRead) + ((1.0 / releaseReadCount) * (end - start));	
+	}
+	else if (READWRITE == ACQUIRE_MODE_WRITE)
+	{
+		afterDMAWrite = (((releaseWriteCount - 1.0) / releaseWriteCount) * afterDMAWrite) + ((1.0 / releaseWriteCount) * (end - afterDMA));
+		releaseWrite = (((releaseWriteCount - 1.0) / releaseWriteCount) * releaseWrite) + ((1.0 / releaseWriteCount) * (end - start));	
+	}
+}
+
+void getStats()
+{
+	printf("SPE: %llu - total %llu\n", speID, ReadClock());
+	printf("SPE: %llu - acquireReadCount %u\n", speID, acquireReadCount);
+	printf("SPE: %llu - acquireRead %u\n", speID, acquireRead);
+	printf("SPE: %llu - beforeDMAReadRead %u\n", speID, beforeDMAReadRead);
+	printf("SPE: %llu - dmaReadRead %u\n", speID, dmaReadRead);
+	printf("SPE: %llu - afterDMAReadRead %u\n", speID, afterDMAReadRead);
+	
+	printf("SPE: %llu - acquireWriteCount %u\n", speID, acquireWriteCount);
+	printf("SPE: %llu - acquireWrite %u\n", speID, acquireWrite);
+	printf("SPE: %llu - beforeDMAReadWrite %u\n", speID, beforeDMAReadWrite);
+	printf("SPE: %llu - dmaReadWrite %u\n", speID, dmaReadWrite);
+	printf("SPE: %llu - afterDMAReadWrite %u\n", speID, afterDMAReadWrite);
+	
+	printf("SPE: %llu - releaseReadCount %u\n", speID, releaseReadCount);
+	printf("SPE: %llu - releaseRead %u\n", speID, releaseRead);
+	
+	printf("SPE: %llu - releaseWriteCount %u\n", speID, releaseWriteCount);
+	printf("SPE: %llu - releaseWrite %u\n", speID, releaseWrite);
+	printf("SPE: %llu - beforeDMAWrite %u\n", speID, beforeDMAWrite);
+	printf("SPE: %llu - dmaWrite %u\n", speID, dmaWrite);
+	printf("SPE: %llu - afterDMAWrite %u\n", speID, afterDMAWrite);
 }
 
 void* create(GUID id, unsigned long size)

@@ -5,6 +5,7 @@
 extern void initialize();
 extern void terminate();
 extern void clean(GUID id);
+extern void getStats();
 
 #include "dsmcbe_spu_threads.h"
 #include "dsmcbe_spu_async.h"
