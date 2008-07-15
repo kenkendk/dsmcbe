@@ -267,6 +267,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 		
 		if (ht_member(pointers, retval))
 		{
+			ent = ht_get(pointers, retval);
 			ent->count++;
 		}
 		else
