@@ -3,7 +3,6 @@
 	<name>SPU</name>
 	<comment></comment>
 	<projects>
-		<project>common</project>
 		<project>dsmcbe_spu</project>
 	</projects>
 	<buildSpec>

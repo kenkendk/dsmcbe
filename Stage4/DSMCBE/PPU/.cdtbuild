@@ -23,7 +23,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.1265717484" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.archiver.lib.910631837" name="PPU GNU Archiver" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.archiver.lib"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.release.355282827" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.release">
-<option id="gnu.c.compiler.option.include.paths.234146044" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<option id="gnu.c.compiler.option.include.paths.1088112496" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 </option>
 </tool>

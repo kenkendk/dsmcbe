@@ -28,7 +28,11 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release.277799167" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release">
 <option id="gnu.c.compiler.option.include.paths.778454239" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/prototype/usr/spu/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
+</option>
+<option id="gnu.c.compiler.option.preprocessor.def.symbols.993882907" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols">
+<listOptionValue builtIn="false" value="DSMCBE_SPU"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.lib.release.3550169" name="SPU GNU C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.lib.release"/>

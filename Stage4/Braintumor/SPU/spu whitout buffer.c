@@ -25,6 +25,7 @@
 
 #define SPU_FIBERS 1
 int threadNo;
+unsigned long long speID;
 
 struct CURRENT_GRID
 {
@@ -162,10 +163,11 @@ void calc(int id, unsigned char* buffer) {
 	//printf("SPU: Buffer with id: %i value is: %i\n", id, sum);
 }
 
-int main()
+int main(unsigned long long id)
 {
 	srand(1);
 	unsigned int i;
+	speID = id;
 	
 	initialize();
 
@@ -215,6 +217,9 @@ int main()
 			if(pid >= maxpid) {
 				release(package);
 				//printf(WHERESTR "%i - Released package: %i\n", WHEREARG, pid, JOB+jobID);
+				if(jobID == 4)
+					getStats();
+				
 				unsigned long size; 
 				int* count = acquire(COUNT+jobID, &size, ACQUIRE_MODE_WRITE);
 				*count += 1;
