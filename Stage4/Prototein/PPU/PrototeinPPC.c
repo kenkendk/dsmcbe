@@ -72,8 +72,8 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 	unsigned int* count_obj;
 	unsigned int winner_count;
 	
-	unsigned int total_jobcount;
-	unsigned int reported_jobcount;
+	unsigned int total_jobcount = 0;
+	unsigned int reported_jobcount = 0;
 
 	bestscore = -9999999;
 	

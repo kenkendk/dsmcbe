@@ -155,7 +155,7 @@ int FoldPrototein(unsigned long long id)
     ((int*)winner_object)[0] = bestscore;
     ((int*)winner_object)[1] = totalwork;
 	release(winner_object);
-    printf(WHERESTR "SPU %d has written back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
+    //printf(WHERESTR "SPU %d has written back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
 	
    	FREE(prototein);
     FREE(places);

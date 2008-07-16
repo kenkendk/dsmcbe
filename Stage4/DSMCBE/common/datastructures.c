@@ -537,12 +537,12 @@ void* ht_get(hashtable ht, void* key)
 
 void ht_resize(hashtable ht, unsigned int newsize)
 {
-	fprintf(stderr, WHERESTR "Resize called on hashtable\n", WHEREARG);
+	//fprintf(stderr, WHERESTR "Resize called on hashtable\n", WHEREARG);
 	unsigned int i;
 	keylist kl;
 	hashtable newtable;
 
-	fprintf(stderr, WHERESTR "Before resize %i / %i\n", WHEREARG, ht->fill, ht->count);
+	//fprintf(stderr, WHERESTR "Before resize %i / %i\n", WHEREARG, ht->fill, ht->count);
 	
 	newtable = ht_create_internal(newsize, ht->less, ht->hash, ht->wrapsize);
 
@@ -584,7 +584,7 @@ void ht_resize(hashtable ht, unsigned int newsize)
 	
 	FREE(newtable);
 	newtable = NULL;
-	fprintf(stderr, WHERESTR "After resize  %i / %i\n", WHEREARG, ht->fill, ht->count);
+	//fprintf(stderr, WHERESTR "After resize  %i / %i\n", WHEREARG, ht->fill, ht->count);
 }
 
 /*********************/

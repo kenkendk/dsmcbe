@@ -149,7 +149,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	spu_leaseTable = ht_create(2000, lessint, hashfc);
 	spu_writeInitiator = ht_create(61, lessint, hashfc);
 	
-	printf(WHERESTR "Starting init\n", WHEREARG);	   
+	//printf(WHERESTR "Starting init\n", WHEREARG);	   
 	
 	for(i = 0; i < spe_thread_count; i++)
 	{	
@@ -167,7 +167,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		}
 	}
 	
-	printf(WHERESTR "Done Init\n", WHEREARG);	   			
+	//printf(WHERESTR "Done Init\n", WHEREARG);	   			
 
 	/* For portability, explicitly create threads in a joinable state */
 	pthread_attr_init(&attr);

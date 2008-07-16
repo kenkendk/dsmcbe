@@ -22,9 +22,6 @@ static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
 unsigned int dsmcbe_host_number = INT_MAX;
 
-/* how many pending connections queue will hold */
-#define BACKLOG 10
-
 void* ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
 	unsigned int entry = SPE_DEFAULT_ENTRY;
@@ -128,7 +125,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 {
 	FILE* filesource;
 	struct sockaddr_in* network;
-	if ((network = MALLOC(sizeof(struct sockaddr_in) * 10)) == NULL)
+	//TODO: Do not hardcode a limit of 20 machines :)	
+	if ((network = MALLOC(sizeof(struct sockaddr_in) * 20)) == NULL)
 		REPORT_ERROR("malloc error");
 	
 	struct sockaddr_in addr;
@@ -245,7 +243,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		/*printf(WHERESTR "All done, bailing: %i\n", WHEREARG, network[id].sin_port);
 		exit(2);*/
 		
-		if(listen(sockfd[id], BACKLOG) == -1)
+		//We set the backlog to the number of machines
+		if(listen(sockfd[id], networkcount) == -1)
 		{
 		  	REPORT_ERROR("listen()");
 		  	exit(1);
