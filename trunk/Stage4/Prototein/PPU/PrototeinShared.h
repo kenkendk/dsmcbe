@@ -18,7 +18,7 @@
 #define WORKITEM_OFFSET 200
 
 //The number of lightweight threads on the SPU
-#define SPU_FIBERS 2
+#define SPU_FIBERS 0
 
 //remove annoying warnings
 void exit(int);
