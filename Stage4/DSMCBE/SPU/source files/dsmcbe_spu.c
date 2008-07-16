@@ -1,10 +1,10 @@
-//#define timer
+#define TIMER
 
 #include <libmisc.h>
 #include <spu_mfcio.h>
 #include <unistd.h>
 
-#ifdef timer  
+#ifdef TIMER  
 #include <spu_timer.h>
 #endif
 
@@ -27,12 +27,13 @@
 
 extern unsigned long long speID;
 
-#ifdef timer
+#ifdef TIMER
 unsigned long long real_clock = 0;
 
 unsigned long long start = 0;
 unsigned long long beforeDMA = 0;
 unsigned long long afterDMA = 0;
+unsigned long long end = 0;
 
 float acquireReadCount = 0.0;
 unsigned int acquireRead = 0;
@@ -55,7 +56,8 @@ unsigned int beforeDMAWrite = 0;
 unsigned int dmaWrite = 0;
 unsigned int afterDMAWrite = 0;
 
-unsigned int READWRITE = 0;
+volatile unsigned int READWRITE = 0;
+volatile unsigned int StatType = 1;
 
 unsigned long long ReadClock()
 {
@@ -641,22 +643,26 @@ void StartDMATransfer(struct acquireResponse* resp)
 		ht_insert(itemsById, (void*)req->object->id, req->object);
 	}
 	//printf(WHERESTR "Registered dataobject with id: %d\n", WHEREARG, object->id);
-#ifdef timer
+#ifdef TIMER
 	beforeDMA = ReadClock();
 	if (READWRITE == ACQUIRE_MODE_READ)
 		beforeDMAReadRead = (((acquireReadCount - 1) / acquireReadCount) * beforeDMAReadRead) + ((1 / acquireReadCount) * (beforeDMA - start));	
 	else if (READWRITE == ACQUIRE_MODE_WRITE)
 		beforeDMAReadWrite = (((acquireWriteCount - 1) / acquireWriteCount) * beforeDMAReadWrite) + ((1 / acquireWriteCount) * (beforeDMA - start));	
 #endif
+
 	StartDMAReadTransfer(req->object->data, (unsigned int)resp->data, transfer_size, req->dmaNo, (unsigned int)resp->dmaComplete);
-#ifdef timer
+
+/*
+#ifdef TIMER
 	afterDMA = ReadClock();
 
 	if (READWRITE == ACQUIRE_MODE_READ)
 		dmaReadRead = (((acquireReadCount - 1) / acquireReadCount) * dmaReadRead) + ((1 / acquireReadCount) * (afterDMA - beforeDMA));	
 	else if (READWRITE == ACQUIRE_MODE_WRITE)
 		dmaReadWrite = (((acquireWriteCount - 1) / acquireWriteCount) * dmaReadWrite) + ((1 / acquireWriteCount) * (afterDMA - beforeDMA));
-#endif			
+#endif
+*/			
 }
 
 void readMailbox() {
@@ -915,7 +921,7 @@ void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
 	req->state = ASYNC_STATUS_DMA_PENDING;
 	
 	transfersize = ALIGNED_SIZE(req->object->size);
-#ifdef timer	
+#ifdef TIMER	
 	beforeDMA = ReadClock();
 	
 	beforeDMAWrite = (((releaseWriteCount - 1) / releaseWriteCount) * beforeDMAWrite) + ((1 / releaseWriteCount) * (beforeDMA - start));	
@@ -923,10 +929,12 @@ void startWriteDMATransfer(pendingRequest req, unsigned int nextId) {
 
 	StartDMAWriteTransfer(req->object->data, (int)req->object->EA, transfersize, req->dmaNo);
 
-#ifdef timer
+/*
+#ifdef TIMER
 	afterDMA = ReadClock();
 	dmaWrite = (((releaseWriteCount - 1) / releaseWriteCount) * dmaWrite) + ((1 / releaseWriteCount) * (afterDMA - beforeDMA));
 #endif	
+*/	
 	//printf(WHERESTR "DMA release for %d in write mode\n", WHEREARG, req->id); 
 
 	struct releaseRequest* request = (struct releaseRequest*)&req->request;
@@ -994,7 +1002,7 @@ unsigned int beginRelease(void* data)
 
 
 		if (object->mode == ACQUIRE_MODE_WRITE) {
-#ifdef timer
+#ifdef TIMER
 			READWRITE = ACQUIRE_MODE_WRITE;
 			releaseWriteCount++;
 #endif			
@@ -1016,7 +1024,7 @@ unsigned int beginRelease(void* data)
 			startWriteDMATransfer(req, nextId);
 							
 		} else if (object->mode == ACQUIRE_MODE_READ || object->mode == ACQUIRE_MODE_BLOCKED) {
-#ifdef timer			
+#ifdef TIMER			
 			READWRITE = ACQUIRE_MODE_READ;
 			releaseReadCount++;
 #endif			
@@ -1093,7 +1101,7 @@ void initialize()
 	printf("Could allocate %i bytes in %i segments (%i bytes)\n", totSize, segments, transfer_size);
 	sleep(2);
 */
-#ifdef timer
+#ifdef TIMER
 	spu_clock_start();
 #endif	
 	terminated = 0;
@@ -1246,6 +1254,23 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 		//printf(WHERESTR "Status for %d is %d\n", WHEREARG, requestNo, req->state); 
 	}
 
+#ifdef TIMER
+	afterDMA = ReadClock();
+
+	if (StatType == 1)
+	{
+		if (READWRITE == ACQUIRE_MODE_READ)
+			dmaReadRead = (((acquireReadCount - 1) / acquireReadCount) * dmaReadRead) + ((1 / acquireReadCount) * (afterDMA - beforeDMA));	
+		else if (READWRITE == ACQUIRE_MODE_WRITE)
+			dmaReadWrite = (((acquireWriteCount - 1) / acquireWriteCount) * dmaReadWrite) + ((1 / acquireWriteCount) * (afterDMA - beforeDMA));
+	}
+	else if (StatType == 2 && READWRITE == ACQUIRE_MODE_WRITE)
+	{
+		dmaWrite = (((releaseWriteCount - 1) / releaseWriteCount) * dmaWrite) + ((1 / releaseWriteCount) * (afterDMA - beforeDMA));		
+	}
+#endif
+
+
 	if (req->object == NULL)
 	{
 		size = NULL;
@@ -1289,60 +1314,66 @@ void* endAsync(unsigned int requestNo, unsigned long* size)
 }
  
 void* acquire(GUID id, unsigned long* size, int type) {
-#ifdef timer	
+#ifdef TIMER	
 	READWRITE = type;
+
 	if (READWRITE == ACQUIRE_MODE_READ)
 		acquireReadCount++;
 	else if (READWRITE == ACQUIRE_MODE_WRITE)
 		acquireWriteCount++;
 		
 	start = ReadClock();
+	StatType = 1;
 #endif
 
 	void* temp = endAsync(beginAcquire(id, type), size);		
 
-#ifdef timer
-	beforeDMA = ReadClock();
+	StatType = 5;
+#ifdef TIMER
+	end = ReadClock();
 	if (READWRITE == ACQUIRE_MODE_READ)
 	{
-		afterDMAReadRead = (((acquireReadCount - 1) / acquireReadCount) * afterDMAReadRead) + ((1 / acquireReadCount) * (beforeDMA - afterDMA));
-		acquireRead = (((acquireReadCount - 1) / acquireReadCount) * acquireRead) + ((1 / acquireReadCount) * (beforeDMA - start));	
+		afterDMAReadRead = (((acquireReadCount - 1) / acquireReadCount) * afterDMAReadRead) + ((1 / acquireReadCount) * (end - afterDMA));
+		acquireRead = (((acquireReadCount - 1) / acquireReadCount) * acquireRead) + ((1 / acquireReadCount) * (end - start));
 	}
 	else if (READWRITE == ACQUIRE_MODE_WRITE)
 	{
-		afterDMAReadWrite = (((acquireWriteCount - 1) / acquireWriteCount) * afterDMAReadWrite) + ((1 / acquireWriteCount) * (beforeDMA - afterDMA));
-		acquireWrite = (((acquireWriteCount - 1) / acquireWriteCount) * acquireWrite) + ((1 / acquireWriteCount) * (beforeDMA - start));	
+		afterDMAReadWrite = (((acquireWriteCount - 1) / acquireWriteCount) * afterDMAReadWrite) + ((1 / acquireWriteCount) * (end - afterDMA));
+		acquireWrite = (((acquireWriteCount - 1) / acquireWriteCount) * acquireWrite) + ((1 / acquireWriteCount) * (end - start));
 	}
 #endif	
 	return temp;	
 }
 
 void release(void* data){
-#ifdef timer
+#ifdef TIMER
 	start = ReadClock();
+	StatType = 2;
 #endif
-
+	
 	endAsync(beginRelease(data), NULL);
 
-#ifdef timer
-	beforeDMA = ReadClock();
+	StatType = 5;	
+#ifdef TIMER
+	end = ReadClock();
 	if (READWRITE == ACQUIRE_MODE_READ)
 	{
-		releaseRead = (((releaseReadCount - 1) / releaseReadCount) * releaseRead) + ((1 / releaseReadCount) * (beforeDMA - start));	
+		releaseRead = (((releaseReadCount - 1) / releaseReadCount) * releaseRead) + ((1 / releaseReadCount) * (end - start));	
 	}
 	else if (READWRITE == ACQUIRE_MODE_WRITE)
 	{
-		afterDMAWrite = (((releaseWriteCount - 1) / releaseWriteCount) * afterDMAWrite) + ((1 / releaseWriteCount) * (beforeDMA - afterDMA));
-		releaseWrite = (((releaseWriteCount - 1) / releaseWriteCount) * releaseWrite) + ((1 / releaseWriteCount) * (beforeDMA - start));	
+		afterDMAWrite = (((releaseWriteCount - 1) / releaseWriteCount) * afterDMAWrite) + ((1 / releaseWriteCount) * (end - afterDMA));
+		releaseWrite = (((releaseWriteCount - 1) / releaseWriteCount) * releaseWrite) + ((1 / releaseWriteCount) * (end - start));
+
+		if (releaseWrite < dmaWrite)
+			printf("ERROR2\n");			
 	}
 #endif	
 }
 
-
-
+#ifdef TIMER
 void getStats()
 {
-#ifdef timer
 	printf("SPE: %llu - total %llu\n", speID, ReadClock());
 	printf("SPE: %llu - acquireReadCount %f\n", speID, acquireReadCount);
 	printf("SPE: %llu - acquireRead %u\n", speID, acquireRead);
@@ -1363,11 +1394,9 @@ void getStats()
 	printf("SPE: %llu - releaseWrite %u\n", speID, releaseWrite);
 	printf("SPE: %llu - beforeDMAWrite %u\n", speID, beforeDMAWrite);
 	printf("SPE: %llu - dmaWrite %u\n", speID, dmaWrite);
-	printf("SPE: %llu - afterDMAWrite %u\n", speID, afterDMAWrite);
-#else
-	printf(WHERESTR "Warning: \"timer\" was not defined in dsmcbe_spu.c\n", WHEREARG); 
-#endif	
+	printf("SPE: %llu - afterDMAWrite %u\n", speID, afterDMAWrite);	
 }
+#endif
 
 void* create(GUID id, unsigned long size)
 {

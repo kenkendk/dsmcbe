@@ -1,19 +1,14 @@
-#include <stdio.h>
 #include <stdlib.h>
-#include <spu_intrinsics.h>
 #include <spu_mfcio.h>
 #include <math.h>
 #include <libmisc.h>
 #include <dsmcbe_spu.h>
-#include <unistd.h>
 #include "../PPU/guids.h"
 #include "../Common/Common.h"
 #include "../DSMCBE/common/debug.h"
 
 #define Y 3
 #define X 3
-//#define Y 6
-//#define X 5
 
 #define RANDOM(max) ((float)(((float)rand() / (float)RAND_MAX) * (float)(max)))
 #define CEIL(x) (((int)((x)/GRIDWIDTH))+1)
@@ -220,8 +215,8 @@ int main(unsigned long long id)
 			if(pid >= maxpid) {
 				release(package);
 				//printf(WHERESTR "%i - Released package: %i\n", WHEREARG, pid, JOB+jobID);
-				if(jobID == 4)
-					getStats();
+				//if(jobID == 4)
+					//getStats();
 					
 				unsigned long size; 
 				int* count = acquire(COUNT+jobID, &size, ACQUIRE_MODE_WRITE);
