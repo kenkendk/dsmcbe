@@ -37,11 +37,11 @@ int main(int argc,char** argv) {
 		return -1;
 	}
 	
-	if (spu_threads <= 0)
+	/*if (spu_threads <= 0)
 	{
 		perror("There must be at least one SPU process\n");
 		exit(1);
-	}
+	}*/
 	
 	sw_init();
 	sw_start();
