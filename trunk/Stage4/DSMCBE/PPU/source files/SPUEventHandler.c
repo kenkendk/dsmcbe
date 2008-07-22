@@ -718,7 +718,7 @@ void* SPU_Inbound(void* dummy)
 							EnqueInvalidateResponse(DMAobj->requestID);
 					}
 					pthread_mutex_unlock(&spu_lease_lock);
-					
+					break;				
 				default:
 					fprintf(stderr, WHERESTR "Bad SPU request, ID was: %i, message: %s\n", WHEREARG, datatype, strerror(errno));
 					break;

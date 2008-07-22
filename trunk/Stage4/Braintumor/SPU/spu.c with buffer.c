@@ -78,7 +78,7 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 	
 	for(i=0; i<pcnt; i++)
 	{		
-		if (i % 1000 == 0)
+		if (i % 500 == 0)
 			getAsyncStatus(NextID);
 			
 		if(points[i].alive == TRUE)
