@@ -212,8 +212,8 @@ int main(unsigned long long id)
 			if(pid >= maxpid) {
 				release(package);
 				//printf(WHERESTR "%i - Released package: %i\n", WHEREARG, pid, JOB+jobID);
-				if(jobID == 4)
-					getStats();
+				//if(jobID == 4)
+					//getStats();
 				
 				unsigned long size; 
 				int* count = acquire(COUNT+jobID, &size, ACQUIRE_MODE_WRITE);

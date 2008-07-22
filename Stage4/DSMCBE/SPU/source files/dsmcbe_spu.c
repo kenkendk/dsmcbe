@@ -1173,9 +1173,9 @@ int getAsyncStatus(unsigned int requestNo)
 				}
 				
 				#ifndef FENCED_NOTIFY
-				if (req->request.packageCode == PACKAGE_ACQUIRE_REQUEST_READ || req->request.packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE || req->request.packageCode == PACKAGE_CREATE_REQUEST)
+				if (req->mode == ACQUIRE_MODE_READ)
 				{
-					printf(WHERESTR "Sending DMA complete flag %d\n", WHEREARG, ((struct acquireRequest*)(&(req->request)))->dataItem);
+					//printf(WHERESTR "Sending DMA complete flag %d\n", WHEREARG, ((struct acquireRequest*)(&(req->request)))->dataItem);
 					SPU_WRITE_OUT_MBOX(PACKAGE_DMA_TRANSFER_COMPLETE);
 					SPU_WRITE_OUT_MBOX(((struct acquireRequest*)(&(req->request)))->dataItem);
 				} 
