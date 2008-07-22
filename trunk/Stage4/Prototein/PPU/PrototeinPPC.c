@@ -135,6 +135,9 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		pthread_join(threads[i], NULL);
 	}
 	
+	if (spu_count == 0)
+		sleep(5);
+	
 	if (machineid == 0)
 	{
 	    //printf(WHERESTR "PPU is reading results\n", WHEREARG);
