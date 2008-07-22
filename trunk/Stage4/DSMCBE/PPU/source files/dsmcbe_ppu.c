@@ -317,7 +317,7 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 		// Create several SPE-threads to execute 'SPU'.
 		for(i = 0; i < thread_count; i++){
 			// Create context
-			if ((spe_ids[i] = spe_context_create (0, NULL)) == NULL) 
+			if ((spe_ids[i] = spe_context_create (SPE_EVENTS_ENABLE, NULL)) == NULL) 
 			{
 				perror ("Failed creating context");
 				return NULL;
