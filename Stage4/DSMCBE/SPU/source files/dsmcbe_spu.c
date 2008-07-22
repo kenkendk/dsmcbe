@@ -1,4 +1,4 @@
-#define TIMER
+//#define TIMER
 
 #include <libmisc.h>
 #include <spu_mfcio.h>
@@ -8,6 +8,9 @@
 #include <spu_timer.h>
 #endif
 
+//Switch to interrupt mailbox in order to enable the PPU eventhandler
+#define SPU_WRITE_OUT_MBOX spu_write_out_intr_mbox 
+
 #include "../../dsmcbe_spu.h"
 #include "../../common/datapackages.h"
 #include "../../common/datastructures.h"
@@ -15,6 +18,8 @@
 #include "../../common/debug.h"
 
 //#define DEBUG_PACKAGES
+
+//#define FENCED_NOTIFY
 
 #define ASYNC_STATUS_ERROR -1
 #define ASYNC_STATUS_REQUEST_SENT 1
@@ -261,12 +266,12 @@ void unsubscribe(dataObject object)
 {
 	/* Sending the package directly reduces memory overhead, but is a little less maintainable */
 	//printf(WHERESTR "Unregistering item with id: %d\n", WHEREARG, object->id);
-	spu_write_out_mbox(PACKAGE_RELEASE_REQUEST);
-	spu_write_out_mbox(MAX_PENDING_REQUESTS + 1); //Invalid number
-	spu_write_out_mbox(object->id);
-	spu_write_out_mbox(ACQUIRE_MODE_READ);
-	spu_write_out_mbox(object->size);
-	spu_write_out_mbox((int)object->EA);
+	SPU_WRITE_OUT_MBOX(PACKAGE_RELEASE_REQUEST);
+	SPU_WRITE_OUT_MBOX(MAX_PENDING_REQUESTS + 1); //Invalid number
+	SPU_WRITE_OUT_MBOX(object->id);
+	SPU_WRITE_OUT_MBOX(ACQUIRE_MODE_READ);
+	SPU_WRITE_OUT_MBOX(object->size);
+	SPU_WRITE_OUT_MBOX((int)object->EA);
 }
 
 void cleanup()
@@ -397,31 +402,34 @@ void sendMailbox(void* dataItem) {
 	switch(((struct releaseRequest*)dataItem)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
-			spu_write_out_mbox(((struct createRequest*)dataItem)->packageCode);
-			spu_write_out_mbox(((struct createRequest*)dataItem)->requestID);
-			spu_write_out_mbox(((struct createRequest*)dataItem)->dataItem);
-			spu_write_out_mbox(((struct createRequest*)dataItem)->dataSize);
+			SPU_WRITE_OUT_MBOX(((struct createRequest*)dataItem)->packageCode);
+			SPU_WRITE_OUT_MBOX(((struct createRequest*)dataItem)->requestID);
+			SPU_WRITE_OUT_MBOX(((struct createRequest*)dataItem)->dataItem);
+			SPU_WRITE_OUT_MBOX(((struct createRequest*)dataItem)->dataSize);
 			break;			
 		
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
-			spu_write_out_mbox(((struct acquireRequest*)dataItem)->packageCode);
-			spu_write_out_mbox(((struct acquireRequest*)dataItem)->requestID);
-			spu_write_out_mbox(((struct acquireRequest*)dataItem)->dataItem);
+			SPU_WRITE_OUT_MBOX(((struct acquireRequest*)dataItem)->packageCode);
+			SPU_WRITE_OUT_MBOX(((struct acquireRequest*)dataItem)->requestID);
+			SPU_WRITE_OUT_MBOX(((struct acquireRequest*)dataItem)->dataItem);
 			break;
 		
 		case PACKAGE_RELEASE_REQUEST:
-			spu_write_out_mbox(((struct releaseRequest*)dataItem)->packageCode);
-			spu_write_out_mbox(((struct releaseRequest*)dataItem)->requestID);
-			spu_write_out_mbox(((struct releaseRequest*)dataItem)->dataItem);
-			spu_write_out_mbox(((struct releaseRequest*)dataItem)->mode);
-			spu_write_out_mbox(((struct releaseRequest*)dataItem)->dataSize);
-			spu_write_out_mbox((int)((struct releaseRequest*)dataItem)->data);			
+			SPU_WRITE_OUT_MBOX(((struct releaseRequest*)dataItem)->packageCode);
+			SPU_WRITE_OUT_MBOX(((struct releaseRequest*)dataItem)->requestID);
+			SPU_WRITE_OUT_MBOX(((struct releaseRequest*)dataItem)->dataItem);
+			SPU_WRITE_OUT_MBOX(((struct releaseRequest*)dataItem)->mode);
+			SPU_WRITE_OUT_MBOX(((struct releaseRequest*)dataItem)->dataSize);
+			SPU_WRITE_OUT_MBOX((int)((struct releaseRequest*)dataItem)->data);			
 			break;
 		
 		default:
 			fprintf(stderr, WHERESTR "Unknown package code: %i\n", WHEREARG, ((struct releaseRequest*)dataItem)->packageCode);
 	}
+#ifdef DEBUG_PACKAGES
+	printf(WHERESTR "Sent package with type %s (%d) with reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(((struct createRequest*)dataItem)->packageCode), ((struct createRequest*)dataItem)->packageCode, ((struct createRequest*)dataItem)->requestID, ((struct createRequest*)dataItem)->dataItem);
+#endif
 }
 
 /*
@@ -431,8 +439,8 @@ void sendInvalidateResponse(unsigned int requestID) {
 	printf(WHERESTR "Sending request type InvalidateResponse with reqId: %d\n", WHEREARG, requestID);
 #endif
 	
-	spu_write_out_mbox(PACKAGE_INVALIDATE_RESPONSE);
-	spu_write_out_mbox(requestID);
+	SPU_WRITE_OUT_MBOX(PACKAGE_INVALIDATE_RESPONSE);
+	SPU_WRITE_OUT_MBOX(requestID);
 }
 */
 
@@ -651,9 +659,12 @@ void StartDMATransfer(struct acquireResponse* resp)
 		beforeDMAReadWrite = (((acquireWriteCount - 1) / acquireWriteCount) * beforeDMAReadWrite) + ((1 / acquireWriteCount) * (beforeDMA - start));	
 #endif
 
+#ifdef FENCED_NOTIFY
 	StartDMAReadTransfer(req->object->data, (unsigned int)resp->data, transfer_size, req->dmaNo, (unsigned int)resp->dmaComplete);
+#else
+	StartDMAReadTransfer(req->object->data, (unsigned int)resp->data, transfer_size, req->dmaNo, 0);
+#endif
 
-/*
 #ifdef TIMER
 	afterDMA = ReadClock();
 
@@ -662,7 +673,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	else if (READWRITE == ACQUIRE_MODE_WRITE)
 		dmaReadWrite = (((acquireWriteCount - 1) / acquireWriteCount) * dmaReadWrite) + ((1 / acquireWriteCount) * (afterDMA - beforeDMA));
 #endif
-*/			
+
 }
 
 void readMailbox() {
@@ -695,7 +706,7 @@ void readMailbox() {
 			mode = (int)spu_read_in_mbox();
 			datasize = spu_read_in_mbox();
 			datapointer = (void*)spu_read_in_mbox();
-
+			
 			if (mode == ACQUIRE_MODE_READ)
 				dmaComplete = (void*)spu_read_in_mbox();
 			else
@@ -1111,7 +1122,7 @@ void initialize()
 }
 
 void terminate() {
-	spu_write_out_mbox(PACKAGE_TERMINATE_REQUEST);
+	SPU_WRITE_OUT_MBOX(PACKAGE_TERMINATE_REQUEST);
 	while(!terminated)
 		readMailbox();
 		
@@ -1160,6 +1171,15 @@ int getAsyncStatus(unsigned int requestNo)
 					sendMailbox(&req->request);
 					//printf(WHERESTR "Handling release status for %d\n", WHEREARG, requestNo);
 				}
+				
+				#ifndef FENCED_NOTIFY
+				if (req->request.packageCode == PACKAGE_ACQUIRE_REQUEST_READ || req->request.packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE || req->request.packageCode == PACKAGE_CREATE_REQUEST)
+				{
+					printf(WHERESTR "Sending DMA complete flag %d\n", WHEREARG, ((struct acquireRequest*)(&(req->request)))->dataItem);
+					SPU_WRITE_OUT_MBOX(PACKAGE_DMA_TRANSFER_COMPLETE);
+					SPU_WRITE_OUT_MBOX(((struct acquireRequest*)(&(req->request)))->dataItem);
+				} 
+				#endif
 			}		
 		} else if (req->state == ASYNC_STATUS_WRITE_READY) {
 			//readSignal();
@@ -1328,8 +1348,8 @@ void* acquire(GUID id, unsigned long* size, int type) {
 
 	void* temp = endAsync(beginAcquire(id, type), size);		
 
-	StatType = 5;
 #ifdef TIMER
+	StatType = 5;
 	end = ReadClock();
 	if (READWRITE == ACQUIRE_MODE_READ)
 	{
@@ -1353,8 +1373,8 @@ void release(void* data){
 	
 	endAsync(beginRelease(data), NULL);
 
-	StatType = 5;	
 #ifdef TIMER
+	StatType = 5;	
 	end = ReadClock();
 	if (READWRITE == ACQUIRE_MODE_READ)
 	{
