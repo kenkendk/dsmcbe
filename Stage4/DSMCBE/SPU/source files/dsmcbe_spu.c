@@ -9,7 +9,8 @@
 #endif
 
 //Switch to interrupt mailbox in order to enable the PPU eventhandler
-#define SPU_WRITE_OUT_MBOX spu_write_out_intr_mbox 
+#define SPU_WRITE_OUT_MBOX spu_write_out_intr_mbox
+//#define SPU_WRITE_OUT_MBOX spu_write_out_mbox 
 
 #include "../../dsmcbe_spu.h"
 #include "../../common/datapackages.h"
