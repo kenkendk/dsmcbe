@@ -1,3 +1,5 @@
+//#define NO_EMBEDDED_SPU
+
 #include "../../dsmcbe.h"
 #include <stdio.h>
 #include <pthread.h>
@@ -26,6 +28,7 @@ void* ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
 	unsigned int entry = SPE_DEFAULT_ENTRY;
 	ctx = *((spe_context_ptr_t *)arg);
+	
 	//printf(WHERESTR "Starting SPU\n", WHEREARG);
 	if (spe_context_run(ctx, &entry, 0, NULL, NULL, NULL) < 0)
 	{
@@ -296,7 +299,10 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	spe_context_ptr_t* spe_ids;
 	pthread_t* spu_threads;
 	int* sockets = NULL;
-	unsigned int socketsCount = 0;		
+	unsigned int socketsCount = 0;
+#ifdef NO_EMBEDDED_SPU
+	spe_program_handle_t* program;
+#endif		
 
 	if (path != NULL) {
 		dsmcbe_host_number = id;
@@ -313,18 +319,28 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 			REPORT_ERROR("dsmcbe.c: malloc error");
 	
 		mustrelease_spe_id = 1;
+
+#ifdef NO_EMBEDDED_SPU		
+		program = spe_image_open("spu.elf");
+#endif
 		
 		// Create several SPE-threads to execute 'SPU'.
 		for(i = 0; i < thread_count; i++){
 			// Create context
+			
 			if ((spe_ids[i] = spe_context_create (SPE_EVENTS_ENABLE, NULL)) == NULL) 
 			{
 				perror ("Failed creating context");
 				return NULL;
 			}
 	
+			//printf(WHERESTR "Loading SPU image\n", WHEREARG);
 			// Load program into context
-			if (spe_program_load (spe_ids[i], &SPU)) 
+#ifdef NO_EMBEDDED_SPU			
+			if (spe_program_load (spe_ids[i], program))
+#else
+			if (spe_program_load (spe_ids[i], &SPU))
+#endif 
 			{
 				perror ("Failed loading program");
 				return NULL;
@@ -337,7 +353,12 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 				perror ("Failed creating thread");
 				return NULL;
 			}
+			//printf(WHERESTR "Started SPU thread\n", WHEREARG);
 		}
+
+#ifdef NO_EMBEDDED_SPU
+		spe_image_close(program);
+#endif
 	}
 	else
 	{
@@ -345,6 +366,9 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 		spe_ids = NULL;
 		spu_threads = NULL;
 	}	
+	
+	//printf(WHERESTR "Calling initialize\n", WHEREARG);
+
 	initialize(spe_ids, thread_count, sockets, socketsCount);
 	
 	return spu_threads;
@@ -352,10 +376,15 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 
 void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sockets, unsigned int socketsCount)
 {
+	//printf(WHERESTR "Calling Initialize Coordinator\n", WHEREARG);
 	InitializeCoordinator();
+	//printf(WHERESTR "Calling Initialize Network\n", WHEREARG);
 	InitializeNetworkHandler(sockets, socketsCount);
+	//printf(WHERESTR "Calling Initialize PPU\n", WHEREARG);
 	InitializePPUHandler();
+	//printf(WHERESTR "Calling Initialize SPU\n", WHEREARG);
 	InitializeSPUHandler(threads, thread_count);	
+	//printf(WHERESTR "Done Initialize\n", WHEREARG);
 }
 
 void* create(GUID id, unsigned long size){
