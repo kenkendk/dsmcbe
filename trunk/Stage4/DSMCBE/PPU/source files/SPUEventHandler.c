@@ -604,10 +604,10 @@ void SPU_ProcessIncommingMailbox(int threadNo)
 		//printf(WHERESTR "SPU mailbox message detected\n", WHEREARG);
 	#ifdef USE_INTR_MBOX
 		if (spe_out_intr_mbox_read(spe_threads[threadNo], &datatype, 1, SPE_MBOX_ALL_BLOCKING) != 1)
+			REPORT_ERROR("Read MBOX failed (1)!");
 	#else
 		ReadMBOXBlocking(spe_threads[threadNo], &datatype, 1);	
 	#endif
-			REPORT_ERROR("Read MBOX failed (1)!");
 		//printf(WHERESTR "SPU mailbox message read\n", WHEREARG);
 			
 		switch(datatype)
