@@ -14,6 +14,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1375675969" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
 <option id="cell.ppu.gnu.c.linker.option.libs.661692092" superClass="cell.ppu.gnu.c.linker.option.libs" valueType="libs">
 <listOptionValue builtIn="false" value="m"/>
+<listOptionValue builtIn="false" value="glib-2.0"/>
 <listOptionValue builtIn="false" value="dsmcbe_ppu"/>
 <listOptionValue builtIn="false" value="pthread"/>
 <listOptionValue builtIn="false" value="spe2"/>
@@ -23,12 +24,15 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1734965678" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1330958875" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE/PPU/ppu-gnu32-debug"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/lib"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.79321649" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug.2037501322" name="PPU GNU 32 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.include.paths.1633481816" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
+<listOptionValue builtIn="false" value="/usr/lib/glib-2.0/include"/>
+<listOptionValue builtIn="false" value="/usr/include/glib-2.0"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE"/>
 </option>
 </tool>

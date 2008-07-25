@@ -8,6 +8,7 @@
 #include <dsmcbe_ppu.h>
 #include <pthread.h>
 #include <common/debug.h>
+#include <glib.h>
 
 #define JOBS_PR_PROCESSOR 10
 #define REQUIRED_JOB_COUNT (10000 * prototein_length)
@@ -79,6 +80,8 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 	
 	prototein_length = strlen(proto);
 	prototein = proto;
+	
+	GQueue* q = g_queue_new();
 	
 	if (networkfile == NULL)
 		threads = simpleInitialize(0, NULL, spu_count);
