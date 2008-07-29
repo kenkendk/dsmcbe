@@ -9,11 +9,11 @@
 #define DATAPACKAGES_H_
 
 #include "../dsmcbe.h"
+#include "datastructures.h"
 
 #define ACQUIRE_MODE_WRITE_OK (ACQUIRE_MODE_WRITE + 1)
 #define ACQUIRE_MODE_CREATE (ACQUIRE_MODE_WRITE_OK + 1)
 #define ACQUIRE_MODE_BLOCKED (ACQUIRE_MODE_CREATE + 1)
-
 
 #define NEXT_SEQ_NO(current, max) (current = (current+1) % (max)) 
 

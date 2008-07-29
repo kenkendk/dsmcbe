@@ -10,6 +10,8 @@
 #define Y 3
 #define X 3
 
+#define STATIC
+
 #define RANDOM(max) ((float)(((float)rand() / (float)RAND_MAX) * (float)(max)))
 #define CEIL(x) (((int)((x)/GRIDWIDTH))+1)
 #define FALSE 0
@@ -19,8 +21,9 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 #define SPU_FIBERS 1
+
 int threadNo;
-unsigned long long speID;
+unsigned int speID;
 
 struct CURRENT_GRID
 {
@@ -158,13 +161,19 @@ void calc(int id, unsigned char* buffer) {
 	//printf("SPU: Buffer with id: %i value is: %i\n", id, sum);
 }
 
-int main(unsigned long long id)
+int main()
 {
 	srand(1);
 	unsigned int i;
-	speID = id;
-	
+	unsigned long size;
 	initialize();
+	
+	unsigned int* ptr;
+	ptr = acquire(COUNT, &size, ACQUIRE_MODE_WRITE);
+	speID = *ptr;
+	*ptr = speID + 1;
+	release(ptr);
+	clean(COUNT);
 
 	//printf("SPU: Ready to start\n");
 	
@@ -176,20 +185,20 @@ int main(unsigned long long id)
 	if (threadNo >= 0) 
 	{				
 		int jobID = 0;
-		
+
 		while(1) 
 		{
 			// Make points buffer
 			struct POINTS* points;
 			struct PACKAGE* package;
-	
-			unsigned long size;
+
 			unsigned int pid = 0;
 			//printf(WHERESTR "%i - Acquire package: %i\n", WHEREARG, pid, JOB+jobID);
+
 			package = acquire(JOB+jobID, &size, ACQUIRE_MODE_WRITE);
 
 			pid = package->id;
-
+			
 			// Get canon information
 			// Position(x,y) Angel(ax,ay), Shots(S)	
 			unsigned int maxpid = package->maxid;
@@ -204,7 +213,7 @@ int main(unsigned long long id)
 			CTHEIGTH = package->heigth;			
 		
 			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
-			//printf("spu.c: pid: %i, maxpid %i\n", pid, maxpid);
+			//printf("speID: %llu spu.c: pid: %i, maxpid %i\n", speID, pid, maxpid);
 				
 			//if ((pid % (maxpid / 10)) == 0 && pid != maxpid)
 				//printf("-\n");
@@ -214,18 +223,17 @@ int main(unsigned long long id)
 				//printf(WHERESTR "%i - Released package: %i\n", WHEREARG, pid, JOB+jobID);
 				//if(jobID == 4)
 					//getStats();
-				
-				unsigned long size; 
-				int* count = acquire(COUNT+jobID, &size, ACQUIRE_MODE_WRITE);
-				*count += 1;
-				release(count);
+				 
+				release(create(FINISHED + (jobID * 10) + speID, 1));
 				jobID++;
 				continue;
 			}
-				
+
 			package->id = pid + 1;
+
 			release(package);
-			clean(JOB+jobID);
+			//clean(JOB+jobID);
+
 			//printf(WHERESTR "%i - Released package: %i\n", WHEREARG, pid, JOB+jobID);
 			
 			//printf(WHERESTR "%i - Acquire point: %i\n", WHEREARG, pid, RESULT + pid);
@@ -288,6 +296,7 @@ int main(unsigned long long id)
 			}
 			release(points);
 			clean(RESULT + pid);
+
 		}
 		if (SPU_FIBERS > 1)
 			TerminateThread();

@@ -16,9 +16,9 @@
 
 extern spe_program_handle_t SPU;
 
-#define DEAD 2
 #define FALSE 0
 #define TRUE 1
+#define DEAD 2
 #define RANDOM(max) ((((float)rand() / (float)RAND_MAX) * (float)(max)))
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
@@ -26,6 +26,7 @@ extern spe_program_handle_t SPU;
 //#define SHOTS (SHOTS_SPU * 60)
 #define SHOTS (SHOTS_SPU * 480)
 //#define SHOTS (SHOTS_SPU * 960)
+
 
 int WIDTH;
 int HEIGTH;
@@ -72,17 +73,10 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	package->canonAY = canonAY;
 	release(package);
 	
-	int* count = create(COUNT+id, sizeof(int));
-	*count = 0;
-	release(count);
-	
 	unsigned long size;
-	do {
-		sleep(0.5);
-		count = acquire(COUNT+id, &size, ACQUIRE_MODE_READ);
-		release(count); 
-	}while(*count < SPU_THREADS);
-				
+	for(i = 0; i < SPU_THREADS; i++)
+		release(acquire(FINISHED+(id*10)+i, &size, ACQUIRE_MODE_READ));
+		 				
 	//printf("\n\nStart working on results\n\n");
 	
 	for(i = 0; i < (shots / shots_spu); i++) {
@@ -251,7 +245,7 @@ int main(int argc, char* argv[])
 
 	if(argc == 6) {
 		input = argv[1];
-		output = argv[2]; 	
+		output = argv[2];
 		SPU_THREADS = atoi(argv[3]);
 		id = atoi(argv[4]);
 		file = argv[5]; 	
@@ -284,7 +278,7 @@ int main(int argc, char* argv[])
 
 	WIDTH = 576;
 	HEIGTH = 708;
-
+	
 	threads = simpleInitialize(id, file, SPU_THREADS);
 
 	if (id == 0)
@@ -293,10 +287,15 @@ int main(int argc, char* argv[])
 		loadImageNormal();
 		//loadImageSmall();
 		//printf("Finished loading images!\n");
+	
+		unsigned int* count = create(COUNT, sizeof(unsigned int));
+		*count = 0;
+		release(count);
 		
 		for(i = 0; i < (SHOTS / SHOTS_SPU); i++)
 		{
 			struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * SHOTS_SPU);
+			memset(points, 0, sizeof(struct POINTS) * SHOTS_SPU);
 			release(points);	
 		}	
 	
@@ -314,7 +313,7 @@ int main(int argc, char* argv[])
 		cmap[21] = 170; cmap[22] = 0; cmap[23] = 0;
 		cmap[24] = 255; cmap[25] = 0; cmap[26] = 0;
 	
-		scale = (unsigned char*)malloc(sizeof(unsigned char));
+		scale = (unsigned char*)malloc(sizeof(unsigned char)*9);
 		scale[0] = 10; scale[1] = 20; scale[2] = 30;
 		scale[3] = 40; scale[4] = 50; scale[5] = 60;
 		scale[6] = 70; scale[7] = 80; scale[8] = 90;
@@ -324,6 +323,7 @@ int main(int argc, char* argv[])
 		//Start timer!
 		sw_init();
 		sw_start();
+				
 		printf("Timer started\n");
 	
 		printf("Start firering canon #1\n");

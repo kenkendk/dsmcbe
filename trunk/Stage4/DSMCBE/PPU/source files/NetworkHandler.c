@@ -9,14 +9,10 @@
 
 //#define TRACE_NETWORK_PACKAGES
 
-#include "../../common/datastructures.h"
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"
 #include "../../common/debug.h"
 #include "../header files/NetworkHandler.h"
-
-int lessint(void* a, void* b);
-int hashfc(void* a, unsigned int count);
 
 struct QueueableItemWrapper
 {
@@ -42,11 +38,11 @@ pthread_cond_t net_work_ready;
 pthread_mutex_t net_leaseLock;
 
 //Each remote host has its own requestQueue
-queue* net_requestQueues;
+GQueue** Gnet_requestQueues;
 
 //Keep track of which hosts have what data, this minimizes the amount of invalidate messages
-hashtable net_leaseTable;
-hashtable net_writeInitiator;
+GHashTable* Gnet_leaseTable;
+GHashTable* Gnet_writeInitiator;
 
 //The number of hosts
 static unsigned int net_remote_hosts;
@@ -62,7 +58,7 @@ unsigned int GetMachineID(GUID id);
 
 //These tables are used to translate requestIDs from internal seqences to network
 // sequence and back again
-hashtable* net_idlookups;
+GHashTable** Gnet_idlookups;
 
 //These are the sequence numbers assigned to the packages, a unique sequence for each host
 unsigned int* net_sequenceNumbers;
@@ -101,7 +97,7 @@ void NetUnsubscribe(GUID dataitem, unsigned int machineId)
 	req->offset = 0;
 	
 	pthread_mutex_lock(&net_work_mutex);
-	queue_enq(net_requestQueues[machineId], req);
+	g_queue_push_tail(Gnet_requestQueues[machineId], req);
 	pthread_cond_signal(&net_work_ready);
 	pthread_mutex_unlock(&net_work_mutex);
 	
@@ -171,13 +167,13 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 
 	
 	//printf(WHERESTR "Mapping request id %d to %d\n", WHEREARG, w->origId, nextId);
-	if (!ht_member(net_idlookups[machineId], (void*)nextId))
-		ht_insert(net_idlookups[machineId], (void*)nextId, w);
+	if (g_hash_table_lookup(Gnet_idlookups[machineId], (void*)nextId) == NULL)
+		g_hash_table_insert(Gnet_idlookups[machineId], (void*)nextId, w);
 	else
 		REPORT_ERROR("Could not insert into net_idlookups")
 	
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
-	queue_enq(net_requestQueues[machineId], datacopy);
+	g_queue_push_tail(Gnet_requestQueues[machineId], datacopy);
 	
 	//printf(WHERESTR "Signaling\n", WHEREARG);
 	pthread_cond_signal(&net_work_ready);
@@ -208,10 +204,10 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	pthread_mutex_init(&net_work_mutex, NULL);
 	pthread_cond_init (&net_work_ready, NULL);
 		
-	if((net_requestQueues = (queue*)MALLOC(sizeof(queue) * net_remote_hosts)) == NULL)
+	if((Gnet_requestQueues = (GQueue**)MALLOC(sizeof(GQueue*) * net_remote_hosts)) == NULL)
 		REPORT_ERROR("MALLOC error");
 
-	if((net_idlookups = (hashtable*)MALLOC(sizeof(hashtable) * net_remote_hosts)) == NULL)
+	if((Gnet_idlookups = (GHashTable**)MALLOC(sizeof(GHashTable*) * net_remote_hosts)) == NULL)
 		REPORT_ERROR("MALLOC error");
 		
 	if((net_sequenceNumbers = (unsigned int*)MALLOC(sizeof(unsigned int) * net_remote_hosts)) == NULL)
@@ -219,14 +215,14 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 
 	for(i = 0; i < net_remote_hosts; i++)
 	{
-		net_requestQueues[i] = queue_create();
-		net_idlookups[i] = ht_create(10, lessint, hashfc);
+		Gnet_requestQueues[i] = g_queue_new();
+		Gnet_idlookups[i] = g_hash_table_new(NULL, NULL);
 		net_sequenceNumbers[i] = 0;
 	}
 	
 	pthread_mutex_init(&net_leaseLock, NULL); 
-	net_leaseTable = ht_create(10, lessint, hashfc);
-	net_writeInitiator = ht_create(10, lessint, hashfc);
+	Gnet_leaseTable = g_hash_table_new(NULL, NULL);
+	Gnet_writeInitiator = g_hash_table_new(NULL, NULL);
 
 	/* For portability, explicitly create threads in a joinable state */
 	pthread_attr_init(&attr);
@@ -260,7 +256,7 @@ void NetInvalidate(GUID id)
 			req->dataItem = id;
 			req->packageCode = PACKAGE_INVALIDATE_REQUEST;
 			req->requestID = 0;
-			queue_enq(net_requestQueues[i], req);
+			g_queue_push_tail(Gnet_requestQueues[i], req);
 		}
 	}
 	
@@ -290,16 +286,16 @@ void TerminateNetworkHandler(int force)
 
 	for(i = 0; i < net_remote_hosts; i++)
 	{
-		queue_destroy(net_requestQueues[i]);
-		net_requestQueues[i] = NULL;
-		ht_destroy(net_idlookups[i]);
-		net_idlookups[i] = NULL;
+		g_queue_free(Gnet_requestQueues[i]);
+		Gnet_requestQueues[i] = NULL;
+		g_hash_table_destroy(Gnet_idlookups[i]);
+		Gnet_idlookups[i] = NULL;
 	}
 	
-	FREE(net_requestQueues);
-	net_requestQueues = NULL;
-	FREE(net_idlookups);
-	net_idlookups = NULL;
+	FREE(Gnet_requestQueues);
+	Gnet_requestQueues = NULL;
+	FREE(Gnet_idlookups);
+	Gnet_idlookups = NULL;
 	FREE(net_sequenceNumbers);
 	net_sequenceNumbers = NULL;
 	
@@ -393,10 +389,10 @@ void* net_Writer(void* data)
 		while(package == NULL && !net_terminate)
 		{
 			for(i = 0; i < net_remote_hosts; i++)
-				if (!queue_empty(net_requestQueues[i]))
+				if (!g_queue_is_empty(Gnet_requestQueues[i]))
 				{
 					//printf(WHERESTR "Queue is NOT empty\n", WHEREARG);
-					package = queue_deq(net_requestQueues[i]);
+					package = g_queue_pop_head(Gnet_requestQueues[i]);
 					hostno = i;
 					//printf(WHERESTR "Hostno is %i\n", WHEREARG, hostno);
 					break;
@@ -427,29 +423,33 @@ void* net_Writer(void* data)
 			
 			itemid = ((struct invalidateRequest*)package)->dataItem;
 			
-			if (!ht_member(net_leaseTable, (void*)itemid))
-				ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
+			if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
+				g_hash_table_insert(Gnet_leaseTable, (void*)itemid, g_hash_table_new(NULL, NULL));
 				
 			//printf(WHERESTR "Processing invalidate package to: %d\n", WHEREARG, hostno);
 			
-			if (slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno))
+			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno) != NULL)
 			{
-				initiatorNo = -1;
-				if (ht_member(net_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem))
-					initiatorNo = (int)ht_get(net_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem);
+				//TODO: WARNING!!!
+//				initiatorNo = -1;
+				
+				if ((initiatorNo = (int)g_hash_table_lookup(Gnet_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem)) == 0)
+					initiatorNo = -1;
+				else
+					initiatorNo--;				
 				
 				if ((int)hostno != initiatorNo)
 				{
 					//Regular invalidate, register as cleared
 					//printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, itemid);
 					((struct invalidateRequest*)package)->requestID = NET_MAX_SEQUENCE + 1;
-					slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno);
+					g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno);
 				}
 				else
 				{
 					//This host initiated the invalidate
 					//printf(WHERESTR "Invalidate to %d was discarded because the host initiated the invalidate, id: %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
-					ht_delete(net_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem);
+					g_hash_table_remove(Gnet_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem);
 					FREE(package);
 					package = NULL;
 				}
@@ -470,22 +470,26 @@ void* net_Writer(void* data)
 			
 			//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
 			
-			if (!ht_member(net_leaseTable, (void*)itemid))
-				ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
+			if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
+				g_hash_table_insert(Gnet_leaseTable, (void*)itemid, g_hash_table_new(NULL, NULL));
 				
-			if (!slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno))
+			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno) == NULL)
 			{
 				//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
-				slset_insert((slset)ht_get(net_leaseTable, (void*)itemid), (void*)hostno, NULL);
+				printf(WHERESTR "Inserting NULL into hashtable Gnet_leaseTable\n", WHEREARG);
+				g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno, NULL);
 			}
 				
 			if (((struct acquireResponse*)package)->mode == ACQUIRE_MODE_WRITE)
 			{
 				//printf(WHERESTR "Registering host %d as initiator for package %d\n", WHEREARG, hostno, itemid);
-				if (ht_member(net_writeInitiator, (void*)itemid)) {
+				if (g_hash_table_lookup(Gnet_writeInitiator, (void*)itemid) != NULL) {
 					REPORT_ERROR("Same Host was registered twice for write");
-				} else {							
-					ht_insert(net_writeInitiator, (void*)itemid, (void*)hostno);
+				} else {
+					if (hostno == 0)
+						printf(WHERESTR "Inserting NULL into hashtable Gnet_leaseTable\n", WHEREARG);
+						
+					g_hash_table_insert(Gnet_writeInitiator, (void*)itemid, (void*)hostno++);
 				}
 			}
 
@@ -560,14 +564,14 @@ void net_processPackage(void* data, unsigned int machineId)
 				
 				pthread_mutex_lock(&net_leaseLock);
 				//The read release request implies that the sender has destroyed the copy
-				if (!ht_member(net_leaseTable, (void*)itemid))
-					ht_insert(net_leaseTable, (void*)itemid, slset_create(lessint));
+				if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
+					g_hash_table_insert(Gnet_leaseTable, (void*)itemid, g_hash_table_new(NULL, NULL));
 
 				if (((struct releaseRequest*)data)->mode == ACQUIRE_MODE_READ)
 				{
 					//printf(WHERESTR "Processing READ release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
-					if (slset_member((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId))
-						slset_delete((slset)ht_get(net_leaseTable, (void*)itemid), (void*)machineId);
+					if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)machineId) != NULL)
+						g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)machineId);
 					//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, machineId);
 					FREE(data);
 					data = NULL;
@@ -582,7 +586,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			if ((ui = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 				REPORT_ERROR("MALLOC error");
 			ui->dataRequest = data;
-			ui->queue = &net_requestQueues[machineId];
+			ui->Gqueue = &Gnet_requestQueues[machineId];
 			ui->mutex = &net_work_mutex;
 			ui->event = &net_work_ready;
 			EnqueItem(ui);
@@ -602,15 +606,14 @@ void net_processPackage(void* data, unsigned int machineId)
 			}
 			
 
-			if (!ht_member(net_idlookups[machineId], (void*)((struct createRequest*)data)->requestID))
+			if ((w = g_hash_table_lookup(Gnet_idlookups[machineId], (void*)((struct createRequest*)data)->requestID)) == NULL)
 			{
 				REPORT_ERROR("Incoming response did not match an outgoing request");
 				pthread_mutex_unlock(&net_work_mutex);
 				return;
 			}
 
-			w = ht_get(net_idlookups[machineId], (void*)((struct createRequest*)data)->requestID);
-			ht_delete(net_idlookups[machineId], (void*)((struct createRequest*)data)->requestID);
+			g_hash_table_remove(Gnet_idlookups[machineId], (void*)((struct createRequest*)data)->requestID);
 
 			pthread_mutex_unlock(&net_work_mutex);
 
@@ -628,7 +631,7 @@ void net_processPackage(void* data, unsigned int machineId)
 
 				ui->event = NULL;
 				ui->mutex = NULL;
-				ui->queue = NULL;
+				ui->Gqueue = NULL;
 				ui->dataRequest = data;				
 
 				//Forward this to the request coordinator, so it may record the data and propagate it
@@ -641,8 +644,9 @@ void net_processPackage(void* data, unsigned int machineId)
 				//Other responses are sent directly to the reciever
 				if (ui->mutex != NULL)
 					pthread_mutex_lock(ui->mutex);
-				if (ui->queue != NULL)
-					queue_enq(*(ui->queue), data);
+				if (ui->Gqueue != NULL)
+					//queue_enq(*(ui->queue), data);
+					g_queue_push_tail(*(ui->Gqueue), data);
 				if (ui->event != NULL)
 					pthread_cond_signal(ui->event);
 				if (ui->mutex != NULL)
