@@ -20,7 +20,7 @@
 
 #define SPU_FIBERS 1
 int threadNo;
-unsigned long long speID;
+unsigned int speID;
 
 struct CURRENT_GRID
 {
@@ -170,6 +170,13 @@ int main(unsigned long long id)
 	initialize();
 
 	//printf("SPU: Ready to start\n");
+	unsigned long size;
+	unsigned int* ptr;
+	ptr = acquire(COUNT, &size, ACQUIRE_MODE_WRITE);
+	speID = *ptr;
+	*ptr = speID + 1;
+	release(ptr);
+	clean(COUNT);
 	
 	if (SPU_FIBERS > 1)
 		threadNo = CreateThreads(SPU_FIBERS);
@@ -186,7 +193,6 @@ int main(unsigned long long id)
 			struct POINTS* points;
 			struct PACKAGE* package;
 	
-			unsigned long size;
 			unsigned int pid = 0;
 			//printf(WHERESTR "%i - Acquire package: %i\n", WHEREARG, pid, JOB+jobID);
 			package = acquire(JOB+jobID, &size, ACQUIRE_MODE_WRITE);
@@ -217,11 +223,8 @@ int main(unsigned long long id)
 				//printf(WHERESTR "%i - Released package: %i\n", WHEREARG, pid, JOB+jobID);
 				//if(jobID == 4)
 					//getStats();
-					
-				unsigned long size; 
-				int* count = acquire(COUNT+jobID, &size, ACQUIRE_MODE_WRITE);
-				*count += 1;
-				release(count);
+					 
+				release(create(FINISHED + (jobID * 10) + speID, 1));
 				jobID++;
 				continue;
 			}
