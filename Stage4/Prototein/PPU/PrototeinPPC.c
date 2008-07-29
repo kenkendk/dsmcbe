@@ -81,8 +81,6 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 	prototein_length = strlen(proto);
 	prototein = proto;
 	
-	GQueue* q = g_queue_new();
-	
 	if (networkfile == NULL)
 		threads = simpleInitialize(0, NULL, spu_count);
 	else
