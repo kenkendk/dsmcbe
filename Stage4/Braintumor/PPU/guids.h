@@ -73,4 +73,6 @@
 
 #define COUNT 15000
 
+#define FINISHED 20000
+
 #endif /*GUIDS_H_*/

@@ -8,6 +8,7 @@
 #include <malloc.h>
 #include <malloc_align.h>
 #include <free_align.h>
+#include <glib.h>
 #include "../../dsmcbe.h"
 #include "../../common/datastructures.h"
 #include "../../common/datapackages.h"
@@ -24,7 +25,7 @@ typedef struct QueueableItemStruct *QueueableItem;
 struct QueueableItemStruct {
 	pthread_mutex_t* mutex;
 	pthread_cond_t* event;
-	queue* queue;
+	GQueue** Gqueue;
 	void* dataRequest;
 };
 
@@ -39,7 +40,7 @@ extern void TerminateCoordinator(int force);
 void EnqueInvalidateResponse(unsigned int requestNumber);
 
 //Threads wishing to recieve invalidation notification must register/unregister with the two calls below
-extern void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, queue* q);
-extern void UnregisterInvalidateSubscriber(queue* q);
+extern void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, GQueue** q);
+extern void UnregisterInvalidateSubscriber(GQueue** q);
 
 #endif /*REQUESTCOORDINATOR_H_*/

@@ -134,12 +134,13 @@ void invalidate(GUID id, unsigned int requestID);
 
 typedef struct dataObjectStruct *dataObject;
 
+
 struct dataObjectStruct{	
 	GUID id;
 	void* EA;
 	void* data;
 	unsigned long size;
-	int mode;
+	int mode;	
 	int ready;
 	unsigned int count;
 };
@@ -557,9 +558,11 @@ void StartDMATransfer(struct acquireResponse* resp)
 				//printf(WHERESTR "Blocked object %d\n", WHEREARG, req->id);
 				req->state = ASYNC_STATUS_BLOCKED;
 				req->object->mode = ACQUIRE_MODE_BLOCKED;
+
 				if (req->mode == ACQUIRE_MODE_WRITE)
-					req->object->ready = FALSE;
-				else {
+					req->object->ready = FALSE;					
+				else 
+				{
 					req->object->ready = TRUE;
 					req->mode = ACQUIRE_MODE_WRITE;
 				}
@@ -625,8 +628,9 @@ void StartDMATransfer(struct acquireResponse* resp)
 	req->object->size = resp->dataSize;
 	if (resp->mode == ACQUIRE_MODE_CREATE || resp->mode == ACQUIRE_MODE_WRITE_OK) {
 		//printf(WHERESTR "Object was in create mode %d\n", WHEREARG, req->id);
-		req->object->mode = ACQUIRE_MODE_WRITE;
+		req->object->mode = ACQUIRE_MODE_WRITE;	
 		req->object->ready = TRUE;
+		
 	} else {
 		//printf(WHERESTR "Object was in read or write mode %d\n", WHEREARG, req->id);
 		req->object->mode = resp->mode;
@@ -707,7 +711,7 @@ void readMailbox() {
 			mode = (int)spu_read_in_mbox();
 			datasize = spu_read_in_mbox();
 			datapointer = (void*)spu_read_in_mbox();
-			
+		
 			if (mode == ACQUIRE_MODE_READ)
 				dmaComplete = (void*)spu_read_in_mbox();
 			else
@@ -1026,7 +1030,7 @@ unsigned int beginRelease(void* data)
 
 			// If we use signaling instead of mailbox messages.			
 			//readSignal();
-			
+
 			if(object->ready == FALSE) {
 				//printf(WHERESTR "Starting a release for %d in write mode, awaiting write signal\n", WHEREARG, (int)object->id);
 				req->state = ASYNC_STATUS_WRITE_READY;				
@@ -1172,19 +1176,19 @@ int getAsyncStatus(unsigned int requestNo)
 					sendMailbox(&req->request);
 					//printf(WHERESTR "Handling release status for %d\n", WHEREARG, requestNo);
 				}
-				
-				#ifndef FENCED_NOTIFY
+							
+				#ifndef FENCED_NOTIFY 
 				if (req->mode == ACQUIRE_MODE_READ)
 				{
 					//printf(WHERESTR "Sending DMA complete flag %d\n", WHEREARG, ((struct acquireRequest*)(&(req->request)))->dataItem);
 					SPU_WRITE_OUT_MBOX(PACKAGE_DMA_TRANSFER_COMPLETE);
 					SPU_WRITE_OUT_MBOX(((struct acquireRequest*)(&(req->request)))->dataItem);
-				} 
+				}
 				#endif
 			}		
 		} else if (req->state == ASYNC_STATUS_WRITE_READY) {
 			//readSignal();
-			if (req->object->ready == TRUE) {
+			if (req->object->ready == TRUE) {				
 				startWriteDMATransfer(req, requestNo);	
 			}			
 		}	

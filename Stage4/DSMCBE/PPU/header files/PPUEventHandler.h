@@ -2,7 +2,6 @@
 #define PPUEVENTHANDLER_H_
 
 #include "../../dsmcbe.h"
-#include "../../common/datastructures.h"
 #include "../../common/datapackages.h"
 
 extern void* threadCreate(GUID id, unsigned long size);

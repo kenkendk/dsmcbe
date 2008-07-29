@@ -18,11 +18,14 @@
 <listOptionValue builtIn="false" value="dsmcbe_ppu"/>
 <listOptionValue builtIn="false" value="m"/>
 <listOptionValue builtIn="false" value="pthread"/>
+<listOptionValue builtIn="false" value="glib-2.0"/>
+<listOptionValue builtIn="false" value="gthread-2.0"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.569159305" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.1173447352" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1317756541" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.2071516845" superClass="gnu.c.link.option.paths" valueType="stringList">
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE/PPU/ppu-gnu32-debug"/>
 </option>
 </tool>
@@ -51,18 +54,24 @@
 <listOptionValue builtIn="false" value="dsmcbe_ppu"/>
 <listOptionValue builtIn="false" value="m"/>
 <listOptionValue builtIn="false" value="pthread"/>
+<listOptionValue builtIn="false" value="glib-2.0"/>
+<listOptionValue builtIn="false" value="gthread-2.0"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.2041774849" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.660468974" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1153033757" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.317410328" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE/PPU/ppu-gnu32-release"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.680534121" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release">
 <option id="gnu.c.compiler.option.include.paths.366696968" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/glib-2.0/include"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0/glib"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0/glib"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE"/>
 </option>
 </tool>

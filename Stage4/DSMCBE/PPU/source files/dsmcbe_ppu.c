@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <glib.h>
 
 #include "../header files/PPUEventHandler.h"
 #include "../header files/SPUEventHandler.h"
@@ -303,6 +304,14 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 #ifdef NO_EMBEDDED_SPU
 	spe_program_handle_t* program;
 #endif		
+
+	// Make GLIB thread safe - way is this not default behavior
+	if (!g_thread_supported ())
+	{
+		g_thread_init (NULL);
+	}
+	else
+		printf(WHERESTR "Warning: GLIB is not THREAD SAFE!!\n", WHEREARG);	
 
 	if (path != NULL) {
 		dsmcbe_host_number = id;

@@ -9,7 +9,6 @@
 
 #include <malloc.h>
 #include <libspe2.h>
-#include "../../common/datastructures.h"
 #include "../../dsmcbe.h"
 
 extern void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count);

@@ -22,29 +22,27 @@ volatile int terminate;
 pthread_mutex_t invalidate_queue_mutex;
 pthread_mutex_t queue_mutex;
 pthread_cond_t queue_ready;
-queue bagOfTasks = NULL;
+GQueue* GbagOfTasks = NULL;
 pthread_t workthread;
 
 #define MAX_SEQUENCE_NR 1000000
 unsigned int sequence_nr;
 
 //This is the table of all allocated active items
-hashtable allocatedItems;
+GHashTable* GallocatedItems;
 //This is a temporary table with objects that are slated for deletion
-hashtable allocatedItemsDirty;
+GHashTable* GallocatedItemsDirty;
 //This is a table that keeps track of un-answered invalidates
-hashtable pendingSequenceNr;
+GHashTable* GpendingSequenceNr;
 //This is a table of items that await object creation
-hashtable waiters;
+GHashTable* Gwaiters;
 //This is a table with QueuableItems that should be notified when all invalidates are in
-hashtable writebufferReady;
+GHashTable* GwritebufferReady;
 //This is a table with acquireRequests that are sent over the network, but not yet responded to
-hashtable pendingRequests;
+GHashTable* GpendingRequests;
 
-queue pagetableWaiters;
-queue priorityResponses;
-
-
+GQueue* GpagetableWaiters;
+GQueue* GpriorityResponses;
 
 typedef struct dataObjectStruct *dataObject;
 
@@ -54,7 +52,7 @@ struct dataObjectStruct{
 	GUID id;
 	void* EA;
 	unsigned long size;
-	dqueue waitqueue;
+	GQueue* Gwaitqueue;
 };
 
 typedef struct invalidateSubscriber* invalidateSubscriber;
@@ -64,11 +62,11 @@ struct invalidateSubscriber
 {
 	pthread_mutex_t* mutex;
 	pthread_cond_t* event;
-	queue* queue;
+	GQueue** Gqueue;
 };
 
 //This list contains all current invalidate subscribers;
-slset invalidateSubscribers;
+GHashTable* GinvalidateSubscribers;
 
 
 //This is used for sorting inside the hashtables
@@ -88,7 +86,7 @@ void* ProccessWork(void* data);
 void processInvalidates();
 
 //Add another subscriber to the list
-void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, queue* q)
+void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, GQueue** q)
 {
 	invalidateSubscriber sub;
 	
@@ -99,20 +97,20 @@ void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event,
 	
 	sub->mutex = mutex;
 	sub->event = event;
-	sub->queue = q; 
-	
-	slset_insert(invalidateSubscribers, q, sub);
+	sub->Gqueue = q; 
+		
+	g_hash_table_insert(GinvalidateSubscribers, q, sub);
 	pthread_mutex_unlock(&invalidate_queue_mutex);
 }
 
 //Remove a subscriber from the list
-void UnregisterInvalidateSubscriber(queue* q)
+void UnregisterInvalidateSubscriber(GQueue** q)
 {
 	
 	pthread_mutex_lock(&invalidate_queue_mutex);
 	
-	FREE(slset_get(invalidateSubscribers, q));
-	slset_delete(invalidateSubscribers, q);
+	FREE(g_hash_table_lookup(GinvalidateSubscribers, q));
+	g_hash_table_remove(GinvalidateSubscribers, q);
 	
 	pthread_mutex_unlock(&invalidate_queue_mutex);
 }
@@ -130,7 +128,7 @@ void TerminateCoordinator(int force)
 	while(!queueEmpty)
 	{
 	 	pthread_mutex_lock(&queue_mutex);
-	 	queueEmpty = queue_empty(bagOfTasks);
+	 	queueEmpty = g_queue_is_empty(GbagOfTasks);
 	 	if (queueEmpty)
 	 	{
 	 		terminate = 1;
@@ -139,14 +137,15 @@ void TerminateCoordinator(int force)
 	 	pthread_mutex_unlock(&queue_mutex);
 	}
 	
-	if (pagetableWaiters != NULL)
-		queue_destroy(pagetableWaiters);
-	queue_destroy(bagOfTasks);
-	queue_destroy(priorityResponses);
-	ht_destroy(allocatedItems);
-	ht_destroy(allocatedItemsDirty);
-	ht_destroy(waiters);
-	ht_destroy(pendingRequests);
+	if (GpagetableWaiters != NULL)
+		g_queue_free(GpagetableWaiters);
+	g_queue_free(GbagOfTasks);
+	g_queue_free(GpriorityResponses);
+	
+	g_hash_table_destroy(GallocatedItems);
+	g_hash_table_destroy(GallocatedItemsDirty);
+	g_hash_table_destroy(Gwaiters);
+	g_hash_table_destroy(GpendingRequests);
 	
 	pthread_join(workthread, NULL);
 	
@@ -162,9 +161,9 @@ void InitializeCoordinator()
 	dataObject obj;
 	size_t i;
 
-	if (bagOfTasks == NULL)
+	if (GbagOfTasks == NULL)
 	{
-		bagOfTasks = queue_create();
+		GbagOfTasks = g_queue_new();
 		terminate = 0;
 	
 		/* Initialize mutex and condition variable objects */
@@ -172,15 +171,15 @@ void InitializeCoordinator()
 		pthread_cond_init (&queue_ready, NULL);
 
 		/* For portability, explicitly create threads in a joinable state */
-		allocatedItems = ht_create(10, lessint, hashfc);
-		allocatedItemsDirty = ht_create(10, lessint, hashfc);
-		pendingSequenceNr = ht_create(10, lessint, hashfc);
-		waiters = ht_create(10, lessint, hashfc);
-		writebufferReady = ht_create(10, lessint, hashfc);
-		pendingRequests = ht_create(10, lessint, hashfc);
-		pagetableWaiters = NULL;
-		invalidateSubscribers = slset_create(lessint);
-		priorityResponses = queue_create();
+		GallocatedItems = g_hash_table_new(NULL, NULL);
+		GallocatedItemsDirty = g_hash_table_new(NULL, NULL);
+		GpendingSequenceNr = g_hash_table_new(NULL, NULL);
+		Gwaiters = g_hash_table_new(NULL, NULL);
+		GwritebufferReady = g_hash_table_new(NULL, NULL);
+		GpendingRequests = g_hash_table_new(NULL, NULL);
+		GpagetableWaiters = NULL;
+		GinvalidateSubscribers = g_hash_table_new(NULL, NULL);
+		GpriorityResponses = g_queue_new();
 		
 		if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 		{
@@ -190,14 +189,14 @@ void InitializeCoordinator()
 			obj->size = sizeof(unsigned int) * PAGE_TABLE_SIZE;
 			obj->EA = MALLOC_ALIGN(obj->size, 7);
 			obj->id = PAGE_TABLE_ID;
-			obj->waitqueue = dq_create();
+			obj->Gwaitqueue = g_queue_new();
 			
 			for(i = 0; i < PAGE_TABLE_SIZE; i++)
 				((unsigned int*)obj->EA)[i] = UINT_MAX;
 
 			((unsigned int*)obj->EA)[PAGE_TABLE_ID] = PAGE_TABLE_OWNER;
-			if(!ht_member(allocatedItems, (void*)obj->id)) 
-				ht_insert(allocatedItems, (void*)obj->id, obj);
+			if(g_hash_table_lookup(GallocatedItems, (void*)obj->id) == NULL) 
+				g_hash_table_insert(GallocatedItems, (void*)obj->id, obj);
 			else
 				REPORT_ERROR("Could not insert into acllocatedItems");
 		}
@@ -216,26 +215,28 @@ void ProcessWaiters(unsigned int* pageTable)
 	pthread_mutex_lock(&queue_mutex);
 	//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
 	
-	hashtableIterator it = ht_iter_create(waiters);
-	while(ht_iter_next(it))
+	GHashTableIter iter;
+	gpointer key, value;
+	
+	g_hash_table_iter_init (&iter, Gwaiters);
+	while (g_hash_table_iter_next (&iter, &key, &value)) 
 	{
 		//printf(WHERESTR "Trying item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
-		if (((unsigned int*)pageTable)[(GUID)ht_iter_get_key(it)] != UINT_MAX)
+		if (((unsigned int*)pageTable)[(GUID)key] != UINT_MAX)
 		{
 			//printf(WHERESTR "Matched, emptying queue item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
-			dqueue dq = ht_get(waiters, ht_iter_get_key(it));
-			while(!dq_empty(dq))
+			GQueue* dq = g_hash_table_lookup(Gwaiters, key);
+			while(!g_queue_is_empty(dq))
 			{
 				//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
-				queue_enq(bagOfTasks, dq_deq_front(dq));
+				g_queue_push_tail(GbagOfTasks, g_queue_pop_head(dq));
 			}
 			
-			ht_delete(waiters, ht_iter_get_key(it));
-			ht_iter_reset(it);							 
-			dq_destroy(dq);
+			g_hash_table_iter_steal(&iter);							 
+			g_queue_free(dq);
 		}
 	}
-	ht_iter_destroy(it);
+
 	pthread_mutex_unlock(&queue_mutex);
 	//printf(WHERESTR "Released local waiters\n", WHEREARG);
 }
@@ -248,7 +249,7 @@ void EnqueItem(QueueableItem item)
 	//printf(WHERESTR "adding item to queue: %i\n", WHEREARG, (int)item);
  	pthread_mutex_lock(&queue_mutex);
  	
- 	queue_enq(bagOfTasks, (void*)item);
+ 	g_queue_push_tail(GbagOfTasks, (void*)item);
 	//printf(WHERESTR "setting event\n", WHEREARG);
  	
  	pthread_cond_signal(&queue_ready);
@@ -272,7 +273,7 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
 	//printf(WHERESTR "locking mutex\n", WHEREARG);
  	pthread_mutex_lock(&queue_mutex);
  	
- 	queue_enq(priorityResponses, resp);
+ 	g_queue_push_tail(GpriorityResponses, resp);
 	//printf(WHERESTR "setting event\n", WHEREARG);
  	
  	pthread_cond_signal(&queue_ready);
@@ -299,8 +300,8 @@ void RespondAny(QueueableItem item, void* resp)
 	//printf(WHERESTR "responding, locking %i, packagetype: %d\n", WHEREARG, (int)item->mutex, ((struct acquireRequest*)resp)->packageCode);
 	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
 	
-	if (item->queue != NULL)
-		queue_enq(*(item->queue), resp);
+	if (item->Gqueue != NULL)
+		g_queue_push_tail(*(item->Gqueue), resp);
 		
 	if (item->event != NULL)
 		pthread_cond_signal(item->event);
@@ -391,7 +392,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	//printf(WHERESTR "Create request for %d\n", WHEREARG, request->dataItem);
 	
 	//Check that the item is not already created
-	if (ht_member(allocatedItems, (void*)request->dataItem))
+	if (g_hash_table_lookup(GallocatedItems, (void*)request->dataItem) != NULL)
 	{
 		REPORT_ERROR("Create request for already existing item");
 		RespondNACK(item);
@@ -423,24 +424,23 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	object->size = size;
 
 	//If there are pending acquires, add them to the list
-	if (ht_member(waiters, (void*)object->id))
+	if ((object->Gwaitqueue = g_hash_table_lookup(Gwaiters, (void*)object->id)) != NULL)
 	{
 		//printf(WHERESTR "Create request for %d, waitqueue was not empty\n", WHEREARG, request->dataItem);
-		object->waitqueue = ht_get(waiters, (void*)object->id);
-		ht_delete(waiters, (void*)object->id);
+		g_hash_table_remove(Gwaiters, (void*)object->id);
 	}
 	else
 	{
 		//printf(WHERESTR "Create request for %d, waitqueue was empty\n", WHEREARG, request->dataItem);
-		object->waitqueue = dq_create();
+		object->Gwaitqueue = g_queue_new();
 	}
 		
 	//Acquire the item for the creator
-	dq_enq_front(object->waitqueue, NULL);
+	g_queue_push_head(object->Gwaitqueue, NULL);
 	
 	//Register this item as created
-	if (!ht_member(allocatedItems, (void*)object->id))
-		ht_insert(allocatedItems, (void*)object->id, object);
+	if (g_hash_table_lookup(GallocatedItems, (void*)object->id) == NULL)
+		g_hash_table_insert(GallocatedItems, (void*)object->id, object);
 	else 
 		REPORT_ERROR("Could not insert into allocatedItems");
 	
@@ -452,7 +452,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 void DoInvalidate(GUID dataItem)
 {
 	
-	keylist kl;
+	GList* kl;
 	dataObject obj;
 	invalidateSubscriber sub;
 
@@ -461,35 +461,36 @@ void DoInvalidate(GUID dataItem)
 	if (dataItem == PAGE_TABLE_ID && dsmcbe_host_number == PAGE_TABLE_OWNER)
 		return;
 	
-	if (!ht_member(allocatedItems, (void*)dataItem))
+	if ((obj = g_hash_table_lookup(GallocatedItems, (void*)dataItem)) == NULL)
 	{
-		printf(WHERESTR "Id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
+		printf(WHERESTR "Id: %d, known objects: %d\n", WHEREARG, dataItem, g_hash_table_size(GallocatedItems));
 		REPORT_ERROR("Attempted to invalidate an item that was not registered");
 		return;
 	}
 
 	//printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
 
-	obj = ht_get(allocatedItems, (void*)dataItem);
-	
 	pthread_mutex_lock(&invalidate_queue_mutex);
-	kl = invalidateSubscribers->elements;
+	//kl = g_hash_table_get_keys(GinvalidateSubscribers);
+	kl = g_hash_table_get_values(GinvalidateSubscribers);
 
 	if (dsmcbe_host_number != GetMachineID(dataItem))
 	{
 		if(kl != NULL) {
 			// Mark memory as dirty
-			ht_delete(allocatedItems, (void*)dataItem);
+			g_hash_table_remove(GallocatedItems, (void*)dataItem);
 			unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
 			*count = 0;
-			if(!ht_member(allocatedItemsDirty, obj))
-				ht_insert(allocatedItemsDirty, obj, count);
+			if(g_hash_table_lookup(GallocatedItemsDirty, obj) == NULL)
+			{
+				g_hash_table_insert(GallocatedItemsDirty, obj, count);
+			}
 			else
 				REPORT_ERROR("Could not insert into allocatedItemsDirty");
 		} else {
 			FREE_ALIGN(obj->EA);
 			obj->EA = NULL;
-			ht_delete(allocatedItems, (void*)dataItem);
+			g_hash_table_remove(GallocatedItems, (void*)dataItem);
 			FREE(obj);
 			obj = NULL;
 			pthread_mutex_unlock(&invalidate_queue_mutex);
@@ -500,8 +501,10 @@ void DoInvalidate(GUID dataItem)
 	{
 		unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
 		*count = 0;
-		if(!ht_member(allocatedItemsDirty, obj))
-			ht_insert(allocatedItemsDirty, obj, count);
+		if(g_hash_table_lookup(GallocatedItemsDirty, obj) == NULL)
+		{
+			g_hash_table_insert(GallocatedItemsDirty, obj, count);
+		}
 		else
 			REPORT_ERROR("Could not insert into allocatedItemsDirty");
 	}	
@@ -518,15 +521,16 @@ void DoInvalidate(GUID dataItem)
 		
 		sub = kl->data;
 		
-		if (!ht_member(pendingSequenceNr, (void*)requ->requestID))		
-			ht_insert(pendingSequenceNr, (void*)requ->requestID, obj);
+		if (g_hash_table_lookup(GpendingSequenceNr, (void*)requ->requestID) == NULL)		
+			g_hash_table_insert(GpendingSequenceNr, (void*)requ->requestID, obj);
 		else
 			REPORT_ERROR("Could not insert into pendingSequenceNr");
-		unsigned int* count = ht_get(allocatedItemsDirty, obj);
+		unsigned int* count = g_hash_table_lookup(GallocatedItemsDirty, obj);
 		*count = *count + 1;
 
 		pthread_mutex_lock(sub->mutex);
-		queue_enq(*sub->queue, requ);
+		
+		g_queue_push_tail(*sub->Gqueue, requ);
 		if (sub->event != NULL)
 			pthread_cond_signal(sub->event);
 		pthread_mutex_unlock(sub->mutex); 
@@ -536,6 +540,8 @@ void DoInvalidate(GUID dataItem)
 		kl = kl->next;
 	}
 	pthread_mutex_unlock(&invalidate_queue_mutex);
+
+	g_list_free(kl);
 
 	//printf(WHERESTR "Invalidate request sent\n", WHEREARG);
 }
@@ -556,10 +562,10 @@ void RecordBufferRequest(QueueableItem item, dataObject obj)
 		REPORT_ERROR("Recording buffer entry for non acquire or non write");
 
 	//printf(WHERESTR "Inserting into writebuffer table: %d, %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem, (int)obj);
-	if(!ht_member(writebufferReady, obj))
+	if(g_hash_table_lookup(GwritebufferReady, obj) == NULL)
 	{
 		//printf(WHERESTR "Inserted item into writebuffer table: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
-		ht_insert(writebufferReady, obj, temp);
+		g_hash_table_insert(GwritebufferReady, obj, temp);
 	}
 	else
 	{
@@ -572,19 +578,18 @@ void RecordBufferRequest(QueueableItem item, dataObject obj)
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
 	
-	dqueue q;
+	GQueue* q;
 	dataObject obj;
 			
 	//printf(WHERESTR "Start acquire on id %i\n", WHEREARG, request->dataItem);
 	
 	//Check that the item exists
-	if (ht_member(allocatedItems, (void*)request->dataItem))
+	if ((obj = g_hash_table_lookup(GallocatedItems, (void*)request->dataItem)) != NULL)
 	{
-		obj = ht_get(allocatedItems, (void*)request->dataItem);
-		q = obj->waitqueue;
+		q = obj->Gwaitqueue;
 						
 		//If the object is not locked, register as locked and respond
-		if (dq_empty(q))
+		if (g_queue_is_empty(q))
 		{
 			//printf(WHERESTR "Object not locked\n", WHEREARG);
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
@@ -592,7 +597,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				RespondAcquire(item, obj);
 			} else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE) {			
 				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
-				dq_enq_front(q, NULL);
+				g_queue_push_head(q, NULL);
 				
 				if (obj->id != PAGE_TABLE_ID)
 					RecordBufferRequest(item, obj);
@@ -610,19 +615,19 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 		else {
 			//Otherwise add the request to the wait list
 			//printf(WHERESTR "Object locked\n", WHEREARG);
-			dq_enq_back(q, item);
+			g_queue_push_tail(q, item);
 		}
 	}
 	else
 	{
 		//printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
 		//Create a list if none exists
-		if (!ht_member(waiters, (void*)request->dataItem))
-			ht_insert(waiters, (void*)request->dataItem, dq_create());
+		if (g_hash_table_lookup(Gwaiters, (void*)request->dataItem) == NULL)
+			g_hash_table_insert(Gwaiters, (void*)request->dataItem, (void*)g_queue_new());
 		
 		//Append the request to the waiters, for use when the object gets created
-		q = (dqueue)ht_get(waiters, (void*)request->dataItem);
-		dq_enq_back(q, item);		
+		q = g_hash_table_lookup(Gwaiters, (void*)request->dataItem);
+		g_queue_push_tail(q, item);		
 	}
 	
 }
@@ -631,7 +636,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 void DoRelease(QueueableItem item, struct releaseRequest* request)
 {
 	
-	dqueue q;
+	GQueue* q;
 	dataObject obj;
 	QueueableItem next;
 	
@@ -643,15 +648,14 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 	}
 	
 	//Ensure that the item exists
-	if (ht_member(allocatedItems, (void*)request->dataItem))
+	if ((obj =g_hash_table_lookup(GallocatedItems, (void*)request->dataItem)) != NULL)
 	{
-		obj = ht_get(allocatedItems, (void*)request->dataItem);
-		q = obj->waitqueue;
+		q = obj->Gwaitqueue;
 		
 		//printf(WHERESTR "%d queue pointer: %d\n", WHEREARG, request->dataItem, (int)q);
 		
 		//Ensure that the item was actually locked
-		if (dq_empty(q))
+		if (g_queue_is_empty(q))
 		{
 			REPORT_ERROR("Bad release, item was not locked!");
 			RespondNACK(item);
@@ -659,11 +663,11 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		else
 		{
 			//Get the next pending request
-			next = dq_deq_front(q);
+			next = g_queue_pop_head(q);
 			if (next != NULL)
 			{
 				REPORT_ERROR("Bad queue, the top entry was not a locker!");
-				dq_enq_front(q, next);
+				g_queue_push_head(q, next);
 				RespondNACK(item);
 			}
 			else
@@ -672,23 +676,23 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				//printf(WHERESTR "Respond to the releaser for %d\n", WHEREARG, request->dataItem);
 				RespondRelease(item);
 				
-				//if(dq_empty(q))
+				//if(g_queue_is_empty(q))
 					//printf(WHERESTR "Queue is empty\n", WHEREARG);
 					
 				if (obj->id == PAGE_TABLE_ID && dsmcbe_host_number == PAGE_TABLE_OWNER)
 				{	
-					ProcessWaiters(obj->EA == NULL ? ht_get(allocatedItems, PAGE_TABLE_ID) : obj->EA);
+					ProcessWaiters(obj->EA == NULL ? g_hash_table_lookup(GallocatedItems, PAGE_TABLE_ID) : obj->EA);
 				}
 				
 			
-				while (!dq_empty(q))
+				while (!g_queue_is_empty(q))
 				{
 					//Acquire for the next in the queue
 					//printf(WHERESTR "Acquire for the next in the queue for %d\n", WHEREARG, request->dataItem);
-					next = dq_deq_front(q);
+					next = g_queue_pop_head(q);
 					if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
 						//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
-						dq_enq_front(q, NULL);
+						g_queue_push_head(q, NULL);
 
 						GUID id = obj->id;
 						if (id != PAGE_TABLE_ID)
@@ -721,15 +725,15 @@ int isPageTableAvalible()
 {
 	if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 	{
-		if (!ht_member(allocatedItems, (void*)PAGE_TABLE_ID))
+		if (g_hash_table_lookup(GallocatedItems, (void*)PAGE_TABLE_ID) == NULL)
 			REPORT_ERROR("Host zero did not have the page table");
 		
 		return 1;
-		//return dq_empty(((dataObject)ht_get(allocatedItems, (void*)PAGE_TABLE_ID))->waitqueue);
+		//return g_queue_is_empty(((dataObject)ht_get(allocatedItems, (void*)PAGE_TABLE_ID))->waitqueue);
 	}
 	else
 	{
-		return ht_member(allocatedItems, (void*)PAGE_TABLE_ID);
+		return (int)g_hash_table_lookup(GallocatedItems, (void*)PAGE_TABLE_ID);
 	}
 }
 
@@ -757,7 +761,7 @@ void RequestPageTable(int mode)
 		q->dataRequest = acq;
 		q->mutex = &queue_mutex;
 		q->event = &queue_ready;
-		q->queue = &priorityResponses;			
+		q->Gqueue = &GpriorityResponses;			
 
 		//printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 
@@ -777,7 +781,7 @@ unsigned int GetMachineID(GUID id)
 {
 	
 	//printf(WHERESTR "Getting machine id for item %d\n", WHEREARG, id);
-	dataObject obj = ht_get(allocatedItems, PAGE_TABLE_ID);
+	dataObject obj = g_hash_table_lookup(GallocatedItems, PAGE_TABLE_ID);
 	//printf(WHERESTR "Getting machine id for item EA: %d\n", WHEREARG, obj);
 	//printf(WHERESTR "Getting machine id for item EA: %d\n", WHEREARG, obj->EA);
 	//printf(WHERESTR "Getting machine id for item %d, result: %d\n", WHEREARG, id, ((unsigned int *)obj->EA)[id]);
@@ -806,23 +810,24 @@ void HandleAcquireRequest(QueueableItem item)
 	
 	struct acquireRequest* req = item->dataRequest;
 	unsigned int machineId = GetMachineID(req->dataItem);
+	void* obj;
 	//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number, req->requestID);
 	
 	if (machineId != dsmcbe_host_number && machineId != UINT_MAX)
 	{
 		//printf(WHERESTR "Acquire for item %d must be handled remotely, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-		if (ht_member(allocatedItems, (void*)req->dataItem) && req->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
+		if ((obj = g_hash_table_lookup(GallocatedItems, (void*)req->dataItem)) != NULL && req->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
 		{
 			//printf(WHERESTR "Read acquire for item %d, machineid: %d, machine id: %d, returned from local cache\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-			RespondAcquire(item, ht_get(allocatedItems, (void*)req->dataItem));
+			RespondAcquire(item, obj);
 		}
 		else
 		{
 			//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, registering\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-			if (!ht_member(pendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem))
+			if (g_hash_table_lookup(GpendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem) == NULL)
 			{
 				//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, sending remote request\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-				ht_insert(pendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, dq_create());
+				g_hash_table_insert(GpendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, g_queue_new());
 				
 				NetRequest(item, machineId);
 			}
@@ -831,15 +836,15 @@ void HandleAcquireRequest(QueueableItem item)
 				NetRequest(item, machineId);
 			}
 			
-			dq_enq_back(ht_get(pendingRequests, (void*)req->dataItem), item);
+			g_queue_push_tail(g_hash_table_lookup(GpendingRequests, (void*)req->dataItem), item);
 		}
 	}
 	else if (machineId == UINT_MAX)
 	{
 		//printf(WHERESTR "Acquire for non-existing item %d, registering request locally, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-		if (!ht_member(waiters, (void*)req->dataItem))
-			ht_insert(waiters, (void*)req->dataItem, dq_create());
-		dq_enq_back((dqueue)ht_get(waiters, (void*)req->dataItem), item);
+		if (g_hash_table_lookup(Gwaiters, (void*)req->dataItem) == NULL)
+			g_hash_table_insert(Gwaiters, (void*)req->dataItem, g_queue_new());
+		g_queue_push_tail(g_hash_table_lookup(Gwaiters, (void*)req->dataItem), item);
 	}
 	else 
 	{
@@ -868,29 +873,29 @@ void HandleReleaseRequest(QueueableItem item)
 		//printf(WHERESTR "processing release event, owner\n", WHEREARG);
 		if (req->mode == ACQUIRE_MODE_WRITE)
 		{
-			dataObject obj = ht_get(allocatedItems, (void*)req->dataItem);
-			if (ht_member(allocatedItemsDirty, obj) || ht_member(writebufferReady, obj))
+			dataObject obj = g_hash_table_lookup(GallocatedItems, (void*)req->dataItem);
+			if (g_hash_table_lookup(GallocatedItemsDirty, obj) != NULL || g_hash_table_lookup(GwritebufferReady, obj) != NULL)
 			{
 				//printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
 				//The object is still in use, re-register, the last invalidate response will free it
 				
-				dqueue tmp = obj->waitqueue;
-				obj->waitqueue = NULL;
+				GQueue* tmp = obj->Gwaitqueue;
+				obj->Gwaitqueue = NULL;
 				if (req->data == NULL)
 					req->data = obj->EA;
 					
 				//TODO: Create and use ht_update
-				ht_delete(allocatedItems, (void*)req->dataItem);
+				g_hash_table_remove(GallocatedItems, (void*)req->dataItem);
 				if ((obj = MALLOC(sizeof(struct dataObjectStruct))) == NULL)
 					REPORT_ERROR("malloc error");
 				
 				obj->EA = req->data;
 				obj->id = req->dataItem;
 				obj->size = req->dataSize;
-				obj->waitqueue = tmp;
+				obj->Gwaitqueue = tmp;
 				
-				if (!ht_member(allocatedItems, (void*)obj->id))
-					ht_insert(allocatedItems, (void*)obj->id, obj);
+				if (g_hash_table_lookup(GallocatedItems, (void*)obj->id) == NULL)
+					g_hash_table_insert(GallocatedItems, (void*)obj->id, obj);
 				else
 					REPORT_ERROR("Could not insert into allocatedItems");
 			}
@@ -925,10 +930,10 @@ void HandleInvalidateRequest(QueueableItem item)
 	
 	if (dsmcbe_host_number != PAGE_TABLE_OWNER && req->dataItem == PAGE_TABLE_ID)
 	{
-		if (pagetableWaiters == NULL || queue_empty(pagetableWaiters))
+		if (GpagetableWaiters == NULL || g_queue_is_empty(GpagetableWaiters))
 		{
 			//printf(WHERESTR "issuing automatic request for page table\n", WHEREARG);
-			pagetableWaiters = queue_create();
+			GpagetableWaiters = g_queue_new();
 			RequestPageTable(ACQUIRE_MODE_READ);							
 		}
 	}
@@ -945,7 +950,7 @@ void HandleInvalidateResponse(QueueableItem item)
 	struct invalidateResponse* req = item->dataRequest;
 	
 	//printf(WHERESTR "processing invalidate response for\n", WHEREARG);
-	if (!ht_member(pendingSequenceNr, (void*)req->requestID))
+	if ((object = g_hash_table_lookup(GpendingSequenceNr, (void*)req->requestID)) == NULL)
 	{
 		FREE(item->dataRequest);
 		item->dataRequest = NULL;
@@ -956,12 +961,11 @@ void HandleInvalidateResponse(QueueableItem item)
 		return;
 	}
 
-	object = ht_get(pendingSequenceNr, (void*)req->requestID);
 	//printf(WHERESTR "processing invalidate response for %d\n", WHEREARG, object->id);
 	
-	if (!ht_member(allocatedItemsDirty, (void*)object))
+	if (g_hash_table_lookup(GallocatedItemsDirty, (void*)object) == NULL)
 	{
-		ht_delete(pendingSequenceNr, (void*)req->requestID);
+		g_hash_table_remove(GpendingSequenceNr, (void*)req->requestID);
 		FREE(item->dataRequest);
 		item->dataRequest = NULL;
 		FREE(item);
@@ -971,26 +975,25 @@ void HandleInvalidateResponse(QueueableItem item)
 		return;
 	}
 	
-	unsigned int* count = ht_get(allocatedItemsDirty, object);
+	unsigned int* count = g_hash_table_lookup(GallocatedItemsDirty, object);
 	*count = *count - 1;
 	if (*count <= 0) {
 		//printf(WHERESTR "The last response is in for: %d\n", WHEREARG, object->id);
-		ht_delete(allocatedItemsDirty, (void*)object);
+		g_hash_table_remove(GallocatedItemsDirty, (void*)object);
 	
 		FREE(count);
 		count = NULL;
 		
-		if(ht_member(writebufferReady, object)) {
+		QueueableItem reciever = NULL;
+		
+		if((reciever = g_hash_table_lookup(GwritebufferReady, object)) != NULL) {
 			//printf(WHERESTR "The last response is in for: %d, sending writebuffer signal, %d\n", WHEREARG, object->id, (int)object);
-
-			
-			QueueableItem reciever = ht_get(writebufferReady, object);
-
+		
 			struct writebufferReady* invReq = (struct writebufferReady*)MALLOC(sizeof(struct writebufferReady));
 			if (invReq == NULL)
 				REPORT_ERROR("malloc error");
 			
-			ht_delete(writebufferReady, object);
+			g_hash_table_remove(GwritebufferReady, object);
 					
 			invReq->packageCode = PACKAGE_WRITEBUFFER_READY;
 			invReq->requestID = ((struct acquireRequest*)reciever->dataRequest)->requestID;
@@ -1004,7 +1007,9 @@ void HandleInvalidateResponse(QueueableItem item)
 			//printf(WHERESTR "Not member: %d, %d\n", WHEREARG, object->id, (int)object);
 		}
 
-		if (!ht_member(allocatedItems, (void*)object->id) || ht_get(allocatedItems, (void*)object->id) != object)
+		void* temp;
+
+		if ((temp = g_hash_table_lookup(GallocatedItems, (void*)object->id)) == NULL || temp != object)
 		{  		
 			//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d)\n", WHEREARG, object->id, (int)object, (int)object->EA);
 			FREE_ALIGN(object->EA);
@@ -1019,7 +1024,7 @@ void HandleInvalidateResponse(QueueableItem item)
 	}
 
 	//printf(WHERESTR "removing pending invalidate response\n", WHEREARG);
-	ht_delete(pendingSequenceNr, (void*)req->requestID);
+	g_hash_table_remove(GpendingSequenceNr, (void*)req->requestID);
 	FREE(item->dataRequest);
 	item->dataRequest = NULL;
 	FREE(item);
@@ -1039,7 +1044,7 @@ void SingleInvalidate(QueueableItem item, GUID id)
 	
 	if (item->mutex != NULL)
 		pthread_mutex_lock(item->mutex);
-	queue_enq(*(item->queue), req);
+	g_queue_push_tail(*(item->Gqueue), req);
 	
 	if (item->event != NULL)
 		pthread_cond_signal(item->event);
@@ -1058,12 +1063,10 @@ void HandleAcquireResponse(QueueableItem item)
 	
 	if (req->dataSize == 0 || (dsmcbe_host_number == PAGE_TABLE_OWNER && req->dataItem == PAGE_TABLE_ID))
 	{
-		if (!ht_member(allocatedItems, (void*)req->dataItem))
+		if ((object = g_hash_table_lookup(GallocatedItems, (void*)req->dataItem)) == NULL)
 			REPORT_ERROR("Requester had sent response without data for non-existing local object");
 			
 		//printf(WHERESTR "acquire response had local copy, id: %d, size: %d\n", WHEREARG, req->dataItem, (int)req->dataSize);
-		object = ht_get(allocatedItems, (void*)req->dataItem);
-
 		if (req->dataSize != 0 && req->data != NULL && object->EA != NULL && req->data != object->EA)
 			memcpy(object->EA, req->data, req->dataSize);
 	}
@@ -1079,19 +1082,19 @@ void HandleAcquireResponse(QueueableItem item)
 		object->id = req->dataItem;
 		object->EA = req->data;
 		object->size = req->dataSize;
-		object->waitqueue = NULL;
+		object->Gwaitqueue = NULL;
 
 		/*if (req->dataItem == PAGE_TABLE_ID)
 			printf(WHERESTR "pagetable entry 1 = %d\n", WHEREARG, ((unsigned int*)object->EA)[1]);*/
 
 						
-		if(!ht_member(allocatedItems, (void*)object->id))
-			ht_insert(allocatedItems, (void*)object->id, object);
+		if(g_hash_table_lookup(GallocatedItems, (void*)object->id) == NULL)
+			g_hash_table_insert(GallocatedItems, (void*)object->id, object);
 		else
 		{
 			DoInvalidate(object->id);
-			if (!ht_member(allocatedItems, (void*)object->id))
-				ht_insert(allocatedItems, (void*)object->id, object);
+			if (g_hash_table_lookup(GallocatedItems, (void*)object->id) == NULL)
+				g_hash_table_insert(GallocatedItems, (void*)object->id, object);
 			else
 				REPORT_ERROR("Could not insert into allocatedItems");
 		}
@@ -1105,35 +1108,34 @@ void HandleAcquireResponse(QueueableItem item)
 		ProcessWaiters(object->EA);
 	}
 
+	GQueue* dq = NULL;
 	//If this is an acquire for an object we requested, release the waiters
-	if (ht_member(pendingRequests, (void*)object->id))
+	if ((dq = g_hash_table_lookup(GpendingRequests, (void*)object->id)) != NULL)
 	{
 		//printf(WHERESTR "testing local copy\n", WHEREARG);
-		dqueue dq = ht_get(pendingRequests, (void*)object->id);
-		
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
-		while(!dq_empty(dq))
+		while(!g_queue_is_empty(dq))
 		{
 			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
-			QueueableItem q = dq_deq_front(dq);
+			QueueableItem q = (QueueableItem)g_queue_pop_head(dq);
 			//printf(WHERESTR "waiter package type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID);
 			if (((struct createRequest*)q->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			{
-				RespondAcquire(q, ht_get(allocatedItems, (void*)object->id));
+				RespondAcquire(q, g_hash_table_lookup(GallocatedItems, (void*)object->id));
 				//DoInvalidate(object->id);
 				//SingleInvalidate(q, object->id);
 				break;
 			}
 			else
-				queue_enq(bagOfTasks, q);
+				g_queue_push_tail(GbagOfTasks, q);
 		}
 		pthread_mutex_unlock(&queue_mutex);
 		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
-		if (dq_empty(dq))
+		if (g_queue_is_empty(dq))
 		{
-			ht_delete(pendingRequests, (void*)object->id);
-			dq_destroy(dq);
+			g_hash_table_remove(GpendingRequests, (void*)object->id);
+			g_queue_free(dq);
 		}
 		
 	}
@@ -1142,16 +1144,16 @@ void HandleAcquireResponse(QueueableItem item)
 
 
 	//We have recieved a new copy of the page table, re-enter all those awaiting this
-	if (pagetableWaiters != NULL && req->dataItem == PAGE_TABLE_ID)
+	if (GpagetableWaiters != NULL && req->dataItem == PAGE_TABLE_ID)
 	{
 		//printf(WHERESTR "fixing pagetable waiters\n", WHEREARG);
 
 		//TODO: Must be a double queue
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
-		while(!queue_empty(pagetableWaiters))
+		while(!g_queue_is_empty(GpagetableWaiters))
 		{
-			QueueableItem cr = queue_deq(pagetableWaiters);
+			QueueableItem cr = g_queue_pop_head(GpagetableWaiters);
 			//printf(WHERESTR "evaluating waiter\n", WHEREARG);
 			
 			if (((struct createRequest*)cr->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
@@ -1187,7 +1189,7 @@ void HandleAcquireResponse(QueueableItem item)
 
 					qs->event = NULL;
 					qs->mutex = NULL;
-					qs->queue = NULL;
+					qs->Gqueue = NULL;
 					qs->dataRequest = rr;
 
 					//printf(WHERESTR "releasing pagetable, %d\n", WHEREARG, req->dataItem);
@@ -1214,13 +1216,13 @@ void HandleAcquireResponse(QueueableItem item)
 			else
 			{
 				//printf(WHERESTR "Reinserted package with type %s (%d), requestId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(((struct createRequest*)cr->dataRequest)->packageCode), ((struct createRequest*)cr->dataRequest)->packageCode, ((struct createRequest*)cr->dataRequest)->requestID, ((struct createRequest*)cr->dataRequest)->dataItem);					
-				queue_enq(bagOfTasks, cr);
+				g_queue_push_tail(GbagOfTasks, cr);
 			}
 		}
 		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 		pthread_mutex_unlock(&queue_mutex);
-		if (queue_empty(pagetableWaiters))
-			pagetableWaiters = NULL;
+		if (g_queue_is_empty(GpagetableWaiters))
+			GpagetableWaiters = NULL;
 	}
 	
 	FREE(item->dataRequest);
@@ -1245,7 +1247,7 @@ void* ProccessWork(void* data)
 			
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
-		while (queue_empty(bagOfTasks) && queue_empty(priorityResponses) && !terminate) {
+		while (g_queue_is_empty(GbagOfTasks) && g_queue_is_empty(GpriorityResponses) && !terminate) {
 			//printf(WHERESTR "waiting for event\n", WHEREARG);
 			pthread_cond_wait(&queue_ready, &queue_mutex);
 			//printf(WHERESTR "event recieved\n", WHEREARG);
@@ -1261,21 +1263,21 @@ void* ProccessWork(void* data)
 		isPtResponse = 0;
 
 		//We prioritize page table responses
-		if (!queue_empty(priorityResponses))
+		if (!g_queue_is_empty(GpriorityResponses))
 		{
 			//printf(WHERESTR "fetching priority response\n", WHEREARG);
 			if ((item = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 				REPORT_ERROR("MALLOC error");
-			item->dataRequest = queue_deq(priorityResponses);
+			item->dataRequest = g_queue_pop_head(GpriorityResponses);
 			item->event = &queue_ready;
 			item->mutex = &queue_mutex;
-			item->queue = &priorityResponses;
+			item->Gqueue = &GpriorityResponses;
 			isPtResponse = 1;
 		}
 		else
 		{
 			//printf(WHERESTR "fetching actual job\n", WHEREARG);
-			item = (QueueableItem)queue_deq(bagOfTasks);
+			item = (QueueableItem)g_queue_pop_head(GbagOfTasks);
 			if (item == NULL)
 				REPORT_ERROR("Empty entry in request queue");
 			if (item->dataRequest == NULL)
@@ -1301,10 +1303,10 @@ void* ProccessWork(void* data)
 #ifdef DEBUG_PACKAGES
 			printf(WHERESTR "defering package type %s (%d), page table is missing, reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(datatype), datatype, ((struct acquireRequest*)item->dataRequest)->requestID, ((struct acquireRequest*)item->dataRequest)->dataItem);
 #endif
-			if (pagetableWaiters == NULL)
+			if (GpagetableWaiters == NULL)
 			{
 				RequestPageTable(datatype == PACKAGE_CREATE_REQUEST ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
-				pagetableWaiters = queue_create();
+				GpagetableWaiters = g_queue_new();
 			}
 			else if (datatype == PACKAGE_CREATE_REQUEST)
 			{
@@ -1312,7 +1314,7 @@ void* ProccessWork(void* data)
 				RequestPageTable(ACQUIRE_MODE_WRITE);
 			}
 			
-			queue_enq(pagetableWaiters, item);
+			g_queue_push_tail(GpagetableWaiters, item);
 			//printf(WHERESTR "restarting loop\n", WHEREARG);
 			continue;
 		}
