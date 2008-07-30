@@ -26,5 +26,5 @@ done
 
 #We sleep here so there is no delay in the timing sequence
 # related to network setups
-sleep 4
+sleep 10
 ./startjob.sh $2 0 $3 $4 $5
