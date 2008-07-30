@@ -3,23 +3,6 @@
 
 #include <stdio.h>
 
-/* These 4 defines are the constants used for data communication */ 
-//This is the SYNC lock
-#define PACKAGE_ITEM 1
-//This is the initial Prototein info
-#define PROTOTEIN 2 
-//This is the master lock
-#define MASTER_COMPLETION_LOCK 4
-
-//This is the buffer where each SPU will write data into
-#define WINNER_OFFSET 100
-
-//This is the actual workblock ID
-#define WORKITEM_OFFSET 200
-
-//The number of lightweight threads on the SPU
-#define SPU_FIBERS 2
-
 //remove annoying warnings
 void exit(int);
 
@@ -54,11 +37,18 @@ inline char get_map_char_raw(int x, int y, struct coordinate* place, int places_
 }
 	
 	
-void printmap(struct coordinate* place, unsigned int places_length)
+void printmap(struct coordinate* place, int places_length, int org)
 {
-	size_t i, j;
+	int i, j;
+	char buf[512];
+	memset(buf, 0, 512);
+	memcpy(buf, prototein, prototein_length);
 	
-	printf("Map (%i): \n", places_length);
+	/*for(i = 0; i < places_length; i++)
+		printf("%d %d, ", place[i].x, place[i].y);
+	printf("\n");*/
+	
+	printf("Map for %s  (%i): \n", buf, places_length);
 	for(i = 0; i<prototein_length*2; i++)
 	{
 		printf("'");
