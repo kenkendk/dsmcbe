@@ -54,12 +54,15 @@
 <listOptionValue builtIn="false" value="dsmcbe_ppu"/>
 <listOptionValue builtIn="false" value="pthread"/>
 <listOptionValue builtIn="false" value="spe2"/>
+<listOptionValue builtIn="false" value="gthread-2.0"/>
+<listOptionValue builtIn="false" value="glib-2.0"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.2026392350" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.402308484" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.254560922" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1750447987" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE/PPU/ppu-gnu32-release"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.1407086872" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>

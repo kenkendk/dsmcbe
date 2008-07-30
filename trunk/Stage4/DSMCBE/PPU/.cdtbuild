@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <?fileVersion 3.1.0?>
 
 <ManagedProjectBuildInfo>
@@ -12,12 +12,8 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.archiver.lib.1152142905" name="PPU GNU Archiver" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.archiver.lib"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.debug.1803753347" name="PPU GNU 32 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.debug">
 <option id="gnu.c.compiler.option.include.paths.768605136" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/glib-2.0/include"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0/glib"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 </option>
-<option id="gnu.c.compiler.option.preprocessor.def.symbols.402580799" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols"/>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.lib.debug.795178825" name="PPU GNU 32 bit C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.lib.debug"/>
 <macros/>
@@ -32,10 +28,10 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.archiver.lib.910631837" name="PPU GNU Archiver" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.archiver.lib"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.release.355282827" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.release">
 <option id="gnu.c.compiler.option.include.paths.1088112496" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0/glib"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/glib-2.0/include"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0/glib"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.lib.release.449816798" name="PPU GNU 32 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.lib.release"/>
