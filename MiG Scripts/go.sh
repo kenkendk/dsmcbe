@@ -17,7 +17,7 @@ while [  $COUNTER -lt $LIMIT ]; do
 	HOSTNAME=`echo -n PS3-$HOSTID`
 	let MACHINEID=COUNTER-1
 
-	ssh $HOSTNAME "cd ${PWD} && ./startjob.sh $2 $MACHINEID $3 2>$HOSTNAME.stderr 1>$HOSTNAME.stdout" &
+	ssh $HOSTNAME "cd ${PWD} && ./startjob.sh $2 $MACHINEID $3 $4 2>$HOSTNAME.stderr 1>$HOSTNAME.stdout" &
 
 	echo "Starting $HOSTNAME as machine $MACHINEID"
 
@@ -27,4 +27,4 @@ done
 #We sleep here so there is no delay in the timing sequence
 # related to network setups
 sleep 4
-./startjob.sh $2 0 $3 $4
+./startjob.sh $2 0 $3 $4 $5
