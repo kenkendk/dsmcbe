@@ -77,6 +77,9 @@ unsigned long long ReadClock()
 }
 #endif
 
+hashtableIterator itx;
+
+
 /*extern unsigned int thread_id;
 extern int thread_no;*/
 
@@ -374,6 +377,15 @@ void* clearAlign(unsigned long size, int base) {
 			} else {
 				REPORT_ERROR("allocatedID not found in itemsById");
 				fprintf(stderr, WHERESTR "ID is %d (%d, %i/%i)\n", WHEREARG, id, queue_count(allocatedID), itemsById->fill, itemsById->count);
+				fprintf(stderr, WHERESTR "Requested size was %d, base was %d\n", WHEREARG, (int)size, base);
+				
+
+				ht_iter_reset(itx);
+				fprintf(stderr, "Key list: ");
+				while(ht_iter_next(itx))
+					fprintf(stderr, "%d, ", (int)ht_iter_get_key(itx));
+				fprintf(stderr, "\n");
+				
 				*cur = cdr_and_free(*cur);
 			}		
 		}
@@ -1121,9 +1133,10 @@ void initialize()
 	spu_clock_start();
 #endif	
 	terminated = 0;
-	itemsByPointer = ht_create(10, lessint, hashfc);
-	itemsById = ht_create(10, lessint, hashfc);
+	itemsByPointer = ht_create(60, lessint, hashfc);
+	itemsById = ht_create(60, lessint, hashfc);
 	allocatedID = queue_create();
+	itx = ht_iter_create(itemsById);
 }
 
 void terminate() {

@@ -1,8 +1,9 @@
 #include "PrototeinShared.h"
 #include "ppu.h"
 #include <stdio.h>
-#include<malloc_align.h>
-#include<free_align.h>
+#include <malloc_align.h>
+#include <free_align.h>
+#include <string.h>
 
 #define JOBS_PR_PROCESSOR 10
 #define REQUIRED_JOB_COUNT (10000 * prototein_length)
@@ -46,7 +47,7 @@ int GetWaitingSPU(speid_t* ids, int spu_count, struct coordinate** winners, unsi
 
 void PrepareWorkBlock(struct workblock* w, int current_job)
 {
-	int trn_size, i;
+	int trn_size;
 	unsigned int joboffset;
 	
 	(*w).winner_score = bestscore;

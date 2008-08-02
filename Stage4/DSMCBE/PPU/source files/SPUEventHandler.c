@@ -6,21 +6,31 @@
  */
  
 #define USE_INTR_MBOX 
-//#define EVENT_BASED
+#define EVENT_BASED
 
 #ifdef EVENT_BASED
-	#define OUTBOUND_BEGIN pthread_mutex_lock(&spu_outbound_mutex);
-	#define OUTBOUND_END pthread_cond_signal(&spu_outbound_cond); pthread_mutex_unlock(&spu_outbound_mutex);
-	
+	#define REQUEST_COORDINATOR_BEGIN pthread_mutex_lock(&spu_requestCoordinator_mutex);
+	#define REQUEST_COORDINATOR_END pthread_cond_signal(&spu_requestCoordinator_cond); pthread_mutex_unlock(&spu_requestCoordinator_mutex);
+
+	#define OUTBOUND_BEGIN
+	#define OUTBOUND_END
+
 	#define LEASE_BEGIN pthread_mutex_lock(&spu_lease_lock);
 	#define LEASE_END pthread_mutex_unlock(&spu_lease_lock);
 #else
+	#define REQUEST_COORDINATOR_BEGIN
+	#define REQUEST_COORDINATOR_END
+
 	#define OUTBOUND_BEGIN
 	#define OUTBOUND_END
 
 	#define LEASE_BEGIN
 	#define LEASE_END
 #endif
+
+
+//#define PUSH_TO_SPU(threadNo, value) g_queue_push_tail(Gspu_mailboxQueues[threadNo], value);
+#define PUSH_TO_SPU(threadNo, value) if (g_queue_get_length(Gspu_mailboxQueues[threadNo]) != 0 || spe_in_mbox_status(spe_threads[threadNo]) == 0 || spe_in_mbox_write(spe_threads[threadNo], value, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)  { g_queue_push_tail(Gspu_mailboxQueues[threadNo], value); } 
 
 #include <pthread.h>
 #include "../header files/SPUEventHandler.h"
@@ -71,23 +81,9 @@ int* spe_isAlive;
 	//This thread handles all events from the SPU's
 	pthread_t spu_eventthread;
 	
-	//This thread handles all inbound message from the SPU
-	pthread_t spu_inbound_thread;
-	
 	//This thread handles all outbound message to the SPU
 	pthread_t spu_outbound_thread;
 	
-	//This thread handles all messages from the request coordinator
-	pthread_t spu_requestCoordinator_thread;
-
-	//This mutex and condition is used to signal inbound messages from the spu
-	pthread_mutex_t spu_inbound_mutex;
-	pthread_cond_t spu_inbound_cond;
-
-	//This mutex and condition is used to signal and protect the outbound spu message queue
-	pthread_mutex_t spu_outbound_mutex;
-	pthread_cond_t spu_outbound_cond;
-
 	//This condition is used to signal from the request coordinator
 	pthread_cond_t spu_requestCoordinator_cond;
 
@@ -96,12 +92,6 @@ int* spe_isAlive;
 
 	//The worker thread for SPU events
 	void* SPU_EventThread(void* data);
-	
-	//The worker thread for all messages from the request coordinator
-	void* SPU_RequestCoordinatorThread(void* data);
-	
-	//The worker thread for all messages from the SPU
-	void* SPU_InboundThread(void* data);
 	
 	//The worker thread for all messages to the SPU
 	void* SPU_OutboundThread(void* data);
@@ -130,33 +120,19 @@ void TerminateSPUHandler(int force)
 
 #ifdef EVENT_BASED	
 	//Notify all threads that they are done
-	pthread_mutex_lock(&spu_inbound_mutex);
-	pthread_cond_signal(&spu_inbound_cond);
-	pthread_mutex_unlock(&spu_inbound_mutex);
-
-	pthread_mutex_lock(&spu_outbound_mutex);
-	pthread_cond_signal(&spu_outbound_cond);
-	pthread_mutex_unlock(&spu_outbound_mutex);
-
 	pthread_mutex_lock(&spu_requestCoordinator_mutex);
 	pthread_cond_signal(&spu_requestCoordinator_cond);
 	pthread_mutex_unlock(&spu_requestCoordinator_mutex);
 
 	//Wait for them to terminate
 	pthread_join(spu_eventthread, NULL);
-	pthread_join(spu_inbound_thread, NULL);
 	pthread_join(spu_outbound_thread, NULL);
-	pthread_join(spu_requestCoordinator_thread, NULL);
 #else
 	pthread_join(spu_mainthread, NULL);
 #endif
 
 	//Destroy all data variables
 #ifdef EVENT_BASED
-	pthread_mutex_destroy(&spu_inbound_mutex);
-	pthread_cond_destroy(&spu_inbound_cond);
-	pthread_mutex_destroy(&spu_outbound_mutex);
-	pthread_cond_destroy(&spu_outbound_cond);
 	pthread_mutex_destroy(&spu_lease_lock);
 
 	pthread_cond_destroy(&spu_requestCoordinator_cond);
@@ -232,10 +208,6 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	
 	/* Initialize mutex and condition variable objects */
 #ifdef EVENT_BASED
-	if (pthread_mutex_init(&spu_inbound_mutex, NULL) != 0) REPORT_ERROR("pthread_mutex_init");
-	if (pthread_cond_init (&spu_inbound_cond, NULL) != 0) REPORT_ERROR("pthread_cond_init");
-	if (pthread_mutex_init(&spu_outbound_mutex, NULL) != 0) REPORT_ERROR("pthread_mutex_init");
-	if (pthread_cond_init (&spu_outbound_cond, NULL) != 0) REPORT_ERROR("pthread_cond_init");
 	if (pthread_mutex_init(&spu_lease_lock, NULL) != 0) REPORT_ERROR("pthread_mutex_init");
 
 	if (pthread_cond_init (&spu_requestCoordinator_cond, NULL) != 0) REPORT_ERROR("pthread_cond_init");
@@ -312,9 +284,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	
 #ifdef EVENT_BASED	
 	pthread_create(&spu_eventthread, &attr, SPU_EventThread, NULL);
-	pthread_create(&spu_inbound_thread, &attr, SPU_InboundThread, NULL);
 	pthread_create(&spu_outbound_thread, &attr, SPU_OutboundThread, NULL);
-	pthread_create(&spu_requestCoordinator_thread, &attr, SPU_RequestCoordinatorThread, NULL);
 #else
 	pthread_create(&spu_mainthread, &attr, SPU_MainThread, NULL);
 #endif
@@ -352,7 +322,7 @@ int SPU_ProcessOutboundMessages()
 	{
 		while (!g_queue_is_empty(Gspu_mailboxQueues[i]) && spe_in_mbox_status(spe_threads[i]) != 0)	
 		{
-			//printf(WHERESTR "Sending Mailbox message: %i\n", WHEREARG, (unsigned int)spu_mailboxQueues[i]->head->element);
+			//printf(WHERESTR "Sending Mailbox message: %i\n", WHEREARG, (unsigned int)Gspu_mailboxQueues[i]->head->data);
 			if (spe_in_mbox_write(spe_threads[i], (unsigned int*)&Gspu_mailboxQueues[i]->head->data, 1, SPE_MBOX_ALL_BLOCKING) != 1) {
 				REPORT_ERROR("Failed to send message, even though it was blocking!"); 
 			} else
@@ -414,12 +384,12 @@ void SPU_ProcessRequestCoordinatorMessage(void* dataItem, int threadNo)
 				LEASE_END
 
 				OUTBOUND_BEGIN
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)datatype);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct acquireResponse*)dataItem)->requestID);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct acquireResponse*)dataItem)->dataItem);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct acquireResponse*)dataItem)->mode);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct acquireResponse*)dataItem)->dataSize);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct acquireResponse*)dataItem)->data);
+				PUSH_TO_SPU(threadNo, (void*)datatype);
+				PUSH_TO_SPU(threadNo, (void*)((struct acquireResponse*)dataItem)->requestID);
+				PUSH_TO_SPU(threadNo, (void*)((struct acquireResponse*)dataItem)->dataItem);
+				PUSH_TO_SPU(threadNo, (void*)((struct acquireResponse*)dataItem)->mode);
+				PUSH_TO_SPU(threadNo, (void*)((struct acquireResponse*)dataItem)->dataSize);
+				PUSH_TO_SPU(threadNo, (void*)((struct acquireResponse*)dataItem)->data);
 				OUTBOUND_END
 				
 				//Register this SPU as the initiator
@@ -455,7 +425,7 @@ void SPU_ProcessRequestCoordinatorMessage(void* dataItem, int threadNo)
 						LEASE_END
 						
 						OUTBOUND_BEGIN
-						g_queue_push_tail(Gspu_mailboxQueues[threadNo], DMAobj);
+						PUSH_TO_SPU(threadNo, DMAobj);
 						OUTBOUND_END
 					}
 					else								
@@ -473,8 +443,8 @@ void SPU_ProcessRequestCoordinatorMessage(void* dataItem, int threadNo)
 				//printf(WHERESTR "Got acquire release message, converting to MBOX messages\n", WHEREARG);
 				OUTBOUND_BEGIN
 				
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)datatype);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct releaseResponse*)dataItem)->requestID);
+				PUSH_TO_SPU(threadNo, (void*)datatype);
+				PUSH_TO_SPU(threadNo, (void*)((struct releaseResponse*)dataItem)->requestID);
 				
 				OUTBOUND_END
 				break;
@@ -482,9 +452,9 @@ void SPU_ProcessRequestCoordinatorMessage(void* dataItem, int threadNo)
 				//printf(WHERESTR "Got acquire nack message, converting to MBOX messages\n", WHEREARG);
 				OUTBOUND_BEGIN
 
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)datatype);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct NACK*)dataItem)->requestID);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct NACK*)dataItem)->hint);
+				PUSH_TO_SPU(threadNo, (void*)datatype);
+				PUSH_TO_SPU(threadNo, (void*)((struct NACK*)dataItem)->requestID);
+				PUSH_TO_SPU(threadNo, (void*)((struct NACK*)dataItem)->hint);
 
 				OUTBOUND_END
 				break;
@@ -547,9 +517,9 @@ void SPU_ProcessRequestCoordinatorMessage(void* dataItem, int threadNo)
 					//printf(WHERESTR "Got \"invalidateRequest\" message, converting to MBOX messages for %d, SPU %d\n", WHEREARG, ((struct invalidateRequest*)dataItem)->dataItem, i);
 					OUTBOUND_BEGIN
 
-					g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)datatype);
-					g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct invalidateRequest*)dataItem)->requestID);
-					g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct invalidateRequest*)dataItem)->dataItem);
+					PUSH_TO_SPU(threadNo, (void*)datatype);
+					PUSH_TO_SPU(threadNo, (void*)((struct invalidateRequest*)dataItem)->requestID);
+					PUSH_TO_SPU(threadNo, (void*)((struct invalidateRequest*)dataItem)->dataItem);
 
 					OUTBOUND_END
 				}
@@ -564,9 +534,9 @@ void SPU_ProcessRequestCoordinatorMessage(void* dataItem, int threadNo)
 				//printf("Signal send\n");
 				OUTBOUND_BEGIN
 
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)datatype);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct writebufferReady*)dataItem)->requestID);
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)((struct writebufferReady*)dataItem)->dataItem);						
+				PUSH_TO_SPU(threadNo, (void*)datatype);
+				PUSH_TO_SPU(threadNo, (void*)((struct writebufferReady*)dataItem)->requestID);
+				PUSH_TO_SPU(threadNo, (void*)((struct writebufferReady*)dataItem)->dataItem);						
 
 				OUTBOUND_END
 				break;
@@ -613,21 +583,17 @@ void SPU_ProcessIncommingMailbox(int threadNo)
 		datatype = 8000;
 		dataItem = NULL;
 		//printf(WHERESTR "SPU mailbox message detected\n", WHEREARG);
-	#ifdef USE_INTR_MBOX
-		if (spe_out_intr_mbox_read(spe_threads[threadNo], &datatype, 1, SPE_MBOX_ALL_BLOCKING) != 1)
-			REPORT_ERROR("Read MBOX failed (1)!");
-	#else
 		ReadMBOXBlocking(spe_threads[threadNo], &datatype, 1);	
-	#endif
 		//printf(WHERESTR "SPU mailbox message read\n", WHEREARG);
 			
 		switch(datatype)
 		{					
 			case PACKAGE_TERMINATE_REQUEST:
-				OUTBOUND_BEGIN
-				g_queue_push_tail(Gspu_mailboxQueues[threadNo], (void*)PACKAGE_TERMINATE_RESPONSE);
+				REQUEST_COORDINATOR_BEGIN
+				//printf(WHERESTR "Terminate message detected\n", WHEREARG);
+				PUSH_TO_SPU(threadNo, (void*)PACKAGE_TERMINATE_RESPONSE);
 				spe_isAlive[threadNo] = 0;
-				OUTBOUND_END
+				REQUEST_COORDINATOR_END
 				break;
 			case PACKAGE_CREATE_REQUEST:
 				//printf(WHERESTR "Create recieved\n", WHEREARG);
@@ -750,99 +716,50 @@ void SPU_ProcessIncommingMailbox(int threadNo)
 }
 
 #ifdef EVENT_BASED
-/* This thread function converts all incomming messages to mailbox messages, and forwards them */
-void* SPU_RequestCoordinatorThread(void* dummy)
-{
-	void* dataItem;
-	int threadNo;
-	
-	//printf(WHERESTR "Starting request coordinator\n", WHEREARG);
-	
-	while(!spu_terminate)
-	{
-		pthread_mutex_lock(&spu_requestCoordinator_mutex);
-		
-		dataItem = NULL;
-		
-		while(dataItem == NULL && !spu_terminate)
-		{ 
-			dataItem = SPU_GetRequestCoordinatorMessage(&threadNo);
-			if (dataItem == NULL && !spu_terminate)
-			{
-				//printf(WHERESTR "Waiting request coordinator\n", WHEREARG);
-				pthread_cond_wait(&spu_requestCoordinator_cond, &spu_requestCoordinator_mutex);
-			}
-		}
-			
-		pthread_mutex_unlock(&spu_requestCoordinator_mutex);
-		//printf(WHERESTR "Processing request coordinator\n", WHEREARG);
-		
-		SPU_ProcessRequestCoordinatorMessage(dataItem, threadNo);
-	}
-	
-	return dummy;
-}
 
 /* This thread function basically extends the size of the mailbox buffer from 4 messages to nearly infinite */
 void* SPU_OutboundThread(void* dummy)
 {
 	struct timespec waittime;
+	int threadNo;
+	void* dataItem;
 	
 	//printf(WHERESTR "Starting outbound\n", WHEREARG);
 	
-	pthread_mutex_lock(&spu_outbound_mutex);
+	pthread_mutex_lock(&spu_requestCoordinator_mutex);
 
 	while(!spu_terminate)
 	{
+		
+		do
+		{		
+			threadNo = -1;
+			dataItem = SPU_GetRequestCoordinatorMessage(&threadNo);
+			if (dataItem != NULL && threadNo != -1)
+				SPU_ProcessRequestCoordinatorMessage(dataItem, threadNo);
+		} while (dataItem != NULL && threadNo != -1);
+		
 		//Atomically unlock mutex and wait for a signal
 		//Unfortunately the SPE_EVENT_IN_MBOX keeps fireing if there is no messages,
 		// so we have to rely on a timed wait
 		
+		//printf(WHERESTR "Processing outbound, count: %d\n", WHEREARG, g_queue_get_length(Gspu_mailboxQueues[0]));
 		if (SPU_ProcessOutboundMessages())
 		{
-			//printf(WHERESTR "Waiting for outbound, TIMED\n", WHEREARG);
+			//printf(WHERESTR "Waiting for outbound, TIMED, count: %d\n", WHEREARG, g_queue_get_length(Gspu_mailboxQueues[0]));
 			clock_gettime(CLOCK_REALTIME, &waittime);
 			waittime.tv_nsec += 10000000;
-			pthread_cond_timedwait(&spu_outbound_cond, &spu_outbound_mutex, &waittime);
+			pthread_cond_timedwait(&spu_requestCoordinator_cond, &spu_requestCoordinator_mutex, &waittime);
 		}
 		else
 		{
-			//printf(WHERESTR "Waiting for outbound: %d\n", WHEREARG, isFull);
-			pthread_cond_wait(&spu_outbound_cond, &spu_outbound_mutex);
+			//printf(WHERESTR "Waiting for outbound, count: %d\n", WHEREARG, g_queue_get_length(Gspu_mailboxQueues[0]));
+			pthread_cond_wait(&spu_requestCoordinator_cond, &spu_requestCoordinator_mutex);
 		}
 		//printf(WHERESTR "Processing outbound\n", WHEREARG);
 	}
 
-	pthread_mutex_unlock(&spu_outbound_mutex);
-	
-	return dummy;
-}
-
-
-/* This thread function reads mailbox messages and forwards them as packages to the request coordinator */
-void* SPU_InboundThread(void* dummy)
-{
-	int threadNo;
-	
-	//printf(WHERESTR "Starting inbound\n", WHEREARG);
-
-	while(!spu_terminate)
-	{
-		if (pthread_mutex_lock(&spu_inbound_mutex) != 0) REPORT_ERROR("pthread_mutex_lock");
-
-		threadNo = SPU_GetWaitingMailbox();
-		
-		if (threadNo == -1 && !spu_terminate)
-		{
-			//printf(WHERESTR "Waiting inbound\n", WHEREARG);
-			if (pthread_cond_wait(&spu_inbound_cond, &spu_inbound_mutex) != 0) REPORT_ERROR("pthread_cond_wait");
-			//printf(WHERESTR "Processing inbound\n", WHEREARG);
-		}
-		
-		if (pthread_mutex_unlock(&spu_inbound_mutex) != 0) REPORT_ERROR("pthread_mutex_unlock");
-		
-		SPU_ProcessIncommingMailbox(threadNo);
-	}
+	pthread_mutex_unlock(&spu_requestCoordinator_mutex);
 	
 	return dummy;
 }
@@ -852,60 +769,34 @@ void* SPU_EventThread(void* dummy)
 {
 	int event_count;
 	spe_event_unit_t event;
+	int threadNo;
 	
 	//printf(WHERESTR "Registering events\n", WHEREARG);
-	
-	//Events may already have occured here, so we fake signal it
-	pthread_mutex_lock(&spu_inbound_mutex);
-	pthread_cond_signal(&spu_inbound_cond);
-	pthread_mutex_unlock(&spu_inbound_mutex);
-
-	pthread_mutex_lock(&spu_outbound_mutex);
-	pthread_cond_signal(&spu_outbound_cond);
-	pthread_mutex_unlock(&spu_outbound_mutex);
-	 
 	
 	while(!spu_terminate)
 	{
 		//The timeout is set to 5000 so we check the spu_terminate flag every 5 seconds, 
-		// in case nothing else happens
-	
+		// in case nothing else happens. This should not happen under normal usage.
 		//printf(WHERESTR "Awaiting event\n", WHEREARG);
-		event_count = spe_event_wait(spu_event_handler, &event, SPE_MAX_EVENT_COUNT, 10000);
+		event_count = spe_event_wait(spu_event_handler, &event, SPE_MAX_EVENT_COUNT, 5000);
 		//printf(WHERESTR "Processing event\n", WHEREARG);
 		if (event_count == -1)
 			REPORT_ERROR("spe_event_wait failed");
 		
-		if ((event.events & SPE_EVENT_OUT_INTR_MBOX) != 0)
+		/*if ((event.events & SPE_EVENT_OUT_INTR_MBOX) != 0)
+			SPU_ProcessIncommingMailbox(event.data.u32);*/
+
+		threadNo = SPU_GetWaitingMailbox();
+		while (threadNo != -1)
 		{
-			//printf(WHERESTR "Got OUT_MBOX event\n", WHEREARG);
-			if (pthread_mutex_lock(&spu_inbound_mutex) != 0) REPORT_ERROR("pthread_mutex_lock");
-			if (pthread_cond_signal(&spu_inbound_cond) != 0) REPORT_ERROR("pthread_cond_signal");
-			//printf(WHERESTR "Signalled OUT_MBOX event\n", WHEREARG);
-			if (pthread_mutex_unlock(&spu_inbound_mutex) != 0) REPORT_ERROR("pthread_mutex_unlock");
+			SPU_ProcessIncommingMailbox(threadNo);
+			threadNo = SPU_GetWaitingMailbox();
 		}
 
-		//This event keeps fireing if the mailbox is empty, this may have worked under SDK 2.1
-		/*if ((event.events & SPE_EVENT_IN_MBOX) != 0)
-		{
-			//printf(WHERESTR "Got IN_MBOX event\n", WHEREARG);
-			if (pthread_mutex_lock(&spu_outbound_mutex) != 0) REPORT_ERROR("pthread_mutex_lock");
-			if (pthread_cond_signal(&spu_outbound_cond) != 0) REPORT_ERROR("pthread_cond_signal");
-			if (pthread_mutex_unlock(&spu_outbound_mutex) != 0) REPORT_ERROR("pthread_mutex_lock");
-			//printf(WHERESTR "Signalled IN_MBOX event\n", WHEREARG);
-		}*/
-
 		//This code is used to troubleshoot jiggy event handling code
-		if (event_count == 0)
+		if (event_count == 0 && !spu_terminate)
 		{
-			pthread_mutex_lock(&spu_inbound_mutex);
-			pthread_cond_signal(&spu_inbound_cond);
-			pthread_mutex_unlock(&spu_inbound_mutex);
-		
-			/*pthread_mutex_lock(&spu_outbound_mutex);
-			pthread_cond_signal(&spu_outbound_cond);
-			pthread_mutex_unlock(&spu_outbound_mutex);*/
-			
+	
 			printf(WHERESTR "Jiggy! Jiggy! Jiggy!\n", WHEREARG);
 		}
 	}

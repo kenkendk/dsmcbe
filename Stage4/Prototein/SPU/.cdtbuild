@@ -50,6 +50,9 @@
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
 </option>
+<option id="gnu.c.compiler.option.preprocessor.def.symbols.565931733" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols">
+<listOptionValue builtIn="false" value="DSMCBE_SPU"/>
+</option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.release.869258330" name="SPU GNU C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.release"/>
 <macros/>
