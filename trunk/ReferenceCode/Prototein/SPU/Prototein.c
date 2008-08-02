@@ -2,10 +2,12 @@
 #include "DMATransfer.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <malloc.h>
 #include <math.h>
 #include <errno.h>
 #include <malloc_align.h>
+#include <string.h>
 
 #define MAP_WIDTH (prototein_length * 2 + 1) 
 #define MAP_HEIGTH (prototein_length * 2 + 1)
@@ -109,7 +111,7 @@ int FoldPrototein(unsigned long long id)
 		current_buffer = current_buffer == b0 ? b1 : b0;
 
 	    ea = spu_read_in_mbox();
-	    if (ea != NULL)
+	    if (ea != (int)NULL)
 	       	StartDMAReadTransfer(current_buffer, ea, BUFFER_SIZE, GetDMAGroupID(b0, b1, current_buffer));
 	    	    	    
 	   	//printf("SPU recieved a work block with %d items\n", (*work).worksize);

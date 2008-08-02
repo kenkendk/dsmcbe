@@ -162,8 +162,9 @@ int FoldPrototein(unsigned long long id)
    	FREE(map);
 	
 	//sleep(5);
-    //printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
+    printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
     terminate();
+    printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
 	return 0;
 }
 

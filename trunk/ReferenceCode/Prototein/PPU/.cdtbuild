@@ -8,7 +8,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.2027223154" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.887761035" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.478268168" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="&quot;/root/dsmcbe/Reference Code/Prototein/SPU/spu-gnu-debug/SPU&quot;"/>
+<listOptionValue builtIn="false" value="&quot;/root/dsmcbe/ReferenceCode/Prototein/SPU/spu-gnu-debug/SPU&quot;"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.2003690934" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
@@ -32,7 +32,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.1158929717" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.548294284" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.841658807" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="&quot;/root/dsmcbe/Reference Code/Prototein/SPU/spu-gnu-release/SPU&quot;"/>
+<listOptionValue builtIn="false" value="&quot;/root/dsmcbe/ReferenceCode/Prototein/SPU/spu-gnu-release/SPU&quot;"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1944752052" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
