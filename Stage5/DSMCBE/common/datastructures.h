@@ -25,9 +25,17 @@
     //#define MALLOC(x) thread_malloc(x)
     //#define MALLOC_ALIGN(x,y) thread_malloc_align(x,y)
     
-    #define FREE(x) thread_free_align(x)
-    #define FREE_ALIGN(x) thread_free_align(x)
+    #define FREE(x) spu_dsmcbe_memory_free(x)
+    #define FREE_ALIGN(x) spu_dsmcbe_memory_free(x)
   #endif /*SPU_TRACE_MEM*/
+  
+void spu_dsmcbe_memory_free(void* data);
+void* spu_dsmcbe_memory_malloc(unsigned long size);
+
+/*#define malloc(x) spu_dsmcbe_memory_malloc(x)
+#define malloc_align(x, y) spu_dsmcbe_memory_malloc(x)
+#define free(x) spu_dsmcbe_memory_free(x)
+#define free_align(x) spu_dsmcbe_memory_free(x)*/
   
 #else
   #define MALLOC(x) (((x) == 0) ? NULL : malloc(x))

@@ -30,7 +30,7 @@
 
 
 //#define PUSH_TO_SPU(threadNo, value) g_queue_push_tail(Gspu_mailboxQueues[threadNo], value);
-#define PUSH_TO_SPU(threadNo, value) if (g_queue_get_length(Gspu_mailboxQueues[threadNo]) != 0 || spe_in_mbox_status(spe_threads[threadNo]) == 0 || spe_in_mbox_write(spe_threads[threadNo], value, 1, SPE_MBOX_ANY_NONBLOCKING) != 1)  { g_queue_push_tail(Gspu_mailboxQueues[threadNo], value); } 
+#define PUSH_TO_SPU(threadNo, value) if (g_queue_get_length(Gspu_mailboxQueues[threadNo]) != 0 || spe_in_mbox_status(spe_threads[threadNo]) == 0 || spe_in_mbox_write(spe_threads[threadNo], value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(Gspu_mailboxQueues[threadNo], value); } 
 
 #include <pthread.h>
 #include "../header files/SPUEventHandler.h"
@@ -73,6 +73,7 @@ GHashTable** Gspu_InCompleteDMAtransfers;
 DMAtranfersComplete** DMAtransfers;
 unsigned int* DMAtransfersCount;
 
+SPU_Memory_Map** spu_memory_maps;
 
 int* spe_isAlive;
 
@@ -148,20 +149,20 @@ void TerminateSPUHandler(int force)
 	}
 
 	for(i = 0; i < spe_thread_count; i++)
-	{	
 		g_hash_table_destroy(Gspu_InCompleteDMAtransfers[i]);
-	}
 	
 	for(i = 0; i < spe_thread_count; i++)
-	{	
 		for(j= 0; j < 32; j++)
-		{
 			FREE(DMAtransfers[(i * 32) + j]);	
-		}
-	}
+
+	for(i = 0; i < spe_thread_count; i++)
+		spu_memory_destroy(spu_memory_maps[i]);
 	
 	FREE(DMAtransfers);
 	FREE(DMAtransfersCount);
+	FREE(spu_memory_maps);
+	
+	
 
 #ifdef EVENT_BASED
 	for(i = 0; i < spe_thread_count; i++)
@@ -196,15 +197,18 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		
 	/* Setup queues */
 	//printf(WHERESTR "Starting SPU event handler\n", WHEREARG);
+	
+	if((spu_memory_maps = MALLOC(sizeof(SPU_Memory_Map) * spe_thread_count)) == NULL)
+		REPORT_ERROR("malloc error");
 
 	if((Gspu_requestQueues = (GQueue**)MALLOC(sizeof(GQueue*) * spe_thread_count)) == NULL)
-		perror("malloc error");
+		REPORT_ERROR("malloc error");
 		
 	if((Gspu_mailboxQueues = (GQueue**)MALLOC(sizeof(GQueue*) * spe_thread_count)) == NULL)
-		perror("malloc error");;
+		REPORT_ERROR("malloc error");;
 
 	if((Gspu_InCompleteDMAtransfers = (GHashTable**)MALLOC(sizeof(GHashTable*) * spe_thread_count)) == NULL)
-		perror("malloc error");
+		REPORT_ERROR("malloc error");
 	
 	/* Initialize mutex and condition variable objects */
 #ifdef EVENT_BASED
@@ -276,6 +280,9 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	}
 #endif
 		
+	for(i = 0; i < spe_thread_count; i++)
+		spu_memory_maps[i] = NULL;
+	
 	//printf(WHERESTR "Starting SPU event handler threads\n", WHEREARG);
 
 	/* For portability, explicitly create threads in a joinable state */
@@ -557,9 +564,9 @@ int SPU_GetWaitingMailbox()
 
 	for(i = 0; i < (int)spe_thread_count; i++)
 #ifdef USE_INTR_MBOX	
-		if (spe_isAlive[i] && spe_out_intr_mbox_status(spe_threads[i]) != 0)
+		if (/*spe_isAlive[i] &&*/ spe_out_intr_mbox_status(spe_threads[i]) != 0)
 #else
-		if (spe_isAlive[i] && spe_out_mbox_status(spe_threads[i]) != 0)
+		if (/*spe_isAlive[i] &&*/ spe_out_mbox_status(spe_threads[i]) != 0)
 #endif
 			return i;
 
@@ -588,6 +595,39 @@ void SPU_ProcessIncommingMailbox(int threadNo)
 			
 		switch(datatype)
 		{					
+			case PACKAGE_SPU_MEMORY_SETUP:
+				if (spu_memory_maps[threadNo] != NULL) {
+					REPORT_ERROR("Got a setup message, but was already set up...");
+				} else {
+					ReadMBOXBlocking(spe_threads[threadNo], (unsigned int*)&datapointer, 1);
+					ReadMBOXBlocking(spe_threads[threadNo], (unsigned int*)&datasize, 1);
+					//printf(WHERESTR "Creating memory block for SPU %d, at %d with %d\n", WHEREARG, threadNo, (unsigned int)datapointer, datasize);
+					spu_memory_maps[threadNo] = spu_memory_create((unsigned int)datapointer, datasize);
+				}	
+				break;
+				
+			case PACKAGE_SPU_MEMORY_MALLOC:
+				if (spu_memory_maps[threadNo] == NULL) {
+					REPORT_ERROR("Got a malloc message, but was not set up...");
+				} else {
+					ReadMBOXBlocking(spe_threads[threadNo], (unsigned int*)&datasize, 1);
+					datapointer = spu_memory_malloc(spu_memory_maps[threadNo], datasize);
+					//PUSH_TO_SPU(threadNo, datapointer);
+					spe_signal_write(spe_threads[threadNo], SPE_SIG_NOTIFY_REG_1, (unsigned int)datapointer);
+					//printf(WHERESTR "malloc for SPU %d, for %d bytes gave %d (%d)\n", WHEREARG, threadNo, datasize, (unsigned int)datapointer, g_queue_get_length(Gspu_mailboxQueues[threadNo]));
+				}
+				break;
+				
+			case PACKAGE_SPU_MEMORY_FREE:
+				if (spu_memory_maps[threadNo] == NULL) {
+					REPORT_ERROR("Got a malloc message, but was not set up...");
+				} else {
+					ReadMBOXBlocking(spe_threads[threadNo], (unsigned int*)&datapointer, 1);
+					spu_memory_free(spu_memory_maps[threadNo], datapointer);
+					//printf(WHERESTR "free for SPU %d, at %d\n", WHEREARG, threadNo, (unsigned int)datapointer);
+				}
+				break;
+				
 			case PACKAGE_TERMINATE_REQUEST:
 				REQUEST_COORDINATOR_BEGIN
 				//printf(WHERESTR "Terminate message detected\n", WHEREARG);

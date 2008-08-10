@@ -14,12 +14,13 @@ struct SPU_Memory_Object_struct {
 typedef struct SPU_Memory_Object_struct SPU_Memory_Object;
 
 //Threshold is in number of bits, ea. 1 bit = ALIGN_SIZE_COUNT, so 4 gives 4*16 = 64 bytes
-#define SIZE_THRESHOLD 100000
+#define SIZE_THRESHOLD 1000000
 #define ALIGN_SIZE_COUNT 16
 #define BITS_PR_BYTE 8
 #define ALIGNED_SIZE(x) (x + ((16 - x) % 16))
 #define SIZE_TO_BITS(x) (ALIGNED_SIZE(size) / ALIGN_SIZE_COUNT)
 
+//This lookup table counts the number of consecutive bits that are zero, going from the left (MSB) 
 unsigned char spu_memory_lead_bit_count[] = {
 8,7,6,6,5,5,5,5,4,4,4,4,4,4,4,4,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,
 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -29,6 +30,7 @@ unsigned char spu_memory_lead_bit_count[] = {
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
+//This lookup table counts the number of consecutive bits that are zero, going from the right (LSB)
 unsigned char spu_memory_trail_bit_count[] = {
 8,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,
 3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
@@ -38,26 +40,40 @@ unsigned char spu_memory_trail_bit_count[] = {
 3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1};
 
+//This lookup table counts the number of consequtive zero bits in a byte
+unsigned char spu_memory_free_bit_count[] = {
+8,7,6,6,5,5,5,5,4,4,4,4,4,4,4,4,4,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,5,4,3,3,2,2,2,2,
+3,2,2,2,2,2,2,2,4,3,2,2,2,2,2,2,3,2,2,2,2,2,2,2,6,5,4,4,3,3,3,3,3,2,2,2,2,2,2,2,
+4,3,2,2,2,1,1,1,3,2,1,1,2,1,1,1,5,4,3,3,2,2,2,2,3,2,1,1,2,1,1,1,4,3,2,2,2,1,1,1,
+3,2,1,1,2,1,1,1,7,6,5,5,4,4,4,4,3,3,3,3,3,3,3,3,4,3,2,2,2,2,2,2,3,2,2,2,2,2,2,2,
+5,4,3,3,2,2,2,2,3,2,1,1,2,1,1,1,4,3,2,2,2,1,1,1,3,2,1,1,2,1,1,1,6,5,4,4,3,3,3,3,
+3,2,2,2,2,2,2,2,4,3,2,2,2,1,1,1,3,2,1,1,2,1,1,1,5,4,3,3,2,2,2,2,3,2,1,1,2,1,1,1,
+4,3,2,2,2,1,1,1,3,2,1,1,2,1,1,0};
+
+//This lookup table has a rising number of bits set from the left (MSB)
+unsigned char spu_memory_lead_bits[] = { 0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF };
+
+//This lookup table has a rising number of bits set from the right (LSB)
+unsigned char spu_memory_trail_bits[] = { 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF };  
+
 
 //The offset is the actual pointer, the size is the number of bits to flip
 void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int size, unsigned char newvalue)
 {
-	unsigned int i;
-	unsigned char map_byte;
 	unsigned int position = (((unsigned int)offset) - map->offset) / ALIGN_SIZE_COUNT;
 	
 	//Find the first byte,regardless of direction
 	unsigned int first = position / BITS_PR_BYTE;
-	unsigned int accumulated = size;
+	unsigned int leadcount  = MIN(BITS_PR_BYTE - (position % BITS_PR_BYTE), size) ;
+	
+	unsigned int accumulated = size - leadcount;
 	
 	//Flip as many bits as required/avalible in the byte
-	map_byte = map->bitmap[first];
-	for(i = position % BITS_PR_BYTE; i < BITS_PR_BYTE && accumulated > 0; i++, accumulated--)
-		if (newvalue == 0)
-			map_byte &= ~(1 << (BITS_PR_BYTE - i - 1));
-		else
-			map_byte |= (1 << (BITS_PR_BYTE - i - 1));
-	map->bitmap[first] = map_byte;
+	if (newvalue == 0)
+		map->bitmap[first] &= ~(spu_memory_lead_bits[leadcount] >> (position % BITS_PR_BYTE));
+	else
+		map->bitmap[first] |= spu_memory_lead_bits[leadcount] >> (position % BITS_PR_BYTE);
+		
 	first++;
 	
 	//mark all full bytes as reserved flag		
@@ -74,20 +90,16 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 	//If there are more bits left, update the slack
 	if (accumulated > 0)
 	{
-		map_byte = map->bitmap[first];
-		for(i = 0; i < accumulated; i++)
-			if (newvalue == 0)
-				map_byte &= ~(1 << (BITS_PR_BYTE - 1 - i));
-			else
-				map_byte |= (1 << (BITS_PR_BYTE - 1 - i));
-		map->bitmap[first] = map_byte;
+		if (newvalue == 0)
+			map->bitmap[first] &= ~(spu_memory_lead_bits[accumulated]);
+		else
+			map->bitmap[first] |= spu_memory_lead_bits[accumulated];
 	}
 }
 
 void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 {
-	unsigned int i, j;
-	unsigned char map_byte;
+	unsigned int i;
 	unsigned int position;
 	
 	unsigned int desired_bitcount = SIZE_TO_BITS(size);
@@ -102,16 +114,50 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 	unsigned int first_avalible = initial;
 	unsigned int current = initial;
 	
+	unsigned int temp_free;  
+	
 	void* data;
 	
 	if (size == 0)
 		return NULL;
-	
+		
 	while(accumulated < desired_bitcount) {
+		
+		//This detects and uses free bits inside a byte
+		if (desired_bitcount <= BITS_PR_BYTE && spu_memory_free_bit_count[map->bitmap[current]] >= desired_bitcount)
+		{
+			//Find the first matching sequence
+			for(i = 0; i < BITS_PR_BYTE - (desired_bitcount - 1); i++)
+				if (direction > 0) {
+					temp_free = spu_memory_lead_bits[desired_bitcount] >> i;
+					if (~(~(temp_free) | map->bitmap[current]) == temp_free)
+						return (void*)(map->offset + ((current * BITS_PR_BYTE + i) * ALIGN_SIZE_COUNT));
+				} else {
+					temp_free = spu_memory_trail_bits[desired_bitcount] << i;
+					if (~(~(temp_free) | map->bitmap[current]) == temp_free)
+						return (void*)(map->offset + (((current + 1) * BITS_PR_BYTE - (i + desired_bitcount)) * ALIGN_SIZE_COUNT));
+				}
+			
+			printf(WHERESTR "Failure, desired_bitcount: %d, free bit count: %d, bitmap: %d, temp_free: %d\n", WHEREARG, desired_bitcount, spu_memory_free_bit_count[map->bitmap[current]], map->bitmap[current], temp_free);
+
+			for(i = 0; i < BITS_PR_BYTE - desired_bitcount; i++)
+				if (direction > 0) {
+					printf(WHERESTR "Attempt %d: %d -> %d\n", WHEREARG, i, (spu_memory_lead_bits[desired_bitcount] >> i), spu_memory_free_bit_count[(spu_memory_lead_bits[desired_bitcount] >> i) | map->bitmap[current]]);
+				} else {
+					printf(WHERESTR "Attempt %d: %d -> %d\n", WHEREARG, i, (spu_memory_trail_bits[desired_bitcount] << i), spu_memory_free_bit_count[(spu_memory_trail_bits[desired_bitcount] << i) | map->bitmap[current]]);
+				}
+			
+			REPORT_ERROR("Free bit count was OK, but no free bits were found?");
+			return NULL;
+		}
+		
 		current += direction;
 		
+		if (accumulated == 0)
+			first_avalible += direction;
+		
 		//No more space, current can never be negative, so it becomes UINT_MAX, which is larger than size
-		if (current > map->size)
+		if (current >= map->size)
 			return NULL;
 		
 		//If this byte is zero, we can run further
@@ -124,34 +170,25 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 			{
 				first_avalible = current;
 				accumulated = prev[map->bitmap[current]];
-			} 
+			}
 		}
 	}
 	
-	if (direction > 0) {
-		map_byte = map->bitmap[first_avalible]; 
+	//Calculate the position in bits	
+	if (direction > 0)
+		position = (first_avalible * BITS_PR_BYTE) + (BITS_PR_BYTE - spu_memory_trail_bit_count[map->bitmap[first_avalible]]);
+	else
+	{
+		desired_bitcount %= BITS_PR_BYTE;
+		if (desired_bitcount > spu_memory_lead_bit_count[map->bitmap[first_avalible]])
+			desired_bitcount = BITS_PR_BYTE - spu_memory_lead_bit_count[map->bitmap[first_avalible]];
+		else
+			desired_bitcount = spu_memory_lead_bit_count[map->bitmap[first_avalible]] - desired_bitcount;
 		
-		//Find bit offset to the first non-avalible bit
-		for(i = 0; i < BITS_PR_BYTE; i++)
-			if (((1 << (i)) & map_byte) != 0)
-				break;
-	
-		//Calculate the position in bytes	
-		position = (first_avalible * BITS_PR_BYTE) + (BITS_PR_BYTE - i);
-	} else {
-		map_byte = map->bitmap[first_avalible]; 
-		
-		//Find bit offset to the first non-avalible bit
-		for(i = 0; i < BITS_PR_BYTE; i++)
-			if (((1 << (BITS_PR_BYTE-i-1)) & map_byte) != 0)
-				break;
-		
-		//Calculate the bit offset from current
-		j = (desired_bitcount - i) % BITS_PR_BYTE;
-		
-		position = (((current * BITS_PR_BYTE) + j));
+		position = ((current) * BITS_PR_BYTE) + (desired_bitcount);
 	}
 	
+	//Convert to an actual pointers
 	data = (void*)(map->offset + (position * ALIGN_SIZE_COUNT));
 	
 	return data;
@@ -195,10 +232,14 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 	SPU_Memory_update_bitmap(map, data, bitsize, 0xff);
 	map->free_mem -= bitsize * ALIGN_SIZE_COUNT;
 	
+	//It is not possible for the bitmap to be updated, unless it is allocated.
+	//Settting the pointer to the end of the current allocation should thus always be safe
 	if (bitsize > SIZE_THRESHOLD) {
-		map->last_free = (((unsigned int)data) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
+		if (spu_memory_free_bit_count[map->bitmap[map->last_free]] == 0)
+			map->last_free = ((((unsigned int)data) - ALIGN_SIZE_COUNT) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 	} else {
-		map->first_free = ((((unsigned int)data) + (bitsize * ALIGN_SIZE_COUNT)) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
+		if (spu_memory_free_bit_count[map->bitmap[map->first_free]] == 0)
+			map->first_free = (((((unsigned int)data) + 0) + (bitsize * ALIGN_SIZE_COUNT)) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 	}
 	
 	return data; 
@@ -222,11 +263,11 @@ void spu_memory_free(SPU_Memory_Map* map, void* data) {
 	if (bitsize > SIZE_THRESHOLD) {
 		newguess = ((((unsigned int)data) + (bitsize * ALIGN_SIZE_COUNT)) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 		if (newguess > map->last_free)
-			map->last_free = newguess;  
+			map->last_free = MIN(newguess, map->size - 1);  
 	} else {
 		newguess = (((unsigned int)data) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 		if (newguess < map->first_free)
-			map->first_free = newguess;  
+			map->first_free = MAX(newguess, 0);  
 	}
 	
 }
