@@ -17,6 +17,7 @@
 #include "../../common/datastructures.h"
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
+#include "../../PPU/header files/SPU_MemoryAllocator_Shared.h"
 
 //#define DEBUG_PACKAGES
 
@@ -77,8 +78,7 @@ unsigned long long ReadClock()
 }
 #endif
 
-hashtableIterator itx;
-
+void spu_dsmcbe_memory_setup();
 
 /*extern unsigned int thread_id;
 extern int thread_no;*/
@@ -316,6 +316,8 @@ void clean(GUID id)
 	}
 }
 
+#define thread_malloc_align(x,y) spu_dsmcbe_memory_malloc(x)
+
 void* clearAlign(unsigned long size, int base) {	
 
 	if (size == 0)
@@ -380,11 +382,11 @@ void* clearAlign(unsigned long size, int base) {
 				fprintf(stderr, WHERESTR "Requested size was %d, base was %d\n", WHEREARG, (int)size, base);
 				
 
-				ht_iter_reset(itx);
+				/*ht_iter_reset(itx);
 				fprintf(stderr, "Key list: ");
 				while(ht_iter_next(itx))
 					fprintf(stderr, "%d, ", (int)ht_iter_get_key(itx));
-				fprintf(stderr, "\n");
+				fprintf(stderr, "\n");*/
 				
 				*cur = cdr_and_free(*cur);
 			}		
@@ -408,6 +410,7 @@ void* clearAlign(unsigned long size, int base) {
 	//printf("Trying to free memory: (queue: %i), (hash: %i), (freed: %i of %i)\n", queue_count(allocatedID), itemsById->fill, totalfreed, (int)size);
 	return pointer;
 }
+#undef thread_malloc_align
 
 void sendMailbox(void* dataItem) {
 #ifdef DEBUG_PACKAGES
@@ -624,8 +627,8 @@ void StartDMATransfer(struct acquireResponse* resp)
 		printf("Could allocate %i bytes in %i segments (%i bytes)\n", totSize, segments, transfer_size); 
 */
 		
-		for(i = 0; i < 5000; i++)
-			printf("Force print\n");
+		/*for(i = 0; i < 5000; i++)
+			printf("Force print\n");*/
 
 		REPORT_ERROR("Failed to allocate memory on SPU");
 	}
@@ -1132,11 +1135,14 @@ void initialize()
 #ifdef TIMER
 	spu_clock_start();
 #endif	
+	//printf(WHERESTR "Setting up malloc\n", WHEREARG);
+	spu_dsmcbe_memory_setup();
+	
 	terminated = 0;
 	itemsByPointer = ht_create(60, lessint, hashfc);
 	itemsById = ht_create(60, lessint, hashfc);
 	allocatedID = queue_create();
-	itx = ht_iter_create(itemsById);
+	//itx = ht_iter_create(itemsById);
 }
 
 void terminate() {
@@ -1441,3 +1447,67 @@ void* create(GUID id, unsigned long size)
 	return endAsync(beginCreate(id, size), NULL);
 }
 
+int hasMemoryInitialized = 0;
+
+void* spu_dsmcbe_memory_malloc(unsigned long size)
+{
+	void* data;
+	
+	if (hasMemoryInitialized == 0)
+	{
+		REPORT_ERROR("malloc called before initialize");
+		spu_dsmcbe_memory_setup();
+	}
+
+	//printf(WHERESTR "Calling malloc for %d bytes\n", WHEREARG, size);
+	spu_write_out_intr_mbox(PACKAGE_SPU_MEMORY_MALLOC);
+	spu_write_out_intr_mbox(size);
+	data = (void*)spu_read_signal1();
+	//data = (void*)spu_read_in_mbox();
+	//printf(WHERESTR "Malloc for %d bytes gave %d\n", WHEREARG, size, (unsigned int)data);
+	return data;
+}
+
+void spu_dsmcbe_memory_free(void* data)
+{
+	if (hasMemoryInitialized == 0)
+	{
+		REPORT_ERROR("malloc called before initialize");
+		spu_dsmcbe_memory_setup();
+	}
+	spu_write_out_intr_mbox(PACKAGE_SPU_MEMORY_FREE);
+	spu_write_out_intr_mbox((unsigned int)data);
+}
+
+extern int _end;
+
+
+
+void spu_dsmcbe_memory_setup()
+{
+	void* start;
+	unsigned int size;
+	
+	//REPORT_ERROR("IN INITIALIZE");
+
+	if (hasMemoryInitialized)
+		REPORT_ERROR("initialize called twice");
+	
+	register volatile unsigned int *r1 asm("1");
+	
+	//printf(WHERESTR "SBRK(0): %d, &_end: %d, r1:%d\n", WHEREARG, (unsigned int)sbrk(0), (unsigned int)&_end, *r1);
+
+	size = *r1 - ((unsigned int)sbrk(0));
+	size -= 8 * 1024; //Reserve space for stack
+	start = malloc_align(size, 7);
+
+	//printf(WHERESTR "SPU Reports having %d bytes free memory, at %d\n", WHEREARG, size, (unsigned int)start);
+	if (start == NULL)
+		REPORT_ERROR("Failed to allocated the desired amount of bytes");
+	
+	spu_write_out_intr_mbox(PACKAGE_SPU_MEMORY_SETUP);
+	spu_write_out_intr_mbox((unsigned int)start);
+	spu_write_out_intr_mbox(size);
+	
+	hasMemoryInitialized = 1;
+}

@@ -10,6 +10,8 @@
 #include <malloc.h>
 #include <libspe2.h>
 #include "../../dsmcbe.h"
+#include "SPU_MemoryAllocator.h"
+#include "SPU_MemoryAllocator_Shared.h"
 
 extern void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count);
 extern void TerminateSPUHandler(int force);

@@ -1,6 +1,8 @@
 #include "../header files/DMATransfer.h"
 #include "../../common/debug.h"
 
+//#define ALIGNMENT_WARNINGS
+
 struct DMA_LIST_ELEMENT {
 	union {
 		unsigned int all32;
@@ -33,8 +35,10 @@ void WaitForDMATransferByGroup(int groupid)
 
 void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid)
 {
+#ifdef ALIGNMENT_WARNINGS
 	if (((unsigned int)buffer % 128) != 0)
-		REPORT_ERROR("Warning detected non-aligned DMA transfer");
+		printf(WHERESTR "Warning detected non-aligned DMA write transfer\n", WHEREARG);
+#endif /*ALIGNMENT_WARNINGS*/
 
 	if ((ea % 128) != 0)
 	{
@@ -79,8 +83,11 @@ void StartDMAWriteTransfer(void* buffer, unsigned int ea, unsigned int size, int
 void StartDMAReadTransfer(void* buffer, unsigned int ea, unsigned int size, int groupid, unsigned int dmaComplete)
 {
 	//printf(WHERESTR "dmaComplete %i\n", WHEREARG, dmaComplete);
+
+#ifdef ALIGNMENT_WARNINGS
 	if (((unsigned int)buffer % 128) != 0)
-		printf(WHERESTR "Warning detected non-aligned DMA transfer\n", WHEREARG);
+		printf(WHERESTR "Warning detected non-aligned DMA read transfer\n", WHEREARG);
+#endif /*ALIGNMENT_WARNINGS*/
 
 	if ((ea % 128) != 0)
 	{
