@@ -29,8 +29,8 @@
 #endif
 
 
-//#define PUSH_TO_SPU(threadNo, value) g_queue_push_tail(Gspu_mailboxQueues[threadNo], value);
-#define PUSH_TO_SPU(threadNo, value) if (g_queue_get_length(Gspu_mailboxQueues[threadNo]) != 0 || spe_in_mbox_status(spe_threads[threadNo]) == 0 || spe_in_mbox_write(spe_threads[threadNo], value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(Gspu_mailboxQueues[threadNo], value); } 
+#define PUSH_TO_SPU(threadNo, value) g_queue_push_tail(Gspu_mailboxQueues[threadNo], value);
+//#define PUSH_TO_SPU(threadNo, value) if (g_queue_get_length(Gspu_mailboxQueues[threadNo]) != 0 || spe_in_mbox_status(spe_threads[threadNo]) == 0 || spe_in_mbox_write(spe_threads[threadNo], &value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(Gspu_mailboxQueues[threadNo], value); } 
 
 #include <pthread.h>
 #include "../header files/SPUEventHandler.h"

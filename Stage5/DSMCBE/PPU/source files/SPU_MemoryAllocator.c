@@ -17,7 +17,7 @@ typedef struct SPU_Memory_Object_struct SPU_Memory_Object;
 #define SIZE_THRESHOLD 1000000
 #define ALIGN_SIZE_COUNT 16
 #define BITS_PR_BYTE 8
-#define ALIGNED_SIZE(x) (x + ((16 - x) % 16))
+#define ALIGNED_SIZE(x) (x + ((ALIGN_SIZE_COUNT - x) % ALIGN_SIZE_COUNT))
 #define SIZE_TO_BITS(x) (ALIGNED_SIZE(size) / ALIGN_SIZE_COUNT)
 
 //This lookup table counts the number of consecutive bits that are zero, going from the left (MSB) 
@@ -60,6 +60,7 @@ unsigned char spu_memory_trail_bits[] = { 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x
 //The offset is the actual pointer, the size is the number of bits to flip
 void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int size, unsigned char newvalue)
 {
+	
 	unsigned int position = (((unsigned int)offset) - map->offset) / ALIGN_SIZE_COUNT;
 	
 	//Find the first byte,regardless of direction
@@ -72,7 +73,13 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 	if (newvalue == 0)
 		map->bitmap[first] &= ~(spu_memory_lead_bits[leadcount] >> (position % BITS_PR_BYTE));
 	else
+	{
+#if DEBUG
+		if ((map->bitmap[first] & (spu_memory_lead_bits[leadcount] >> (position % BITS_PR_BYTE))) != 0)
+			printf("Overwrite detected!\n");
+#endif
 		map->bitmap[first] |= spu_memory_lead_bits[leadcount] >> (position % BITS_PR_BYTE);
+	}
 		
 	first++;
 	
@@ -82,7 +89,15 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 		if (newvalue == 0)
 			memset(&map->bitmap[first], 0x00, accumulated / BITS_PR_BYTE);
 		else
+		{
+#if DEBUG			
+			int i;
+			for(i = 0; i < accumulated / BITS_PR_BYTE; i++)
+				if (map->bitmap[first + i] != 0)
+					printf("Overwrite detected!\n");
+#endif				
 			memset(&map->bitmap[first], 0xff, accumulated / BITS_PR_BYTE);
+		}
 		first += accumulated / BITS_PR_BYTE;
 		accumulated = accumulated % BITS_PR_BYTE;
 	}
@@ -93,11 +108,17 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 		if (newvalue == 0)
 			map->bitmap[first] &= ~(spu_memory_lead_bits[accumulated]);
 		else
+		{
+#if DEBUG
+			if ((map->bitmap[first] & spu_memory_lead_bits[accumulated]) != 0)
+				printf("Overwrite detected!\n");
+#endif
 			map->bitmap[first] |= spu_memory_lead_bits[accumulated];
+		}
 	}
 }
 
-void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
+void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int* first_free)
 {
 	unsigned int i;
 	unsigned int position;
@@ -113,6 +134,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 	unsigned int accumulated = prev[map->bitmap[initial]];
 	unsigned int first_avalible = initial;
 	unsigned int current = initial;
+	*first_free = initial;
 	
 	unsigned int temp_free;  
 	
@@ -122,6 +144,9 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 		return NULL;
 		
 	while(accumulated < desired_bitcount) {
+		
+		if (map->bitmap[*first_free] == 255)
+			*first_free += direction;
 		
 		//This detects and uses free bits inside a byte
 		if (desired_bitcount <= BITS_PR_BYTE && spu_memory_free_bit_count[map->bitmap[current]] >= desired_bitcount)
@@ -137,7 +162,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 					if (~(~(temp_free) | map->bitmap[current]) == temp_free)
 						return (void*)(map->offset + (((current + 1) * BITS_PR_BYTE - (i + desired_bitcount)) * ALIGN_SIZE_COUNT));
 				}
-			
+#if DEBUG			
 			printf(WHERESTR "Failure, desired_bitcount: %d, free bit count: %d, bitmap: %d, temp_free: %d\n", WHEREARG, desired_bitcount, spu_memory_free_bit_count[map->bitmap[current]], map->bitmap[current], temp_free);
 
 			for(i = 0; i < BITS_PR_BYTE - desired_bitcount; i++)
@@ -148,6 +173,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 				}
 			
 			REPORT_ERROR("Free bit count was OK, but no free bits were found?");
+#endif
 			return NULL;
 		}
 		
@@ -176,7 +202,12 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 	
 	//Calculate the position in bits	
 	if (direction > 0)
-		position = (first_avalible * BITS_PR_BYTE) + (BITS_PR_BYTE - spu_memory_trail_bit_count[map->bitmap[first_avalible]]);
+	{
+		if (spu_memory_lead_bit_count[map->bitmap[first_avalible]] < desired_bitcount)
+			position = (first_avalible * BITS_PR_BYTE) + (BITS_PR_BYTE - spu_memory_trail_bit_count[map->bitmap[first_avalible]]);
+		else
+			position = (first_avalible * BITS_PR_BYTE);
+	}	
 	else
 	{
 		desired_bitcount %= BITS_PR_BYTE;
@@ -223,8 +254,9 @@ SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 
 void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 
+	unsigned int first_free;
 	unsigned int bitsize = SIZE_TO_BITS(size);
-	void* data = SPU_Memory_find_chunk(map, size);
+	void* data = SPU_Memory_find_chunk(map, size, &first_free);
 	if (data == NULL)
 		return NULL;
 	
@@ -235,11 +267,11 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 	//It is not possible for the bitmap to be updated, unless it is allocated.
 	//Settting the pointer to the end of the current allocation should thus always be safe
 	if (bitsize > SIZE_THRESHOLD) {
-		if (spu_memory_free_bit_count[map->bitmap[map->last_free]] == 0)
-			map->last_free = ((((unsigned int)data) - ALIGN_SIZE_COUNT) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
+		//if (spu_memory_free_bit_count[map->bitmap[map->last_free]] == 0)
+			map->last_free = first_free; //((((unsigned int)data) - ALIGN_SIZE_COUNT) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 	} else {
-		if (spu_memory_free_bit_count[map->bitmap[map->first_free]] == 0)
-			map->first_free = (((((unsigned int)data) + 0) + (bitsize * ALIGN_SIZE_COUNT)) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
+		//if (spu_memory_free_bit_count[map->bitmap[map->first_free]] == 0)
+			map->first_free = first_free; //(((((unsigned int)data) + 0) + (bitsize * ALIGN_SIZE_COUNT)) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 	}
 	
 	return data; 

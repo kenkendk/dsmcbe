@@ -606,6 +606,7 @@ void StartDMATransfer(struct acquireResponse* resp)
 	if ((temp = MALLOC_ALIGN(transfer_size, 7)) == NULL) {
 		printf(WHERESTR "Pending invalidate (bitmap): %d, itemsByPointer: %d, itemsById: %d, allocatedId: %d, transfersize %i\n", WHEREARG, pendingInvalidateMap, itemsByPointer->fill, itemsById->fill, queue_count(allocatedID), transfer_size);
 /*
+  
 		unsigned int size = transfer_size;
 		unsigned int totSize = 0;
 		unsigned int segments = 0;
@@ -632,7 +633,8 @@ void StartDMATransfer(struct acquireResponse* resp)
 
 		REPORT_ERROR("Failed to allocate memory on SPU");
 	}
-
+	
+	
 	// Make datastructures for later use
 	req->object = MALLOC(sizeof(struct dataObjectStruct));
 	if (req->object == NULL)
@@ -670,7 +672,8 @@ void StartDMATransfer(struct acquireResponse* resp)
 	} else {
 		ht_insert(itemsById, (void*)req->object->id, req->object);
 	}
-	//printf(WHERESTR "Registered dataobject with id: %d\n", WHEREARG, object->id);
+	
+	//printf(WHERESTR "Registered dataobject with id: %d and pointer %d\n", WHEREARG, req->object->id, (int)req->object->data);
 #ifdef TIMER
 	beforeDMA = ReadClock();
 	if (READWRITE == ACQUIRE_MODE_READ)
@@ -1011,6 +1014,7 @@ unsigned int beginRelease(void* data)
 	size_t i;
 	
 	//printf(WHERESTR "Starting a release\n", WHEREARG); 
+	//printf(WHERESTR "Releasing pointer: %d\n", WHEREARG, data);
 	
 	if (itemsById == NULL)
 	{

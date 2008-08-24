@@ -16,6 +16,7 @@
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/glib-2.0/include"/>
 </option>
+<option id="gnu.c.compiler.option.preprocessor.def.symbols.1568723257" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols"/>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.lib.debug.795178825" name="PPU GNU 32 bit C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.lib.debug"/>
 <macros/>

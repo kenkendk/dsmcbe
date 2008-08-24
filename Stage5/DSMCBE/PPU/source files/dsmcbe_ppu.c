@@ -337,7 +337,9 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 		for(i = 0; i < thread_count; i++){
 			// Create context
 			
-			if ((spe_ids[i] = spe_context_create (SPE_EVENTS_ENABLE, NULL)) == NULL) 
+			//If events are in use, SPE_EVENTS_ENABLE must be on. Apparently there is no cost in just leaving it on
+			//SPE_MAP_PS enables libspe to use memory mapped IO, rather than file handle based
+			if ((spe_ids[i] = spe_context_create (SPE_EVENTS_ENABLE | SPE_MAP_PS, NULL)) == NULL) 
 			{
 				perror ("Failed creating context");
 				return NULL;
