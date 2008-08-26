@@ -74,8 +74,10 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	release(package);
 	
 	unsigned long size;
-	for(i = 0; i < SPU_THREADS; i++)
-		release(acquire(FINISHED+(id*10)+i, &size, ACQUIRE_MODE_READ));
+	unsigned int* spes = acquire(COUNT, &size, ACQUIRE_MODE_READ);
+	
+	for(i = 0; i < *spes; i++)
+		release(acquire(FINISHED+(id*100)+i, &size, ACQUIRE_MODE_READ));
 		 				
 	//printf("\n\nStart working on results\n\n");
 	
@@ -244,24 +246,23 @@ int main(int argc, char* argv[])
 	char* output = NULL;	
 
 	if(argc == 6) {
+		id = atoi(argv[1]);
+		file = argv[2]; 	
+		input = argv[3];
+		output = argv[4];
+		SPU_THREADS = atoi(argv[5]);		
+	} else if (argc == 4) {
+		id = 0;
+		file = NULL;
 		input = argv[1];
 		output = argv[2];
 		SPU_THREADS = atoi(argv[3]);
-		id = atoi(argv[4]);
-		file = argv[5]; 	
-	} else if (argc == 4) {
-		id = 0;
-		file = NULL; 		 		
-		input = argv[1];
-		output = argv[2]; 	
-		SPU_THREADS = atoi(argv[3]);
 	} else if (argc == 5) {
 		id = 0;
-		file = NULL; 		 		
+		file = NULL; 		
 		input = argv[1];
-		output = argv[2]; 	
+		output = argv[2];
 		SPU_THREADS = atoi(argv[3]);
-		
 	} else {
 		printf("Wrong number of arguments %i\n", argc);
 		return -1;
@@ -372,8 +373,8 @@ int main(int argc, char* argv[])
 		
 	}
 	
-/*	for(i = 0; i < SPU_THREADS; i++)
+	for(i = 0; i < SPU_THREADS; i++)
 		pthread_join(threads[i], NULL);
-*/
+
 	return 0;
 }

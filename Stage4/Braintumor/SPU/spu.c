@@ -224,7 +224,7 @@ int main()
 				//if(jobID == 4)
 					//getStats();
 				 
-				release(create(FINISHED + (jobID * 10) + speID, 1));
+				release(create(FINISHED + (jobID * 100) + speID, 1));
 				jobID++;
 				continue;
 			}
