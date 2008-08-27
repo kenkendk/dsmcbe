@@ -4,9 +4,9 @@
 #ifdef DSMCBE_SPU
 
   //#define SPU_TRACE_MEM
-  extern void* clear(unsigned long size);
-  extern void* clearAlign(unsigned long size, int base);
-
+  /*extern void* clear(unsigned long size);
+  extern void* clearAlign(unsigned long size, int base);*/
+  
   #ifdef SPU_TRACE_MEM
     extern unsigned int m_balance;
     extern void* __m_malloc(unsigned int x, char* s1, int s2);
@@ -19,8 +19,9 @@
     #define MALLOC_ALIGN(x,y) __m_malloc_align(x,y, __FILE__, __LINE__)
     #define FREE_ALIGN(x) __m_free_align(x, __FILE__, __LINE__)
   #else
-    #define MALLOC(x) clearAlign(x,0)
-    #define MALLOC_ALIGN(x,y) clearAlign(x,y)
+  	
+    #define MALLOC(x) spu_dsmcbe_memory_malloc(x)
+    #define MALLOC_ALIGN(x,y) spu_dsmcbe_memory_malloc(x)
     
     //#define MALLOC(x) thread_malloc(x)
     //#define MALLOC_ALIGN(x,y) thread_malloc_align(x,y)
@@ -29,8 +30,6 @@
     #define FREE_ALIGN(x) spu_dsmcbe_memory_free(x)
   #endif /*SPU_TRACE_MEM*/
   
-void spu_dsmcbe_memory_free(void* data);
-void* spu_dsmcbe_memory_malloc(unsigned long size);
 
 /*#define malloc(x) spu_dsmcbe_memory_malloc(x)
 #define malloc_align(x, y) spu_dsmcbe_memory_malloc(x)
