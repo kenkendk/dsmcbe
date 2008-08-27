@@ -8,7 +8,6 @@
 #include <string.h>
 #include <dsmcbe_spu.h>
 #include <common/debug.h>
-#include <common/datastructures.h>
 
 #define MAP_WIDTH (prototein_length * 2 + 1) 
 #define MAP_HEIGTH (prototein_length * 2 + 1)
@@ -60,23 +59,26 @@ int FoldPrototein(unsigned long long id)
     bestscore = -9999999;
     prototein = NULL;
     
-    //printf(WHERESTR "Started SPU\n", WHEREARG);
+    printf(WHERESTR "Started SPU\n", WHEREARG);
     initialize();
     
     prototein_object = acquire(PROTOTEIN, &size, ACQUIRE_MODE_WRITE);
-    //printf(WHERESTR "SPU got prototein\n", WHEREARG);
+    printf(WHERESTR "SPU got prototein @: %d\n", WHEREARG, (unsigned int)prototein_object);
     
     thread_id = ((unsigned int*)prototein_object)[0];
     ((unsigned int*)prototein_object)[0]++;
     prototein_length = ((unsigned int*)prototein_object)[1];
+    
+    printf(WHERESTR "SPU %d is calling malloc for %d\n", WHEREARG, thread_id,(unsigned int)(sizeof(char) * prototein_length));
 	prototein = (char*)MALLOC(sizeof(char) * prototein_length);
 	memcpy(prototein, prototein_object + (sizeof(unsigned int) * 2), prototein_length);
+    printf(WHERESTR "SPU called malloc\n", WHEREARG);
 
     map = (char*) MALLOC(MAP_SIZE);
     winner = MALLOC((sizeof(struct coordinate) * prototein_length));
 
 	places = (struct coordinate*)MALLOC(sizeof(struct coordinate) * prototein_length);
-    //printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
+    printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
     release(prototein_object);
     
     if (places == NULL)

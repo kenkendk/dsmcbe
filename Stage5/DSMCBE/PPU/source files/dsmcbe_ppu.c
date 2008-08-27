@@ -33,7 +33,7 @@ void* ppu_pthread_function(void* arg) {
 	//printf(WHERESTR "Starting SPU\n", WHEREARG);
 	if (spe_context_run(ctx, &entry, 0, NULL, NULL, NULL) < 0)
 	{
-		perror ("Failed running context");
+		REPORT_ERROR("Failed running context");
 		return NULL;
 	}
 	//printf(WHERESTR "Terminated SPU\n", WHEREARG);
