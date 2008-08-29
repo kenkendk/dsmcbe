@@ -60,11 +60,11 @@ unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
 
 //Reads mailbox messages, blocking
 void spu_dsmcbe_readMailbox() {
-	
-	printf(WHERESTR "Actually reading mailbox\n", WHEREARG);
-	unsigned int requestID = spu_read_in_mbox();
 
-	printf(WHERESTR "Reading mailbox, requestId: %d\n", WHEREARG, requestID);
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Reading mailbox, blocking\n", WHEREARG);
+#endif
+	unsigned int requestID = spu_read_in_mbox();
 
 	if (requestID > MAX_PENDING_REQUESTS)
 	{
@@ -75,14 +75,18 @@ void spu_dsmcbe_readMailbox() {
 	switch(spu_dsmcbe_pendingRequests[requestID].requestCode)
 	{
 		case PACKAGE_TERMINATE_REQUEST:
+#ifdef DEBUG_COMMUNICATION	
 			printf(WHERESTR "TERMINATE package recieved\n", WHEREARG);
+#endif
 			spu_dsmcbe_initialized = FALSE;
 			break;
 			
 		case PACKAGE_CREATE_REQUEST:
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+#ifdef DEBUG_COMMUNICATION	
 			printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
+#endif
 			
 			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_ACQUIRE_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
@@ -90,7 +94,9 @@ void spu_dsmcbe_readMailbox() {
 			break;			
 	
 		case PACKAGE_SPU_MEMORY_MALLOC_REQUEST:
+#ifdef DEBUG_COMMUNICATION	
 			printf(WHERESTR "MALLOC package recieved\n", WHEREARG);
+#endif
 			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_SPU_MEMORY_MALLOC_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
 			break;			
@@ -130,7 +136,9 @@ unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 	SPU_WRITE_OUT_MBOX(id);
 	SPU_WRITE_OUT_MBOX(size);
 
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "CREATE package sent\n", WHEREARG);
+#endif
 	
 	return nextId;
 }
@@ -164,7 +172,9 @@ unsigned int spu_dsmcbe_acquire_begin(GUID id, int type)
 	SPU_WRITE_OUT_MBOX(nextId);
 	SPU_WRITE_OUT_MBOX(id);
 
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "ACQUIRE package sent, id: %d\n", WHEREARG, nextId);
+#endif
 
 	return nextId;
 }
@@ -181,14 +191,14 @@ void spu_dsmcbe_release_begin(void* data)
 	SPU_WRITE_OUT_MBOX(PACKAGE_RELEASE_REQUEST);
 	SPU_WRITE_OUT_MBOX((unsigned int)data);	
 
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "RELEASE package sent @: %d\n", WHEREARG, (unsigned int)data);
+#endif
 }
 
 //Initiates a malloc operation
 unsigned int spu_dsmcbe_memory_malloc_begin(unsigned int size)
 {
-    printf(WHERESTR "SPU is calling malloc for %d\n", WHEREARG, size);
-
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -203,8 +213,6 @@ unsigned int spu_dsmcbe_memory_malloc_begin(unsigned int size)
 	SPU_WRITE_OUT_MBOX(nextId);
 	SPU_WRITE_OUT_MBOX(size);
 	
-	printf(WHERESTR "MALLOC package sent\n", WHEREARG);
-
 	return nextId;
 }
 
@@ -219,8 +227,6 @@ void spu_dsmcbe_memory_free_begin(void* data)
 
 	SPU_WRITE_OUT_MBOX(PACKAGE_SPU_MEMORY_FREE);
 	SPU_WRITE_OUT_MBOX((unsigned int)data);	
-
-	printf(WHERESTR "FREE package sent\n", WHEREARG);
 }
 
 
@@ -234,15 +240,20 @@ void terminate()
 		return;
 	}
 
-	spu_dsmcbe_getNextReqNo(PACKAGE_TERMINATE_REQUEST);
+	unsigned int reqid = spu_dsmcbe_getNextReqNo(PACKAGE_TERMINATE_REQUEST);
 	SPU_WRITE_OUT_MBOX(PACKAGE_TERMINATE_REQUEST);
+	SPU_WRITE_OUT_MBOX(reqid);
 
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "TERMINATE package sent\n", WHEREARG);
+#endif
 
 	while(spu_dsmcbe_initialized)
 		spu_dsmcbe_readMailbox();
 
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "TERMINATE response read\n", WHEREARG);
+#endif
 
 }
 
@@ -277,13 +288,17 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 {
 	unsigned int status;
 	
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Reading mailbox\n", WHEREARG);
+#endif
 	
 	//Process any pending messages
 	while (spu_stat_in_mbox() != 0)
 		spu_dsmcbe_readMailbox();
 
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Done reading mailbox\n", WHEREARG);
+#endif
 
 	if (requestNo > MAX_PENDING_REQUESTS || spu_dsmcbe_pendingRequests[requestNo].requestCode == 0)
 	{
@@ -305,7 +320,9 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 		return NULL;
 	}
 
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Got result %d\n", WHEREARG, (unsigned int)spu_dsmcbe_pendingRequests[requestNo].pointer);
+#endif
 
 	if (size != NULL)
 	{
@@ -332,7 +349,6 @@ void* create(GUID id, unsigned long size) {
 }
 
 void* spu_dsmcbe_memory_malloc(unsigned long size) {
-	printf(WHERESTR "Called malloc for %d\n", WHEREARG, (unsigned int)size);	
 	return spu_dsmcbe_endAsync(spu_dsmcbe_memory_malloc_begin(size), NULL);;
 }
 void spu_dsmcbe_memory_free(void* data) {
