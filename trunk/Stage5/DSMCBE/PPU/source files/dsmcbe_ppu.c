@@ -307,11 +307,10 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 
 	// Make GLIB thread safe - way is this not default behavior
 	if (!g_thread_supported ())
-	{
 		g_thread_init (NULL);
-	}
 	else
 		printf(WHERESTR "Warning: GLIB is not THREAD SAFE!!\n", WHEREARG);	
+
 
 	if (path != NULL) {
 		dsmcbe_host_number = id;
@@ -339,7 +338,8 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 			
 			//If events are in use, SPE_EVENTS_ENABLE must be on. Apparently there is no cost in just leaving it on
 			//SPE_MAP_PS enables libspe to use memory mapped IO, rather than file handle based
-			if ((spe_ids[i] = spe_context_create (SPE_EVENTS_ENABLE | SPE_MAP_PS, NULL)) == NULL) 
+			//SPE_MAP_PS cannot be used if we want to use the SPE_EVENT_TAG_GROUP event
+			if ((spe_ids[i] = spe_context_create (SPE_EVENTS_ENABLE /*| SPE_MAP_PS*/, NULL)) == NULL) 
 			{
 				perror ("Failed creating context");
 				return NULL;

@@ -2,6 +2,9 @@
 #include <glib/ghash.h>
 #include <glib/gqueue.h>
 
+//#define EVENT_BASED
+//#define DEBUG_COMMUNICATION
+
 #include "../header files/SPU_MemoryAllocator.h"
 #include "../header files/SPU_MemoryAllocator_Shared.h"
 #include "../header files/SPUEventHandler.h"
@@ -21,6 +24,9 @@
 
 //The number of pending release requests allowed
 #define MAX_PENDING_RELEASE_REQUESTS 500
+
+//Each call to wait should not return more than this many events
+#define SPE_MAX_EVENT_COUNT 100
 
 //This object represents an item in on the SPU
 struct spu_dataObject
@@ -43,6 +49,12 @@ struct spu_dataObject
 	unsigned int invalidateId;
 	//The size of the object
 	unsigned long size;
+	
+	//This is a flag that determines if the writebuffer is ready for transfer
+	unsigned int writebuffer_ready;
+	
+	//This is a flag that indicates if the transfer i going from the PPU to the SPU
+	unsigned int isDMAToSPU;
 };
 
 //This structure represents a request that is not yet completed
@@ -58,16 +70,6 @@ struct spu_pendingRequest
 	unsigned int operation;
 	//The dataobject involved, may be null if the object is not yet created on the SPU
 	GUID objId;
-};
-
-struct SPU_RC_Data
-{
-	//This event is signaled when data is comming from the request coordinator
-	pthread_cond_t event;
-	//This mutex protects the queue and the event
-	pthread_mutex_t mutex;
-	//This is the list of responses from the request coordinator
-	GQueue* queue;
 };
 
 struct SPU_State
@@ -93,14 +95,41 @@ struct SPU_State
 	unsigned int dmaSeqNo; 
 	//This is the next release request id
 	unsigned int releaseSeqNo;
-	//This is the data for communicating with the request coordinator
-	struct SPU_RC_Data* rcdata;
+	
+	//This is the list of responses from the request coordinator
+	GQueue* queue;
 };
 
+//This is an array of SPU states
 struct SPU_State* spu_states;
+
+//This is the SPU main thread
 pthread_t spu_mainthread;
+
+//This is the number of SPU's allocated 
 unsigned int spe_thread_count;
-unsigned int spu_terminate;
+
+//This is the flag that is used to terminate the SPU event handler 
+volatile unsigned int spu_terminate;
+
+//This mutex protects the queue and the event
+pthread_mutex_t spu_rq_mutex;
+
+#ifdef EVENT_BASED
+//This event is signaled when data is comming from the request coordinator
+pthread_cond_t spu_rq_event;
+
+//This thread monitors events from the SPU
+pthread_t spu_event_watcher;
+
+//This is the SPE event handler
+spe_event_handler_ptr_t spu_event_handler;
+	
+//This is the registered SPE events
+spe_event_unit_t* registered_events;
+
+#endif
+
 
 #define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
 //#define PUSH_TO_SPU(state, value) if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)value); } 
@@ -120,12 +149,22 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 		return;
 	}
 
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Disposing item %d\n", WHEREARG, obj->id);
+#endif
 
 	if (obj->invalidateId != UINT_MAX)
+	{
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Disposing item %d and sending invalidate\n", WHEREARG, obj->id);
+#endif
 		EnqueInvalidateResponse(obj->invalidateId);
-	
-	
+		obj->invalidateId = UINT_MAX;
+	}
+
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Disposing item %d\n", WHEREARG, obj->id);
+#endif
 	
 	g_hash_table_remove(state->itemsById, (void*)obj->id);
 	g_hash_table_remove(state->itemsByPointer, (void*)obj->LS);
@@ -133,6 +172,29 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 	spu_memory_free(state->map, obj->LS);
 	free(obj);
 }
+
+//This function creates and forwards a message to the request coordinator
+void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req)
+{
+	QueueableItem qi;
+	if ((qi = malloc(sizeof(struct QueueableItemStruct))) == NULL)
+		REPORT_ERROR("malloc error");
+	
+	qi->dataRequest = req;
+#ifdef EVENT_BASED		
+		qi->event = &spu_rq_event;
+#else
+		qi->event = NULL;
+#endif
+		qi->mutex = &spu_rq_mutex;
+		qi->Gqueue = &state->queue;
+		
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Inserting item into request coordinator queue\n", WHEREARG);
+#endif
+		EnqueItem(qi);
+}
+
 
 //This function removes all objects from the state
 void spuhandler_DisposeAllObject(struct SPU_State* state)
@@ -150,7 +212,7 @@ void spuhandler_DisposeAllObject(struct SPU_State* state)
 	
 	if (g_hash_table_size(state->itemsById) != 0)
 	{
-		REPORT_ERROR("DisposeAll was called but som objects were not released!");
+		REPORT_ERROR("DisposeAll was called but some objects were not released!");
 		
 		GHashTableIter it;
 		
@@ -162,6 +224,8 @@ void spuhandler_DisposeAllObject(struct SPU_State* state)
 			g_hash_table_iter_init(&it, state->itemsById);
 			if (g_hash_table_iter_next(&it, &key, &obj))
 				spuhandler_DisposeObject(state, (struct spu_dataObject*)obj);
+			if (g_hash_table_remove(state->itemsById, key))
+				REPORT_ERROR("An object in the table was attempted disposed, but failed");
 		}	
 	}
 }
@@ -216,7 +280,9 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 //This function handles incoming acquire requests from an SPU
 void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned int packageCode)
 {
-	printf(WHERESTR "Handling acquire request\n", WHEREARG);
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling acquire request for %d, with requestId: %d\n", WHEREARG, id, requestId);
+#endif
 	
 	if (packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
 	{
@@ -258,22 +324,16 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	req->requestID = requestId;
 	req->dataItem = id;
 
-	QueueableItem qi;
-	if ((qi = malloc(sizeof(struct QueueableItemStruct))) == NULL)
-		REPORT_ERROR("malloc error");
-	
-	qi->dataRequest = req;
-	qi->event = &state->rcdata->event;
-	qi->mutex = &state->rcdata->mutex;
-	qi->Gqueue = &state->rcdata->queue;
-
-	printf(WHERESTR "Inserting item into queue\n", WHEREARG);
-	EnqueItem(qi);
+	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
 
 //This function handles incoming create requests from an SPU
 void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned long size)
 {
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling create request for %d, with requestId: %d\n", WHEREARG, id, requestId);
+#endif
+
 	if (g_hash_table_lookup(state->itemsById, (void*)id) != NULL)
 	{
 		PUSH_TO_SPU(state, requestId);
@@ -301,32 +361,20 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	req->dataItem = id;
 	req->dataSize = size;
 
-	QueueableItem qi;
-	if ((qi = malloc(sizeof(struct QueueableItemStruct))) == NULL)
-		REPORT_ERROR("malloc error");
-	
-	qi->dataRequest = req;
-	qi->event = &state->rcdata->event;
-	qi->mutex = &state->rcdata->mutex;
-	qi->Gqueue = &state->rcdata->queue;
-
-	printf(WHERESTR "Inserting item into queue\n", WHEREARG);
-	EnqueItem(qi);
+	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
 
 //This function handles an incoming release request from an SPU
 void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 {
+#ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Releasing object @: %d\n", WHEREARG, (unsigned int)data);
+#endif
 
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsByPointer, data);
 	if (obj == NULL || obj->count == 0)
 	{
-		if (obj == NULL) {
-			REPORT_ERROR("Attempted to release an object that does not exist");
-		} else {
-			REPORT_ERROR("Attempted to release an object that was not acquired");
-		} 
+		REPORT_ERROR("Attempted to release an object that was not acquired");
 		return;
 	}
 
@@ -348,25 +396,66 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 		//Get a group id, and register the active transfer
 		obj->DMAId = NEXT_SEQ_NO(state->dmaSeqNo, MAX_DMA_GROUPID);
 		
-		struct spu_pendingRequest* req;
-		if((req = malloc(sizeof(struct spu_pendingRequest))) == NULL)
+		struct spu_pendingRequest* preq;
+		if((preq = malloc(sizeof(struct spu_pendingRequest))) == NULL)
 			REPORT_ERROR("malloc error");
 		
-		req->objId = obj->id;
-		req->requestId = 0;
-		req->operation = PACKAGE_RELEASE_REQUEST;
+		preq->objId = obj->id;
+		preq->requestId = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
+		preq->operation = PACKAGE_RELEASE_REQUEST;
 		
-		g_hash_table_insert(state->activeDMATransfers, (void*)obj->DMAId, req);
+		g_hash_table_insert(state->activeDMATransfers, (void*)obj->DMAId, preq);
+		obj->isDMAToSPU = FALSE;
 
-		//Inititate the DMA transfer		
-		spe_mfcio_put(state->context, (unsigned int)obj->LS, obj->EA, ALIGNED_SIZE(obj->size), obj->DMAId, 0, 0);
+		//Inititate the DMA transfer if the buffer is ready		
+		if (obj->writebuffer_ready)
+		{
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Write buffer is ready, transfering data immediately, dmaId: %d\n", WHEREARG, obj->DMAId);
+#endif
+			spe_mfcio_put(state->context, (unsigned int)obj->LS, obj->EA, ALIGNED_SIZE(obj->size), obj->DMAId, 0, 0);
+		}
+		else
+		{
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Write buffer is not ready, delaying transfer, mode: %d, dmaId: %d\n", WHEREARG, obj->mode, obj->DMAId);
+#endif
+		}
 	}	
+}
+
+//This function handles a writebuffer ready message from the request coordinator
+void spuhandler_HandleWriteBufferReady(struct SPU_State* state, unsigned int requestId, GUID id)
+{
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling WriteBufferReady for requestId: %d, itemId: %d\n", WHEREARG, requestId, id);
+#endif
+	
+	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)id);
+	if (obj == NULL)
+	{
+		REPORT_ERROR("Recieved a writebuffer ready request, but the object did not exist");
+		return;
+	}
+	
+	obj->writebuffer_ready = TRUE;
+	
+	//If we are just waiting for the signal, then start the DMA transfer
+	if (obj->DMAId != UINT_MAX && !obj->isDMAToSPU)
+	{
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "WriteBufferReady triggered a DMA transfer, dmaId: %d\n", WHEREARG, obj->DMAId);
+#endif
+		spe_mfcio_put(state->context, (unsigned int)obj->LS, obj->EA, ALIGNED_SIZE(obj->size), obj->DMAId, 0, 0);
+	}
 }
 
 //This function handles an acquireResponse package from the request coordinator
 void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResponse* data)
 {
-	printf(WHERESTR "Handling acquire response\n", WHEREARG);
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling acquire response for id: %d, requestId: %d\n", WHEREARG, data->dataItem, data->requestID);
+#endif
 	
 	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)data->requestID);
 	if (preq == NULL)
@@ -374,6 +463,10 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 		REPORT_ERROR("Found response to an unknown request");
 		return;
 	}
+
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling acquire response for id: %d, requestId: %d\n", WHEREARG, preq->objId, data->requestID);
+#endif
 	
 	//TODO: If two threads acquire the same object, we cannot respond until the DMA is complete
 	
@@ -381,11 +474,12 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
 	if (obj == NULL)
 	{
+#ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Allocating space on SPU\n", WHEREARG);
+#endif
 		void* ls = spuhandler_AllocateSpaceForObject(state, data->dataSize);
 		if (ls == NULL)
 		{
-			printf(WHERESTR "Allocating space on SPU gave a NULL pointer\n", WHEREARG);
 			PUSH_TO_SPU(state, preq->requestId);
 			PUSH_TO_SPU(state, NULL);
 			PUSH_TO_SPU(state, 0);
@@ -395,24 +489,29 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 			return;	
 		}
 
-		printf(WHERESTR "Allocating space on SPU succeeded with: %d\n", WHEREARG, (unsigned int)ls);
-		
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Handling acquire response for id: %d, requestId: %d, object did not exist, creating\n", WHEREARG, preq->objId, data->requestID);
+#endif
+
 		if ((obj = malloc(sizeof(struct spu_dataObject))) == NULL)
 			REPORT_ERROR("malloc error");
 			
 		obj->count = 1;
-		obj->DMAId = NEXT_SEQ_NO(state->dmaSeqNo, MAX_DMA_GROUPID);;
+		obj->DMAId = NEXT_SEQ_NO(state->dmaSeqNo, MAX_DMA_GROUPID);
 		obj->EA = data->data;
 		obj->id = preq->objId;
 		obj->invalidateId = UINT_MAX;
 		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
 		obj->size = data->dataSize;
 		obj->LS = ls;
+		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST;
+		obj->isDMAToSPU = TRUE;
 	
 		g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
-		printf(WHERESTR "Inserting item with LS: %d\n", WHEREARG, (unsigned int)obj->LS); 
 		g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
 		g_hash_table_insert(state->activeDMATransfers, (void*)obj->DMAId, preq);
+		
+		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
 		
 		//printf(WHERESTR "Starting DMA transfer, from: %d, to: %d, size: %d, tag: %d\n", WHEREARG, (unsigned int)obj->LS, (unsigned int)obj->EA, (unsigned int)obj->size, obj->DMAId);
 		
@@ -421,15 +520,24 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 	}
 	else
 	{
-		obj->count++;
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling acquire response for id: %d, requestId: %d, object existed, returning pointer\n", WHEREARG, preq->objId, data->requestID);
+#endif
+
+		obj->count++;	
 		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
 		obj->EA = data->data;
+		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST;
+		
 		PUSH_TO_SPU(state, preq->requestId);
 		PUSH_TO_SPU(state, obj->LS);
 		PUSH_TO_SPU(state, obj->size);
 		
-		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-		free(preq);	
+		if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
+		{
+			g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+			free(preq);
+		}	
 	}
 	
 	if (obj->count == 1)
@@ -441,7 +549,9 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 //This function handles completed DMA transfers
 void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int groupID)
 {
-	printf(WHERESTR "Handling completed DMA transfer\n", WHEREARG);
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling completed DMA transfer, dmaId: %d\n", WHEREARG, groupID);
+#endif
 	
 	//Get the corresponding request
 	struct spu_pendingRequest* preq = g_hash_table_lookup(state->activeDMATransfers, (void*)groupID);
@@ -452,7 +562,7 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 	}
 
 	g_hash_table_remove(state->activeDMATransfers, (void*)groupID);
-	
+
 	//Get the corresponding data object
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
 	if (obj == NULL)
@@ -462,18 +572,27 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		return;
 	}
 	
+	obj->DMAId = UINT_MAX;
+	
 	//If the transfer was from PPU to SPU, we can now give the pointer to the SPU
 	if (preq->operation != PACKAGE_RELEASE_REQUEST)
 	{
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying SPU\n", WHEREARG, groupID, preq->objId);
+#endif
 		PUSH_TO_SPU(state, preq->requestId);
 		PUSH_TO_SPU(state, obj->LS);
 		PUSH_TO_SPU(state, obj->size);
-
-		free(preq);
+		
+		if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
+			free(preq);
 	}
 	else
 	{
 		//Data is transfered from SPU LS to EA, now notify the request coordinator
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying RC\n", WHEREARG, groupID, preq->objId);
+#endif
 		
 		struct releaseRequest* req;
 		if ((req = malloc(sizeof(struct releaseRequest))) == NULL)
@@ -485,39 +604,32 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		req->mode = ACQUIRE_MODE_WRITE;
 		req->offset = 0;
 		req->packageCode = PACKAGE_RELEASE_REQUEST;
-		req->requestID = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
+		req->requestID = preq->requestId;
 		
-		g_hash_table_insert(state->pendingRequests, (void*)req->requestID, req);
+		g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 		
-		QueueableItem qi;
-		if ((qi = malloc(sizeof(struct QueueableItemStruct))) == NULL)
-			REPORT_ERROR("malloc error");
-		
-		qi->dataRequest = req;
-		qi->event = &state->rcdata->event;
-		qi->mutex = &state->rcdata->mutex;
-		qi->Gqueue = &state->rcdata->queue;
-	
-		printf(WHERESTR "Inserting item into queue\n", WHEREARG);
-		EnqueItem(qi);
+		spuhandler_SendRequestCoordinatorMessage(state, req);
 	}
 }
 
 //This function handles incoming release responses from the request coordinator
 void spuhandler_HandleReleaseResponse(struct SPU_State* state, unsigned int requestId)
 {
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Handling release respone for requestId: %d\n", WHEREARG, requestId);
+#endif	
 	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)requestId);
 	if (preq == NULL)
 	{
 		REPORT_ERROR("Get release response for non initiated request");
 		return;
 	}
-	
+
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
 
-	g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-	//free(preq);
-	
+	g_hash_table_remove(state->pendingRequests, (void*)requestId);
+	free(preq);
+
 	if (obj == NULL || obj->count == 0)
 	{
 		REPORT_ERROR("Release was completed, but the object was not acquired?");
@@ -527,25 +639,49 @@ void spuhandler_HandleReleaseResponse(struct SPU_State* state, unsigned int requ
 	obj->count--;
 	if (obj->count == 0)
 	{
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "This was the last holder, check for invalidate\n", WHEREARG);	
+#endif
 		//If this was the last release, check for invalidates, and otherwise register in the age map
 		if (obj->invalidateId != UINT_MAX)
 			spuhandler_DisposeObject(state, obj);
 		else
 			g_queue_push_tail(state->agedObjectMap, (void*)obj->id);
 	}
+
 }
 
 //This function handles incoming invalidate requests from the request coordinator
 void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int requestId, GUID id)
 {
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling invalidate request for id: %d, request id: %d\n", WHEREARG, id, requestId);
+#endif
+
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)id);
 	if (obj == NULL)
 		EnqueInvalidateResponse(requestId);
 	else
 	{
-		obj->invalidateId = requestId;
-		if (obj->count == 0)
-			spuhandler_DisposeObject(state, obj);
+		if (obj->count == 1 && obj->mode == ACQUIRE_MODE_WRITE)
+		{
+#ifdef DEBUG_COMMUNICATION	
+			printf(WHERESTR "The Invalidate was for an object in WRITE mode\n", WHEREARG);	
+#endif
+			EnqueInvalidateResponse(requestId);
+		}
+#ifdef DEBUG_COMMUNICATION
+		else	
+			printf(WHERESTR "The Invalidate was for an object in READ mode\n", WHEREARG);	
+#endif
+		
+		
+		if (obj->count == 0 || obj->mode == ACQUIRE_MODE_READ)
+		{
+			obj->invalidateId = requestId;
+			if (obj->count == 0)
+				spuhandler_DisposeObject(state, obj);
+		}
 	}
 }
 
@@ -564,8 +700,11 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 		switch(packageCode)
 		{
 			case PACKAGE_TERMINATE_REQUEST:
+#ifdef DEBUG_COMMUNICATION	
+				printf(WHERESTR "Terminate request recieved\n", WHEREARG);
+#endif
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
-				spuhandler_DisposeAllObject(state);			
+				spuhandler_DisposeAllObject(state);		
 				PUSH_TO_SPU(state, requestId);
 				PUSH_TO_SPU(state, PACKAGE_TERMINATE_RESPONSE);
 				break;
@@ -605,10 +744,8 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 			case PACKAGE_SPU_MEMORY_MALLOC_REQUEST:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 				spe_out_intr_mbox_read(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
-				printf(WHERESTR "malloc request %d for %d\n", WHEREARG, requestId, size);
 				PUSH_TO_SPU(state, requestId);
 				PUSH_TO_SPU(state, spuhandler_AllocateSpaceForObject(state, size));
-				printf(WHERESTR "malloc request %d for %d, done\n", WHEREARG, requestId, size);
 				break;
 			default:
 				REPORT_ERROR("Unknown package code recieved");			
@@ -618,21 +755,21 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 }
 
 //This function reads and handles incomming requests and responses from the request coordinator
+//BEWARE: The queue mutex MUST be locked before calling this method
 void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 {
 	struct acquireResponse* resp = NULL;
 	
 	while(TRUE)
 	{
-		pthread_mutex_lock(&state->rcdata->mutex);
-		resp = g_queue_pop_head(state->rcdata->queue);
-		pthread_mutex_unlock(&state->rcdata->mutex);
+		resp = g_queue_pop_head(state->queue);
 
 		if (resp == NULL)
 			return;
 			
+#ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Handling request coordinator message: %s\n", WHEREARG, PACKAGE_NAME(resp->packageCode));			
-			
+#endif			
 		switch(resp->packageCode)
 		{
 			case PACKAGE_ACQUIRE_RESPONSE:
@@ -644,11 +781,15 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 			case PACKAGE_INVALIDATE_REQUEST:
 				spuhandler_HandleInvalidateRequest(state, ((struct invalidateRequest*)resp)->requestID, ((struct invalidateRequest*)resp)->dataItem);
 				break;
+			case PACKAGE_WRITEBUFFER_READY:
+				spuhandler_HandleWriteBufferReady(state, ((struct writebufferReady*)resp)->requestID, ((struct writebufferReady*)resp)->dataItem);
+				break;
 			default:
 				REPORT_ERROR("Invalid package recieved");
 				break;			
 		}
 		free(resp);
+		resp = NULL;
 	}
 }
 
@@ -685,36 +826,104 @@ void spuhandler_HandleDMAEvent(struct SPU_State* state)
 }
 
 //This function writes pending data to the spu mailbox while there is room 
-void spuhandler_SPUMailboxWriter(struct SPU_State* state)
+int spuhandler_SPUMailboxWriter(struct SPU_State* state)
 {
 	while (!g_queue_is_empty(state->mailboxQueue) && spe_in_mbox_status(state->context) != 0)	
 	{
+		unsigned int data = (unsigned int)state->mailboxQueue->head->data;
 		//printf(WHERESTR "Sending Mailbox message: %i\n", WHEREARG, (unsigned int)Gspu_mailboxQueues[i]->head->data);
-		if (spe_in_mbox_write(state->context, (unsigned int*)&state->mailboxQueue->head->data, 1, SPE_MBOX_ALL_BLOCKING) != 1) {
+		if (spe_in_mbox_write(state->context, &data, 1, SPE_MBOX_ALL_BLOCKING) != 1) {
 			REPORT_ERROR("Failed to send message, even though it was blocking!"); 
 		} else
 			g_queue_pop_head(state->mailboxQueue);
 	}
+	
+	return !g_queue_is_empty(state->mailboxQueue);
 }
 
 //This function repeatedly checks for events relating to the SPU's
 void* SPU_MainThread(void* dummy)
 {
 	size_t i;
+	unsigned int pending_out_data;
 	
+	//Event base, keeps the mutex locked, until we wait for events
+#ifdef EVENT_BASED
+	struct timespec waittime;
+	pthread_mutex_lock(&spu_rq_mutex);
+#endif
+
 	while(!spu_terminate)
 	{
+
+		pending_out_data = 0;
+
+//Non-event based just needs the lock for accessing the queue	
+#ifndef EVENT_BASED
+		//Lock the mutex once, and read all the data
+		pthread_mutex_lock(&spu_rq_mutex);
+
+		for(i = 0; i < spe_thread_count; i++)
+			spuhandler_HandleRequestCoordinatorMessages(&spu_states[i]);
+
+		pthread_mutex_unlock(&spu_rq_mutex);
+#endif
+
 		for(i = 0; i < spe_thread_count; i++)
 		{
 			//For each SPU, just repeat this
-			spuhandler_SPUMailboxReader(&spu_states[i]);
+#ifdef EVENT_BASED
 			spuhandler_HandleRequestCoordinatorMessages(&spu_states[i]);
+#endif
+			spuhandler_SPUMailboxReader(&spu_states[i]);
 			spuhandler_HandleDMAEvent(&spu_states[i]);
-			spuhandler_SPUMailboxWriter(&spu_states[i]);
+			pending_out_data |= spuhandler_SPUMailboxWriter(&spu_states[i]);
 		}
+		
+#ifdef EVENT_BASED
+		if (pending_out_data)
+		{
+			clock_gettime(CLOCK_REALTIME, &waittime);
+			waittime.tv_nsec += 10000000;
+			pthread_cond_timedwait(&spu_rq_event, &spu_rq_mutex, &waittime);
+		}
+		else
+			pthread_cond_wait(&spu_rq_event, &spu_rq_mutex);
+#endif
 	}
+
+#ifdef EVENT_BASED
+		pthread_mutex_unlock(&spu_rq_mutex);
+#endif
 	return dummy;
 }
+
+#ifdef EVENT_BASED
+void* SPU_EventWatcher(void* dummy)
+{
+	int event_count;
+	spe_event_unit_t event;
+	
+	while(!spu_terminate)
+	{
+		event_count = spe_event_wait(spu_event_handler, &event, SPE_MAX_EVENT_COUNT, 5000);
+		if (event_count == -1)
+			REPORT_ERROR("spe_event_wait failed");
+		
+		//After each event, trigger this 
+		pthread_mutex_lock(&spu_rq_mutex);
+		pthread_cond_signal(&spu_rq_event);
+		pthread_mutex_unlock(&spu_rq_mutex);
+		
+		//This code is used to troubleshoot jiggy event handling code
+		if (event_count == 0 && !spu_terminate)
+			printf(WHERESTR "Jiggy! Jiggy! Jiggy!\n", WHEREARG);
+		
+	}
+	
+	return dummy;
+}
+#endif
 
 //This function sets up the SPU event handler
 void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
@@ -732,7 +941,20 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	
 	if ((spu_states = malloc(sizeof(struct SPU_State) * thread_count)) == NULL)
 		REPORT_ERROR("malloc error");
-	
+		
+	if (pthread_mutex_init(&spu_rq_mutex, NULL) != 0) REPORT_ERROR("Mutex initialization failed");
+
+#ifdef EVENT_BASED
+	if (pthread_cond_init(&spu_rq_event, NULL) != 0) REPORT_ERROR("Cond initialization failed");
+
+	spu_event_handler = spe_event_handler_create();
+	if (spu_event_handler == NULL)
+		REPORT_ERROR("Broken event handler");
+		
+	if ((registered_events = malloc(sizeof(spe_event_unit_t) * spe_thread_count)) == NULL)
+		REPORT_ERROR("malloc error");
+#endif
+
 	for(i = 0; i < thread_count; i++)
 	{
 		spu_states[i].activeDMATransfers = g_hash_table_new(NULL, NULL);
@@ -744,18 +966,96 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].mailboxQueue = g_queue_new();
 		spu_states[i].map = NULL;
 		spu_states[i].pendingRequests = g_hash_table_new(NULL, NULL);
-		if((spu_states[i].rcdata = malloc(sizeof(struct SPU_RC_Data))) == NULL)
-			REPORT_ERROR("malloc error");
+		spu_states[i].queue = g_queue_new();
 		
-		pthread_mutex_init(&spu_states[i].rcdata->mutex, NULL);
-		pthread_cond_init(&spu_states[i].rcdata->event, NULL);
-		spu_states[i].rcdata->queue = g_queue_new();
-		
-		RegisterInvalidateSubscriber(&spu_states[i].rcdata->mutex, &spu_states[i].rcdata->event, &spu_states[i].rcdata->queue);		
+#ifdef EVENT_BASED
+		RegisterInvalidateSubscriber(&spu_rq_mutex, &spu_rq_event, &spu_states[i].queue);
+
+		//The SPE_EVENT_IN_MBOX is enabled whenever there is data in the queue
+		registered_events[i].spe = spu_states[i].context;
+		registered_events[i].events = SPE_EVENT_OUT_INTR_MBOX | SPE_EVENT_TAG_GROUP;
+		registered_events[i].data.ptr = (void*)i;
+
+		if (spe_event_handler_register(spu_event_handler, &registered_events[i]) != 0)
+			REPORT_ERROR("Register failed");
+#else
+		RegisterInvalidateSubscriber(&spu_rq_mutex, NULL, &spu_states[i].queue);
+#endif		
 	}
+
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+#ifdef EVENT_BASED
+	pthread_create(&spu_event_watcher, &attr, SPU_EventWatcher, NULL);
+#endif
 	
 	pthread_create(&spu_mainthread, &attr, SPU_MainThread, NULL);
 }
+
+//This function cleans up used resources 
+void TerminateSPUHandler(int force)
+{
+	size_t i;
+	
+	//Remove warning
+	spu_terminate = force | TRUE;
+	
+#ifdef EVENT_BASED
+	pthread_mutex_lock(&spu_rq_mutex);
+	pthread_cond_signal(&spu_rq_event);
+	pthread_mutex_unlock(&spu_rq_mutex);
+	
+	pthread_join(spu_event_watcher, NULL);
+#endif 
+	pthread_join(spu_mainthread, NULL); 
+	
+	pthread_mutex_destroy(&spu_rq_mutex);
+
+	for(i = 0; i < spe_thread_count; i++)
+	{
+		g_hash_table_destroy(spu_states[i].activeDMATransfers);
+		g_queue_free(spu_states[i].agedObjectMap);
+		g_hash_table_destroy(spu_states[i].itemsById);
+		g_hash_table_destroy(spu_states[i].itemsByPointer);
+		g_queue_free(spu_states[i].mailboxQueue);
+		g_hash_table_destroy(spu_states[i].pendingRequests);
+		g_queue_free(spu_states[i].queue);
+
+		spu_memory_destroy(spu_states[i].map);
+
+		UnregisterInvalidateSubscriber(&spu_states[i].queue);
+		
+#ifdef EVENT_BASED
+		if (spe_event_handler_deregister(spu_event_handler, &registered_events[i]) != 0)
+			REPORT_ERROR("Unregister failed");
+#endif		
+	}
+	
+#ifdef EVENT_BASED
+	pthread_cond_destroy(&spu_rq_event);
+	spe_event_handler_destroy(&spu_event_handler);
+#endif
+	free(spu_states);
+	
+}
+
+//This function tries to determine if there is no possibility that the given object is using the EA buffer
+//WARNING: The mutex MUST be locked before calling this method
+int spuhandler_IsWriteBufferInUse(GQueue** queue, GUID id)
+{
+	size_t i;
+	
+	for(i = 0; i < spe_thread_count; i++)
+		if (&spu_states[i].queue == queue)
+		{
+			//TODO: This is a dirty read in the hashtable, if we are not using events
+			struct spu_dataObject* obj = g_hash_table_lookup(spu_states[i].itemsById, (void*)id);
+			return !(obj == NULL || obj->DMAId == UINT_MAX || obj->mode == ACQUIRE_MODE_WRITE);
+		}
+		
+	//The queue was now for an SPE, so just to be safe, we say it's in use
+	return TRUE;
+}
+
