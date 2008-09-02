@@ -360,7 +360,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 
 	if (requestNo > MAX_PENDING_REQUESTS || spu_dsmcbe_pendingRequests[requestNo].requestCode == 0)
 	{
-		REPORT_ERROR("endAsync called on non-existing operation");
+		REPORT_ERROR2("endAsync called on non-existing operation: %d", requestNo);
 		return NULL;
 	}
 	
