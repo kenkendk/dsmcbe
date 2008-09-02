@@ -96,6 +96,10 @@ struct SPU_State
 	//This is the next release request id
 	unsigned int releaseSeqNo;
 	
+	//This is a list of acquireRespons packages that cannot be forwarded until a 
+	//releaseResponse arrives and free's memory
+	GQueue* releaseWaiters;
+	
 	//This is the list of responses from the request coordinator
 	GQueue* queue;
 };
@@ -284,7 +288,7 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 		
 		while(g_hash_table_iter_next(&iter, (void*)&key, (void*)&value))
 		{
-			printf(WHERESTR "Found item with id: %d and count %d\n", WHEREARG, key, value->count);
+			//printf(WHERESTR "Found item with id: %d and count %d\n", WHEREARG, key, value->count);
 			if (value->count == 0)
 				g_queue_push_tail(state->agedObjectMap, (void*)key);
 		}
@@ -309,7 +313,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	printf(WHERESTR "Handling acquire request for %d, with requestId: %d\n", WHEREARG, id, requestId);
 #endif
 	
-	if (packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
+	if (packageCode == PACKAGE_ACQUIRE_REQUEST_READ && g_queue_is_empty(state->releaseWaiters))
 	{
 		struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)id);
 		
@@ -387,6 +391,8 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 	}
 }
 
+void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObject* obj);
+
 //This function handles incoming create requests from an SPU
 void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned long size)
 {
@@ -445,15 +451,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	//Read releases are handled locally
 	if (obj->mode == ACQUIRE_MODE_READ)
 	{
-		obj->count--;
-		if (obj->count == 0)
-		{
-			//If this was the last release, check for invalidates, and otherwise register in the age map
-			if (obj->invalidateId != UINT_MAX)
-				spuhandler_DisposeObject(state, obj);
-			else
-				g_queue_push_tail(state->agedObjectMap, (void*)obj->id);
-		}
+		spuhandler_HandleObjectRelease(state, obj);
 	}
 	else /*if (obj->mode == ACQUIRE_MODE_WRITE)*/
 	{
@@ -515,7 +513,7 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, unsigned int req
 }
 
 //This function handles an acquireResponse package from the request coordinator
-void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResponse* data)
+int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResponse* data)
 {
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Handling acquire response for id: %d, requestId: %d\n", WHEREARG, data->dataItem, data->requestID);
@@ -525,7 +523,7 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 	if (preq == NULL)
 	{
 		REPORT_ERROR("Found response to an unknown request");
-		return;
+		return -1;
 	}
 
 #ifdef DEBUG_COMMUNICATION	
@@ -544,7 +542,15 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 		void* ls = spuhandler_AllocateSpaceForObject(state, data->dataSize);
 		if (ls == NULL)
 		{
-			fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
+			//We have no space on the SPU, so wait until we get some
+			//TODO: Verify that we have a pending release request
+#ifdef DEBUG_COMMUNICATION	
+			printf(WHERESTR "No more space, delaying acquire\n", WHEREARG);	
+#endif
+			g_queue_push_tail(state->releaseWaiters, data);
+			return FALSE;
+			
+			/*fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
 			
 			GHashTableIter iter;
 			g_hash_table_iter_init(&iter, state->itemsById);
@@ -561,7 +567,7 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 			
 			g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
 			free(preq);
-			return;	
+			return;*/	
 		}
 
 #ifdef DEBUG_COMMUNICATION	
@@ -618,7 +624,42 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 	if (obj->count == 1)
 		g_queue_remove(state->agedObjectMap, (void*)obj->id);
 
+	return TRUE;
 
+}
+
+//This function deals with acquire requests that are waiting for a release response
+void spuhandler_ManageDelayedAcquireResponses(struct SPU_State* state)
+{
+	while (!g_queue_is_empty(state->releaseWaiters))
+	{
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Attempting to process a new delayed acquire\n", WHEREARG);	
+#endif
+		struct acquireResponse* resp = g_queue_pop_head(state->releaseWaiters);
+		if (!spuhandler_HandleAcquireResponse(state, resp))
+			return;
+	}
+}
+
+//This function deals with cleaning up and possibly freeing objects
+void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObject* obj)
+{
+		obj->count--;
+		if (obj->count == 0)
+		{
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "This was the last holder, check for invalidate\n", WHEREARG);	
+#endif
+			//If this was the last release, check for invalidates, and otherwise register in the age map
+			if (obj->invalidateId != UINT_MAX || g_queue_is_empty(state->releaseWaiters))
+			{
+				spuhandler_DisposeObject(state, obj);
+				spuhandler_ManageDelayedAcquireResponses(state);
+			}
+			else
+				g_queue_push_tail(state->agedObjectMap, (void*)obj->id);
+		}
 }
 
 //This function handles completed DMA transfers
@@ -711,19 +752,7 @@ void spuhandler_HandleReleaseResponse(struct SPU_State* state, unsigned int requ
 		return;
 	}
 	
-	obj->count--;
-	if (obj->count == 0)
-	{
-#ifdef DEBUG_COMMUNICATION	
-		printf(WHERESTR "This was the last holder, check for invalidate\n", WHEREARG);	
-#endif
-		//If this was the last release, check for invalidates, and otherwise register in the age map
-		if (obj->invalidateId != UINT_MAX)
-			spuhandler_DisposeObject(state, obj);
-		else
-			g_queue_push_tail(state->agedObjectMap, (void*)obj->id);
-	}
-
+	spuhandler_HandleObjectRelease(state, obj);
 }
 
 //This function handles incoming invalidate requests from the request coordinator
@@ -1045,6 +1074,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].mailboxQueue = g_queue_new();
 		spu_states[i].map = NULL;
 		spu_states[i].pendingRequests = g_hash_table_new(NULL, NULL);
+		spu_states[i].releaseWaiters = g_queue_new();
 		spu_states[i].queue = g_queue_new();
 		
 #ifdef EVENT_BASED
@@ -1100,6 +1130,7 @@ void TerminateSPUHandler(int force)
 		g_hash_table_destroy(spu_states[i].itemsByPointer);
 		g_queue_free(spu_states[i].mailboxQueue);
 		g_hash_table_destroy(spu_states[i].pendingRequests);
+		g_queue_free(spu_states[i].releaseWaiters);
 		g_queue_free(spu_states[i].queue);
 
 		spu_memory_destroy(spu_states[i].map);
