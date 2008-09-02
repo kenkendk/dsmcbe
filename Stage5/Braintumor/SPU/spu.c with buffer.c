@@ -7,6 +7,8 @@
 #include "../Common/Common.h"
 #include "../DSMCBE/common/debug.h"
 
+#define clean(x)
+
 #define Y 3
 #define X 3
 
@@ -334,4 +336,3 @@ int main(unsigned long long id)
 	}
 	return 0;
 }
-

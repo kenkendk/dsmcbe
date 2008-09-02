@@ -7,9 +7,9 @@
 
 #define getAsyncStatus(requestNo) spu_dsmcbe_getAsyncStatus(requestNo)
 #define endAsync(requestNo, size) spu_dsmcbe_endAsync(requestNo, size)
-#define beginRelease(data) spu_dsmcbe_beginRelease(data)
-#define beginAcquire(id, type) spu_dsmcbe_beginAcquire(id, type)
-#define beginCreate(id, size) spu_dsmcbe_beginCreate(id, size)
+#define beginRelease(data) spu_dsmcbe_release_begin(data)
+#define beginAcquire(id, type) spu_dsmcbe_acquire_begin(id, type)
+#define beginCreate(id, size) spu_dsmcbe_create_begin(id, size)
 
 #endif /*DSMCBE_SPU_ASYNC_H_*/
 

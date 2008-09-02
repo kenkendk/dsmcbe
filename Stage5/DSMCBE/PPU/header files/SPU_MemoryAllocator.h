@@ -8,6 +8,10 @@ struct SPU_Memory_Map_struct {
 	unsigned int offset;
 	//The size of the bitmap, memsize is 16 * 8 * size
 	unsigned int size;
+	
+	//The total number of bytes avalible in memory
+	unsigned int totalmem;
+	
 	//An index to the first byte with avalible space
 	unsigned int first_free;
 	//An index to the last byte with avalible space

@@ -13,6 +13,7 @@
 #include "../../common/datapackages.h"
 #include "../../common/debug.h"
 #include "../../PPU/header files/SPU_MemoryAllocator_Shared.h"
+#include "../header files/DMATransfer.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -42,6 +43,9 @@ unsigned int spu_dsmcbe_nextRequestNo = 0;
 //A flag indicating if initialize has been called.
 unsigned int spu_dsmcbe_initialized = FALSE; 
 
+//This is a bitmap of active DMA transfers
+unsigned int spu_dsmcbe_activeDMATransfers = 0;
+
 //This function gets the next avalible request number, and sets the response flag to "not ready"
 unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
 {
@@ -65,6 +69,25 @@ void spu_dsmcbe_readMailbox() {
 	printf(WHERESTR "Reading mailbox, blocking\n", WHEREARG);
 #endif
 	unsigned int requestID = spu_read_in_mbox();
+	
+	if (requestID == UINT_MAX)
+	{
+#ifdef DEBUG_COMMUNICATION
+		printf(WHERESTR "DMA request recieved\n", WHEREARG);
+#endif		
+
+		unsigned int direction = spu_read_in_mbox();
+		unsigned int ls = spu_read_in_mbox();
+		unsigned int ea = spu_read_in_mbox();
+		unsigned int size = spu_read_in_mbox();
+		unsigned int tag = spu_read_in_mbox();
+		if (direction == SPU_DMA_LS_TO_EA)
+			StartDMAWriteTransfer((void*)ls, ea, size, tag);
+		else
+			StartDMAReadTransfer((void*)ls, ea, size, tag, 0);
+		spu_dsmcbe_activeDMATransfers |= (1 << tag);
+		return;
+	}
 
 	if (requestID > MAX_PENDING_REQUESTS)
 	{
@@ -257,6 +280,38 @@ void terminate()
 
 }
 
+//This function tests for active DMA transfers, and notifies the PPU when they complete
+void spu_dsmcbe_handleActiveDMATransfers()
+{
+	size_t i;
+	unsigned int temp;
+	
+	if (spu_dsmcbe_activeDMATransfers != 0)
+	{
+		temp = spu_dsmcbe_activeDMATransfers;
+		
+		for(i = temp < (1 << 8) ? 0 : 8; i < 32; i++)
+			if((temp & (1 << i)) != 0)
+			{
+				if (IsDMATransferGroupCompleted(i))
+				{
+#ifdef DEBUG_COMMUNICATION
+					printf(WHERESTR "Signaling DMA complete for id %d\n", WHEREARG, (unsigned int)i);	
+#endif					
+					spu_dsmcbe_activeDMATransfers &= ~(1 << i);
+					SPU_WRITE_OUT_MBOX(SPU_DMA_COMPLETE);
+					SPU_WRITE_OUT_MBOX(i);
+					if (spu_dsmcbe_activeDMATransfers == 0)
+						return;
+				}
+				
+				temp &= ~(1 << i);
+				if (temp == 0)
+					return;
+			}
+	} 			
+}
+
 
 //Returns a SPU_DSMCBE_ASYNC_* value indicating the state of the operation
 unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
@@ -264,6 +319,9 @@ unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 	//Process any pending messages
 	while (spu_stat_in_mbox() != 0)
 		spu_dsmcbe_readMailbox();
+	
+	if (spu_dsmcbe_activeDMATransfers != 0)
+		spu_dsmcbe_handleActiveDMATransfers();
 
 	if (requestNo > MAX_PENDING_REQUESTS || spu_dsmcbe_pendingRequests[requestNo].requestCode == 0)
 		return SPU_DSMCBE_ASYNC_ERROR;
@@ -310,7 +368,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	{
 		if (IsThreaded())
 			YieldThread();
-		else
+		else if (spu_dsmcbe_activeDMATransfers == 0)
 			spu_dsmcbe_readMailbox();
 	}
 	

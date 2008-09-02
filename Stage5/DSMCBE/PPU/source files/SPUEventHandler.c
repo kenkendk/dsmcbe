@@ -2,9 +2,6 @@
 #include <glib/ghash.h>
 #include <glib/gqueue.h>
 
-//#define EVENT_BASED
-//#define DEBUG_COMMUNICATION
-
 #include "../header files/SPU_MemoryAllocator.h"
 #include "../header files/SPU_MemoryAllocator_Shared.h"
 #include "../header files/SPUEventHandler.h"
@@ -27,6 +24,9 @@
 
 //Each call to wait should not return more than this many events
 #define SPE_MAX_EVENT_COUNT 100
+
+//This number is the  max number of bytes the PPU can transfer without contacting the SPU
+#define SPE_DMA_MAX_TRANSFERSIZE 16 * 1024
 
 //This object represents an item in on the SPU
 struct spu_dataObject
@@ -240,13 +240,13 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 	size = ALIGNED_SIZE(size);
 	
 	//If the requested size is larger than the total avalible space, don't discard objects
-	if (size > state->map->size * 16)
+	if (size > state->map->totalmem)
 		return NULL;
 	
 	//If there is no way the object can fit, skip the initial try
 	if (state->map->free_mem >= size)
 		temp = spu_memory_malloc(state->map, size);
-	
+
 	//While we have not recieved a valid pointer, and there are still objects to discard
 	while(temp == NULL && !g_queue_is_empty(state->agedObjectMap))
 	{
@@ -273,6 +273,31 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 			}
 		}
 	}
+
+#ifdef DEBUG_FRAGMENTATION	
+	if (temp == NULL)
+	{
+		GHashTableIter iter;
+		g_hash_table_iter_init(&iter, state->itemsById);
+		GUID key;
+		struct spu_dataObject* value;
+		
+		while(g_hash_table_iter_next(&iter, (void*)&key, (void*)&value))
+		{
+			printf(WHERESTR "Found item with id: %d and count %d\n", WHEREARG, key, value->count);
+			if (value->count == 0)
+				g_queue_push_tail(state->agedObjectMap, (void*)key);
+		}
+				
+		if (!g_queue_is_empty(state->agedObjectMap))
+		{
+			REPORT_ERROR("Extra unused objects were found outside the agedObjectMap");			
+			return spuhandler_AllocateSpaceForObject(state, size);
+		}
+		else
+			return NULL;
+	}
+#endif
 	
 	return temp;
 }
@@ -327,6 +352,41 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
 
+//This function initiates a DMA transfer to or from the SPU
+void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU, unsigned int EA, unsigned int LS, unsigned int size, unsigned int groupId)
+{
+	if (size > SPE_DMA_MAX_TRANSFERSIZE)
+	{
+		
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Initiating DMA transfer on SPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
+#endif
+		PUSH_TO_SPU(state, UINT_MAX);
+		PUSH_TO_SPU(state, (toSPU ? SPU_DMA_EA_TO_LS : SPU_DMA_LS_TO_EA));
+		PUSH_TO_SPU(state, LS);
+		PUSH_TO_SPU(state, EA);
+		PUSH_TO_SPU(state, ALIGNED_SIZE(size));
+		PUSH_TO_SPU(state, groupId);
+	}
+	else
+	{
+		
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
+#endif
+		if (toSPU)
+		{
+			if (spe_mfcio_get(state->context, LS, (void*)EA, ALIGNED_SIZE(size), groupId, 0, 0) != 0)
+				REPORT_ERROR("DMA transfer from EA to LS failed");
+		}
+		else
+		{
+			if (spe_mfcio_put(state->context, LS, (void*)EA, ALIGNED_SIZE(size), groupId, 0, 0) != 0)
+				REPORT_ERROR("DMA transfer from LS to EA failed");
+		}
+	}
+}
+
 //This function handles incoming create requests from an SPU
 void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned long size)
 {
@@ -374,7 +434,11 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsByPointer, data);
 	if (obj == NULL || obj->count == 0)
 	{
-		REPORT_ERROR("Attempted to release an object that was not acquired");
+		if (obj == NULL)
+			fprintf(stderr, "* ERROR * " WHERESTR ": Attempted to release an object that was unknown: %d\n", WHEREARG,  (unsigned int)data);
+		else
+			fprintf(stderr, "* ERROR * " WHERESTR ": Attempted to release an object that was not acquired: %d\n", WHEREARG,  (unsigned int)data);
+		
 		return;
 	}
 
@@ -413,7 +477,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Write buffer is ready, transfering data immediately, dmaId: %d\n", WHEREARG, obj->DMAId);
 #endif
-			spe_mfcio_put(state->context, (unsigned int)obj->LS, obj->EA, ALIGNED_SIZE(obj->size), obj->DMAId, 0, 0);
+			spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA, (unsigned int)obj->LS, obj->size, obj->DMAId);
 		}
 		else
 		{
@@ -446,7 +510,7 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, unsigned int req
 #ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "WriteBufferReady triggered a DMA transfer, dmaId: %d\n", WHEREARG, obj->DMAId);
 #endif
-		spe_mfcio_put(state->context, (unsigned int)obj->LS, obj->EA, ALIGNED_SIZE(obj->size), obj->DMAId, 0, 0);
+		spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA, (unsigned int)obj->LS, obj->size, obj->DMAId);
 	}
 }
 
@@ -480,6 +544,17 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 		void* ls = spuhandler_AllocateSpaceForObject(state, data->dataSize);
 		if (ls == NULL)
 		{
+			fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
+			
+			GHashTableIter iter;
+			g_hash_table_iter_init(&iter, state->itemsById);
+			GUID key;
+			struct spu_dataObject* value;
+			
+			while(g_hash_table_iter_next(&iter, (void*)&key, (void*)&value))
+				fprintf(stderr, "* ERROR * " WHERESTR ": Item %d is allocated at %d and takes up %d bytes, count: %d\n", WHEREARG, key, (unsigned int)value->LS, (unsigned int)value->size, value->count);
+			
+			sleep(5); 
 			PUSH_TO_SPU(state, preq->requestId);
 			PUSH_TO_SPU(state, NULL);
 			PUSH_TO_SPU(state, 0);
@@ -512,11 +587,11 @@ void spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireRes
 		g_hash_table_insert(state->activeDMATransfers, (void*)obj->DMAId, preq);
 		
 		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-		
-		//printf(WHERESTR "Starting DMA transfer, from: %d, to: %d, size: %d, tag: %d\n", WHEREARG, (unsigned int)obj->LS, (unsigned int)obj->EA, (unsigned int)obj->size, obj->DMAId);
-		
-		//Perform the transfer
-		spe_mfcio_get(state->context, (unsigned int)obj->LS, obj->EA, ALIGNED_SIZE(obj->size), obj->DMAId, 0, 0);
+
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Starting DMA transfer, from: %d, to: %d, size: %d, tag: %d\n", WHEREARG, (unsigned int)obj->EA, (unsigned int)obj->LS, (unsigned int)obj->size, obj->DMAId);
+#endif
+		spuhandler_InitiateDMATransfer(state, TRUE, (unsigned int)obj->EA, (unsigned int)obj->LS, obj->size, obj->DMAId);
 	}
 	else
 	{
@@ -747,6 +822,10 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				PUSH_TO_SPU(state, requestId);
 				PUSH_TO_SPU(state, spuhandler_AllocateSpaceForObject(state, size));
 				break;
+			case SPU_DMA_COMPLETE:
+				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
+				spuhandler_HandleDMATransferCompleted(state, requestId);	
+				break;		
 			default:
 				REPORT_ERROR("Unknown package code recieved");			
 				break;	
