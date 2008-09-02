@@ -35,6 +35,10 @@
 #define PACKAGE_TERMINATE_REQUEST 14
 #define PACKAGE_TERMINATE_RESPONSE 15
 
+#define SPU_DMA_LS_TO_EA 100
+#define SPU_DMA_EA_TO_LS 101
+#define SPU_DMA_COMPLETE 102
+
 struct createRequest
 {
 	unsigned int packageCode; // = 1

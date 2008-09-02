@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <?fileVersion 3.1.0?>
 
 <ManagedProjectBuildInfo>
@@ -22,9 +22,6 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.839587457" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.include.paths.1686786037" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
-<listOptionValue builtIn="false" value="/usr/lib/glib-2.0/include"/>
-<listOptionValue builtIn="false" value="/usr/include/glib-2.0"/>
-<listOptionValue builtIn="false" value="/usr/include/glib-2.0/glib"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE"/>
 <listOptionValue builtIn="false" value="/usr/lib"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
@@ -74,14 +71,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103./SPU/spu whitout buffer.c" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103"/>
 </resourceConfiguration>
 <resourceConfiguration exclude="false" id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1187383196./SPU/spu.c" name="spu.c" rcbsApplicability="disable" resourcePath="/SPU/spu.c" toolsToInvoke="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103./SPU/spu.c">
-<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103./SPU/spu.c" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103">
-<option id="gnu.c.compiler.option.include.paths.1286179718" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE"/>
-<listOptionValue builtIn="false" value="/usr/lib"/>
-<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
-</option>
-</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103./SPU/spu.c" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103" />
 </resourceConfiguration>
 </configuration>
 <macros/>

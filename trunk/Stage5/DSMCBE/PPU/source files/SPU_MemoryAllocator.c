@@ -14,7 +14,7 @@ struct SPU_Memory_Object_struct {
 typedef struct SPU_Memory_Object_struct SPU_Memory_Object;
 
 //Threshold is in number of bits, ea. 1 bit = ALIGN_SIZE_COUNT, so 4 gives 4*16 = 64 bytes
-#define SIZE_THRESHOLD 1000000
+#define SIZE_THRESHOLD 16000000
 #define ALIGN_SIZE_COUNT 16
 #define BITS_PR_BYTE 8
 #define ALIGNED_SIZE(x) (x + ((ALIGN_SIZE_COUNT - x) % ALIGN_SIZE_COUNT))
@@ -183,7 +183,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int
 			first_avalible += direction;
 		
 		//No more space, current can never be negative, so it becomes UINT_MAX, which is larger than size
-		if (current >= map->size)
+		if (current >= map->size - 1)
 			return NULL;
 		
 		//If this byte is zero, we can run further
@@ -243,8 +243,10 @@ SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 	map->free_mem = size;
 	map->offset = offset;		
 	map->size = size / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
+	//TODO: We scrap up to 16 * 7 bytes at the end of memory
+	map->totalmem = map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE;
 	map->first_free = 0;
-	map->last_free = map->size - 1;
+	map->last_free = map->size - 2;
 	map->allocated = g_hash_table_new(NULL, NULL);
 	map->bitmap = malloc(map->size);
 	memset(map->bitmap, 0, map->size);
@@ -295,7 +297,7 @@ void spu_memory_free(SPU_Memory_Map* map, void* data) {
 	if (bitsize > SIZE_THRESHOLD) {
 		newguess = ((((unsigned int)data) + (bitsize * ALIGN_SIZE_COUNT)) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 		if (newguess > map->last_free)
-			map->last_free = MIN(newguess, map->size - 1);  
+			map->last_free = MIN(newguess, map->size - 2);  
 	} else {
 		newguess = (((unsigned int)data) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 		if (newguess < map->first_free)
