@@ -74,6 +74,9 @@ struct spu_pendingRequest
 
 struct SPU_State
 {
+	//This is a flag indicating that the SPU thread has terminated
+	unsigned int terminated;
+	
 	//This is a list of all allocated objects on the SPU, key is GUID, value is dataObject*
 	GHashTable* itemsById;
 	//This is a list of all allocated objects on the SPU, key is LS pointer, value is dataObject*
@@ -175,6 +178,16 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 	g_queue_remove(state->agedObjectMap, (void*)obj->id);
 	spu_memory_free(state->map, obj->LS);
 	free(obj);
+	
+	if (state->terminated != UINT_MAX && g_hash_table_size(state->itemsById) == 0)
+	{
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Signaling termination to SPU %d\n", WHEREARG, obj->id);
+#endif
+		PUSH_TO_SPU(state, state->terminated);
+		PUSH_TO_SPU(state, PACKAGE_TERMINATE_RESPONSE);
+	}
+
 }
 
 //This function creates and forwards a message to the request coordinator
@@ -216,21 +229,30 @@ void spuhandler_DisposeAllObject(struct SPU_State* state)
 	
 	if (g_hash_table_size(state->itemsById) != 0)
 	{
-		REPORT_ERROR("DisposeAll was called but some objects were not released!");
+		//This can happen, because the release call is async
+		//REPORT_ERROR("DisposeAll was called but some objects were not released!");
 		
-		GHashTableIter it;
+		/*GHashTableIter it;
+
+		void* key;
+		struct spu_dataObject* obj;
 		
+		g_hash_table_iter_init(&it, state->itemsById);
+		while(g_hash_table_iter_next(&it, &key, (void*)&obj))
+			printf(WHERESTR "Found item: %d with count: %d", WHEREARG, obj->id, obj->count); 
+	
 		while (g_hash_table_size(state->itemsById) != 0)
 		{
-			void* key;
-			void* obj;
-			
 			g_hash_table_iter_init(&it, state->itemsById);
-			if (g_hash_table_iter_next(&it, &key, &obj))
+			if (g_hash_table_iter_next(&it, &key, (void*)&obj))
+			{
+				obj->count = 0;
 				spuhandler_DisposeObject(state, (struct spu_dataObject*)obj);
+			}
+			
 			if (g_hash_table_remove(state->itemsById, key))
 				REPORT_ERROR("An object in the table was attempted disposed, but failed");
-		}	
+		}*/
 	}
 }
 
@@ -473,7 +495,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 		if (obj->writebuffer_ready)
 		{
 #ifdef DEBUG_COMMUNICATION	
-	printf(WHERESTR "Write buffer is ready, transfering data immediately, dmaId: %d\n", WHEREARG, obj->DMAId);
+	printf(WHERESTR "Write buffer is ready, transfering data immediately, dmaId: %d, obj id: %d\n", WHEREARG, obj->DMAId, obj->id);
 #endif
 			spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA, (unsigned int)obj->LS, obj->size, obj->DMAId);
 		}
@@ -487,7 +509,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 }
 
 //This function handles a writebuffer ready message from the request coordinator
-void spuhandler_HandleWriteBufferReady(struct SPU_State* state, unsigned int requestId, GUID id)
+void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 {
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Handling WriteBufferReady for requestId: %d, itemId: %d\n", WHEREARG, requestId, id);
@@ -652,8 +674,15 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 		printf(WHERESTR "This was the last holder, check for invalidate\n", WHEREARG);	
 #endif
 			//If this was the last release, check for invalidates, and otherwise register in the age map
-			if (obj->invalidateId != UINT_MAX || g_queue_is_empty(state->releaseWaiters))
+			if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)
 			{
+#ifdef DEBUG_COMMUNICATION	
+				if (state->terminated != UINT_MAX)
+					printf(WHERESTR "Releasing object after termination: %d\n", WHEREARG, obj->id);
+				else	
+					printf(WHERESTR "Releasing object: %d\n", WHEREARG, obj->id);
+#endif
+				
 				spuhandler_DisposeObject(state, obj);
 				spuhandler_ManageDelayedAcquireResponses(state);
 			}
@@ -808,9 +837,8 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				printf(WHERESTR "Terminate request recieved\n", WHEREARG);
 #endif
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
+				state->terminated = requestId;
 				spuhandler_DisposeAllObject(state);		
-				PUSH_TO_SPU(state, requestId);
-				PUSH_TO_SPU(state, PACKAGE_TERMINATE_RESPONSE);
 				break;
 			case PACKAGE_SPU_MEMORY_SETUP:
 				if (state->map != NULL) 
@@ -819,6 +847,7 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				} 
 				else
 				{
+					state->terminated = UINT_MAX;
 					spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 					spe_out_intr_mbox_read(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
 					state->map = spu_memory_create((unsigned int)requestId, size);
@@ -890,7 +919,7 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 				spuhandler_HandleInvalidateRequest(state, ((struct invalidateRequest*)resp)->requestID, ((struct invalidateRequest*)resp)->dataItem);
 				break;
 			case PACKAGE_WRITEBUFFER_READY:
-				spuhandler_HandleWriteBufferReady(state, ((struct writebufferReady*)resp)->requestID, ((struct writebufferReady*)resp)->dataItem);
+				spuhandler_HandleWriteBufferReady(state, ((struct writebufferReady*)resp)->dataItem);
 				break;
 			default:
 				REPORT_ERROR("Invalid package recieved");
@@ -1076,6 +1105,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].pendingRequests = g_hash_table_new(NULL, NULL);
 		spu_states[i].releaseWaiters = g_queue_new();
 		spu_states[i].queue = g_queue_new();
+		spu_states[i].terminated = UINT_MAX;
 		
 #ifdef EVENT_BASED
 		RegisterInvalidateSubscriber(&spu_rq_mutex, &spu_rq_event, &spu_states[i].queue);
@@ -1151,6 +1181,7 @@ void TerminateSPUHandler(int force)
 	
 }
 
+/*
 //This function tries to determine if there is no possibility that the given object is using the EA buffer
 //WARNING: The mutex MUST be locked before calling this method
 int spuhandler_IsWriteBufferInUse(GQueue** queue, GUID id)
@@ -1168,4 +1199,4 @@ int spuhandler_IsWriteBufferInUse(GQueue** queue, GUID id)
 	//The queue was now for an SPE, so just to be safe, we say it's in use
 	return TRUE;
 }
-
+*/

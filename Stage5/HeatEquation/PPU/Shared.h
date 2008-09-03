@@ -18,7 +18,7 @@
 #define ABS(x) ((x) > 0 ? (x) : ((x) * -1))
 #endif 
 
-#define PROBLEM_DATA_TYPE float
+#define PROBLEM_DATA_TYPE double
 
 //Structure for sending data between two units
 struct Work_Unit

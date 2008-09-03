@@ -79,7 +79,7 @@
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.1106758536" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1319664881" superClass="gnu.c.link.option.paths" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/PPU/ppu-gnu32-debug"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/PPU/ppu-gnu32-release"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/HeatEquation/TinyPTC"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/"/>
 </option>
