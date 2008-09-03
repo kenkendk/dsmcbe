@@ -1,7 +1,7 @@
 #ifndef SHARED_H_
 #define SHARED_H_
 
-#define GRAPHICS
+//#define GRAPHICS
 
 #define UPDATE_FREQ 10
 
@@ -42,6 +42,7 @@ struct Barrier_Unit
 {
 	unsigned int lock_count;
 	double delta;
+	unsigned int print_count;
 };
 
 #define ASSIGNMENT_LOCK 1

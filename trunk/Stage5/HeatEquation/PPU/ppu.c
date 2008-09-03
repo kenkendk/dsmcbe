@@ -30,7 +30,6 @@ void show(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned int map_heig
 		}
 	
 	gs_update();
-	sleep(1);
 }
 #endif
 
@@ -65,7 +64,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	double deltasum;
 	unsigned int buffer_size;
 #ifdef GRAPHICS
-	unsigned int cnt;
+	unsigned int cnt = 0;
 	double delta;
 #endif
    
@@ -82,13 +81,14 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
 	barrier->delta = 0;
 	barrier->lock_count = 0;
+	barrier->print_count = 0;
 	release(barrier);
 	
 	release(create(EX_BARRIER_1, sizeof(unsigned int)));
 	release(create(EX_BARRIER_2, sizeof(unsigned int)));
 	release(create(EX_BARRIER_3, sizeof(unsigned int)));
 
-	printf(WHERESTR "Boot and barrier done\n", WHEREARG);
+	//printf(WHERESTR "Boot and barrier done\n", WHEREARG);
 
 	divisor = (int)(map_height / spu_count);
 	rest = (int)(map_height % spu_count);
@@ -120,11 +120,9 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	printf(WHERESTR "Displaying map (%d x %d)\n", WHEREARG, map_width, map_height);
 	gs_init(map_width, map_height);	
 	show(data, map_width, map_height);
-
-    sleep(5);
 #endif	
 
-	printf(WHERESTR "Starting timer\n", WHEREARG);
+	//printf(WHERESTR "Starting timer\n", WHEREARG);
 
 	sw_init();
 	sw_start();
@@ -142,7 +140,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
             rest--;
         }
         
-        printf(WHERESTR "Building buffer %d\n", WHEREARG, i);
+        //printf(WHERESTR "Building buffer %d\n", WHEREARG, i);
         
         //If this is anything but the very first line, we also send the previous
         line_start = (lineno == 0 ? lineno : lineno - 1);
@@ -162,13 +160,13 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
 		release(send_buffer);
 		                
-		printf(WHERESTR "Done with buffer %d\n", WHEREARG, i);
+		//printf(WHERESTR "Done with buffer %d\n", WHEREARG, i);
 		                
         lineno += lines_to_send;
     }
 
 
-	printf(WHERESTR "Waiting for %d SPU's to boot up\n", WHEREARG, spu_count);
+	//printf(WHERESTR "Waiting for %d SPU's to boot up\n", WHEREARG, spu_count);
 	
 	boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_READ);
 	while(boot->spu_no != spu_count)
@@ -178,7 +176,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	}
 	release(boot);
 
-	printf(WHERESTR "All %d SPU's are booted\n", WHEREARG, spu_count);
+	//printf(WHERESTR "All %d SPU's are booted\n", WHEREARG, spu_count);
 
 //Periodically update window?
 #ifdef GRAPHICS
@@ -193,11 +191,16 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 			release(barrier);
 			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
 		}
+
+        if((cnt + 1) == UPDATE_FREQ)
+			printf(WHERESTR "Updating graphics, delta: %lf\n", WHEREARG, barrier->delta);
+
 		release(barrier);
 		
         cnt++;
         if(cnt == UPDATE_FREQ)
         {
+
         	for(i = 0; i < spu_count; i++)
         	{    
 	        	send_buffer = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
@@ -240,7 +243,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
 	sw_stop();
 	sw_timeString(buf);
-	printf("Time taken on %i processors (%ix%i:%i): %s\n", spu_count, map_width, map_height, UPDATE_FREQ, buf);
+	printf("Time taken on %i processors with type %s (%ix%i:%i): %s\n", spu_count, (sizeof(PROBLEM_DATA_TYPE) == sizeof(float) ? "float" : "double") , map_width, map_height, UPDATE_FREQ, buf);
 
 
 #ifdef GRAPHICS
@@ -281,7 +284,7 @@ int main(int argc, char* argv[])
 	printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
 	
 	if (machineid == 0)
-		Coordinator(128, 128, spu_count);
+		Coordinator(200, 200, spu_count);
 	
 	printf(WHERESTR "Shutting down machine %d\n", WHEREARG, machineid);
 	
