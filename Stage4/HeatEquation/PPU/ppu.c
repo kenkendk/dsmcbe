@@ -30,7 +30,6 @@ void show(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned int map_heig
 		}
 	
 	gs_update();
-	sleep(1);
 }
 #endif
 
@@ -65,7 +64,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	double deltasum;
 	unsigned int buffer_size;
 #ifdef GRAPHICS
-	unsigned int cnt;
+	unsigned int cnt = 0;
 	double delta;
 #endif
    
@@ -120,8 +119,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	printf(WHERESTR "Displaying map (%d x %d)\n", WHEREARG, map_width, map_height);
 	gs_init(map_width, map_height);	
 	show(data, map_width, map_height);
-
-    sleep(5);
+	sleep(5);
 #endif	
 
 	printf(WHERESTR "Starting timer\n", WHEREARG);
@@ -198,6 +196,8 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
         cnt++;
         if(cnt == UPDATE_FREQ)
         {
+			printf(WHERESTR "Updating graphics\n", WHEREARG);
+
         	for(i = 0; i < spu_count; i++)
         	{    
 	        	send_buffer = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);

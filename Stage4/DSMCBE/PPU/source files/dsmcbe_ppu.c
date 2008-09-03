@@ -305,7 +305,7 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	spe_program_handle_t* program;
 #endif		
 
-	// Make GLIB thread safe - way is this not default behavior
+	// Make GLIB thread safe - why is this not default behavior
 	if (!g_thread_supported ())
 	{
 		g_thread_init (NULL);
