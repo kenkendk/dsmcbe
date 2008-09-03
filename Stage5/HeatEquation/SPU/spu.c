@@ -92,7 +92,6 @@ void ExchangeRows(PROBLEM_DATA_TYPE* data, unsigned int height, unsigned int wid
     dsmcbe_barrier(EX_BARRIER_3, spu_count);
 	//printf(WHERESTR "SPU %d is out of barrier (%d)\n", WHEREARG, spu_no, EX_BARRIER_2);
     
-    //TODO: These two can be "beginAcquire"
     if (spu_no != spu_count - 1)
     {
 		//printf(WHERESTR "SPU %d is trying to re-acquire lastline (%d)\n", WHEREARG, spu_no, LAST_ROW_OFFSET + spu_no);
@@ -225,8 +224,8 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
 			barrier->lock_count = 0;
 			barrier->print_count++;
 			
-			if (barrier->print_count % 100 == 0)
-				printf(WHERESTR "SPU %d is exiting barrier, delta: %lf\n", WHEREARG, spu_no, barrier->delta);
+			/*if (barrier->print_count % 100 == 0)
+				printf(WHERESTR "SPU %d is exiting barrier, delta: %lf\n", WHEREARG, spu_no, barrier->delta);*/
 		}
 		
 		while(barrier->lock_count != 0)
@@ -287,12 +286,12 @@ int main(long long id)
 	//printf(WHERESTR "SPU %d is finished solving\n", WHEREARG, spu_no);
 	
 	//TODO: This is not the correct item if we have GRAPHICS on 
-	printf(WHERESTR "SPU %d is releasing %d\n", WHEREARG, spu_no, WORK_OFFSET + spu_no);
+	//printf(WHERESTR "SPU %d is releasing %d\n", WHEREARG, spu_no, WORK_OFFSET + spu_no);
 	release(work_item);
 
-	printf(WHERESTR "SPU %d is terminating\n", WHEREARG, spu_no);
+	//printf(WHERESTR "SPU %d is terminating\n", WHEREARG, spu_no);
 	terminate();	
-	printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
+	//printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
 	  
 	return id;  
 }

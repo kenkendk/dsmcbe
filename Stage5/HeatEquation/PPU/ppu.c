@@ -217,16 +217,17 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
         delta = barrier->delta;
         release(barrier);
 	}
-        
+      
+#else
+	//Make sure the SPU's have taken their locks
+	sleep(2);  
 #endif
 
     deltasum = 0.0;
     rc = 0;
     for(i = 0; i< spu_count; i++)
     {
-		printf(WHERESTR "Getting result %d from SPU %d\n", WHEREARG, WORK_OFFSET + i, i);
     	send_buffer = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
-		printf(WHERESTR "Got result from SPU %d\n", WHEREARG, i);
         deltasum += send_buffer->epsilon;
         rc += send_buffer->width;
         memcpy(&data[send_buffer->line_start * map_width], &send_buffer->problem, send_buffer->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
@@ -284,12 +285,12 @@ int main(int argc, char* argv[])
 
 	pthreads = simpleInitialize(machineid, filename, spu_count);
 	
-	printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
+	//printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
 	
 	if (machineid == 0)
 		Coordinator(64, 64, spu_count);
 	
-	printf(WHERESTR "Shutting down machine %d\n", WHEREARG, machineid);
+	//printf(WHERESTR "Shutting down machine %d\n", WHEREARG, machineid);
 	
 	for(i = 0; i < (size_t)spu_count; i++)
 		pthread_join(pthreads[i], NULL);
