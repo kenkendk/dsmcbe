@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <?fileVersion 3.1.0?>
 
 <ManagedProjectBuildInfo>
@@ -71,7 +71,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103./SPU/spu whitout buffer.c" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103"/>
 </resourceConfiguration>
 <resourceConfiguration exclude="false" id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1187383196./SPU/spu.c" name="spu.c" rcbsApplicability="disable" resourcePath="/SPU/spu.c" toolsToInvoke="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103./SPU/spu.c">
-<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103./SPU/spu.c" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103" />
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103./SPU/spu.c" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103"/>
 </resourceConfiguration>
 </configuration>
 <macros/>

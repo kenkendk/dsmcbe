@@ -20,6 +20,9 @@ typedef struct SPU_Memory_Object_struct SPU_Memory_Object;
 #define ALIGNED_SIZE(x) (x + ((ALIGN_SIZE_COUNT - x) % ALIGN_SIZE_COUNT))
 #define SIZE_TO_BITS(x) (ALIGNED_SIZE(size) / ALIGN_SIZE_COUNT)
 
+//#define FIRSTFIT
+#define BESTFIT
+
 //This lookup table counts the number of consecutive bits that are zero, going from the left (MSB) 
 unsigned char spu_memory_lead_bit_count[] = {
 8,7,6,6,5,5,5,5,4,4,4,4,4,4,4,4,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,
@@ -56,6 +59,119 @@ unsigned char spu_memory_lead_bits[] = { 0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xF
 //This lookup table has a rising number of bits set from the right (LSB)
 unsigned char spu_memory_trail_bits[] = { 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF };  
 
+#ifdef USEDYNAMICPARTITIONSCHEME
+
+void printMap(SPU_Memory_Map* map)
+{
+	unsigned int i;
+	struct SPU_Memory_Object_struct* this = NULL;
+
+	printf("\nPrinting list\n");
+
+	for(i = 0; i < g_list_length(map->bitmap); i++)
+	{
+		this = g_list_nth_data(map->bitmap, i);
+		printf("Pointer: %i Size: %i\n", this->pointer, this->size);
+	}
+	
+	printf("List printed\n\n");
+	sleep(1);
+}
+
+
+//The offset is the actual pointer, the size is the number of bits to flip
+void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int size, unsigned char newvalue)
+{
+	unsigned int i;
+	struct SPU_Memory_Object_struct* prev = NULL;
+	struct SPU_Memory_Object_struct* this = NULL;
+	struct SPU_Memory_Object_struct* next = NULL;
+	struct SPU_Memory_Object_struct* obj = NULL;
+
+	size = size * 16;
+	//printf(WHERESTR "Staring to free %i at %i\n", WHEREARG, size, (unsigned int)offset);
+
+	for(i = 0; i < g_list_length(map->bitmap); i++)
+	{
+		this = g_list_nth_data(map->bitmap, i);
+		if(this->pointer > (unsigned int)offset)
+		{
+			if (i > 0)
+				prev = g_list_nth_data(map->bitmap, i-1);
+			else 
+				prev = NULL;
+			
+			if (i != g_list_length(map->bitmap) - 1)
+				next = g_list_nth_data(map->bitmap, i+1);
+			else 
+				next = NULL;
+						
+			if(prev != NULL && prev->pointer + prev->size == (unsigned int)offset)
+			{
+				if (next != NULL && next->pointer == (unsigned int)(offset + size))
+				{
+					prev->size += next->size + size;
+					map->bitmap = g_list_remove(map->bitmap, next);
+					//printf(WHERESTR "Freed %i bytes at %i using prev and next free\n", WHEREARG, size, (unsigned int)offset);
+					//printMap(map);
+					return;	
+				}
+				else
+				{
+					prev->size += size;
+					//printf(WHERESTR "Freed %i bytes at %i using prev free\n", WHEREARG, size, (unsigned int)offset);
+					//printMap(map);
+					return;
+				}
+			}
+			else if (next != NULL && next->pointer == (unsigned int)(offset + size))
+			{
+				next->pointer = (unsigned int)offset;
+				next->size += size;
+				//printf(WHERESTR "Freed %i bytes at %i using special normal free\n", WHEREARG, size, (unsigned int)offset);
+				//printMap(map);				
+				return;
+			}
+			else if (this->pointer == (unsigned int)offset + size)
+			{
+				this->pointer = (unsigned int)offset;
+				this->size += size;
+				//printf(WHERESTR "Freed %i bytes at %i using special normal free\n", WHEREARG, size, (unsigned int)offset);
+				//printMap(map);				
+				return;
+			}
+			else
+			{
+				obj = malloc(sizeof(struct SPU_Memory_Object_struct));				
+				obj->pointer = (unsigned int)offset;
+				obj->size = (unsigned int)size;
+				
+				map->bitmap = g_list_insert(map->bitmap, obj, i);
+				//printf(WHERESTR "Freed %i bytes at %i using normal free\n", WHEREARG, size, (unsigned int)offset);
+				//printMap(map);				
+				return;
+			}
+		}		
+	}
+	
+	if(offset + size <= map->offset + map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE)
+	{
+		obj = malloc(sizeof(struct SPU_Memory_Object_struct));				
+		obj->pointer = (unsigned int)offset;
+		obj->size = (unsigned int)size;
+		
+		map->bitmap = g_list_insert(map->bitmap, obj, g_list_length(map->bitmap));
+		//printf(WHERESTR "Freed %i bytes at %i using top free\n", WHEREARG, size, (unsigned int)offset);
+		//printMap(map);				
+		return;
+	}
+	 
+	printMap(map);
+	printf(WHERESTR "Tried to free offset %i with size %i - mapOffset %i, mapSize %i\n", WHEREARG, offset, size, map->offset, map->size);	
+	REPORT_ERROR("Could not free memory\n");
+}
+
+#else
 
 //The offset is the actual pointer, the size is the number of bits to flip
 void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int size, unsigned char newvalue)
@@ -117,6 +233,71 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 		}
 	}
 }
+
+#endif
+
+#ifdef USEDYNAMICPARTITIONSCHEME
+
+void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int* first_free)
+{
+	unsigned int i;
+	unsigned int position;
+	struct SPU_Memory_Object_struct* this = NULL;
+	struct SPU_Memory_Object_struct* best = NULL;
+	unsigned int waste = UINT_MAX;
+	unsigned int temp = 0;
+
+	for(i = 0; i < g_list_length(map->bitmap); i++)
+	{
+		this = g_list_nth_data(map->bitmap, i);
+		
+		if (this->size >= size)
+		{
+#ifdef FIRSTFIT			
+			best = this;
+			break;
+#endif
+#ifdef BESTFIT
+			temp = this->size - size;
+			//printf(WHERESTR "Temp: %u, Waste: %u\n", WHEREARG, temp, waste); 
+			if (temp < waste)
+			{
+				best = this;
+				waste = temp;
+				if (waste == 0)
+					break;
+			}
+#endif
+		}
+	}
+	
+	this = NULL;
+	
+	//Allocate memory
+	if(best != NULL)
+	{
+		position = best->pointer;
+		if(best->size > size)
+		{
+			best->pointer += size;
+			best->size -= size;
+			//printf(WHERESTR "1:Allocated %i bytes at %i\n", WHEREARG, size, position);
+		}
+		else
+		{
+			map->bitmap = g_list_remove(map->bitmap, best);
+			//printf(WHERESTR "2:Allocated %i bytes at %i\n", WHEREARG, size, position);
+		}
+		//printMap(map);
+		return (void*)position;
+	}
+	
+	REPORT_ERROR("Could not find free memory!");
+	sleep(10);
+	return NULL;	
+}
+
+#else
 
 void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int* first_free)
 {
@@ -224,7 +405,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int
 	
 	return data;
 }
-
+#endif
 
 SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 	SPU_Memory_Map* map;
@@ -248,14 +429,26 @@ SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 	map->first_free = 0;
 	map->last_free = map->size - 2;
 	map->allocated = g_hash_table_new(NULL, NULL);
+
+#ifdef USEDYNAMICPARTITIONSCHEME
+	map->bitmap = NULL;
+	struct SPU_Memory_Object_struct* obj = NULL;
+	obj = malloc(sizeof(struct SPU_Memory_Object_struct));				
+	obj->pointer = (unsigned int)map->offset;
+	obj->size = (unsigned int)map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE;	
+	map->bitmap = g_list_insert(map->bitmap, obj, 0);
+	//printf(WHERESTR "Creating schemes - offset %i, size %i\n", WHEREARG, map->offset, map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE);
+	//printMap(map);
+#else	
 	map->bitmap = malloc(map->size);
-	memset(map->bitmap, 0, map->size);
-	
+	//memset(map->bitmap, 0, map->size);
+#endif	
+
 	return map;
 }
 
 void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
-
+	//printf(WHERESTR "MEMMGR - Trying to malloc %i\n", WHEREARG, size);
 	unsigned int first_free;
 	unsigned int bitsize = SIZE_TO_BITS(size);
 	void* data = SPU_Memory_find_chunk(map, size, &first_free);
@@ -263,7 +456,9 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 		return NULL;
 	
 	g_hash_table_insert(map->allocated, data, (void*)bitsize);
+#ifndef USEDYNAMICPARTITIONSCHEME	
 	SPU_Memory_update_bitmap(map, data, bitsize, 0xff);
+#endif	
 	map->free_mem -= bitsize * ALIGN_SIZE_COUNT;
 	
 	//It is not possible for the bitmap to be updated, unless it is allocated.
@@ -280,6 +475,7 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 }
 
 void spu_memory_free(SPU_Memory_Map* map, void* data) {
+	//printf(WHERESTR "MEMMGR - Trying to free %i\n", WHEREARG, (unsigned int)data);
 	unsigned int bitsize = (unsigned int)g_hash_table_lookup(map->allocated, data);
 	if (bitsize == 0)
 	{
@@ -307,8 +503,7 @@ void spu_memory_free(SPU_Memory_Map* map, void* data) {
 }
 
 void spu_memory_destroy(SPU_Memory_Map* map) {
-	free(map->bitmap);
-	map->bitmap = NULL;
+	g_list_free(map->bitmap);
 	g_hash_table_destroy(map->allocated);
 	map->allocated = NULL;
 	free(map);

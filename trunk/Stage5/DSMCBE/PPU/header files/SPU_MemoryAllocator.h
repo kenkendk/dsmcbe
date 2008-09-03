@@ -3,6 +3,8 @@
 
 #include <glib/ghash.h>
 
+#define USEDYNAMICPARTITIONSCHEME
+
 struct SPU_Memory_Map_struct {
 	//The offset used to calculator the resulting pointer
 	unsigned int offset;
@@ -21,8 +23,13 @@ struct SPU_Memory_Map_struct {
 	unsigned int free_mem;
 
 	//The actual map of avalible space. 
-	//Each bit here corresponds to 16 bytes of memory 
+	//Each bit here corresponds to 16 bytes of memory
+
+#ifdef USEDYNAMICPARTITIONSCHEME
+	GList* bitmap;
+#else	
 	unsigned char* bitmap;
+#endif
 	
 	//A list of reserved objects
 	GHashTable* allocated;

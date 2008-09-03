@@ -49,13 +49,22 @@ unsigned int spu_dsmcbe_activeDMATransfers = 0;
 //This function gets the next avalible request number, and sets the response flag to "not ready"
 unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
 {
+	//printf(WHERESTR "\n\nReqNo wanted with requestCode %i (%i)\n", WHEREARG, requestCode, spu_dsmcbe_nextRequestNo);
 	size_t i;
+	unsigned int value;
 	for(i = 0; i < MAX_PENDING_REQUESTS; i++)
-		if (spu_dsmcbe_pendingRequests[(i + spu_dsmcbe_nextRequestNo) % MAX_PENDING_REQUESTS].requestCode == 0)
+		if (spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].requestCode == 0)
 		{
-			spu_dsmcbe_nextRequestNo = (i + spu_dsmcbe_nextRequestNo + 1) % MAX_PENDING_REQUESTS;
-			spu_dsmcbe_pendingRequests[(i + spu_dsmcbe_nextRequestNo) % MAX_PENDING_REQUESTS].requestCode = requestCode;
-			return (i + spu_dsmcbe_nextRequestNo) % MAX_PENDING_REQUESTS;
+			spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].requestCode = requestCode;
+			value = spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS;
+			spu_dsmcbe_nextRequestNo = (spu_dsmcbe_nextRequestNo + 1) % MAX_PENDING_REQUESTS;
+			//printf(WHERESTR "Returned reqNo %i\n\n\n", WHEREARG, value);
+			return value;
+		}
+		else
+		{
+			spu_dsmcbe_nextRequestNo++;
+			//printf(WHERESTR "Entry(%i) had value %i\n", WHEREARG, (i + spu_dsmcbe_nextRequestNo) % MAX_PENDING_REQUESTS, spu_dsmcbe_pendingRequests[(i + spu_dsmcbe_nextRequestNo) % MAX_PENDING_REQUESTS].requestCode );
 		}
 		
 	REPORT_ERROR("No avalible request slots found, consider raising the MAX_PENDING_REQUESTS");
@@ -112,7 +121,7 @@ void spu_dsmcbe_readMailbox() {
 #endif
 			
 			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_ACQUIRE_RESPONSE;
-			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
+			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox(); 
 			spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
 			break;			
 	
