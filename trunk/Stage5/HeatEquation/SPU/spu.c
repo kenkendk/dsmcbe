@@ -29,7 +29,7 @@ void dsmcbe_barrier(GUID id, unsigned int ref_count)
 
 // Send last or/and first row to other(s) process
 // Recieve last or/and first row from other(s) process	
-void ExchangeRows(PROBLEM_DATA_TYPE* data, unsigned int height, unsigned int width, PROBLEM_DATA_TYPE** firstline, PROBLEM_DATA_TYPE** lastline, unsigned int spu_no, unsigned int spu_count)
+void ExchangeRows(PROBLEM_DATA_TYPE* data, unsigned int height, unsigned int width, unsigned int spu_no, unsigned int spu_count, unsigned int* reqIdFirst, unsigned int* reqIdLast)
 {
 //#define memcpy(a,b,c) /* a b c */
 
@@ -44,22 +44,24 @@ void ExchangeRows(PROBLEM_DATA_TYPE* data, unsigned int height, unsigned int wid
 	//Everyone but the first sends their updated first shared row 
     if (spu_no != 0)
     {
-		//printf(WHERESTR "SPU %d is releasing firstline (%d)\n", WHEREARG, spu_no, FIRST_ROW_OFFSET + spu_no);
-		memcpy(*firstline, &data[width], bytewidth);
-    	release(*firstline);
+    	tmp1 = endAsync(*reqIdFirst, NULL);
+    	//printf(WHERESTR "SPU %d is releasing firstline (%d)\n", WHEREARG, spu_no, FIRST_ROW_OFFSET + spu_no);
+		memcpy(tmp1, &data[width], bytewidth);
+    	release(tmp1);
     }
     
     //Everyone but the last, sends their second to last row 
     if (spu_no != spu_count - 1)
     {
+    	tmp2 = endAsync(*reqIdLast, NULL);
 		//printf(WHERESTR "SPU %d is releasing lastline (%d)\n", WHEREARG, spu_no, LAST_ROW_OFFSET + spu_no);
-		memcpy(*lastline, &data[(height-2) * width], bytewidth);
-    	release(*lastline);
+		memcpy(tmp2, &data[(height-2) * width], bytewidth);
+    	release(tmp2);
     } 
 
 	//printf(WHERESTR "SPU %d is waiting for barrier (%d)\n", WHEREARG, spu_no, EX_BARRIER_2);
 	/******* STEP 2: Acquire other copies *******/
-    dsmcbe_barrier(EX_BARRIER_2, spu_count);
+    //dsmcbe_barrier(EX_BARRIER_2, spu_count);
 	//printf(WHERESTR "SPU %d is out of barrier (%d)\n", WHEREARG, spu_no, EX_BARRIER_2);
     
     //Everyone but the last, reads their updated last row
@@ -94,10 +96,7 @@ void ExchangeRows(PROBLEM_DATA_TYPE* data, unsigned int height, unsigned int wid
     if (spu_no != spu_count - 1)
     {
 		//printf(WHERESTR "SPU %d is trying to re-acquire lastline (%d)\n", WHEREARG, spu_no, LAST_ROW_OFFSET + spu_no);
-    	*lastline = acquire(LAST_ROW_OFFSET + spu_no, &size, ACQUIRE_MODE_WRITE);
-    	if (*lastline == NULL)
-			printf(WHERESTR "SPU %d failed to re-acquire lastline (%d)\n", WHEREARG, spu_no, LAST_ROW_OFFSET + spu_no);
-    	
+    	*reqIdLast = beginAcquire(LAST_ROW_OFFSET + spu_no, ACQUIRE_MODE_WRITE);
     	//memcpy(&data[(height - 1) * width], *lastline, bytewidth); 
 		//printf(WHERESTR "SPU %d re-acquired lastline (%d, %ld)\n", WHEREARG, spu_no, LAST_ROW_OFFSET + spu_no, bytewidth);
     }
@@ -105,10 +104,7 @@ void ExchangeRows(PROBLEM_DATA_TYPE* data, unsigned int height, unsigned int wid
     if (spu_no != 0)
     {
 		//printf(WHERESTR "SPU %d is trying to re-acquire firstline (%d)\n", WHEREARG, spu_no, FIRST_ROW_OFFSET + spu_no);
-    	*firstline = acquire(FIRST_ROW_OFFSET + spu_no, &size, ACQUIRE_MODE_WRITE);
-    	if (*firstline == NULL)
-			printf(WHERESTR "SPU %d failed to re-acquire firstline (%d)\n", WHEREARG, spu_no, FIRST_ROW_OFFSET + spu_no);
-    	
+    	*reqIdFirst = beginAcquire(FIRST_ROW_OFFSET + spu_no, ACQUIRE_MODE_WRITE);
         //memcpy(data, *firstline, bytewidth);
 		//printf(WHERESTR "SPU %d re-acquired firstline (%d, %ld)\n", WHEREARG, spu_no, FIRST_ROW_OFFSET + spu_no, bytewidth);
     }
@@ -123,9 +119,10 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
 	PROBLEM_DATA_TYPE* data;
 	double deltasum;
 	double epsilon;
-	
-	PROBLEM_DATA_TYPE* firstline;
-	PROBLEM_DATA_TYPE* lastline; 
+
+	unsigned int reqIdFirst;
+	unsigned int reqIdLast;	
+
 	unsigned int map_width;
 	struct Barrier_Unit* barrier;
 	unsigned long size;
@@ -142,21 +139,21 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
     
     if (spu_no != 0)
     {
-    	firstline = create(FIRST_ROW_OFFSET + spu_no, sizeof(PROBLEM_DATA_TYPE) * width);
+    	release(create(FIRST_ROW_OFFSET + spu_no, sizeof(PROBLEM_DATA_TYPE) * width));
 	    //printf(WHERESTR "SPU %d created firstline (%d)\n", WHEREARG, spu_no, FIRST_ROW_OFFSET + spu_no);
-	    memcpy(firstline, data, sizeof(PROBLEM_DATA_TYPE) * width);
+	    reqIdFirst = beginAcquire(FIRST_ROW_OFFSET + spu_no, ACQUIRE_MODE_WRITE);
     }
     else
-    	firstline = NULL;
+    	reqIdFirst = UINT_MAX;
     	
     if (spu_no != spu_count - 1)
     {
-    	lastline = create(LAST_ROW_OFFSET + spu_no, sizeof(PROBLEM_DATA_TYPE) * width );
+    	release(create(LAST_ROW_OFFSET + spu_no, sizeof(PROBLEM_DATA_TYPE) * width));
 	    //printf(WHERESTR "SPU %d created lastline (%d)\n", WHEREARG, spu_no, LAST_ROW_OFFSET + spu_no);
-	    memcpy(lastline, &data[width * (height - 1)], sizeof(PROBLEM_DATA_TYPE) * width);
+	    reqIdLast = beginAcquire(LAST_ROW_OFFSET + spu_no, ACQUIRE_MODE_WRITE);
     }
     else
-    	lastline = NULL;
+    	reqIdLast = UINT_MAX;
     	
     //printf(WHERESTR "SPU %d has created lines (%d:%d)", WHEREARG, spu_no, width, height);
 
@@ -186,7 +183,7 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
 			}
 
 		//printf(WHERESTR "SPU %d is done with red values, delta: %lf\n", WHEREARG, spu_no, delta);
-       	ExchangeRows(data, height, width, &firstline, &lastline, spu_no, spu_count);
+       	ExchangeRows(data, height, width, spu_no, spu_count, &reqIdFirst, &reqIdLast);
 
 		//printf(WHERESTR "SPU %d is solving black values\n", WHEREARG, spu_no);
 		
@@ -207,7 +204,7 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
 
 		//printf(WHERESTR "SPU %d is done with black values, %lf\n", WHEREARG, spu_no, delta);
 
-        ExchangeRows(data, height, width, &firstline, &lastline, spu_no, spu_count);
+       	ExchangeRows(data, height, width, spu_no, spu_count, &reqIdFirst, &reqIdLast);
 		//printf(WHERESTR "SPU %d is waiting for barrier, delta: %lf\n", WHEREARG, spu_no, delta);
 
 		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
@@ -254,10 +251,10 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
 	
 	//printf(WHERESTR "SPU %d is done solving\n", WHEREARG, spu_no);
 	
-	if (firstline != NULL)
-		release(firstline);
-	if (lastline != NULL)
-		release(lastline);
+	if (reqIdFirst != UINT_MAX)
+		release(endAsync(reqIdFirst, NULL));
+	if (reqIdLast != UINT_MAX)
+		release(endAsync(reqIdLast, NULL));
 		
 	work_item->epsilon = deltasum;
 	work_item->width = rc;
@@ -290,9 +287,12 @@ int main(long long id)
 	//printf(WHERESTR "SPU %d is finished solving\n", WHEREARG, spu_no);
 	
 	//TODO: This is not the correct item if we have GRAPHICS on 
+	printf(WHERESTR "SPU %d is releasing %d\n", WHEREARG, spu_no, WORK_OFFSET + spu_no);
 	release(work_item);
 
+	printf(WHERESTR "SPU %d is terminating\n", WHEREARG, spu_no);
 	terminate();	
+	printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
 	  
 	return id;  
 }

@@ -280,8 +280,9 @@ void terminate()
 	printf(WHERESTR "TERMINATE package sent\n", WHEREARG);
 #endif
 
+	
 	while(spu_dsmcbe_initialized)
-		spu_dsmcbe_readMailbox();
+		spu_dsmcbe_getAsyncStatus(reqid);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "TERMINATE response read\n", WHEREARG);
