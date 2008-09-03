@@ -18,15 +18,15 @@
 //This mutex protects the pointer list
 pthread_mutex_t pointer_mutex;
 //This mutex protects the old pointer list
-pthread_mutex_t pointerOld_mutex;
+//pthread_mutex_t pointerOld_mutex;
 //This mutex protects the invalidate queue
 pthread_mutex_t ppu_invalidate_mutex;
 //This signals when an item has been released
-pthread_cond_t pointerOld_cond;
+//pthread_cond_t pointerOld_cond;
 
 //These two tables contains the registered pointers, either active or retired
 GHashTable* Gpointers;
-GHashTable* GpointersOld;
+//GHashTable* GpointersOld;
 
 //This is the queue of pending invalidates
 GQueue* GpendingInvalidate;
@@ -74,10 +74,11 @@ void InitializePPUHandler()
 	pthread_mutex_init(&pointer_mutex, NULL);
 	
 	//TODO Use new_full, so it is easy to destroy!
+/*
 	GpointersOld = g_hash_table_new(NULL, NULL);
 	pthread_mutex_init(&pointerOld_mutex, NULL);
 	pthread_cond_init(&pointerOld_cond, NULL);
-
+*/
 	GpendingInvalidate = g_queue_new();
 	pthread_mutex_init(&ppu_invalidate_mutex, NULL);
 
@@ -109,7 +110,7 @@ void TerminatePPUHandler()
 	pthread_join(dispatchthread, NULL);
 	
 	g_hash_table_destroy(Gpointers);
-	g_hash_table_destroy(GpointersOld);
+	//g_hash_table_destroy(GpointersOld);
 	
 /*
 	it = ht_iter_create(pointers);
@@ -153,9 +154,9 @@ void TerminatePPUHandler()
 	UnregisterInvalidateSubscriber(&GpendingInvalidate);
 	
 	pthread_mutex_destroy(&pointer_mutex);
-	pthread_mutex_destroy(&pointerOld_mutex);
+	//pthread_mutex_destroy(&pointerOld_mutex);
 	pthread_mutex_destroy(&ppu_invalidate_mutex);
-	pthread_cond_destroy(&pointerOld_cond);
+	//pthread_cond_destroy(&pointerOld_cond);
 	g_queue_free(GpendingInvalidate);
 
 	g_hash_table_destroy(GpendingRequests);
@@ -386,7 +387,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 		{
 			req = g_queue_pop_head(GpendingInvalidate);
 			//printf(WHERESTR "Processing request for %d with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
-
+/*
 			pthread_mutex_lock(&pointerOld_mutex);
 
 			if ((pe = g_hash_table_lookup(GpointersOld, (void*)req->dataItem)) != NULL)
@@ -411,28 +412,30 @@ void processInvalidates(struct invalidateRequest* incoming)
 				pthread_mutex_unlock(&pointerOld_mutex);
 			}
 			else
-			{
-				pthread_mutex_unlock(&pointerOld_mutex);
-				
-				pthread_mutex_lock(&pointer_mutex);
-				
-				GHashTableIter iter;
-				gpointer key, value;
-				g_hash_table_iter_init (&iter, Gpointers);
 
-				while (g_hash_table_iter_next (&iter, &key, &value)) 
+			{
+			
+			pthread_mutex_unlock(&pointerOld_mutex);
+*/			
+			pthread_mutex_lock(&pointer_mutex);
+			
+			GHashTableIter iter;
+			gpointer key, value;
+			g_hash_table_iter_init (&iter, Gpointers);
+
+			while (g_hash_table_iter_next (&iter, &key, &value)) 
+			{
+				pe = value;
+				if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE)
 				{
-					pe = value;
-					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE)
-					{
-						//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
-						g_queue_push_tail(Gtemp, req);
-						req = NULL;
-						break;
-					}
+					//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
+					g_queue_push_tail(Gtemp, req);
+					req = NULL;
+					break;
 				}
-				pthread_mutex_unlock(&pointer_mutex);
 			}
+			pthread_mutex_unlock(&pointer_mutex);
+			//}
 			
 			if (req != NULL) {
 				//printf(WHERESTR "Responding to invalidate for %d, with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
@@ -490,7 +493,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	void* retval;
 	struct acquireRequest* cr;
 	struct acquireResponse* ar;
-	PointerEntry pe;
+	//PointerEntry pe;
 	
 	if (id == PAGE_TABLE_ID)
 	{
@@ -508,11 +511,12 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	// reacquire, without notifying system.
 	
 	processInvalidates(NULL);
-	
+
+/*	
 	pthread_mutex_lock(&pointerOld_mutex);
 
 	if ((pe = g_hash_table_lookup(GpointersOld, (void*)id)) != NULL) {
-		//printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
+		printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
 		if (type == ACQUIRE_MODE_READ && (pe->count == 0 || pe->mode == ACQUIRE_MODE_READ) && !isPendingInvalidate(id))
 		{
 			pe->mode = type;
@@ -529,7 +533,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	}
 
 	pthread_mutex_unlock(&pointerOld_mutex);
-		
+*/	
 	//Create the request, this will be released by the coordinator	
 	if ((cr = (struct acquireRequest*)MALLOC(sizeof(struct acquireRequest))) == NULL)
 		REPORT_ERROR("malloc error");
@@ -566,7 +570,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		//The request was positive
 		retval = ar->data;
 		(*size) = ar->dataSize;
-		
+/*		
 		if (type == ACQUIRE_MODE_WRITE)
 		{
 			pthread_mutex_lock(&pointerOld_mutex);
@@ -579,7 +583,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 			}
 			pthread_mutex_unlock(&pointerOld_mutex);
 		}	
-	
+*/	
 		//recordPointer(retval, id, *size, 0, type);
 	}
 	
@@ -609,19 +613,19 @@ void threadRelease(void* data)
 			return;
 		}
 		
-		pthread_mutex_lock(&pointerOld_mutex);
+		//pthread_mutex_lock(&pointerOld_mutex);
 		pe->count--;
 					
 		if (pe->count == 0)
 		{
-			pthread_mutex_unlock(&pointerOld_mutex);
+			//pthread_mutex_unlock(&pointerOld_mutex);
 			
 			pthread_mutex_lock(&pointer_mutex);			
 			g_hash_table_remove(Gpointers, data);
 			pthread_mutex_unlock(&pointer_mutex);
 		}
-		else
-			pthread_mutex_unlock(&pointerOld_mutex);
+		//else
+			//pthread_mutex_unlock(&pointerOld_mutex);
 		
 		if (pe->mode == ACQUIRE_MODE_WRITE)
 		{
@@ -645,11 +649,14 @@ void threadRelease(void* data)
 			rr = NULL;
 		}
 
-		pthread_mutex_lock(&pointerOld_mutex);
-		if (pe->count == 0 && g_hash_table_lookup(GpointersOld, data) == NULL)
+		//pthread_mutex_lock(&pointerOld_mutex);
+		if (pe->count == 0)// && g_hash_table_lookup(GpointersOld, data) == NULL)
+		{
+			//printf(WHERESTR "Freeing pointer\n", WHEREARG);
 			FREE(pe);
-		pthread_cond_broadcast(&pointerOld_cond);
-		pthread_mutex_unlock(&pointerOld_mutex);
+		}
+		//pthread_cond_broadcast(&pointerOld_cond);
+		//pthread_mutex_unlock(&pointerOld_mutex);
 
 		processInvalidates(NULL);
 		
