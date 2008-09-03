@@ -18,7 +18,7 @@
 #define ABS(x) ((x) > 0 ? (x) : ((x) * -1))
 #endif 
 
-#define PROBLEM_DATA_TYPE double
+#define PROBLEM_DATA_TYPE float
 
 //Structure for sending data between two units
 struct Work_Unit
@@ -44,6 +44,7 @@ struct Barrier_Unit
 	double delta;
 	unsigned int print_count;
 };
+
 
 #define ASSIGNMENT_LOCK 1
 #define BARRIER_LOCK 2
