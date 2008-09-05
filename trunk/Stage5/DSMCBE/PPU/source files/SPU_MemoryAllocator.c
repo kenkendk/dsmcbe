@@ -4,12 +4,15 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <memory.h>
 
 struct SPU_Memory_Object_struct {
 	unsigned int pointer;
 	unsigned int size;
 };
+
+//#define DEBUGMAP
 
 typedef struct SPU_Memory_Object_struct SPU_Memory_Object;
 
@@ -19,9 +22,6 @@ typedef struct SPU_Memory_Object_struct SPU_Memory_Object;
 #define BITS_PR_BYTE 8
 #define ALIGNED_SIZE(x) (x + ((ALIGN_SIZE_COUNT - x) % ALIGN_SIZE_COUNT))
 #define SIZE_TO_BITS(x) (ALIGNED_SIZE(size) / ALIGN_SIZE_COUNT)
-
-//#define FIRSTFIT
-#define BESTFIT
 
 //This lookup table counts the number of consecutive bits that are zero, going from the left (MSB) 
 unsigned char spu_memory_lead_bit_count[] = {
@@ -89,8 +89,6 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 	struct SPU_Memory_Object_struct* obj = NULL;
 
 	size = size * 16;
-	//printf(WHERESTR "Staring to free %i at %i\n", WHEREARG, size, (unsigned int)offset);
-
 	for(i = 0; i < g_list_length(map->bitmap); i++)
 	{
 		this = g_list_nth_data(map->bitmap, i);
@@ -112,15 +110,19 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 				{
 					prev->size += next->size + size;
 					map->bitmap = g_list_remove(map->bitmap, next);
-					//printf(WHERESTR "Freed %i bytes at %i using prev and next free\n", WHEREARG, size, (unsigned int)offset);
-					//printMap(map);
+#ifdef DEBUGMAP
+					printf(WHERESTR "Freed %i bytes at %i using prev and next free\n", WHEREARG, size, (unsigned int)offset);
+					printMap(map);
+#endif
 					return;	
 				}
 				else
 				{
 					prev->size += size;
-					//printf(WHERESTR "Freed %i bytes at %i using prev free\n", WHEREARG, size, (unsigned int)offset);
-					//printMap(map);
+#ifdef DEBUGMAP
+					printf(WHERESTR "Freed %i bytes at %i using prev free\n", WHEREARG, size, (unsigned int)offset);
+					printMap(map);
+#endif
 					return;
 				}
 			}
@@ -128,16 +130,20 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 			{
 				next->pointer = (unsigned int)offset;
 				next->size += size;
-				//printf(WHERESTR "Freed %i bytes at %i using special normal free\n", WHEREARG, size, (unsigned int)offset);
-				//printMap(map);				
+#ifdef DEBUGMAP
+				printf(WHERESTR "Freed %i bytes at %i using special normal free\n", WHEREARG, size, (unsigned int)offset);
+				printMap(map);
+#endif								
 				return;
 			}
 			else if (this->pointer == (unsigned int)offset + size)
 			{
 				this->pointer = (unsigned int)offset;
 				this->size += size;
-				//printf(WHERESTR "Freed %i bytes at %i using special normal free\n", WHEREARG, size, (unsigned int)offset);
-				//printMap(map);				
+#ifdef DEBUGMAP				
+				printf(WHERESTR "Freed %i bytes at %i using special normal free\n", WHEREARG, size, (unsigned int)offset);
+				printMap(map);
+#endif								
 				return;
 			}
 			else
@@ -147,27 +153,31 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 				obj->size = (unsigned int)size;
 				
 				map->bitmap = g_list_insert(map->bitmap, obj, i);
-				//printf(WHERESTR "Freed %i bytes at %i using normal free\n", WHEREARG, size, (unsigned int)offset);
-				//printMap(map);				
+#ifdef DEBUGMAP
+				printf(WHERESTR "Freed %i bytes at %i using normal free\n", WHEREARG, size, (unsigned int)offset);
+				printMap(map);				
+#endif
 				return;
 			}
 		}		
 	}
 	
-	if(offset + size <= map->offset + map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE)
+	if((unsigned int)(offset + size) <= (unsigned int)(map->offset + map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE))
 	{
 		obj = malloc(sizeof(struct SPU_Memory_Object_struct));				
 		obj->pointer = (unsigned int)offset;
 		obj->size = (unsigned int)size;
 		
 		map->bitmap = g_list_insert(map->bitmap, obj, g_list_length(map->bitmap));
-		//printf(WHERESTR "Freed %i bytes at %i using top free\n", WHEREARG, size, (unsigned int)offset);
-		//printMap(map);				
+#ifdef DEBUGMAP
+		printf(WHERESTR "Freed %i bytes at %i using top free\n", WHEREARG, size, (unsigned int)offset);
+		printMap(map);
+#endif
 		return;
 	}
 	 
 	printMap(map);
-	printf(WHERESTR "Tried to free offset %i with size %i - mapOffset %i, mapSize %i\n", WHEREARG, offset, size, map->offset, map->size);	
+	printf(WHERESTR "Tried to free offset %i with size %i - mapOffset %i, mapSize %i\n", WHEREARG, (unsigned int)offset, size, map->offset, map->size);	
 	REPORT_ERROR("Could not free memory\n");
 }
 
@@ -247,27 +257,33 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int
 	unsigned int waste = UINT_MAX;
 	unsigned int temp = 0;
 
+	unsigned int firstFit = g_list_length(map->bitmap) > 10 ? 1 : 0;
+
 	for(i = 0; i < g_list_length(map->bitmap); i++)
 	{
 		this = g_list_nth_data(map->bitmap, i);
-		
+				
 		if (this->size >= size)
 		{
-#ifdef FIRSTFIT			
-			best = this;
-			break;
-#endif
-#ifdef BESTFIT
-			temp = this->size - size;
-			//printf(WHERESTR "Temp: %u, Waste: %u\n", WHEREARG, temp, waste); 
-			if (temp < waste)
-			{
+			if(firstFit)
+			{	
+				// Use FirstFit
 				best = this;
-				waste = temp;
-				if (waste == 0)
-					break;
+				break;
 			}
-#endif
+			else
+			{
+				// User BestFit
+				temp = this->size - size;
+				//printf(WHERESTR "Temp: %u, Waste: %u\n", WHEREARG, temp, waste); 
+				if (temp < waste)
+				{
+					best = this;
+					waste = temp;
+					if (waste == 0)
+						break;
+				}
+			}
 		}
 	}
 	
@@ -281,14 +297,21 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int
 		{
 			best->pointer += size;
 			best->size -= size;
-			//printf(WHERESTR "1:Allocated %i bytes at %i\n", WHEREARG, size, position);
+#ifdef DEBUGMAP
+			printf(WHERESTR "1:Allocated %i bytes at %i\n", WHEREARG, size, position);
+#endif			
 		}
 		else
 		{
 			map->bitmap = g_list_remove(map->bitmap, best);
-			//printf(WHERESTR "2:Allocated %i bytes at %i\n", WHEREARG, size, position);
+#ifdef DEBUGMAP
+			printf(WHERESTR "2:Allocated %i bytes at %i\n", WHEREARG, size, position);
+#endif			
 		}
-		//printMap(map);
+
+#ifdef DEBUGMAP
+		printMap(map);
+#endif
 		return (void*)position;
 	}
 	
@@ -437,8 +460,10 @@ SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 	obj->pointer = (unsigned int)map->offset;
 	obj->size = (unsigned int)map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE;	
 	map->bitmap = g_list_insert(map->bitmap, obj, 0);
-	//printf(WHERESTR "Creating schemes - offset %i, size %i\n", WHEREARG, map->offset, map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE);
-	//printMap(map);
+#ifdef DEBUGMAP
+	printf(WHERESTR "Creating schemes - offset %i, size %i\n", WHEREARG, map->offset, map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE);
+	printMap(map);
+#endif	
 #else	
 	map->bitmap = malloc(map->size);
 	//memset(map->bitmap, 0, map->size);
@@ -448,7 +473,9 @@ SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 }
 
 void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
-	//printf(WHERESTR "MEMMGR - Trying to malloc %i\n", WHEREARG, size);
+#ifdef DEBUGMAP	
+	printf(WHERESTR "MEMMGR - Trying to malloc %i\n", WHEREARG, size);
+#endif	
 	unsigned int first_free;
 	unsigned int bitsize = SIZE_TO_BITS(size);
 	void* data = SPU_Memory_find_chunk(map, size, &first_free);
@@ -475,7 +502,9 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 }
 
 void spu_memory_free(SPU_Memory_Map* map, void* data) {
-	//printf(WHERESTR "MEMMGR - Trying to free %i\n", WHEREARG, (unsigned int)data);
+#ifdef DEBUGMAP		
+	printf(WHERESTR "MEMMGR - Trying to free %i\n", WHEREARG, (unsigned int)data);
+#endif	
 	unsigned int bitsize = (unsigned int)g_hash_table_lookup(map->allocated, data);
 	if (bitsize == 0)
 	{
