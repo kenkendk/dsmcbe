@@ -78,12 +78,10 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 			
 	int xx, yy;
 	
-	getAsyncStatus(NextID);
-	
 	for(i=0; i<pcnt; i++)
 	{		
-		//if (i % 500 == 0)
-			//getAsyncStatus(NextID);
+		if (i % 500 == 0)
+			getAsyncStatus(NextID);
 			
 		if(points[i].alive == TRUE)
 		{		
@@ -147,7 +145,6 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 	}
 
 	//printf("Canon firered %i shots in grid(%i,%i)\n", pcnt, current_grid.x, current_grid.y);
-	getAsyncStatus(NextID);
 	return more;
 }
 
