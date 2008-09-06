@@ -369,7 +369,7 @@ int main(int argc, char* argv[])
 		free(energy);
 		free(cmap);
 		free(scale);
-		
+		free(result.image);		
 	}
 	
 /*	for(i = 0; i < SPU_THREADS; i++)

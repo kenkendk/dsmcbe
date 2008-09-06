@@ -532,7 +532,9 @@ void spu_memory_free(SPU_Memory_Map* map, void* data) {
 }
 
 void spu_memory_destroy(SPU_Memory_Map* map) {
+#ifdef USEDYNAMICPARTITIONSCHEME
 	g_list_free(map->bitmap);
+#endif	
 	g_hash_table_destroy(map->allocated);
 	map->allocated = NULL;
 	free(map);
