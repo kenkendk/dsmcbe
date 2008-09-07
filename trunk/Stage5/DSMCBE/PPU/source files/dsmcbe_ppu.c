@@ -409,3 +409,22 @@ void* acquire(GUID id, unsigned long* size, int type){
 void release(void* data){
 	threadRelease(data);
 }
+
+void acquireBarrier(GUID id)
+{
+	threadAcquireBarrier(id);
+}
+
+void createBarrier(GUID id, unsigned int count)
+{
+	unsigned int* tmp = create(id, sizeof(unsigned int) * 2);
+	if (tmp == NULL)
+	{
+		REPORT_ERROR("Failed to create barrier");
+		return;
+	}
+	
+	tmp[0] = count;
+	tmp[1] = 0;
+	release(tmp);
+}
