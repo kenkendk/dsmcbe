@@ -25,8 +25,14 @@
 //Each call to wait should not return more than this many events
 #define SPE_MAX_EVENT_COUNT 100
 
-//This number is the  max number of bytes the PPU can transfer without contacting the SPU
+//This number is the max number of bytes the PPU can transfer without contacting the SPU
 #define SPE_DMA_MAX_TRANSFERSIZE (16 * 1024)
+
+//This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
+#define SPE_DMA_MIN_TRANSFERSIZE 0
+
+//Thise define determines if small transfers should use MMIO or mailbox for small message
+#define SPE_DMA_MIN_USE_MMIO
 
 //This object represents an item in on the SPU
 struct spu_dataObject
@@ -141,6 +147,11 @@ spe_event_unit_t* registered_events;
 
 #define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
 //#define PUSH_TO_SPU(state, value) if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)value); } 
+
+//Declarations for functions that have interdependencies
+void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObject* obj);
+void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int groupID);
+
 
 //This function releases all resources reserved for the object, and sends out invalidate responses, if required
 void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* obj)
@@ -262,7 +273,7 @@ void spuhandler_DisposeAllObject(struct SPU_State* state)
 void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long size)
 {
 	void* temp = NULL;
-	size_t i = 0, j;
+	size_t i = 0;
 
 	struct spu_dataObject* obj;
 	unsigned int id;	
@@ -276,7 +287,8 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 	if (state->map->free_mem >= size)
 		temp = spu_memory_malloc(state->map, size);
 
-/*	//TODO: Ageing think.
+/*	//TODO: Age thing.
+	size_t j;
 	for(j = 0; j < g_queue_get_length(state->agedObjectMap); j++)
 	{
 		id = (unsigned int)g_queue_peek_nth(state->agedObjectMap, j);
@@ -412,12 +424,12 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 		PUSH_TO_SPU(state, ALIGNED_SIZE(size));
 		PUSH_TO_SPU(state, groupId);
 	}
-	else
+	else if (size > SPE_DMA_MIN_TRANSFERSIZE)
 	{
-		
 #ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
 #endif
+
 		if (toSPU)
 		{
 			if (spe_mfcio_get(state->context, LS, (void*)EA, ALIGNED_SIZE(size), groupId, 0, 0) != 0)
@@ -429,9 +441,62 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 				REPORT_ERROR("DMA transfer from LS to EA failed");
 		}
 	}
+	else
+	{
+
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Initiating simulated DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
+#endif
+		
+#ifdef SPE_DMA_MIN_USE_MMIO
+		if (toSPU)
+		{
+			void* spu_ls = spe_ls_area_get(state->context) + LS;
+			memcpy(spu_ls, (void*)EA, size);
+		}
+		else
+		{
+			void* spu_ls = spe_ls_area_get(state->context) + LS;
+			memcpy((void*)EA, spu_ls, size);
+		}
+		
+		spuhandler_HandleDMATransferCompleted(state, groupId);
+			
+#else
+		//We can only send 4 byte messages :(
+		size_t count = (size + 3) / 4;
+		
+		if (toSPU)
+		{
+			size_t i;
+						
+			PUSH_TO_SPU(state, UINT_MAX);
+			PUSH_TO_SPU(state, SPU_DMA_LS_TO_EA_MBOX);
+			PUSH_TO_SPU(state, LS);
+			PUSH_TO_SPU(state, count);
+			for(i = 0; i < count; i++)
+				PUSH_TO_SPU(state, ((unsigned int*)EA)[i]);
+				
+			//The messages are queue'd, so this is valid
+			spuhandler_HandleDMATransferCompleted(state, groupId);
+		}		
+		else
+		{
+			PUSH_TO_SPU(state, UINT_MAX);
+			PUSH_TO_SPU(state, SPU_DMA_EA_TO_LS_MBOX);
+			PUSH_TO_SPU(state, groupId);
+			PUSH_TO_SPU(state, LS);
+			PUSH_TO_SPU(state, EA);
+			PUSH_TO_SPU(state, count);
+			//We must wait for the SPU response
+		}	
+#endif
+
+	}
+		
+	
 }
 
-void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObject* obj);
 
 //This function handles incoming create requests from an SPU
 void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned long size)
@@ -469,6 +534,35 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
+
+//This function handles incoming barrier requests from an SPU
+void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int requestId, GUID id)
+{
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling barrier request for %d, with requestId: %d\n", WHEREARG, id, requestId);
+#endif
+
+	struct spu_pendingRequest* preq;
+	if ((preq = malloc(sizeof(struct spu_pendingRequest))) == NULL)
+		REPORT_ERROR("malloc error");
+		
+	preq->objId = id;
+	preq->operation = PACKAGE_ACQUIRE_BARRIER_REQUEST;
+	preq->requestId = requestId;
+	
+	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
+
+	struct acquireBarrierRequest* req;
+	if ((req = malloc(sizeof(struct acquireBarrierRequest))) == NULL)
+		REPORT_ERROR("malloc error");
+	
+	req->packageCode = PACKAGE_ACQUIRE_BARRIER_REQUEST;
+	req->requestID = requestId;
+	req->dataItem = id;
+
+	spuhandler_SendRequestCoordinatorMessage(state, req);
+}
+
 
 //This function handles an incoming release request from an SPU
 void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
@@ -666,7 +760,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		preq->DMAcount = MAX(obj->size, SPE_DMA_MAX_TRANSFERSIZE) / SPE_DMA_MAX_TRANSFERSIZE;
 
 #ifdef DEBUG_COMMUNICATION
-		printf(WHERESTR "DMAcount is %i, size is %i\n", WHEREARG, preq->DMAcount, obj->size);
+		printf(WHERESTR "DMAcount is %i, size is %li\n", WHEREARG, preq->DMAcount, obj->size);
 #endif		
 		unsigned int sizeRemain = obj->size;
 		unsigned int sizeDone = 0;
@@ -853,6 +947,26 @@ void spuhandler_HandleReleaseResponse(struct SPU_State* state, unsigned int requ
 	spuhandler_HandleObjectRelease(state, obj);
 }
 
+//This function handles incoming barrier responses from the request coordinator
+void spuhandler_HandleBarrierResponse(struct SPU_State* state, unsigned int requestId)
+{
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Handling barrier respone for requestId: %d\n", WHEREARG, requestId);
+#endif	
+	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)requestId);
+	if (preq == NULL)
+	{
+		REPORT_ERROR("Get release response for non initiated request");
+		return;
+	}
+
+	g_hash_table_remove(state->pendingRequests, (void*)requestId);
+	free(preq);
+
+	PUSH_TO_SPU(state, requestId);
+}
+
+
 //This function handles incoming invalidate requests from the request coordinator
 void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int requestId, GUID id)
 {
@@ -897,10 +1011,22 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 		unsigned int requestId = 0;
 		GUID id = 0;
 		unsigned int size = 0;
+		unsigned int* EA;
+		unsigned int groupId;
 		
 		spe_out_intr_mbox_read(state->context, &packageCode, 1, SPE_MBOX_ALL_BLOCKING);
 		switch(packageCode)
 		{
+			case SPU_DMA_EA_TO_LS_MBOX:
+				spe_out_intr_mbox_read(state->context, &groupId, 1, SPE_MBOX_ALL_BLOCKING);
+				//Reading into an unsigned int, due to type constraints, it is NOT a requestId, but a void* to EA
+				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
+				spe_out_intr_mbox_read(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
+				EA = (unsigned int*)requestId;
+				spe_out_intr_mbox_read(state->context, EA, size, SPE_MBOX_ALL_BLOCKING);
+				spuhandler_HandleDMATransferCompleted(state, groupId);
+				break;
+				
 			case PACKAGE_TERMINATE_REQUEST:
 #ifdef DEBUG_COMMUNICATION	
 				printf(WHERESTR "Terminate request recieved\n", WHEREARG);
@@ -950,9 +1076,14 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				PUSH_TO_SPU(state, spuhandler_AllocateSpaceForObject(state, size));
 				break;
 			case SPU_DMA_COMPLETE:
+				spe_out_intr_mbox_read(state->context, &groupId, 1, SPE_MBOX_ALL_BLOCKING);
+				spuhandler_HandleDMATransferCompleted(state, groupId);	
+				break;
+			case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
-				spuhandler_HandleDMATransferCompleted(state, requestId);	
-				break;		
+				spe_out_intr_mbox_read(state->context, &id, 1, SPE_MBOX_ALL_BLOCKING);
+				spuhandler_handleBarrierRequest(state, requestId, id);
+				break;
 			default:
 				REPORT_ERROR("Unknown package code recieved");			
 				break;	
@@ -989,6 +1120,9 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 				break;
 			case PACKAGE_WRITEBUFFER_READY:
 				spuhandler_HandleWriteBufferReady(state, ((struct writebufferReady*)resp)->dataItem);
+				break;
+			case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+				spuhandler_HandleBarrierResponse(state, ((struct acquireBarrierResponse*)resp)->requestID);
 				break;
 			default:
 				REPORT_ERROR("Invalid package recieved");

@@ -85,16 +85,60 @@ void spu_dsmcbe_readMailbox() {
 		printf(WHERESTR "DMA request recieved\n", WHEREARG);
 #endif		
 
-		unsigned int direction = spu_read_in_mbox();
-		unsigned int ls = spu_read_in_mbox();
-		unsigned int ea = spu_read_in_mbox();
-		unsigned int size = spu_read_in_mbox();
-		unsigned int tag = spu_read_in_mbox();
-		if (direction == SPU_DMA_LS_TO_EA)
-			StartDMAWriteTransfer((void*)ls, ea, size, tag);
-		else
-			StartDMAReadTransfer((void*)ls, ea, size, tag, 0);
-		spu_dsmcbe_activeDMATransfers |= (1 << tag);
+		unsigned int action = spu_read_in_mbox();
+		unsigned int ls;
+		unsigned int ea;
+		unsigned int size;
+		unsigned int tag;
+		size_t i;
+		
+		switch(action)
+		{
+			case SPU_DMA_LS_TO_EA_MBOX:
+#ifdef DEBUG_COMMUNICATION	
+			printf(WHERESTR "SPU_DMA_LS_TO_EA_MBOX package recieved\n", WHEREARG);
+#endif
+				ls = spu_read_in_mbox();
+				size = spu_read_in_mbox();
+				for(i = 0; i < size; i++)
+					((unsigned int*)ls)[i] = spu_read_in_mbox();		
+				break;
+				
+			case SPU_DMA_EA_TO_LS_MBOX:
+#ifdef DEBUG_COMMUNICATION	
+			printf(WHERESTR "SPU_DMA_EA_TO_LS_MBOX package recieved\n", WHEREARG);
+#endif
+				tag = spu_read_in_mbox();
+				ls = spu_read_in_mbox();
+				ea = spu_read_in_mbox();
+				size = spu_read_in_mbox();
+
+				spu_write_out_intr_mbox(SPU_DMA_EA_TO_LS_MBOX);
+				spu_write_out_intr_mbox(tag);
+				spu_write_out_intr_mbox(ea);
+				spu_write_out_intr_mbox(size);
+				for(i = 0; i < size; i++)
+					spu_write_out_intr_mbox(((unsigned int*)ls)[i]);		
+				
+				break;
+				
+			case SPU_DMA_LS_TO_EA:
+			case SPU_DMA_EA_TO_LS:
+				ls = spu_read_in_mbox();
+				ea = spu_read_in_mbox();
+				size = spu_read_in_mbox();
+				tag = spu_read_in_mbox();
+				if (action == SPU_DMA_LS_TO_EA)
+					StartDMAWriteTransfer((void*)ls, ea, size, tag);
+				else
+					StartDMAReadTransfer((void*)ls, ea, size, tag, 0);
+				spu_dsmcbe_activeDMATransfers |= (1 << tag);
+
+				break;
+			default:
+				REPORT_ERROR("unknown action detected");
+		}
+		
 		return;
 	}
 
@@ -132,6 +176,11 @@ void spu_dsmcbe_readMailbox() {
 			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_SPU_MEMORY_MALLOC_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
 			break;			
+		
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_ACQUIRE_BARRIER_RESPONSE;
+			spu_dsmcbe_pendingRequests[requestID].pointer = NULL;
+			break;
 		
 		default:
 			fprintf(stderr, WHERESTR "Unknown package recieved: %i, message: %s", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, strerror(errno));
@@ -173,6 +222,42 @@ unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 #endif
 	
 	return nextId;
+}
+
+unsigned int spu_dsmcbe_acquire_barrier_begin(GUID id)
+{
+	if (id == PAGE_TABLE_ID)
+	{
+		REPORT_ERROR("Cannot request page table");
+		return UINT_MAX;
+	}
+	
+	if (id >= PAGE_TABLE_SIZE)
+	{
+		REPORT_ERROR("ID was larger than page table size");
+		return UINT_MAX;
+	}
+	
+	if (!spu_dsmcbe_initialized)
+	{
+		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
+		return UINT_MAX;
+	}
+
+	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_ACQUIRE_BARRIER_REQUEST);
+	if (nextId == UINT_MAX)
+		return UINT_MAX;
+
+	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
+	SPU_WRITE_OUT_MBOX(nextId);
+	SPU_WRITE_OUT_MBOX(id);
+
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "ACQUIRE_BARRIRER package sent, id: %d\n", WHEREARG, nextId);
+#endif
+
+	return nextId;
+	
 }
 
 //Initiates an acquire operation
@@ -342,10 +427,14 @@ unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 		case PACKAGE_SPU_MEMORY_MALLOC_REQUEST:
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 			return SPU_DSMCBE_ASYNC_BUSY;
+			
+		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 		case PACKAGE_ACQUIRE_RESPONSE:
 		case PACKAGE_SPU_MEMORY_MALLOC_RESPONSE:
 			return SPU_DSMCBE_ASYNC_READY;
+			
 		default:
 			return SPU_DSMCBE_ASYNC_ERROR;
 	}
@@ -403,6 +492,10 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	spu_dsmcbe_pendingRequests[requestNo].requestCode = 0;
 	return spu_dsmcbe_pendingRequests[requestNo].pointer;
 }
+
+void acquireBarrirer(GUID id) {
+	spu_dsmcbe_endAsync(spu_dsmcbe_acquire_barrier_begin(id), NULL);		
+}
  
 void* acquire(GUID id, unsigned long* size, int type) {
 	return spu_dsmcbe_endAsync(spu_dsmcbe_acquire_begin(id, type), size);		
@@ -458,4 +551,19 @@ void initializeReserved(unsigned int reservedMemory)
 void initialize()
 {
 	initializeReserved(0);
+}
+
+//Creates a new barrier
+void createBarrier(GUID id, unsigned int count)
+{
+	unsigned int* tmp = create(id, sizeof(unsigned int) * 2);
+	if (tmp == NULL)
+	{
+		REPORT_ERROR("Failed to create barrier");
+		return;
+	}
+	
+	tmp[0] = count;
+	tmp[1] = 0;
+	release(tmp);
 }

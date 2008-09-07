@@ -11,6 +11,12 @@
 #define EXTRA_WAIT 0
 #endif
 
+#ifdef USE_BARRIER
+void dsmcbe_barrier(GUID id, unsigned int count)
+{
+	acquireBarrirer(id);
+}
+#else
 void dsmcbe_barrier(GUID id, unsigned int ref_count)
 {
 	unsigned long size;
@@ -26,6 +32,7 @@ void dsmcbe_barrier(GUID id, unsigned int ref_count)
 	}
 	release(count);
 }
+#endif
 
 // Send last or/and first row to other(s) process
 // Recieve last or/and first row from other(s) process	
@@ -227,7 +234,11 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
 			/*if (barrier->print_count % 100 == 0)
 				printf(WHERESTR "SPU %d is exiting barrier, delta: %lf\n", WHEREARG, spu_no, barrier->delta);*/
 		}
-		
+#ifdef USE_BARRIER
+		release(barrier);
+		dsmcbe_barrier(BARRIER_LOCK_EXTRA, 0);
+		acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
+#endif
 		while(barrier->lock_count != 0)
 		{
 			release(barrier);
@@ -239,6 +250,7 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
 		delta = barrier->delta;
         deltasum += barrier->delta;
 		release(barrier);
+
 
 #ifdef GRAPHICS
 		work_item = acquire(WORK_OFFSET + spu_no, &size, ACQUIRE_MODE_WRITE);
@@ -257,6 +269,8 @@ void solve(struct Work_Unit* work_item, unsigned int spu_no, unsigned int spu_co
 		
 	work_item->epsilon = deltasum;
 	work_item->width = rc;
+
+	//printf(WHERESTR "SPU %d is done solving\n", WHEREARG, spu_no);
 }
 
 

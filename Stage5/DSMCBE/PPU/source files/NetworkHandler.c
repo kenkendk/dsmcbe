@@ -539,23 +539,9 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 		case PACKAGE_RELEASE_REQUEST:
 		case PACKAGE_INVALIDATE_REQUEST:
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 
-			//printf(WHERESTR "Processing network package from %d, with type: %s\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode));
-			
-			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
-			{
-				//printf(WHERESTR "Processing REQUEST READ package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct acquireRequest*)data)->packageCode, ((struct acquireRequest*)data)->dataItem);
-			}
-			
-			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
-			{
-				//printf(WHERESTR "Processing REQUEST WRITE package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct acquireRequest*)data)->packageCode, ((struct acquireRequest*)data)->dataItem);
-			}
-
-			if (((struct createRequest*)data)->packageCode == PACKAGE_INVALIDATE_REQUEST)
-			{
-				//printf(WHERESTR "Processing invalidate package from %d, with type: %d, for id: %d, reqId: %d\n", WHEREARG, machineId, ((struct invalidateRequest*)data)->packageCode, ((struct invalidateRequest*)data)->dataItem, ((struct invalidateRequest*)data)->requestID);
-			}
+			//printf(WHERESTR "Processing network package from %d, with type: %s, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode), ((struct acquireRequest*)data)->dataItem);
 			
 			if (((struct createRequest*)data)->packageCode == PACKAGE_RELEASE_REQUEST)
 			{
@@ -596,6 +582,7 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_RELEASE_RESPONSE:
 		case PACKAGE_INVALIDATE_RESPONSE:
 		case PACKAGE_MIGRATION_RESPONSE:
+		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 		//case PACKAGE_NACK:
 		
 			pthread_mutex_lock(&net_work_mutex);
@@ -623,7 +610,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			FREE(w);
 			w = NULL;
 
-			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE)
+			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_BARRIER_RESPONSE)
 			{
 				//printf(WHERESTR "Acquire response package from %d, for guid: %d, reqId: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->dataItem, ((struct acquireResponse*)data)->requestID);
 				if ((ui = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
@@ -802,6 +789,22 @@ void* net_readPackage(int fd)
 				((struct migrationResponse*)data)->waitList = NULL;
 		
 			break;
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+			blocksize = sizeof(struct acquireBarrierRequest);
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
+			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
+				REPORT_ERROR("Failed to read entire acquire barrier package"); 
+			break;
+
+		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+			blocksize = sizeof(struct acquireBarrierResponse);
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
+			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
+				REPORT_ERROR("Failed to read entire acquire barrier package"); 
+			break;
+			
 		default:
 			REPORT_ERROR("Invalid package code detected");
 			break;
@@ -882,5 +885,15 @@ void net_sendPackage(void* package, unsigned int machineId)
 			if (((struct migrationResponse*)package)->waitList == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, ((struct migrationResponse*)package)->waitList, ((struct migrationResponse*)package)->waitListSize, 0); 
 			break;
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+			send(fd, package, sizeof(struct acquireBarrierRequest), 0);
+			break;
+		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+			send(fd, package, sizeof(struct acquireBarrierResponse), 0);
+			break;
+		default:
+			REPORT_ERROR("Invalid package type detected");
 	}
 }

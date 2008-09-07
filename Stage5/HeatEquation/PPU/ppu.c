@@ -33,6 +33,13 @@ void show(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned int map_heig
 }
 #endif
 
+#ifdef USE_BARRIER
+void dsmcbe_barrier(GUID id, unsigned int ref_count)
+{
+	acquireBarrier(id);
+}
+
+#else
 void dsmcbe_barrier(GUID id, unsigned int ref_count)
 {
 	unsigned long size;
@@ -48,6 +55,7 @@ void dsmcbe_barrier(GUID id, unsigned int ref_count)
 	}
 	release(count);
 }
+#endif
 
 //The coordinator calls this process
 void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int spu_count)
@@ -84,9 +92,21 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	barrier->print_count = 0;
 	release(barrier);
 	
+#ifdef USE_BARRIER
+	createBarrier(EX_BARRIER_1, spu_count);
+	createBarrier(EX_BARRIER_2, spu_count);
+	createBarrier(EX_BARRIER_3, spu_count);
+#ifdef GRAPHICS
+	createBarrier(BARRIER_LOCK_EXTRA, spu_count + 1);
+#else	
+	createBarrier(BARRIER_LOCK_EXTRA, spu_count);
+#endif
+
+#else	
 	release(create(EX_BARRIER_1, sizeof(unsigned int)));
 	release(create(EX_BARRIER_2, sizeof(unsigned int)));
 	release(create(EX_BARRIER_3, sizeof(unsigned int)));
+#endif
 
 	//printf(WHERESTR "Boot and barrier done\n", WHEREARG);
 
@@ -216,6 +236,9 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
         barrier->lock_count = 0;
         delta = barrier->delta;
         release(barrier);
+#ifdef USE_BARRIER
+		dsmcbe_barrier(BARRIER_EXTRA_LOCK, 0);
+#endif        
 	}
       
 #else
@@ -288,12 +311,13 @@ int main(int argc, char* argv[])
 	//printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
 	
 	if (machineid == 0)
-		Coordinator(64, 64, spu_count);
+		Coordinator(128, 128 * spu_count, spu_count);
 	
 	//printf(WHERESTR "Shutting down machine %d\n", WHEREARG, machineid);
 	
-	for(i = 0; i < (size_t)spu_count; i++)
-		pthread_join(pthreads[i], NULL);
+	//For some reason it won't die :(
+	/*for(i = 0; i < (size_t)spu_count; i++)
+		pthread_join(pthreads[i], NULL);*/
 		
 	//terminate();
 	

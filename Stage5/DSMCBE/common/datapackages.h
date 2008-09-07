@@ -35,9 +35,14 @@
 #define PACKAGE_TERMINATE_REQUEST 14
 #define PACKAGE_TERMINATE_RESPONSE 15
 
+#define PACKAGE_ACQUIRE_BARRIER_REQUEST 16
+#define PACKAGE_ACQUIRE_BARRIER_RESPONSE 17
+
 #define SPU_DMA_LS_TO_EA 100
 #define SPU_DMA_EA_TO_LS 101
 #define SPU_DMA_COMPLETE 102
+#define SPU_DMA_LS_TO_EA_MBOX 103
+#define SPU_DMA_EA_TO_LS_MBOX 104
 
 struct createRequest
 {
@@ -120,6 +125,20 @@ struct invalidateResponse
     unsigned int packageCode; // = 11
     unsigned int requestID;
 };
+
+struct acquireBarrierRequest
+{
+	unsigned int packageCode;
+	unsigned int requestID;
+	GUID dataItem;
+};
+
+struct acquireBarrierResponse
+{
+	unsigned int packageCode;
+	unsigned int requestID;
+};
+
 
 #ifndef MAX
 #define MAX(a,b) (a > b ? a : b)

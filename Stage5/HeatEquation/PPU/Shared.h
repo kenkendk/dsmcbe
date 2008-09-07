@@ -3,6 +3,8 @@
 
 //#define GRAPHICS
 
+#define USE_BARRIER
+
 #define UPDATE_FREQ 10
 
 #define MAPOFFSET(x,y) (((y) * (map_width)) + (x))
@@ -52,6 +54,7 @@ struct Barrier_Unit
 #define EX_BARRIER_1 4 
 #define EX_BARRIER_2 5 
 #define EX_BARRIER_3 6 
+#define BARRIER_LOCK_EXTRA 7
 
 #define WORK_OFFSET 100
 #define FIRST_ROW_OFFSET 500

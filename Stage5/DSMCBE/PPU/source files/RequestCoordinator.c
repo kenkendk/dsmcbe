@@ -335,6 +335,20 @@ void RespondNACK(QueueableItem item)
 	RespondAny(item, resp);
 }
 
+//Responds to a barrier request
+void RespondAcquireBarrier(QueueableItem item)
+{
+	//printf(WHERESTR "Responding to acquire barrier\n", WHEREARG);
+
+	struct acquireBarrierResponse* resp;
+	if ((resp = (struct acquireBarrierResponse*)MALLOC(sizeof(struct acquireBarrierResponse))) == NULL)
+		REPORT_ERROR("MALLOC error");
+			
+	resp->packageCode = PACKAGE_ACQUIRE_BARRIER_RESPONSE;
+	
+	RespondAny(item, resp);
+}
+
 //Responds to an acquire request
 void RespondAcquire(QueueableItem item, dataObject obj)
 {
@@ -571,6 +585,42 @@ void RecordBufferRequest(QueueableItem item, dataObject obj)
 	{
 		printf(WHERESTR "*EXT*\n", WHEREARG);
 		REPORT_ERROR("Could not insert into writebufferReady, element exists");
+	}
+}
+
+//Performs all actions releated to an acquire request
+void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
+{
+	GQueue* q;
+	dataObject obj;
+			
+	//printf(WHERESTR "Start acquire barrier on id %i\n", WHEREARG, request->dataItem);
+	
+	//Check that the item exists
+	if ((obj = g_hash_table_lookup(GallocatedItems, (void*)request->dataItem)) != NULL)
+	{
+		if (obj->size < (sizeof(unsigned int) * 2))
+			REPORT_ERROR("Invalid size for barrier!");
+		
+		//We keep a count, because g_queue_get_length itterates the queue
+		q = obj->Gwaitqueue;
+		((unsigned int*)obj->EA)[1]++;
+		
+		//We have the last acquire in, free them all!
+		if (((unsigned int*)obj->EA)[1] == ((unsigned int*)obj->EA)[0])
+		{
+			//printf(WHERESTR "Releasing barrier on id %i\n", WHEREARG, request->dataItem);
+			
+			((unsigned int*)obj->EA)[1] = 0;
+			while(!g_queue_is_empty(q))
+				RespondAcquireBarrier(g_queue_pop_head(q));
+			
+			//Also respond to the last one in, but we did not put it in the queue
+			RespondAcquireBarrier(item);
+		}
+		else
+			g_queue_push_tail(q, item);
+		
 	}
 }
 
@@ -1343,6 +1393,9 @@ void* ProccessWork(void* data)
 				break;
 			case PACKAGE_ACQUIRE_RESPONSE:
 				HandleAcquireResponse(item);
+				break;
+			case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+				DoAcquireBarrier(item, (struct acquireBarrierRequest*)item->dataRequest);
 				break;
 			
 			default:

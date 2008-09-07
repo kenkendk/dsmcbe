@@ -483,6 +483,38 @@ int isPendingInvalidate(GUID id)
 	
 }
 
+void threadAcquireBarrier(GUID id)
+{
+	
+	struct acquireBarrierRequest* cr;
+	struct acquireBarrierResponse* ar;
+	
+	if (id == PAGE_TABLE_ID)
+	{
+		REPORT_ERROR("cannot request pagetable");
+		return;
+	}
+	
+	if (id >= PAGE_TABLE_SIZE)
+	{
+		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
+		return;
+	}
+	
+	//Create the request, this will be released by the coordinator	
+	if ((cr = (struct acquireBarrierRequest*)MALLOC(sizeof(struct acquireBarrierRequest))) == NULL)
+		REPORT_ERROR("malloc error");
+
+	cr->requestID = 0;
+	cr->dataItem = id;
+
+	//Perform the request and await the response
+	ar = (struct acquireBarrierResponse*)forwardRequest(cr);
+	free(ar);
+	ar = NULL;
+	return;
+}
+
 //Perform an acquire in the current thread
 void* threadAcquire(GUID id, unsigned long* size, int type)
 {
