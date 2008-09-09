@@ -29,7 +29,7 @@
 #define SPE_DMA_MAX_TRANSFERSIZE (16 * 1024)
 
 //This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
-#define SPE_DMA_MIN_TRANSFERSIZE 0
+#define SPE_DMA_MIN_TRANSFERSIZE 16
 
 //Thise define determines if small transfers should use MMIO or mailbox for small message
 #define SPE_DMA_MIN_USE_MMIO
@@ -145,8 +145,10 @@ spe_event_unit_t* registered_events;
 #endif
 
 
-#define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
-//#define PUSH_TO_SPU(state, value) if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)value); } 
+//#define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
+
+unsigned int spuhandler_temp_mbox_value;
+#define PUSH_TO_SPU(state, value) spuhandler_temp_mbox_value = (unsigned int)value; if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &spuhandler_temp_mbox_value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)spuhandler_temp_mbox_value); } 
 
 //Declarations for functions that have interdependencies
 void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObject* obj);
@@ -433,12 +435,18 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 		if (toSPU)
 		{
 			if (spe_mfcio_get(state->context, LS, (void*)EA, ALIGNED_SIZE(size), groupId, 0, 0) != 0)
+			{
 				REPORT_ERROR("DMA transfer from EA to LS failed");
+				fprintf(stderr, WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
+			}
 		}
 		else
 		{
 			if (spe_mfcio_put(state->context, LS, (void*)EA, ALIGNED_SIZE(size), groupId, 0, 0) != 0)
+			{
 				REPORT_ERROR("DMA transfer from LS to EA failed");
+				fprintf(stderr, WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
+			}
 		}
 	}
 	else
@@ -616,7 +624,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 #endif			
 			unsigned int sizeRemain = obj->size;
 			unsigned int sizeDone = 0;
-			for(i = 0; i < preq->DMAcount; i++)
+			for(i = preq->DMAcount; i > 0; i--)
 			{			
 #ifdef DEBUG_COMMUNICATION	
 				printf(WHERESTR "Write buffer is ready, transfering data immediately, dmaId: %d, obj id: %d\n", WHEREARG, obj->DMAId, obj->id);
@@ -663,7 +671,7 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 	{
 		unsigned int sizeRemain = obj->size;
 		unsigned int sizeDone = 0;
-		for(i = 0; i < DMAcount; i++)
+		for(i = DMAcount; i > 0; i--)
 		{			
 		
 #ifdef DEBUG_COMMUNICATION	
