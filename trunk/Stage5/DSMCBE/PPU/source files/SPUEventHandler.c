@@ -616,13 +616,13 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 #endif			
 			unsigned int sizeRemain = obj->size;
 			unsigned int sizeDone = 0;
-			for(i = preq->DMAcount; i > 0; i--)
+			for(i = 0; i < preq->DMAcount; i++)
 			{			
 #ifdef DEBUG_COMMUNICATION	
 				printf(WHERESTR "Write buffer is ready, transfering data immediately, dmaId: %d, obj id: %d\n", WHEREARG, obj->DMAId, obj->id);
 #endif
 				//spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA, (unsigned int)obj->LS, obj->size, obj->DMAId);
-				spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA + sizeDone, (unsigned int)obj->LS + sizeDone, MIN(sizeRemain, SPE_DMA_MAX_TRANSFERSIZE), obj->DMAId - i + 1);
+				spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA + sizeDone, (unsigned int)obj->LS + sizeDone, MIN(sizeRemain, SPE_DMA_MAX_TRANSFERSIZE), (obj->DMAId + 16 - i + 1) % 16);
 				sizeRemain -= SPE_DMA_MAX_TRANSFERSIZE;
 				sizeDone += SPE_DMA_MAX_TRANSFERSIZE;
 			}
@@ -653,6 +653,7 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 	obj->writebuffer_ready = TRUE;
 	
 	unsigned int DMAcount = MAX(obj->size, SPE_DMA_MAX_TRANSFERSIZE) / SPE_DMA_MAX_TRANSFERSIZE;
+	
 #ifdef DEBUG_COMMUNICATION
 	printf(WHERESTR "DMAcount is %i\n", WHEREARG, DMAcount);
 #endif		
@@ -662,14 +663,14 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 	{
 		unsigned int sizeRemain = obj->size;
 		unsigned int sizeDone = 0;
-		for(i = DMAcount; i > 0; i--)
+		for(i = 0; i < DMAcount; i++)
 		{			
 		
 #ifdef DEBUG_COMMUNICATION	
 			printf(WHERESTR "WriteBufferReady triggered a DMA transfer, dmaId: %d\n", WHEREARG, obj->DMAId);
 #endif
 			//spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA, (unsigned int)obj->LS, obj->size, obj->DMAId);
-			spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA + sizeDone, (unsigned int)obj->LS + sizeDone, MIN(sizeRemain, SPE_DMA_MAX_TRANSFERSIZE), obj->DMAId - i + 1);
+			spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA + sizeDone, (unsigned int)obj->LS + sizeDone, MIN(sizeRemain, SPE_DMA_MAX_TRANSFERSIZE), (obj->DMAId + 16 - i + 1) % 16);
 			sizeRemain -= SPE_DMA_MAX_TRANSFERSIZE;
 			sizeDone += SPE_DMA_MAX_TRANSFERSIZE;
 		}
