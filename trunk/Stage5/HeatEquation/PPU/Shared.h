@@ -34,6 +34,12 @@ struct Work_Unit
     PROBLEM_DATA_TYPE problem;
 };
 
+struct Job_Control
+{
+	unsigned int count;
+	unsigned int nextjob;
+};
+
 struct Assignment_Unit
 {
 	unsigned int spu_no;
@@ -55,6 +61,7 @@ struct Barrier_Unit
 #define EX_BARRIER_2 5 
 #define EX_BARRIER_3 6 
 #define BARRIER_LOCK_EXTRA 7
+#define EX_BARRIER_X 8 
 
 #define WORK_OFFSET 100
 #define FIRST_ROW_OFFSET 500

@@ -70,7 +70,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.2030717983" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release">
 <option id="gnu.c.compiler.option.include.paths.1840750511" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage4/DSMCBE"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release.1005052427" name="PPU GNU 32 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release"/>

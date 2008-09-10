@@ -7,7 +7,7 @@
 #include <poll.h>
 #include <stropts.h>
 
-//#define TRACE_NETWORK_PACKAGES
+#define TRACE_NETWORK_PACKAGES
 
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"
@@ -430,13 +430,7 @@ void* net_Writer(void* data)
 			
 			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno) != NULL)
 			{
-				//TODO: WARNING!!!
-//				initiatorNo = -1;
-				
-				if ((initiatorNo = (int)g_hash_table_lookup(Gnet_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem)) == 0)
-					initiatorNo = -1;
-				else
-					initiatorNo--;				
+				initiatorNo = (int)g_hash_table_lookup(Gnet_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem) - 1;
 				
 				if ((int)hostno != initiatorNo)
 				{
@@ -476,8 +470,7 @@ void* net_Writer(void* data)
 			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno) == NULL)
 			{
 				//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
-				printf(WHERESTR "Inserting NULL into hashtable Gnet_leaseTable\n", WHEREARG);
-				g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno, NULL);
+				g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno, (void*)1);
 			}
 				
 			if (((struct acquireResponse*)package)->mode == ACQUIRE_MODE_WRITE)
@@ -489,7 +482,7 @@ void* net_Writer(void* data)
 					if (hostno == 0)
 						printf(WHERESTR "Inserting NULL into hashtable Gnet_leaseTable\n", WHEREARG);
 						
-					g_hash_table_insert(Gnet_writeInitiator, (void*)itemid, (void*)hostno++);
+					g_hash_table_insert(Gnet_writeInitiator, (void*)itemid, (void*)hostno+1);
 				}
 			}
 

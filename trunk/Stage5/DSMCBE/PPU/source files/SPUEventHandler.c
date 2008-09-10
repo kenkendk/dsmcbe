@@ -34,7 +34,7 @@
 //Thise define determines if small transfers should use MMIO or mailbox for small message
 #define SPE_DMA_MIN_USE_MMIO
 
-//This object represents an item in on the SPU
+//This structure represents an item on the SPU
 struct spu_dataObject
 {
 	//The object GUID
@@ -76,6 +76,7 @@ struct spu_pendingRequest
 	unsigned int operation;
 	//The dataobject involved, may be null if the object is not yet created on the SPU
 	GUID objId;
+	//This is the number of DMA requests that must complete before the entire transaction is done
 	unsigned int DMAcount;
 };
 
@@ -230,6 +231,16 @@ void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req
 //This function removes all objects from the state
 void spuhandler_DisposeAllObject(struct SPU_State* state)
 {
+	if (state->terminated != UINT_MAX && g_queue_is_empty(state->agedObjectMap) && g_hash_table_size(state->itemsById) == 0)
+	{
+#ifdef DEBUG_COMMUNICATION	
+		printf(WHERESTR "Signaling termination to SPU %d\n", WHEREARG, state->terminated);
+#endif
+		PUSH_TO_SPU(state, state->terminated);
+		PUSH_TO_SPU(state, PACKAGE_TERMINATE_RESPONSE);
+		return;
+	}
+	
 	while(!g_queue_is_empty(state->agedObjectMap))
 	{
 		GUID id = (GUID)g_queue_pop_head(state->agedObjectMap);
