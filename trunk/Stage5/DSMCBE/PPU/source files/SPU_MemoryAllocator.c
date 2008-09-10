@@ -80,7 +80,7 @@ void printMap(SPU_Memory_Map* map)
 
 
 //The offset is the actual pointer, the size is the number of bits to flip
-void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int size, unsigned char newvalue)
+void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int size)
 {
 	unsigned int i;
 	struct SPU_Memory_Object_struct* prev = NULL;
@@ -248,7 +248,7 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 
 #ifdef USEDYNAMICPARTITIONSCHEME
 
-void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int* first_free)
+void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 {
 	unsigned int i;
 	unsigned int position;
@@ -478,7 +478,7 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 #endif	
 	unsigned int first_free;
 	unsigned int bitsize = SIZE_TO_BITS(size);
-	void* data = SPU_Memory_find_chunk(map, size, &first_free);
+	void* data = SPU_Memory_find_chunk(map, size);
 	if (data == NULL)
 		return NULL;
 	
@@ -512,7 +512,7 @@ void spu_memory_free(SPU_Memory_Map* map, void* data) {
 		return;
 	}
 	
-	SPU_Memory_update_bitmap(map, data, bitsize, 0x00);
+	SPU_Memory_update_bitmap(map, data, bitsize);
 	
 	g_hash_table_remove(map->allocated, data);
 	map->free_mem += bitsize * ALIGN_SIZE_COUNT;

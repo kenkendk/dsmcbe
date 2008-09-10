@@ -10,7 +10,6 @@
 #include <free_align.h>
 #include <glib.h>
 #include "../../dsmcbe.h"
-#include "../../common/datastructures.h"
 #include "../../common/datapackages.h"
 
 #ifndef REQUESTCOORDINATOR_H_
