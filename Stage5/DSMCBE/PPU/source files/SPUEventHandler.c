@@ -289,7 +289,8 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 	if (state->map->free_mem >= size)
 		temp = spu_memory_malloc(state->map, size);
 
-/*	//TODO: Age thing.
+	//Try to remove a object of the same size as the object
+	// we want to alloc.
 	size_t j;
 	for(j = 0; j < g_queue_get_length(state->agedObjectMap); j++)
 	{
@@ -303,7 +304,6 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 				temp = spu_memory_malloc(state->map, size);			
 		}		
 	}	
-*/
 
 	//While we have not recieved a valid pointer, and there are still objects to discard
 	while(temp == NULL && !g_queue_is_empty(state->agedObjectMap))
@@ -413,20 +413,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 //This function initiates a DMA transfer to or from the SPU
 void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU, unsigned int EA, unsigned int LS, unsigned int size, unsigned int groupId)
 {
-	if (size > SPE_DMA_MAX_TRANSFERSIZE)
-	{
-		REPORT_ERROR("Started SPU initialized DMA transfer - THIS IS BAD!!");
-#ifdef DEBUG_COMMUNICATION	
-		printf(WHERESTR "Initiating DMA transfer on SPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
-#endif
-		PUSH_TO_SPU(state, UINT_MAX);
-		PUSH_TO_SPU(state, (toSPU ? SPU_DMA_EA_TO_LS : SPU_DMA_LS_TO_EA));
-		PUSH_TO_SPU(state, LS);
-		PUSH_TO_SPU(state, EA);
-		PUSH_TO_SPU(state, ALIGNED_SIZE(size));
-		PUSH_TO_SPU(state, groupId);
-	}
-	else if (size > SPE_DMA_MIN_TRANSFERSIZE)
+	if (size > SPE_DMA_MIN_TRANSFERSIZE)
 	{
 #ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
@@ -840,9 +827,7 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 #endif
 			//If this was the last release, check for invalidates, and otherwise register in the age map
 			
-			//TODO: Enabled ageing!!
-			//if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)
-			if (obj->invalidateId != UINT_MAX || g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)			
+			if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)			
 			{
 #ifdef DEBUG_COMMUNICATION	
 				if (state->terminated != UINT_MAX)
@@ -1020,22 +1005,10 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 		unsigned int requestId = 0;
 		GUID id = 0;
 		unsigned int size = 0;
-		unsigned int* EA;
-		unsigned int groupId;
 		
 		spe_out_intr_mbox_read(state->context, &packageCode, 1, SPE_MBOX_ALL_BLOCKING);
 		switch(packageCode)
 		{
-			case SPU_DMA_EA_TO_LS_MBOX:
-				spe_out_intr_mbox_read(state->context, &groupId, 1, SPE_MBOX_ALL_BLOCKING);
-				//Reading into an unsigned int, due to type constraints, it is NOT a requestId, but a void* to EA
-				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
-				spe_out_intr_mbox_read(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
-				EA = (unsigned int*)requestId;
-				spe_out_intr_mbox_read(state->context, EA, size, SPE_MBOX_ALL_BLOCKING);
-				spuhandler_HandleDMATransferCompleted(state, groupId);
-				break;
-				
 			case PACKAGE_TERMINATE_REQUEST:
 #ifdef DEBUG_COMMUNICATION	
 				printf(WHERESTR "Terminate request recieved\n", WHEREARG);
@@ -1083,10 +1056,6 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				spe_out_intr_mbox_read(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
 				PUSH_TO_SPU(state, requestId);
 				PUSH_TO_SPU(state, spuhandler_AllocateSpaceForObject(state, size));
-				break;
-			case SPU_DMA_COMPLETE:
-				spe_out_intr_mbox_read(state->context, &groupId, 1, SPE_MBOX_ALL_BLOCKING);
-				spuhandler_HandleDMATransferCompleted(state, groupId);	
 				break;
 			case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);

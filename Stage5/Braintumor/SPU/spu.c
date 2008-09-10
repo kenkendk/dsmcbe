@@ -54,7 +54,7 @@ float random_normal_variant(float mean, float variant)
 	return (float)((V2 * fac * variant) + mean);
 }
 
-int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* buffer, struct CURRENT_GRID current_grid, unsigned int NextID)
+int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* buffer, struct CURRENT_GRID current_grid)
 {
 	int i;
 	int more = FALSE;
@@ -260,9 +260,9 @@ int main(unsigned long long id)
 
 			unsigned char* buffer;
 			unsigned int id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10)); 
-			unsigned int bufferID1;
-			unsigned int bufferID2;
-    		unsigned int currentID;			
+			unsigned int bufferID1 = 0;
+			unsigned int bufferID2 = 0;
+    		unsigned int currentID = 0;			
 
 			//printf(WHERESTR "Starting acquire buffer with id %i\n", WHEREARG, id);
 			bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);
@@ -290,7 +290,7 @@ int main(unsigned long long id)
 
 						buffer = endAsync(currentID, &size);
 						//printf(WHERESTR "Acquire for buffer returned pointer id %i\n", WHEREARG, buffer);
-						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid, currentID == bufferID1 ? bufferID2 : bufferID1);			
+						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
 						release(buffer);
 						//printf(WHERESTR "Released buffer with pointer %i\n", WHEREARG, buffer);
 
@@ -320,7 +320,7 @@ int main(unsigned long long id)
 								
 				buffer = endAsync(currentID, &size);
 				//printf(WHERESTR "Acquire for buffer returned pointer id %i\n", WHEREARG, buffer);
-				more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid, currentID == bufferID1 ? bufferID2 : bufferID1);
+				more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
 				release(buffer);
 				//printf(WHERESTR "Released buffer with pointer %i\n", WHEREARG, buffer);
 				

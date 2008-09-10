@@ -9,7 +9,6 @@
 #define DATAPACKAGES_H_
 
 #include "../dsmcbe.h"
-#include "datastructures.h"
 
 #define ACQUIRE_MODE_WRITE_OK (ACQUIRE_MODE_WRITE + 1)
 #define ACQUIRE_MODE_CREATE (ACQUIRE_MODE_WRITE_OK + 1)
@@ -30,19 +29,11 @@
 #define PACKAGE_INVALIDATE_REQUEST 10
 #define PACKAGE_INVALIDATE_RESPONSE 11
 
-#define PACKAGE_DMA_TRANSFER_COMPLETE 12
-
 #define PACKAGE_TERMINATE_REQUEST 14
 #define PACKAGE_TERMINATE_RESPONSE 15
 
 #define PACKAGE_ACQUIRE_BARRIER_REQUEST 16
 #define PACKAGE_ACQUIRE_BARRIER_RESPONSE 17
-
-#define SPU_DMA_LS_TO_EA 100
-#define SPU_DMA_EA_TO_LS 101
-#define SPU_DMA_COMPLETE 102
-#define SPU_DMA_LS_TO_EA_MBOX 103
-#define SPU_DMA_EA_TO_LS_MBOX 104
 
 struct createRequest
 {
@@ -153,5 +144,47 @@ struct packageBuffer
 };
 
 #define PACKAGE_SIZE(x) (x == 0 ? 0 : (x == 1 ? sizeof(struct createRequest) : ( x == 2 ? sizeof(struct acquireRequest) : ( x == 3 ? sizeof(struct acquireRequest) : ( x == 4 ? sizeof(struct acquireResponse) : ( x == 5  ? sizeof(struct writebufferReady) : ( x == 6 ? sizeof(struct migrationResponse) : ( x == 7 ? sizeof(struct releaseRequest) : ( x == 8 ? sizeof(struct releaseResponse) : ( x == 9 ? sizeof(struct NACK) : ( x == 10 ? sizeof(struct invalidateRequest) : ( x == 11 ? sizeof(struct invalidateResponse) : 0))))))))))))
+
+#ifdef DSMCBE_SPU
+
+  //#define SPU_TRACE_MEM
+  /*extern void* clear(unsigned long size);
+  extern void* clearAlign(unsigned long size, int base);*/
+  
+  #ifdef SPU_TRACE_MEM
+    extern unsigned int m_balance;
+    extern void* __m_malloc(unsigned int x, char* s1, int s2);
+    extern void __m_free(void* x, char* s1, int s2);
+    extern void* __m_malloc_align(unsigned int x, int y, char* s1, int s2);
+    extern void __m_free_align(void* x, char* s1, int s2);
+
+    #define MALLOC(x) __m_malloc(x, __FILE__, __LINE__)
+    #define FREE(x) __m_free(x, __FILE__, __LINE__)
+    #define MALLOC_ALIGN(x,y) __m_malloc_align(x,y, __FILE__, __LINE__)
+    #define FREE_ALIGN(x) __m_free_align(x, __FILE__, __LINE__)
+  #else
+  	
+    #define MALLOC(x) spu_dsmcbe_memory_malloc(x)
+    #define MALLOC_ALIGN(x,y) spu_dsmcbe_memory_malloc(x)
+    
+    //#define MALLOC(x) thread_malloc(x)
+    //#define MALLOC_ALIGN(x,y) thread_malloc_align(x,y)
+    
+    #define FREE(x) spu_dsmcbe_memory_free(x)
+    #define FREE_ALIGN(x) spu_dsmcbe_memory_free(x)
+  #endif /*SPU_TRACE_MEM*/
+  
+
+/*#define malloc(x) spu_dsmcbe_memory_malloc(x)
+#define malloc_align(x, y) spu_dsmcbe_memory_malloc(x)
+#define free(x) spu_dsmcbe_memory_free(x)
+#define free_align(x) spu_dsmcbe_memory_free(x)*/
+  
+#else
+  #define MALLOC(x) (((x) == 0) ? NULL : malloc(x))
+  #define FREE(x) free(x)
+  #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : _malloc_align(x,y))
+  #define FREE_ALIGN(x) _free_align(x)
+#endif /* DSMCBE_SPU */
 
 #endif /*DATAPACKAGES_H_*/
