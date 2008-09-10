@@ -85,6 +85,11 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	boot->spu_count = spu_count;
 	release(boot);
 	
+	struct Job_Control* jobs = create(ASSIGNMENT_LOCK, sizeof(struct Job_Control));
+	jobs->count = 0;
+	jobs->nextjob = 0;
+	release(jobs);
+	
 	//Set up the barrier
 	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
 	barrier->delta = 0;
