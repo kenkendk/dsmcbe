@@ -539,8 +539,8 @@ void net_processPackage(void* data, unsigned int machineId)
 			if (((struct createRequest*)data)->packageCode == PACKAGE_RELEASE_REQUEST)
 			{
 				itemid = ((struct releaseRequest*)data)->dataItem;
-				//printf(WHERESTR "Processing release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
-				
+				printf(WHERESTR "Processing release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
+							
 				pthread_mutex_lock(&net_leaseLock);
 				//The read release request implies that the sender has destroyed the copy
 				if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
@@ -548,10 +548,10 @@ void net_processPackage(void* data, unsigned int machineId)
 
 				if (((struct releaseRequest*)data)->mode == ACQUIRE_MODE_READ)
 				{
-					//printf(WHERESTR "Processing READ release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
+					printf(WHERESTR "Processing READ release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
 					if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)machineId) != NULL)
 						g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)machineId);
-					//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, machineId);
+					printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, machineId);
 					FREE(data);
 					data = NULL;
 					return;
@@ -656,7 +656,7 @@ void* net_readPackage(int fd)
 
 	if (recv(fd, &type, sizeof(unsigned int), MSG_PEEK) != 0)
 	{
-		//printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
+		printf(WHERESTR "Reading network package, type: %d\n", WHEREARG, type);
 		switch(type)
 		{
 		case PACKAGE_CREATE_REQUEST:
@@ -827,7 +827,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 		printf(WHERESTR "Sending a package to machine: %d, type: %s (%d), reqId: %d, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)package)->packageCode), ((struct createRequest*)package)->packageCode, ((struct createRequest*)package)->requestID, ((struct createRequest*)package)->dataItem);
 #endif
 		
-	//printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
+	printf(WHERESTR "Sending network package, type: %d, to :%d\n", WHEREARG, ((struct createRequest*)package)->packageCode, machineId);
 	switch(((struct createRequest*)package)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
@@ -887,6 +887,6 @@ void net_sendPackage(void* package, unsigned int machineId)
 			send(fd, package, sizeof(struct acquireBarrierResponse), 0);
 			break;
 		default:
-			REPORT_ERROR("Invalid package type detected");
+			fprintf(stderr, WHERESTR "Invalid package type (%u) detected", WHEREARG, ((struct createRequest*)package)->packageCode);
 	}
 }

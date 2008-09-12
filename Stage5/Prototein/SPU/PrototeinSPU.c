@@ -59,27 +59,28 @@ int FoldPrototein(unsigned long long id)
     bestscore = -9999999;
     prototein = NULL;
     
-    //printf(WHERESTR "Started SPU\n", WHEREARG);
+    printf(WHERESTR "Started SPU\n", WHEREARG);
     initialize();
     
     prototein_object = acquire(PROTOTEIN, &size, ACQUIRE_MODE_WRITE);
-    //printf(WHERESTR "SPU got prototein @: %d\n", WHEREARG, (unsigned int)prototein_object);
+    printf(WHERESTR "SPU got prototein @: %d\n", WHEREARG, (unsigned int)prototein_object);
     
     thread_id = ((unsigned int*)prototein_object)[0];
     ((unsigned int*)prototein_object)[0]++;
     prototein_length = ((unsigned int*)prototein_object)[1];
     
-    //printf(WHERESTR "SPU %d is calling malloc for %d\n", WHEREARG, thread_id,(unsigned int)(sizeof(char) * prototein_length));
+    printf(WHERESTR "SPU %d is calling malloc for %d\n", WHEREARG, thread_id,(unsigned int)(sizeof(char) * prototein_length));
 	prototein = (char*)MALLOC(sizeof(char) * prototein_length);
 	memcpy(prototein, prototein_object + (sizeof(unsigned int) * 2), prototein_length);
-    //printf(WHERESTR "SPU called malloc\n", WHEREARG);
+    printf(WHERESTR "SPU called malloc\n", WHEREARG);
 
     map = (char*) MALLOC(MAP_SIZE);
     winner = MALLOC((sizeof(struct coordinate) * prototein_length));
 
 	places = (struct coordinate*)MALLOC(sizeof(struct coordinate) * prototein_length);
-    //printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
+    printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
     release(prototein_object);
+    printf(WHERESTR "Released GUID 2\n", WHEREARG);
     
     if (places == NULL)
     	printf("Failed to allocate memory %d\n", errno);
