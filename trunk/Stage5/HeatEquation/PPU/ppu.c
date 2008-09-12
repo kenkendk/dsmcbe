@@ -33,44 +33,43 @@ void show(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned int map_heig
 }
 #endif
 
-#ifdef USE_BARRIER
-void dsmcbe_barrier(GUID id, unsigned int ref_count)
+void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned int rows)
 {
-	acquireBarrier(id);
-}
-
-#else
-void dsmcbe_barrier(GUID id, unsigned int ref_count)
-{
+	size_t i;
 	unsigned long size;
-	unsigned int* count = acquire(id, &size, ACQUIRE_MODE_WRITE);
-
-	if (++(*count) == ref_count)
-		*count = 0;
-
-	while(*count != 0)
+	struct Work_Unit* item;
+	PROBLEM_DATA_TYPE* temp;
+	
+	for(i =0; i < rows; i++)
 	{
-		release(count);
-		count = acquire(id, &size, ACQUIRE_MODE_READ);
+		item = acquire(WORK_OFFSET, &size, ACQUIRE_MODE_READ);
+        memcpy(&data[item->line_start * map_width], &item->problem, item->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
+
+		for(i =0; i < rows - 1; i++)
+		{
+			temp = acquire(SHARED_ROW_OFFSET, &size, ACQUIRE_MODE_READ);
+	        memcpy(&data[(item->line_start + item->heigth - 3) * map_width], temp, map_width * 2 * sizeof(PROBLEM_DATA_TYPE));
+	        release(item);
+		}
+
+        release(item);
 	}
-	release(count);
+
+	
 }
-#endif
+
 
 //The coordinator calls this process
 void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int spu_count)
 {
 	size_t i, j;
-	int rest, divisor, rc;
+	unsigned int rc;
 	PROBLEM_DATA_TYPE* data;
+	PROBLEM_DATA_TYPE* temp;
 	char buf[256];
-	unsigned int lineno, lines_to_send;
-	int line_start, line_end;
-	int buffer_index;
-	struct Work_Unit* send_buffer;
+	struct Work_Unit* send_buffer = NULL;
 	unsigned long size;
 	double deltasum;
-	unsigned int buffer_size;
 #ifdef GRAPHICS
 	unsigned int cnt = 0;
 	double delta;
@@ -78,15 +77,19 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
    
    	unsigned int map_size = map_width * map_height;
 	double epsilon = 0.001 * (map_width - 1) * (map_height - 1);
+	unsigned int rows = (map_height + (SLICE_HEIGHT - 1)) / SLICE_HEIGHT;
 
 	//Let all SPU's compete for a number
 	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
+	boot->map_width = map_width;
+	boot->map_height = map_height;
 	boot->spu_no = 0;
 	boot->spu_count = spu_count;
+	boot->epsilon = epsilon;
 	release(boot);
 	
-	struct Job_Control* jobs = create(ASSIGNMENT_LOCK, sizeof(struct Job_Control));
-	jobs->count = 0;
+	struct Job_Control* jobs = create(JOB_LOCK, sizeof(struct Job_Control));
+	jobs->count = rows;
 	jobs->nextjob = 0;
 	release(jobs);
 	
@@ -97,35 +100,11 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	barrier->print_count = 0;
 	release(barrier);
 	
-#ifdef USE_BARRIER
 	createBarrier(EX_BARRIER_1, spu_count);
-	createBarrier(EX_BARRIER_2, spu_count);
-	createBarrier(EX_BARRIER_3, spu_count);
-#ifdef GRAPHICS
-	createBarrier(BARRIER_LOCK_EXTRA, spu_count + 1);
-#else	
-	createBarrier(BARRIER_LOCK_EXTRA, spu_count);
-#endif
-
-#else	
-	release(create(EX_BARRIER_1, sizeof(unsigned int)));
-	release(create(EX_BARRIER_2, sizeof(unsigned int)));
-	release(create(EX_BARRIER_3, sizeof(unsigned int)));
-#endif
 
 	//printf(WHERESTR "Boot and barrier done\n", WHEREARG);
 
-	divisor = (int)(map_height / spu_count);
-	rest = (int)(map_height % spu_count);
-	
-	if (rest == 0)
-		buffer_size = (divisor + 2) * map_width;
-	else
-		buffer_size = (divisor + 3) * map_width;
-   
-
 	data = (PROBLEM_DATA_TYPE*)malloc(sizeof(PROBLEM_DATA_TYPE) * map_size);
-
     memset(data, 0, map_size * sizeof(PROBLEM_DATA_TYPE));
 
 	for( i = 0; i < map_width; i++)
@@ -152,54 +131,44 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	sw_init();
 	sw_start();
 
-    /* distribute */
-    lineno = 0;
-    buffer_index = 0;
-    
-    for(i = 0; i< spu_count; i++)
-    {
-        lines_to_send = divisor;
-        if (rest != 0)
-        {
-            lines_to_send++;
-            rest--;
-        }
-        
-        //printf(WHERESTR "Building buffer %d\n", WHEREARG, i);
-        
-        //If this is anything but the very first line, we also send the previous
-        line_start = (lineno == 0 ? lineno : lineno - 1);
-        //If this is anything but the very last line, we also send the next
-        line_end = ((lineno + lines_to_send) == (map_height) ? (map_height) : (lineno + lines_to_send) + 1);
+	for(i = 0 ;i < rows; i++)
+	{
+		
+		unsigned int curh = i == rows-1 ? map_height % SLICE_HEIGHT + 1 : SLICE_HEIGHT;
+		send_buffer = create(WORK_OFFSET + i, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * curh);
 
-        send_buffer = create(WORK_OFFSET + i, sizeof(struct Work_Unit) + ((line_end - line_start) * map_width * sizeof(PROBLEM_DATA_TYPE)));
-        
-        if (send_buffer == NULL) REPORT_ERROR("bad create");
-        
-        send_buffer->line_start = line_start;
-        send_buffer->width = map_width;
-        send_buffer->heigth = line_end - line_start;
-        send_buffer->epsilon = epsilon;
-        send_buffer->buffer_size = (line_end - line_start) * map_width;
-        memcpy(&send_buffer->problem, &data[line_start * map_width], send_buffer->buffer_size * sizeof(PROBLEM_DATA_TYPE));
+		if (i == 0)
+			send_buffer->line_start = 0;
+		else
+			send_buffer->line_start = (i * (SLICE_HEIGHT - 1)) - 1;
+		 
+		send_buffer->buffer_size = map_width * curh;
+		send_buffer->heigth = curh;
+		send_buffer->block_no = i;
+
+		memcpy(&send_buffer->problem, &data[send_buffer->line_start * map_width], send_buffer->buffer_size * sizeof(PROBLEM_DATA_TYPE));
 
 		release(send_buffer);
-		                
-		//printf(WHERESTR "Done with buffer %d\n", WHEREARG, i);
-		                
-        lineno += lines_to_send;
-    }
+
+		if (i != rows - 1)
+		{
+			temp = create(SHARED_ROW_OFFSET + i, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+			memcpy(temp, &data[(send_buffer->line_start + send_buffer->heigth) * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+			release(temp);
+		}
+
+	}
 
 
 	//printf(WHERESTR "Waiting for %d SPU's to boot up\n", WHEREARG, spu_count);
 	
-	boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_READ);
+	/*boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_READ);
 	while(boot->spu_no != spu_count)
 	{
 		release(boot);
 		boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_READ);
 	}
-	release(boot);
+	release(boot);*/
 
 	//printf(WHERESTR "All %d SPU's are booted\n", WHEREARG, spu_count);
 
@@ -225,44 +194,28 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
         cnt++;
         if(cnt == UPDATE_FREQ)
         {
-
-        	for(i = 0; i < spu_count; i++)
-        	{    
-	        	send_buffer = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
-    	    	memcpy(&data[send_buffer->line_start * map_width], &send_buffer->problem, send_buffer->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
-        		release(send_buffer);
-        	}
-
-            cnt = 0;    
+        	UpdateMasterMap(data, map_width, rows);
             show(data, map_width, map_height);
+            cnt = 0;    
         }
         
         barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
         barrier->lock_count = 0;
         delta = barrier->delta;
         release(barrier);
-#ifdef USE_BARRIER
-		dsmcbe_barrier(BARRIER_EXTRA_LOCK, 0);
-#endif        
 	}
-      
-#else
-	//Make sure the SPU's have taken their locks
-	sleep(2);  
-#endif
+#endif /* GRAPHICS */
 
     deltasum = 0.0;
     rc = 0;
     for(i = 0; i< spu_count; i++)
     {
-    	send_buffer = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
-        deltasum += send_buffer->epsilon;
-        rc += send_buffer->width;
-        memcpy(&data[send_buffer->line_start * map_width], &send_buffer->problem, send_buffer->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
+    	struct Results* results = acquire(RESULT_OFFSET + i, &size, ACQUIRE_MODE_READ);
+        deltasum += results->deltaSum;
+        rc += results->rc;
         release(send_buffer);
     }
 
-     
          
 #ifdef GRAPHICS
 	show(data, map_width, map_height);
@@ -291,7 +244,6 @@ int main(int argc, char* argv[])
 	char* filename;
 	int machineid;
 	pthread_t* pthreads;
-	size_t i;
 	
 	if (argc == 2)
 	{
@@ -316,7 +268,7 @@ int main(int argc, char* argv[])
 	//printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
 	
 	if (machineid == 0)
-		Coordinator(128, 128 * spu_count, spu_count);
+		Coordinator(128, 2048, spu_count);
 	
 	//printf(WHERESTR "Shutting down machine %d\n", WHEREARG, machineid);
 	
