@@ -756,7 +756,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
 		obj->size = data->dataSize;
 		obj->LS = ls;
-		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST;
+		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST || data->mode == ACQUIRE_MODE_WRITE_OK;
 		obj->isDMAToSPU = TRUE;
 	
 		g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
