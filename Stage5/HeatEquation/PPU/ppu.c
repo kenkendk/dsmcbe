@@ -42,19 +42,20 @@ void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned i
 	
 	for(i =0; i < rows; i++)
 	{
-		item = acquire(WORK_OFFSET, &size, ACQUIRE_MODE_READ);
+		printf(WHERESTR "Fetching work row: %d\n", WHEREARG, WORK_OFFSET + i);
+		item = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
         memcpy(&data[item->line_start * map_width], &item->problem, item->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
 
-		for(i =0; i < rows - 1; i++)
+		if (i != rows-1)
 		{
-			temp = acquire(SHARED_ROW_OFFSET, &size, ACQUIRE_MODE_READ);
+			printf(WHERESTR "Fetching shared row: %d\n", WHEREARG, SHARED_ROW_OFFSET + i);
+			temp = acquire(SHARED_ROW_OFFSET + i + 1, &size, ACQUIRE_MODE_READ);
 	        memcpy(&data[(item->line_start + item->heigth - 3) * map_width], temp, map_width * 2 * sizeof(PROBLEM_DATA_TYPE));
-	        release(item);
+	        release(temp);
 		}
-
+		
         release(item);
 	}
-
 	
 }
 
@@ -91,6 +92,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	struct Job_Control* jobs = create(JOB_LOCK, sizeof(struct Job_Control));
 	jobs->count = rows;
 	jobs->nextjob = 0;
+	jobs->red_round = 1;
 	release(jobs);
 	
 	//Set up the barrier
@@ -133,6 +135,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
 	for(i = 0 ;i < rows; i++)
 	{
+		printf(WHERESTR "Creating work %d\n", WHEREARG, WORK_OFFSET + i);
 		
 		unsigned int curh = i == rows-1 ? map_height % SLICE_HEIGHT + 1 : SLICE_HEIGHT;
 		send_buffer = create(WORK_OFFSET + i, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * curh);
@@ -140,7 +143,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		if (i == 0)
 			send_buffer->line_start = 0;
 		else
-			send_buffer->line_start = (i * (SLICE_HEIGHT - 1)) - 1;
+			send_buffer->line_start = i * SLICE_HEIGHT;
 		 
 		send_buffer->buffer_size = map_width * curh;
 		send_buffer->heigth = curh;
@@ -150,8 +153,9 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
 		release(send_buffer);
 
-		if (i != rows - 1)
+		if (i != 0)
 		{
+			printf(WHERESTR "Creating shared row %d\n", WHEREARG, SHARED_ROW_OFFSET + i);
 			temp = create(SHARED_ROW_OFFSET + i, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 			memcpy(temp, &data[(send_buffer->line_start + send_buffer->heigth) * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 			release(temp);
@@ -179,12 +183,16 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	
 	while(delta > epsilon)
 	{
+		printf(WHERESTR "Waiting for manual barrier\n", WHEREARG);
 		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
 		while(barrier->lock_count != spu_count)
 		{
 			release(barrier);
 			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
 		}
+
+		printf(WHERESTR "manual barrier done\n", WHEREARG);
+
 
         if((cnt + 1) == UPDATE_FREQ)
 			printf(WHERESTR "Updating graphics, delta: %lf\n", WHEREARG, barrier->delta);
@@ -198,9 +206,10 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
             show(data, map_width, map_height);
             cnt = 0;    
         }
-        
+       
         barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
-        barrier->lock_count = 0;
+		printf(WHERESTR "manual barrier done, setting lock count to 0\n", WHEREARG);
+		barrier->lock_count = 0;
         delta = barrier->delta;
         release(barrier);
 	}
@@ -268,7 +277,7 @@ int main(int argc, char* argv[])
 	//printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
 	
 	if (machineid == 0)
-		Coordinator(128, 2048, spu_count);
+		Coordinator(128, 512, spu_count);
 	
 	//printf(WHERESTR "Shutting down machine %d\n", WHEREARG, machineid);
 	

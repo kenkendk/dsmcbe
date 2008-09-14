@@ -273,7 +273,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 			}
 			else
 			{
-				// User BestFit
+				// Use BestFit
 				temp = this->size - size;
 				//printf(WHERESTR "Temp: %u, Waste: %u\n", WHEREARG, temp, waste); 
 				if (temp < waste)
@@ -315,8 +315,8 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 		return (void*)position;
 	}
 	
-	REPORT_ERROR("Could not find free memory!");
-	sleep(10);
+	/*REPORT_ERROR("Could not find free memory!");
+	sleep(10);*/
 	return NULL;	
 }
 
