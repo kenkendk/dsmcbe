@@ -48,6 +48,7 @@ struct Assignment_Unit
 	unsigned int map_height;
 	unsigned int spu_no;
 	unsigned int spu_count;
+	unsigned int sharedCount;
 	double epsilon;
 };
 

@@ -33,7 +33,7 @@ void show(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned int map_heig
 }
 #endif
 
-void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned int rows)
+void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned int rows, unsigned int sharedCount)
 {
 	size_t i;
 	unsigned long size;
@@ -44,18 +44,24 @@ void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned i
 	{
 		printf(WHERESTR "Fetching work row: %d\n", WHEREARG, WORK_OFFSET + i);
 		item = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
+		
         memcpy(&data[item->line_start * map_width], &item->problem, item->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
 
-		if (i != rows-1)
+		printf(WHERESTR "Updated from: %d, height: %d\n", WHEREARG, item->line_start, item->heigth);
+
+		if (i < sharedCount)
 		{
 			printf(WHERESTR "Fetching shared row: %d\n", WHEREARG, SHARED_ROW_OFFSET + i);
-			temp = acquire(SHARED_ROW_OFFSET + i + 1, &size, ACQUIRE_MODE_READ);
-	        memcpy(&data[(item->line_start + item->heigth - 3) * map_width], temp, map_width * 2 * sizeof(PROBLEM_DATA_TYPE));
+			temp = acquire(SHARED_ROW_OFFSET + i, &size, ACQUIRE_MODE_READ);
+			memcpy(&data[(item->line_start + item->heigth) * map_width], temp, map_width * 2 * sizeof(PROBLEM_DATA_TYPE));
 	        release(temp);
+			printf(WHERESTR "Updated from: %d, height: %d\n", WHEREARG, item->line_start + item->heigth, 2);
 		}
-		
+
         release(item);
 	}
+	
+	sleep(1);
 	
 }
 
@@ -78,31 +84,6 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
    
    	unsigned int map_size = map_width * map_height;
 	double epsilon = 0.001 * (map_width - 1) * (map_height - 1);
-	unsigned int rows = (map_height + (SLICE_HEIGHT - 1)) / SLICE_HEIGHT;
-
-	//Let all SPU's compete for a number
-	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
-	boot->map_width = map_width;
-	boot->map_height = map_height;
-	boot->spu_no = 0;
-	boot->spu_count = spu_count;
-	boot->epsilon = epsilon;
-	release(boot);
-	
-	struct Job_Control* jobs = create(JOB_LOCK, sizeof(struct Job_Control));
-	jobs->count = rows;
-	jobs->nextjob = 0;
-	jobs->red_round = 1;
-	release(jobs);
-	
-	//Set up the barrier
-	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
-	barrier->delta = 0;
-	barrier->lock_count = 0;
-	barrier->print_count = 0;
-	release(barrier);
-	
-	createBarrier(EX_BARRIER_1, spu_count);
 
 	//printf(WHERESTR "Boot and barrier done\n", WHEREARG);
 
@@ -132,49 +113,75 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
 	sw_init();
 	sw_start();
-
-	for(i = 0 ;i < rows; i++)
+	
+	unsigned int rows = 0;
+	unsigned int sharedCount = 0;
+	unsigned int remainingLines = map_height;
+	unsigned int lineOffset = 0;
+	
+	while(remainingLines > 0)
 	{
-		printf(WHERESTR "Creating work %d\n", WHEREARG, WORK_OFFSET + i);
-		
-		unsigned int curh = i == rows-1 ? map_height % SLICE_HEIGHT + 1 : SLICE_HEIGHT;
-		send_buffer = create(WORK_OFFSET + i, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * curh);
-
-		if (i == 0)
-			send_buffer->line_start = 0;
+		unsigned int thisHeight;
+		if (SLICE_HEIGHT > remainingLines)
+			thisHeight = remainingLines;
 		else
-			send_buffer->line_start = i * SLICE_HEIGHT;
-		 
-		send_buffer->buffer_size = map_width * curh;
-		send_buffer->heigth = curh;
-		send_buffer->block_no = i;
+			thisHeight = SLICE_HEIGHT;
+
+		printf(WHERESTR "Created work %d, height: %d\n", WHEREARG, WORK_OFFSET + rows, thisHeight);
+		
+		remainingLines -= thisHeight;
+
+		send_buffer = create(WORK_OFFSET + rows, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * thisHeight);
+		send_buffer->block_no = rows;
+		send_buffer->buffer_size = map_width * thisHeight;
+		send_buffer->heigth = thisHeight;
+		send_buffer->line_start = lineOffset;
 
 		memcpy(&send_buffer->problem, &data[send_buffer->line_start * map_width], send_buffer->buffer_size * sizeof(PROBLEM_DATA_TYPE));
-
+		
 		release(send_buffer);
-
-		if (i != 0)
+		
+		lineOffset += thisHeight;
+		
+		if (remainingLines > 0)
 		{
-			printf(WHERESTR "Creating shared row %d\n", WHEREARG, SHARED_ROW_OFFSET + i);
-			temp = create(SHARED_ROW_OFFSET + i, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
-			memcpy(temp, &data[(send_buffer->line_start + send_buffer->heigth) * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+			printf(WHERESTR "Creating shared row %d\n", WHEREARG, SHARED_ROW_OFFSET + rows);
+			temp = create(SHARED_ROW_OFFSET + rows, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+			memcpy(temp, &data[lineOffset * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 			release(temp);
+			
+			lineOffset += 2;
+			remainingLines -= 2;
+			sharedCount++;
 		}
 
+		rows++;
 	}
 
-
-	//printf(WHERESTR "Waiting for %d SPU's to boot up\n", WHEREARG, spu_count);
+	//Let all SPU's compete for a number
+	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
+	boot->map_width = map_width;
+	boot->map_height = map_height;
+	boot->sharedCount = sharedCount;
+	boot->spu_no = 0;
+	boot->spu_count = spu_count;
+	boot->epsilon = epsilon;
+	release(boot);
 	
-	/*boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_READ);
-	while(boot->spu_no != spu_count)
-	{
-		release(boot);
-		boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_READ);
-	}
-	release(boot);*/
+	//Set up the barrier
+	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
+	barrier->delta = 0;
+	barrier->lock_count = 0;
+	barrier->print_count = 0;
+	release(barrier);
+	
+	createBarrier(EX_BARRIER_1, spu_count);
 
-	//printf(WHERESTR "All %d SPU's are booted\n", WHEREARG, spu_count);
+	struct Job_Control* jobs = create(JOB_LOCK, sizeof(struct Job_Control));
+	jobs->count = rows;
+	jobs->nextjob = 0;
+	jobs->red_round = 1;
+	release(jobs);
 
 //Periodically update window?
 #ifdef GRAPHICS
@@ -202,7 +209,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
         cnt++;
         if(cnt == UPDATE_FREQ)
         {
-        	UpdateMasterMap(data, map_width, rows);
+        	UpdateMasterMap(data, map_width, rows, sharedCount);
             show(data, map_width, map_height);
             cnt = 0;    
         }
