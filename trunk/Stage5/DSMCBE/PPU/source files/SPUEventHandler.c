@@ -29,6 +29,7 @@
 #define SPE_DMA_MAX_TRANSFERSIZE (16 * 1024)
 
 //This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
+//Set to zero to disable alternate transfer methods
 #define SPE_DMA_MIN_TRANSFERSIZE 16
 
 //Thise define determines if small transfers should use MMIO or mailbox for small message
@@ -303,17 +304,23 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 	//Try to remove a object of the same size as the object
 	// we want to alloc.
 	size_t j;
-	for(j = 0; j < g_queue_get_length(state->agedObjectMap); j++)
+	size_t lc = g_queue_get_length(state->agedObjectMap);
+	if (lc < 10)
 	{
-		id = (unsigned int)g_queue_peek_nth(state->agedObjectMap, j);
-		obj = g_hash_table_lookup(state->itemsById, (void*)id);
-		if(obj->size == size && obj->count == 0)
+		for(j = 0; j < lc; j++)
 		{
-			//Remove the object, and try to allocate again
-			spuhandler_DisposeObject(state, obj);
-			if (state->map->free_mem >= size)
-				temp = spu_memory_malloc(state->map, size);			
-		}		
+			id = (unsigned int)g_queue_peek_nth(state->agedObjectMap, j);
+			obj = g_hash_table_lookup(state->itemsById, (void*)id);
+			if(obj->size == size && obj->count == 0)
+			{
+				//Remove the object, and try to allocate again
+				//printf(WHERESTR "Disposing object: %d\n", WHEREARG, obj->id);
+				spuhandler_DisposeObject(state, obj);
+				if (state->map->free_mem >= size)
+					temp = spu_memory_malloc(state->map, size);
+				lc = g_queue_get_length(state->agedObjectMap);			
+			}		
+		}
 	}	
 
 	//While we have not recieved a valid pointer, and there are still objects to discard
@@ -336,6 +343,7 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 			else
 			{
 				//Remove the object, and try to allocate again
+				//printf(WHERESTR "Disposing object: %d\n", WHEREARG, obj->id);
 				spuhandler_DisposeObject(state, obj);
 				if (state->map->free_mem >= size)
 					temp = spu_memory_malloc(state->map, size);
@@ -646,12 +654,22 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 {
 #ifdef DEBUG_COMMUNICATION	
-	//printf(WHERESTR "Handling WriteBufferReady for requestId: %d, itemId: %d\n", WHEREARG, requestId, id);
+	printf(WHERESTR "Handling WriteBufferReady for itemId: %d\n", WHEREARG, id);
 #endif
 	unsigned int i;
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)id);
 	if (obj == NULL)
 	{
+		for(i = 0; i < g_queue_get_length(state->releaseWaiters); i++)
+		{
+			struct acquireResponse* data = g_queue_peek_nth(state->releaseWaiters, i);
+			if (data->dataItem == id)
+			{
+				data->mode = ACQUIRE_MODE_WRITE_OK;
+				return;
+			}
+		}
+		printf(WHERESTR "Broken WRITEBUFFERREADY for object: %d\n", WHEREARG, id);
 		REPORT_ERROR("Recieved a writebuffer ready request, but the object did not exist");
 		return;
 	}
@@ -1099,7 +1117,8 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 		switch(resp->packageCode)
 		{
 			case PACKAGE_ACQUIRE_RESPONSE:
-				spuhandler_HandleAcquireResponse(state, resp);
+				if (spuhandler_HandleAcquireResponse(state, resp) == FALSE)
+					resp = NULL;
 				break;
 			case PACKAGE_RELEASE_RESPONSE:
 				spuhandler_HandleReleaseResponse(state, ((struct releaseResponse*)resp)->requestID);
@@ -1117,7 +1136,9 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 				REPORT_ERROR("Invalid package recieved");
 				break;			
 		}
-		free(resp);
+		
+		if (resp != NULL)
+			free(resp);
 		resp = NULL;
 	}
 }
