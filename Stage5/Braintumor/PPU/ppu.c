@@ -369,11 +369,13 @@ int main(int argc, char* argv[])
 		free(energy);
 		free(cmap);
 		free(scale);
-		free(result.image);		
+		free(result.image);
 	}
-	
-/*	for(i = 0; i < SPU_THREADS; i++)
-		pthread_join(threads[i], NULL);
-*/
+
+	if (id != 0)
+	{	
+		for(i = 0; i < SPU_THREADS; i++)
+			pthread_join(threads[i], NULL);
+	}
 	return 0;
 }
