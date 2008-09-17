@@ -32,9 +32,6 @@
 //Set to zero to disable alternate transfer methods
 #define SPE_DMA_MIN_TRANSFERSIZE 16
 
-//Thise define determines if small transfers should use MMIO or mailbox for small message
-#define SPE_DMA_MIN_USE_MMIO
-
 //This structure represents an item on the SPU
 struct spu_dataObject
 {
@@ -462,7 +459,6 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 		printf(WHERESTR "Initiating simulated DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
 #endif
 		
-#ifdef SPE_DMA_MIN_USE_MMIO
 		if (toSPU)
 		{
 			void* spu_ls = spe_ls_area_get(state->context) + LS;
@@ -476,36 +472,6 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 		
 		spuhandler_HandleDMATransferCompleted(state, groupId);
 			
-#else
-		//We can only send 4 byte messages :(
-		size_t count = (size + 3) / 4;
-		
-		if (toSPU)
-		{
-			size_t i;
-						
-			PUSH_TO_SPU(state, UINT_MAX);
-			PUSH_TO_SPU(state, SPU_DMA_LS_TO_EA_MBOX);
-			PUSH_TO_SPU(state, LS);
-			PUSH_TO_SPU(state, count);
-			for(i = 0; i < count; i++)
-				PUSH_TO_SPU(state, ((unsigned int*)EA)[i]);
-				
-			//The messages are queue'd, so this is valid
-			spuhandler_HandleDMATransferCompleted(state, groupId);
-		}		
-		else
-		{
-			PUSH_TO_SPU(state, UINT_MAX);
-			PUSH_TO_SPU(state, SPU_DMA_EA_TO_LS_MBOX);
-			PUSH_TO_SPU(state, groupId);
-			PUSH_TO_SPU(state, LS);
-			PUSH_TO_SPU(state, EA);
-			PUSH_TO_SPU(state, count);
-			//We must wait for the SPU response
-		}	
-#endif
-
 	}
 		
 	
@@ -614,7 +580,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 		preq->operation = PACKAGE_RELEASE_REQUEST;
 		
 
-		preq->DMAcount = MAX(obj->size, SPE_DMA_MAX_TRANSFERSIZE) / SPE_DMA_MAX_TRANSFERSIZE;
+		preq->DMAcount = (MAX(ALIGNED_SIZE(obj->size), SPE_DMA_MAX_TRANSFERSIZE) + (SPE_DMA_MAX_TRANSFERSIZE - 1)) / SPE_DMA_MAX_TRANSFERSIZE;
 		for(i = 0; i < preq->DMAcount; i++)
 		{			
 			obj->DMAId = NEXT_SEQ_NO(state->dmaSeqNo, MAX_DMA_GROUPID);
@@ -734,12 +700,88 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		if (ls == NULL)
 		{
 			//We have no space on the SPU, so wait until we get some
-			//TODO: Verify that we have a pending release request
+			
 #ifdef DEBUG_COMMUNICATION	
-			printf(WHERESTR "No more space, delaying acquire\n", WHEREARG);	
+			printf(WHERESTR "No more space, attempting delay, free mem: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, data->dataSize);
 #endif
-			g_queue_push_tail(state->releaseWaiters, data);
-			return FALSE;
+			GHashTableIter iter;
+			g_hash_table_iter_init(&iter, state->pendingRequests);
+			void* key;
+			void* value;
+			unsigned int pendingSize = 0;
+			
+			while(g_hash_table_iter_next(&iter, &key, (void**)&value))
+			{
+				struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
+				if (v->operation == PACKAGE_RELEASE_REQUEST)
+				{
+					obj = g_hash_table_lookup(state->itemsById, (void*)v->objId);
+					if (obj != NULL)
+					{
+#ifdef DEBUG_COMMUNICATION	
+						printf(WHERESTR "Found obj %d with size %d in pending\n", WHEREARG, obj->id, obj->size);
+#endif
+						pendingSize += obj->size;
+					}
+				}
+			}
+			
+			g_hash_table_iter_init(&iter, state->activeDMATransfers);
+			while(g_hash_table_iter_next(&iter, &key, (void**)&value))
+			{
+				//TODO: This gives a misleading count if there are large blocks,
+				//because each entry indicates the same object, and thus the full
+				//object size, and not the block size
+				struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
+				if (v->operation == PACKAGE_RELEASE_REQUEST)
+				{
+					obj = g_hash_table_lookup(state->itemsById, (void*)v->objId);
+					if (obj != NULL)
+					{
+#ifdef DEBUG_COMMUNICATION	
+						printf(WHERESTR "Found obj %d with size %d in pending\n", WHEREARG, obj->id, obj->size);
+#endif
+						pendingSize += obj->size;
+					}
+				}
+			}
+						
+			
+			if (pendingSize > 0 && pendingSize + state->map->free_mem > data->dataSize)
+			{
+			
+#ifdef DEBUG_COMMUNICATION	
+				printf(WHERESTR "No more space, delaying acquire until space becomes avalible, free mem: %d, pendingSize: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, pendingSize, data->dataSize);
+#endif
+				g_queue_push_tail(state->releaseWaiters, data);
+				return FALSE;
+			} else {
+
+#ifdef DEBUG_COMMUNICATION	
+				printf(WHERESTR "No more space, denying acquire request\n", WHEREARG);	
+#endif
+				
+				fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
+			
+				GHashTableIter iter;
+				g_hash_table_iter_init(&iter, state->itemsById);
+				GUID key;
+				struct spu_dataObject* value;
+				
+				while(g_hash_table_iter_next(&iter, (void*)&key, (void*)&value))
+					fprintf(stderr, "* ERROR * " WHERESTR ": Item %d is allocated at %d and takes up %d bytes, count: %d\n", WHEREARG, key, (unsigned int)value->LS, (unsigned int)value->size, value->count);
+				
+				sleep(5); 				
+				
+				PUSH_TO_SPU(state, preq->requestId);
+				PUSH_TO_SPU(state, NULL);
+				PUSH_TO_SPU(state, 0);
+				
+				g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+				free(preq);
+				return TRUE;
+			} 
+			
 			
 			/*fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
 			
@@ -783,7 +825,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		
 		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
 		
-		preq->DMAcount = MAX(obj->size, SPE_DMA_MAX_TRANSFERSIZE) / SPE_DMA_MAX_TRANSFERSIZE;
+		preq->DMAcount = (MAX(ALIGNED_SIZE(obj->size), SPE_DMA_MAX_TRANSFERSIZE) + (SPE_DMA_MAX_TRANSFERSIZE - 1)) / SPE_DMA_MAX_TRANSFERSIZE;
 
 #ifdef DEBUG_COMMUNICATION
 		printf(WHERESTR "DMAcount is %i, size is %li\n", WHEREARG, preq->DMAcount, obj->size);
@@ -857,6 +899,7 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 #endif
 			//If this was the last release, check for invalidates, and otherwise register in the age map
 			
+			//if (TRUE)
 			if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)			
 			{
 #ifdef DEBUG_COMMUNICATION	
@@ -925,10 +968,26 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 #ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying RC\n", WHEREARG, groupID, preq->objId);
 #endif
+		//__asm__ __volatile__("lwsync" : : : "memory");
 		
 		struct releaseRequest* req;
 		if ((req = malloc(sizeof(struct releaseRequest))) == NULL)
 			REPORT_ERROR("malloc error");
+			
+		/*if (obj->id == 103)
+		{
+			char* ea = (char*)obj->EA;
+			char* spu_ls = (char*)((unsigned int)spe_ls_area_get(state->context) + (unsigned int)obj->LS);
+			printf(WHERESTR "Testing id %d with %d bytes\n", WHEREARG, obj->id, (int)obj->size);
+			size_t x;
+			for(x = 0; x < obj->size; x++)
+				if (spu_ls[x] != ea[x])
+				{
+					printf(WHERESTR "Found mismatch in byte %d of %d bytes\n", WHEREARG, x, (int)obj->size);
+					sleep(2);
+				}
+			printf(WHERESTR "Done testing %d bytes\n", WHEREARG, (int)obj->size);
+		}*/
 			
 		req->data = obj->EA;
 		req->dataItem = obj->id;
