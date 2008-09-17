@@ -127,14 +127,19 @@ void TerminateCoordinator(int force)
 	queueEmpty = 0;
 	while(!queueEmpty)
 	{
+	 	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	 	pthread_mutex_lock(&queue_mutex);
+	 	//printf(WHERESTR "locked mutex\n", WHEREARG);
+	 	
 	 	queueEmpty = g_queue_is_empty(GbagOfTasks);
 	 	if (queueEmpty)
 	 	{
 	 		terminate = 1;
 	 		pthread_cond_signal(&queue_ready);
 	 	}
+	 	//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 	 	pthread_mutex_unlock(&queue_mutex);
+	 	//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 	}
 	
 	if (GpagetableWaiters != NULL)
@@ -212,7 +217,9 @@ void InitializeCoordinator()
 void ProcessWaiters(unsigned int* pageTable)
 {
 	//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&queue_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	//printf(WHERESTR "Releasing local waiters\n", WHEREARG);
 	
 	GHashTableIter iter;
@@ -237,7 +244,9 @@ void ProcessWaiters(unsigned int* pageTable)
 		}
 	}
 
+	//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 	pthread_mutex_unlock(&queue_mutex);
+	//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 	//printf(WHERESTR "Released local waiters\n", WHEREARG);
 }
 
@@ -247,13 +256,17 @@ void EnqueItem(QueueableItem item)
 {
 	
 	//printf(WHERESTR "adding item to queue: %i\n", WHEREARG, (int)item);
+ 	//printf(WHERESTR "locking mutex\n", WHEREARG);
  	pthread_mutex_lock(&queue_mutex);
+ 	//printf(WHERESTR "locked mutex\n", WHEREARG);
  	
  	g_queue_push_tail(GbagOfTasks, (void*)item);
 	//printf(WHERESTR "setting event\n", WHEREARG);
  	
  	pthread_cond_signal(&queue_ready);
+ 	//printf(WHERESTR "unlocking mutex\n", WHEREARG);
  	pthread_mutex_unlock(&queue_mutex);
+ 	//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 
 	//printf(WHERESTR "item added to queue\n", WHEREARG);
 }
@@ -272,14 +285,15 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
 	
 	//printf(WHERESTR "locking mutex\n", WHEREARG);
  	pthread_mutex_lock(&queue_mutex);
+ 	//printf(WHERESTR "locked mutex\n", WHEREARG);
  	
  	g_queue_push_tail(GpriorityResponses, resp);
 	//printf(WHERESTR "setting event\n", WHEREARG);
  	
  	pthread_cond_signal(&queue_ready);
- 	pthread_mutex_unlock(&queue_mutex);
 	//printf(WHERESTR "unlocking mutext\n", WHEREARG);
-	
+ 	pthread_mutex_unlock(&queue_mutex);
+ 	//printf(WHERESTR "unlocked mutex\n", WHEREARG);	
 }
 
 //Helper method with common code for responding
@@ -295,7 +309,11 @@ void RespondAny(QueueableItem item, void* resp)
 	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
 	
 	if (item->mutex != NULL)
+	{
+		//printf(WHERESTR "locking item->mutex\n", WHEREARG);
 		pthread_mutex_lock(item->mutex);
+		//printf(WHERESTR "locked item->mutex\n", WHEREARG);
+	}
 	
 	//printf(WHERESTR "responding, locking %i, packagetype: %d\n", WHEREARG, (int)item->mutex, ((struct acquireRequest*)resp)->packageCode);
 	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
@@ -1160,11 +1178,15 @@ void HandleAcquireResponse(QueueableItem item)
 
 	GQueue* dq = NULL;
 	//If this is an acquire for an object we requested, release the waiters
+	char isLocked = 1;
 	if ((dq = g_hash_table_lookup(GpendingRequests, (void*)object->id)) != NULL)
 	{
 		//printf(WHERESTR "testing local copy\n", WHEREARG);
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
+		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
+		
+		//printf(WHERESTR "locked mutex\n", WHEREARG);
 		while(!g_queue_is_empty(dq))
 		{
 			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
@@ -1172,15 +1194,26 @@ void HandleAcquireResponse(QueueableItem item)
 			//printf(WHERESTR "waiter package type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID);
 			if (((struct createRequest*)q->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			{
+				//printf(WHERESTR "Sending AcquireResponse\n", WHEREARG);
+				//printf(WHERESTR "unlocking mutex\n", WHEREARG);
+				pthread_mutex_unlock(&queue_mutex);
+				isLocked = 0;
+				//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 				RespondAcquire(q, g_hash_table_lookup(GallocatedItems, (void*)object->id));
 				//DoInvalidate(object->id);
 				//SingleInvalidate(q, object->id);
+				
 				break;
 			}
 			else
 				g_queue_push_tail(GbagOfTasks, q);
 		}
-		pthread_mutex_unlock(&queue_mutex);
+		if (isLocked)
+		{
+			//printf(WHERESTR "unlocking mutex\n", WHEREARG);
+			pthread_mutex_unlock(&queue_mutex);
+			//printf(WHERESTR "unlocked mutex\n", WHEREARG);
+		}
 		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 		if (g_queue_is_empty(dq))
 		{
@@ -1200,7 +1233,9 @@ void HandleAcquireResponse(QueueableItem item)
 
 		//TODO: Must be a double queue
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
+		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
+		//printf(WHERESTR "locked mutex\n", WHEREARG);
 		while(!g_queue_is_empty(GpagetableWaiters))
 		{
 			QueueableItem cr = g_queue_pop_head(GpagetableWaiters);
@@ -1211,7 +1246,9 @@ void HandleAcquireResponse(QueueableItem item)
 				//printf(WHERESTR "waiter was for create %d\n", WHEREARG, ((struct createRequest*)cr->dataRequest)->dataItem);
 				if (((struct acquireResponse*)item->dataRequest)->mode != ACQUIRE_MODE_READ)
 				{
+					//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 					pthread_mutex_unlock(&queue_mutex);
+					//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 					//printf(WHERESTR "incoming response was for write %d\n", WHEREARG, req->dataItem);
 					unsigned int* pagetable = (unsigned int*)req->data;
 					GUID id = ((struct createRequest*)cr->dataRequest)->dataItem;
@@ -1257,7 +1294,9 @@ void HandleAcquireResponse(QueueableItem item)
 					else
 						NetRequest(qs, PAGE_TABLE_OWNER);
 
+					//printf(WHERESTR "locking mutex\n", WHEREARG);
 					pthread_mutex_lock(&queue_mutex);
+					//printf(WHERESTR "locked mutex\n", WHEREARG);
 					
 				}
 				
@@ -1269,8 +1308,9 @@ void HandleAcquireResponse(QueueableItem item)
 				g_queue_push_tail(GbagOfTasks, cr);
 			}
 		}
-		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
+		//printf(WHERESTR "unlocking mutex\n", WHEREARG);				
 		pthread_mutex_unlock(&queue_mutex);
+		//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 		if (g_queue_is_empty(GpagetableWaiters))
 			GpagetableWaiters = NULL;
 	}
@@ -1297,6 +1337,7 @@ void* ProccessWork(void* data)
 			
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
+		//printf(WHERESTR "locked mutex\n", WHEREARG);
 		while (g_queue_is_empty(GbagOfTasks) && g_queue_is_empty(GpriorityResponses) && !terminate) {
 			//printf(WHERESTR "waiting for event\n", WHEREARG);
 			pthread_cond_wait(&queue_ready, &queue_mutex);
@@ -1307,6 +1348,7 @@ void* ProccessWork(void* data)
 		{
 			//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 			pthread_mutex_unlock(&queue_mutex);
+			//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 			break;
 		}
 		
@@ -1338,7 +1380,7 @@ void* ProccessWork(void* data)
 			
 		//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 		pthread_mutex_unlock(&queue_mutex);
-		
+		//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 		//Get the type of the package and perform the corresponding action
 		//printf(WHERESTR "fetching event\n", WHEREARG);
 		datatype = ((struct acquireRequest*)item->dataRequest)->packageCode;
