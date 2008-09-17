@@ -603,6 +603,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	}
 	else /*if (obj->mode == ACQUIRE_MODE_WRITE)*/
 	{
+		//printf(WHERESTR "Handling write release\n", WHEREARG);
 		//Get a group id, and register the active transfer
 		struct spu_pendingRequest* preq;
 		if((preq = malloc(sizeof(struct spu_pendingRequest))) == NULL)
