@@ -80,11 +80,12 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 	unsigned long lastSize;
 	PROBLEM_DATA_TYPE* data;
 	PROBLEM_DATA_TYPE old, new;
+	double itemDelta = 0.0;
 
 	PROBLEM_DATA_TYPE* firstRows = NULL;
 	PROBLEM_DATA_TYPE* lastRows = NULL;
 
-	height = work_item->heigth ;
+	height = work_item->heigth;
 	width = map_width;
     
 	unsigned int isFirst = 1;
@@ -142,7 +143,7 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 				    *GET_MAP_VALUE(x-1,y) + 
 				    *GET_MAP_VALUE(x+1,y));
 				*GET_MAP_VALUE(x,y) = new;
-				delta += ABS(old-new);
+				itemDelta += ABS(old-new);
 				rc++;
 			}
 		}
@@ -169,7 +170,7 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 			for (x = 2 - (y%2); x < width - 1; x=x+2)
 			{
 				//printf("(%d, %d)\n", x, y);
-				old = MAPVALUE(x,y);
+				old = *GET_MAP_VALUE(x,y);
 				new = 0.2 * (
 				    *GET_MAP_VALUE(x,y) + 
 				    *GET_MAP_VALUE(x,y-1) + 
@@ -177,7 +178,7 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 				    *GET_MAP_VALUE(x-1,y) + 
 				    *GET_MAP_VALUE(x+1,y));
 				*GET_MAP_VALUE(x,y) = new;
-				delta += ABS(old-new);
+				itemDelta += ABS(old-new);
 				rc++;
 			}
 		}	
@@ -196,7 +197,10 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 		//printf(WHERESTR "SPU %d releasing firstRow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
 		release(firstRows);
 	}
+
+	//printf(WHERESTR "Delta for %s workblock %d was %lf\n", WHEREARG, red_round ? "red" : "black", work_item->block_no, itemDelta);
 	
+	delta += itemDelta;
 }
 
 int main(long long id)
@@ -205,6 +209,7 @@ int main(long long id)
     struct Job_Control* job;
     struct Barrier_Unit* barrier;
     unsigned long size;
+    double roundDelta;
     
     initialize();
     
@@ -222,13 +227,14 @@ int main(long long id)
 	sharedCount = boot->sharedCount;
 	boot->spu_no++;
 	release(boot);
-	delta = epsilon + 1.0;
+
+    roundDelta = epsilon + 1.0;
+	delta = 0.0;
 
 	//printf(WHERESTR "SPU %d is booting\n", WHEREARG, spu_no);
 	
 	while(1)
 	{
-	
 		//printf(WHERESTR "SPU %d is waiting for job lock\n", WHEREARG, spu_no);
 		job = acquire(JOB_LOCK, &size, ACQUIRE_MODE_WRITE);
 		jobno = job->nextjob;
@@ -248,6 +254,9 @@ int main(long long id)
 					barrier->delta = delta;
 				else
 					barrier->delta += delta;
+
+				//printf(WHERESTR "At barrier for spu %d, delta was: %lf\n", WHEREARG, spu_no, delta);
+				delta = 0.0;
 	
 #ifdef GRAPHICS
 				if (barrier->lock_count == spu_count)
@@ -269,10 +278,12 @@ int main(long long id)
 					//printf(WHERESTR "SPU %d is waiting for manual barrier, count: %d\n", WHEREARG, spu_no, barrier->lock_count);
 
 				}
-				delta = barrier->delta;
+				deltasum += barrier->delta;
+				roundDelta = barrier->delta;
 				release(barrier);
 				
-				if (delta < epsilon)
+				
+				if (roundDelta < epsilon)
 					break;
 			}
 			else
@@ -287,12 +298,13 @@ int main(long long id)
 			//TODO: If there is just one job and two SPU's, this does not work...
 			if (job->nextjob == job->count)
 			{
+				delta = 0.0;
 				job->nextjob = 0;
 				job->red_round = !job->red_round;
 			}
 		}
 		
-		if (delta < epsilon)
+		if (roundDelta < epsilon)
 			break;
 		
 		//printf(WHERESTR "SPU %d got job %d, red: %d\n", WHEREARG, spu_no, job->nextjob, job->red_round);
@@ -316,7 +328,7 @@ int main(long long id)
 	res->rc = rc;
 	release(res);
 	
-	printf(WHERESTR "SPU %d is terminating, delta was: %lf, epsilon was: %lf\n", WHEREARG, spu_no, delta, epsilon);
+	printf(WHERESTR "SPU %d is terminating, delta was: %lf, epsilon was: %lf\n", WHEREARG, spu_no, roundDelta, epsilon);
 	terminate();	
 	//printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
 	  
