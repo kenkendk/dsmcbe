@@ -167,7 +167,7 @@ int main(unsigned long long id)
 	
 	initialize();
 
-	//printf("SPU: Ready to start\n");
+	printf("SPU %i: Ready to start\n", speID);
 	unsigned long size;
 	unsigned int* ptr;
 	//printf(WHERESTR "Starting acquire count with id %i\n", WHEREARG, COUNT);
@@ -215,7 +215,7 @@ int main(unsigned long long id)
 			CTHEIGTH = package->heigth;			
 		
 			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
-			//printf("spu.c: pid: %i, maxpid %i\n", pid, maxpid);
+			printf("spu %i: pid: %i, maxpid %i\n", speID, pid, maxpid);
 				
 			//if ((pid % (maxpid / 10)) == 0 && pid != maxpid)
 				//printf("-\n");

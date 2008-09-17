@@ -300,26 +300,28 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 
 	//Try to remove a object of the same size as the object
 	// we want to alloc.
-	size_t j;
-	size_t lc = g_queue_get_length(state->agedObjectMap);
-	if (lc < 10)
+	if (temp == NULL)
 	{
-		for(j = 0; j < lc; j++)
+		size_t j;
+		size_t lc = g_queue_get_length(state->agedObjectMap);
+		if (lc < 10 && lc > 0)
 		{
-			id = (unsigned int)g_queue_peek_nth(state->agedObjectMap, j);
-			obj = g_hash_table_lookup(state->itemsById, (void*)id);
-			if(obj->size == size && obj->count == 0)
+			for(j = 0; j < lc; j++)
 			{
-				//Remove the object, and try to allocate again
-				//printf(WHERESTR "Disposing object: %d\n", WHEREARG, obj->id);
-				spuhandler_DisposeObject(state, obj);
-				if (state->map->free_mem >= size)
+				id = (unsigned int)g_queue_peek_nth(state->agedObjectMap, j);
+				obj = g_hash_table_lookup(state->itemsById, (void*)id);
+				if(obj->size == size && obj->count == 0)
+				{
+					//Remove the object, and try to allocate again
+					//printf(WHERESTR "Disposing object: %d\n", WHEREARG, obj->id);
+					spuhandler_DisposeObject(state, obj);
 					temp = spu_memory_malloc(state->map, size);
-				lc = g_queue_get_length(state->agedObjectMap);			
-			}		
-		}
-	}	
-
+					break;			
+				}		
+			}
+		}	
+	}
+	
 	//While we have not recieved a valid pointer, and there are still objects to discard
 	while(temp == NULL && !g_queue_is_empty(state->agedObjectMap))
 	{
@@ -747,21 +749,17 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 			}
 						
 			
-			if (pendingSize > 0 && pendingSize + state->map->free_mem > data->dataSize)
+			if (pendingSize == 0)
 			{
-			
-#ifdef DEBUG_COMMUNICATION	
-				printf(WHERESTR "No more space, delaying acquire until space becomes avalible, free mem: %d, pendingSize: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, pendingSize, data->dataSize);
-#endif
-				g_queue_push_tail(state->releaseWaiters, data);
-				return FALSE;
-			} else {
+				printf("Warning, no pending releaseRequests\n");
+				//sleep(1);
 
+				
 #ifdef DEBUG_COMMUNICATION	
 				printf(WHERESTR "No more space, denying acquire request\n", WHEREARG);	
 #endif
 				
-				fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
+				/*fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d\n", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
 			
 				GHashTableIter iter;
 				g_hash_table_iter_init(&iter, state->itemsById);
@@ -770,38 +768,39 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 				
 				while(g_hash_table_iter_next(&iter, (void*)&key, (void*)&value))
 					fprintf(stderr, "* ERROR * " WHERESTR ": Item %d is allocated at %d and takes up %d bytes, count: %d\n", WHEREARG, key, (unsigned int)value->LS, (unsigned int)value->size, value->count);
+
+				g_hash_table_iter_init(&iter, state->pendingRequests);
+				while(g_hash_table_iter_next(&iter, &key, (void**)&value))
+				{
+					struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
+					fprintf(stderr, "* ERROR * " WHERESTR ": Item %d is in pending\n", WHEREARG, v->objId);
+				}
+	
+				g_hash_table_iter_init(&iter, state->activeDMATransfers);
+				while(g_hash_table_iter_next(&iter, &key, (void**)&value))
+				{
+					struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
+					fprintf(stderr, "* ERROR * " WHERESTR ": Item %d is in DMATransfer\n", WHEREARG, v->objId);
+				}
 				
-				sleep(5); 				
+				sleep(5);*/
 				
-				PUSH_TO_SPU(state, preq->requestId);
+				PUSH_TO_SPU(state, preq->requestId;);
 				PUSH_TO_SPU(state, NULL);
 				PUSH_TO_SPU(state, 0);
-				
-				g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-				free(preq);
 				return TRUE;
-			} 
+				
+			}
 			
+#ifdef DEBUG_COMMUNICATION	
+			printf(WHERESTR "No more space, delaying acquire until space becomes avalible, free mem: %d, pendingSize: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, pendingSize, data->dataSize);
+#endif
+			if (!g_queue_find(state->releaseWaiters, data) == NULL)
+				g_queue_push_tail(state->releaseWaiters, data);
+			return FALSE;
+
+		} 
 			
-			/*fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
-			
-			GHashTableIter iter;
-			g_hash_table_iter_init(&iter, state->itemsById);
-			GUID key;
-			struct spu_dataObject* value;
-			
-			while(g_hash_table_iter_next(&iter, (void*)&key, (void*)&value))
-				fprintf(stderr, "* ERROR * " WHERESTR ": Item %d is allocated at %d and takes up %d bytes, count: %d\n", WHEREARG, key, (unsigned int)value->LS, (unsigned int)value->size, value->count);
-			
-			sleep(5); 
-			PUSH_TO_SPU(state, preq->requestId);
-			PUSH_TO_SPU(state, NULL);
-			PUSH_TO_SPU(state, 0);
-			
-			g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-			free(preq);
-			return;*/	
-		}
 
 #ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Handling acquire response for id: %d, requestId: %d, object did not exist, creating\n", WHEREARG, preq->objId, data->requestID);
@@ -882,9 +881,11 @@ void spuhandler_ManageDelayedAcquireResponses(struct SPU_State* state)
 #ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Attempting to process a new delayed acquire\n", WHEREARG);	
 #endif
-		struct acquireResponse* resp = g_queue_pop_head(state->releaseWaiters);
+		struct acquireResponse* resp = g_queue_peek_head(state->releaseWaiters);
 		if (!spuhandler_HandleAcquireResponse(state, resp))
 			return;
+		else
+			g_queue_pop_head(state->releaseWaiters);
 	}
 }
 
@@ -898,6 +899,7 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 		printf(WHERESTR "This was the last holder, check for invalidate\n", WHEREARG);	
 #endif
 			//If this was the last release, check for invalidates, and otherwise register in the age map
+			
 			
 			//if (TRUE)
 			if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)			

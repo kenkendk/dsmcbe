@@ -258,7 +258,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 	unsigned int temp = 0;
 
 	unsigned int firstFit = g_list_length(map->bitmap) > 10 ? 1 : 0;
-
+	
 	for(i = 0; i < g_list_length(map->bitmap); i++)
 	{
 		this = g_list_nth_data(map->bitmap, i);
@@ -466,7 +466,7 @@ SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 #endif	
 #else	
 	map->bitmap = malloc(map->size);
-	//memset(map->bitmap, 0, map->size);
+	memset(map->bitmap, 0, map->size);
 #endif	
 
 	return map;
@@ -517,7 +517,7 @@ void spu_memory_free(SPU_Memory_Map* map, void* data) {
 	g_hash_table_remove(map->allocated, data);
 	map->free_mem += bitsize * ALIGN_SIZE_COUNT;
 	
-	unsigned int newguess;
+	unsigned int newguess = 0;
 	
 	if (bitsize > SIZE_THRESHOLD) {
 		newguess = ((((unsigned int)data) + (bitsize * ALIGN_SIZE_COUNT)) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
