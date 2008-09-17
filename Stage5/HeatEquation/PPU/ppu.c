@@ -42,26 +42,37 @@ void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned i
 	
 	for(i =0; i < rows; i++)
 	{
-		printf(WHERESTR "Fetching work row: %d\n", WHEREARG, WORK_OFFSET + i);
+		//printf(WHERESTR "Fetching work row: %d\n", WHEREARG, WORK_OFFSET + i);
 		item = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
 		
         memcpy(&data[item->line_start * map_width], &item->problem, item->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
 
-		printf(WHERESTR "Updated from: %d, height: %d\n", WHEREARG, item->line_start, item->heigth);
+		//printf(WHERESTR "Updated from: %d, height: %d, width: %d\n", WHEREARG, item->line_start, item->heigth, map_width);
+		
+		/*if (item->line_start + item->heigth > 485)
+		{
+			size_t j;
+			unsigned int y = 485 - item->line_start;
+			for(j = 123; j <= 127; j++)
+				printf(WHERESTR "Pixel at (%d,%d) is: %lf\n", WHEREARG, j, 485, (&item->problem)[y * map_width + j]);
+			y++; 
+			for(j = 123; j <= 127; j++)
+				printf(WHERESTR "Pixel at (%d,%d) is: %lf\n", WHEREARG, j, 486, (&item->problem)[y * map_width + j]);
+		}*/
 
 		if (i < sharedCount)
 		{
-			printf(WHERESTR "Fetching shared row: %d\n", WHEREARG, SHARED_ROW_OFFSET + i);
+			//printf(WHERESTR "Fetching shared row: %d\n", WHEREARG, SHARED_ROW_OFFSET + i);
 			temp = acquire(SHARED_ROW_OFFSET + i, &size, ACQUIRE_MODE_READ);
 			memcpy(&data[(item->line_start + item->heigth) * map_width], temp, map_width * 2 * sizeof(PROBLEM_DATA_TYPE));
 	        release(temp);
-			printf(WHERESTR "Updated from: %d, height: %d\n", WHEREARG, item->line_start + item->heigth, 2);
+			//printf(WHERESTR "Updated from: %d, height: %d\n", WHEREARG, item->line_start + item->heigth, 2);
 		}
 
         release(item);
 	}
 	
-	sleep(1);
+	//sleep(1);
 	
 }
 
@@ -127,7 +138,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		else
 			thisHeight = SLICE_HEIGHT;
 
-		printf(WHERESTR "Created work %d, height: %d\n", WHEREARG, WORK_OFFSET + rows, thisHeight);
+		//printf(WHERESTR "Created work %d, height: %d\n", WHEREARG, WORK_OFFSET + rows, thisHeight);
 		
 		remainingLines -= thisHeight;
 
@@ -145,7 +156,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		
 		if (remainingLines > 0)
 		{
-			printf(WHERESTR "Creating shared row %d\n", WHEREARG, SHARED_ROW_OFFSET + rows);
+			//printf(WHERESTR "Creating shared row %d\n", WHEREARG, SHARED_ROW_OFFSET + rows);
 			temp = create(SHARED_ROW_OFFSET + rows, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 			memcpy(temp, &data[lineOffset * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 			release(temp);
@@ -190,7 +201,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	
 	while(delta > epsilon)
 	{
-		printf(WHERESTR "Waiting for manual barrier\n", WHEREARG);
+		//printf(WHERESTR "Waiting for manual barrier\n", WHEREARG);
 		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
 		while(barrier->lock_count != spu_count)
 		{
@@ -198,7 +209,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
 		}
 
-		printf(WHERESTR "manual barrier done\n", WHEREARG);
+		//printf(WHERESTR "manual barrier done\n", WHEREARG);
 
 
         if((cnt + 1) == UPDATE_FREQ)
@@ -215,7 +226,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
         }
        
         barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
-		printf(WHERESTR "manual barrier done, setting lock count to 0\n", WHEREARG);
+		//printf(WHERESTR "manual barrier done, setting lock count to 0\n", WHEREARG);
 		barrier->lock_count = 0;
         delta = barrier->delta;
         release(barrier);

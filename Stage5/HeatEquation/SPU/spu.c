@@ -26,12 +26,12 @@ unsigned int jobno;
 
 
 //#define GET_MAP_VALUE(x,y) (((y) < adjustTop && firstRows != NULL) ? &firstRows[((y) * width) + x] : (((y) > height - 3 && lastRows != NULL) ? &lastRows[(((y) - 1 - height) * width) + x] : &data[(((y) - adjustTop) * width) + x]))  
-#define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data, dataSize, firstSize, lastSize)
+#define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data, dataSize, firstSize, lastSize, work_item->line_start)
 
-#define CHECK_BOUNDS(arr, index, sz) if (((unsigned int)(arr) > (unsigned int)(&arr[index])) || (((unsigned int)(&arr[index]) > ((unsigned int)(arr)) + sz))) REPORT_ERROR("Outside bounds!"); 
+//#define CHECK_BOUNDS(arr, index, sz) if (((unsigned int)(arr) > (unsigned int)(&arr[index])) || (((unsigned int)(&arr[index]) > ((unsigned int)(arr)) + sz))) REPORT_ERROR("Outside bounds!"); 
+#define CHECK_BOUNDS(arr, index, sz)
 
-
-PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirst, unsigned int isLast, unsigned int width, unsigned int height, PROBLEM_DATA_TYPE* firstRows, PROBLEM_DATA_TYPE* lastRows, PROBLEM_DATA_TYPE* data, unsigned long dataSize, unsigned long firstSize, unsigned long lastSize)
+PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirst, unsigned int isLast, unsigned int width, unsigned int height, PROBLEM_DATA_TYPE* firstRows, PROBLEM_DATA_TYPE* lastRows, PROBLEM_DATA_TYPE* data, unsigned long dataSize, unsigned long firstSize, unsigned long lastSize, unsigned int startLine)
 {
 	unsigned int print = 0;//(y < 4) || (y > height - 4);
 	
@@ -40,7 +40,7 @@ PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirs
 		if (print)
 			printf("Mapped (%d, %d) to firstRows (%d)\n", x, y, y);
 		
-		CHECK_BOUNDS(firstRows, y * width + x, firstSize);
+		//CHECK_BOUNDS(firstRows, y * width + x, firstSize);
 		return &firstRows[y * width + x];
 	}
 	else if (!isLast && y >= height - 2)
@@ -48,21 +48,24 @@ PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirs
 		if (print)
 			printf("Mapped (%d, %d) to lastRows (%d)\n", x, y, (y - (height - 2)));
 
-		CHECK_BOUNDS(lastRows, (y - (height - 2)) * width + x, lastSize);
+		//CHECK_BOUNDS(lastRows, (y - (height - 2)) * width + x, lastSize);
 		return &lastRows[(y - (height - 2)) * width + x];
 	}
 	else if (!isFirst)
 	{
+		/*if (((startLine + (y - 2) == 485) || (startLine + (y - 2) == 486)) && x >= 124)
+			printf(WHERESTR "Value at (%d,%d) is: %lf\n", WHEREARG, x, startLine + (y - 2), data[(y - 2) * width + x]);*/
+			 
 		if (print)
 			printf("Mapped (%d, %d) to data (%d)\n", x, y, y - 2);
-		CHECK_BOUNDS(data, (y - 2) * width + x, dataSize);
+		//CHECK_BOUNDS(data, (y - 2) * width + x, dataSize);
 		return &data[(y - 2) * width + x];
 	}
 	else
 	{
 		if (print)
 			printf("Mapped (%d, %d) to data (%d)\n", x, y, y);
-		CHECK_BOUNDS(data, y * width + x, dataSize);
+		//CHECK_BOUNDS(data, y * width + x, dataSize);
 		return &data[y * width + x];
 	}
 }
@@ -95,7 +98,7 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 	
 	if (!isFirst)
 	{
-	    printf(WHERESTR "SPU %d is fetching top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
+	    //printf(WHERESTR "SPU %d is fetching top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
 		firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &firstSize, ACQUIRE_MODE_WRITE);
 	}
 	
@@ -104,7 +107,7 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 	if (!isLast)
 		height += 2;
 		
-	printf(WHERESTR "Start: %d, height: %d, adjusted height: %d, total height: %d, isFirst: %d, isLast: %d, red: %d\n", WHEREARG, work_item->line_start, work_item->heigth, height, map_height, isFirst, isLast, red_round);
+	//printf(WHERESTR "Start: %d, height: %d, adjusted height: %d, total height: %d, isFirst: %d, isLast: %d, red: %d\n", WHEREARG, work_item->line_start, work_item->heigth, height, map_height, isFirst, isLast, red_round);
    	
     //printf(WHERESTR "SPU %d is active (%d:%d)\r\n", WHEREARG, spu_no, width, height);
     //printf(WHERESTR "Epsilon: %lf\r\n", WHEREARG, epsilon);
@@ -117,13 +120,13 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 		{
 			if (!isLast && y == height - 3)
 			{
-				printf(WHERESTR "SPU %d fetching lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
+				//printf(WHERESTR "SPU %d fetching lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
 				lastRows = acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
 			}
 			
 			if (firstRows != NULL && y == 3)
 			{
-			    printf(WHERESTR "SPU %d is releasing top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
+			    //printf(WHERESTR "SPU %d is releasing top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
 				release(firstRows);
 				firstRows = NULL;
 			}
@@ -152,13 +155,13 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 		{
 			if (!isLast && y == height - 3)
 			{
-				printf(WHERESTR "SPU %d reading lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
+				//printf(WHERESTR "SPU %d reading lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
 				lastRows = acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
 			}
 			
 			if (firstRows != NULL && y == 3)
 			{
-			    printf(WHERESTR "SPU %d is releasing top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
+			    //printf(WHERESTR "SPU %d is releasing top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
 				release(firstRows);
 				firstRows = NULL;
 			}
@@ -184,13 +187,13 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 	
 	if (lastRows != NULL)
 	{
-		printf(WHERESTR "SPU %d releasing lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
+		//printf(WHERESTR "SPU %d releasing lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
 		release(lastRows);
 	}
 
 	if (firstRows != NULL)
 	{
-		printf(WHERESTR "SPU %d releasing firstRow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
+		//printf(WHERESTR "SPU %d releasing firstRow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
 		release(firstRows);
 	}
 	
@@ -221,7 +224,7 @@ int main(long long id)
 	release(boot);
 	delta = epsilon + 1.0;
 
-	printf(WHERESTR "SPU %d is booting\n", WHEREARG, spu_no);
+	//printf(WHERESTR "SPU %d is booting\n", WHEREARG, spu_no);
 	
 	while(1)
 	{
@@ -236,7 +239,7 @@ int main(long long id)
 
 			if (!red_round)
 			{
-				printf(WHERESTR "SPU %d is waiting for manual barrier\n", WHEREARG, spu_no);
+				//printf(WHERESTR "SPU %d is waiting for manual barrier\n", WHEREARG, spu_no);
 				barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
 	
 				if (barrier->lock_count == 0)
@@ -253,7 +256,7 @@ int main(long long id)
 				else
 					barrier->lock_count++;
 
-				printf(WHERESTR "SPU %d is waiting for manual barrier, count: %d\n", WHEREARG, spu_no, barrier->lock_count);
+				//printf(WHERESTR "SPU %d is waiting for manual barrier, count: %d\n", WHEREARG, spu_no, barrier->lock_count);
 
 	
 				while(barrier->lock_count != 0)
@@ -272,12 +275,12 @@ int main(long long id)
 			}
 			else
 			{
-				printf(WHERESTR "SPU %d is waiting for barrier\n", WHEREARG, spu_no);
+				//printf(WHERESTR "SPU %d is waiting for barrier\n", WHEREARG, spu_no);
 				acquireBarrirer(EX_BARRIER_1);
 			}
 			
 	
-			printf(WHERESTR "SPU %d is fetching job\n", WHEREARG, spu_no);
+			//printf(WHERESTR "SPU %d is fetching job\n", WHEREARG, spu_no);
 			job = acquire(JOB_LOCK, &size, ACQUIRE_MODE_WRITE);
 			//TODO: If there is just one job and two SPU's, this does not work...
 			if (job->nextjob == job->count)
@@ -300,7 +303,7 @@ int main(long long id)
 		
 		//printf(WHERESTR "SPU %d is starting\n", WHEREARG, spu_no);
 		    
-		printf(WHERESTR "SPU %d is fetching work %d\n", WHEREARG, spu_no, WORK_OFFSET + jobno);
+		//printf(WHERESTR "SPU %d is fetching work %d\n", WHEREARG, spu_no, WORK_OFFSET + jobno);
 	    work_item = acquire(WORK_OFFSET + jobno, &size, ACQUIRE_MODE_WRITE);
 	    solve(work_item, size);
 		release(work_item);
