@@ -229,11 +229,13 @@ int main(long long id)
 	while(1)
 	{
 	
+		//printf(WHERESTR "SPU %d is waiting for job lock\n", WHEREARG, spu_no);
 		job = acquire(JOB_LOCK, &size, ACQUIRE_MODE_WRITE);
 		jobno = job->nextjob;
 		
 		while (job->nextjob >= job->count)
 		{
+			//printf(WHERESTR "SPU %d is releasing job lock\n", WHEREARG, spu_no);
 			release(job);
 
 

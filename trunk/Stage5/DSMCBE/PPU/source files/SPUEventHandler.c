@@ -644,23 +644,21 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 	}
 	
 	obj->writebuffer_ready = TRUE;
-	
-	unsigned int DMAcount = MAX(obj->size, SPE_DMA_MAX_TRANSFERSIZE) / SPE_DMA_MAX_TRANSFERSIZE;
-	
-#ifdef DEBUG_COMMUNICATION
-	printf(WHERESTR "DMAcount is %i\n", WHEREARG, DMAcount);
-#endif		
 
 	//If we are just waiting for the signal, then start the DMA transfer
 	if (obj->DMAId != UINT_MAX && !obj->isDMAToSPU)
 	{
+		unsigned int DMAcount = (MAX(ALIGNED_SIZE(obj->size), SPE_DMA_MAX_TRANSFERSIZE) + (SPE_DMA_MAX_TRANSFERSIZE - 1)) / SPE_DMA_MAX_TRANSFERSIZE;
+
+#ifdef DEBUG_COMMUNICATION
+		printf(WHERESTR "DMAcount is %i\n", WHEREARG, DMAcount);
+#endif			
 		unsigned int sizeRemain = obj->size;
 		unsigned int sizeDone = 0;
 		for(i = DMAcount; i > 0; i--)
 		{			
-		
 #ifdef DEBUG_COMMUNICATION	
-			printf(WHERESTR "WriteBufferReady triggered a DMA transfer, dmaId: %d\n", WHEREARG, obj->DMAId);
+			printf(WHERESTR "WriteBufferReady triggered a DMA transfer, dmaId: %d, obj id: %d\n", WHEREARG, obj->DMAId, obj->id);
 #endif
 			//spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA, (unsigned int)obj->LS, obj->size, obj->DMAId);
 			spuhandler_InitiateDMATransfer(state, FALSE, (unsigned int)obj->EA + sizeDone, (unsigned int)obj->LS + sizeDone, MIN(sizeRemain, SPE_DMA_MAX_TRANSFERSIZE), (obj->DMAId + 16 - i + 1) % 16);
@@ -900,7 +898,6 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 #endif
 			//If this was the last release, check for invalidates, and otherwise register in the age map
 			
-			
 			//if (TRUE)
 			if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)			
 			{
@@ -922,10 +919,6 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 //This function handles completed DMA transfers
 void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int groupID)
 {
-#ifdef DEBUG_COMMUNICATION	
-	printf(WHERESTR "Handling completed DMA transfer, dmaId: %d\n", WHEREARG, groupID);
-#endif
-	
 	//Get the corresponding request
 	struct spu_pendingRequest* preq = g_hash_table_lookup(state->activeDMATransfers, (void*)groupID);
 	if (preq == NULL)
@@ -944,9 +937,15 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		REPORT_ERROR("DMA was completed, but there was not allocated space?");
 		return;
 	}
-	
-	obj->DMAId = UINT_MAX;
+
 	preq->DMAcount--;
+	if (preq->DMAcount == 0)
+		obj->DMAId = UINT_MAX;
+
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, count: %d, DMAId: %d\n", WHEREARG, groupID, preq->DMAcount, obj->DMAId);
+#endif
+
 	
 	//If the transfer was from PPU to SPU, we can now give the pointer to the SPU
 	if (preq->operation != PACKAGE_RELEASE_REQUEST)
