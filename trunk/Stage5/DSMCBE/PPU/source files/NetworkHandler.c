@@ -642,7 +642,6 @@ void net_processPackage(void* data, unsigned int machineId)
 					//printf(WHERESTR "locked mutex\n", WHEREARG);
 				}
 				if (ui->Gqueue != NULL)
-					//queue_enq(*(ui->queue), data);
 					g_queue_push_tail(*(ui->Gqueue), data);
 				if (ui->event != NULL)
 					pthread_cond_signal(ui->event);

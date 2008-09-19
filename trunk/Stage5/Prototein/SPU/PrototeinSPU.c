@@ -9,6 +9,8 @@
 #include <dsmcbe_spu.h>
 #include <common/debug.h>
 
+#define DOUBLE_BUFFER
+
 #define MAP_WIDTH (prototein_length * 2 + 1) 
 #define MAP_HEIGTH (prototein_length * 2 + 1)
 #define MAP_SIZE (MAP_WIDTH * MAP_HEIGTH)
@@ -51,7 +53,14 @@ int FoldPrototein(unsigned long long id)
 //    unsigned int thread_id;
     int threadNo;
     unsigned int total;
-    
+
+#ifdef DOUBLE_BUFFER
+	unsigned int work2 = UINT_MAX;
+	unsigned int item2 = UINT_MAX;
+	unsigned int lastOne = 0;
+	unsigned int firstOne = 1;
+#endif
+
     size_t i;
     
     //Remove warning about unused parameter
@@ -94,12 +103,32 @@ int FoldPrototein(unsigned long long id)
     {
 	    while(1)
 	    {
-		    //printf(WHERESTR "thread %d:%d is waiting for work\n", WHEREARG, thread_id, threadNo);
-		    thread_no = threadNo;
-		    //printf("thread %d:%d Start - Acquire write SYNCLOCK\n", thread_id, threadNo);
+
+#ifdef DOUBLE_BUFFER
+		    
+		    if (lastOne)
+		    	break;
+
 		    synclock = acquire(PACKAGE_ITEM, &size, ACQUIRE_MODE_WRITE);
-		    //printf("thread %d:%d End - Acquire write SYNCLOCK\n", thread_id, threadNo);
-		    thread_no = threadNo;
+		    	
+		    if (synclock[0] >= synclock[1])
+		    	lastOne = 1;
+
+			if (firstOne && synclock[0] < synclock[1])
+			{
+				//printf(WHERESTR "thread %d is pre_reading %d\n", WHEREARG, thread_id,  WORKITEM_OFFSET + synclock[0]);
+				firstOne = 0;
+				item2 = WORKITEM_OFFSET + synclock[0];
+				work2 = beginAcquire(item2, ACQUIRE_MODE_READ);
+				synclock[0]++;
+			}
+
+		    itemno = WORKITEM_OFFSET + synclock[0];
+		    total = synclock[1];
+		    synclock[0]++;
+#else
+		    synclock = acquire(PACKAGE_ITEM, &size, ACQUIRE_MODE_WRITE);
+
 		    if (synclock[0] >= synclock[1])
 		    {
 			    //printf(WHERESTR "thread %d:%d is terminating\n", WHEREARG, thread_id, threadNo);
@@ -107,21 +136,32 @@ int FoldPrototein(unsigned long long id)
 		    	break;
 		    }
 		    	
-		    thread_no = threadNo;
 		    itemno = WORKITEM_OFFSET + synclock[0];
 		    total = synclock[1];
-		    //printf(WHERESTR "thread %d:%d acquired work %d of %d\n", WHEREARG, thread_id, threadNo, synclock[0], synclock[1]);
 		    synclock[0]++;
-	    	//printf("thread %d:%d Start - Release write SYNCLOCK\n", thread_id, threadNo);
-	    	//if (synclock[0] >= synclock[1])
-	    		//printf(WHERESTR "thread %d:%d is releasing the last item\n", WHEREARG, thread_id, threadNo);
+#endif 
 	    	release(synclock);
 	    	
 	    	//printf("thread %d:%d End - Release write SYNCLOCK\n", thread_id, threadNo);
 	
 		    thread_no = threadNo;
 		    //printf("thread %d:%d Start - Acquire read WORK\n", thread_id, threadNo);
+#ifdef DOUBLE_BUFFER
+
+			if (work2 != UINT_MAX)
+			{
+				//printf(WHERESTR "thread %d is finalizing acquire of %d\n", WHEREARG, thread_id,  item2);
+				work = endAsync(work2, &size);
+			}
+			if (!lastOne)
+			{
+				//printf(WHERESTR "thread %d is pre_reading %d\n", WHEREARG, thread_id,  itemno);
+				item2 = itemno;
+				work2 = beginAcquire(item2, ACQUIRE_MODE_READ);
+			}
+#else
 			work = (struct workblock*)acquire(itemno, &size, ACQUIRE_MODE_READ);
+#endif
 			//printf("thread %d:%d End - Acquire read WORK\n", thread_id, threadNo);	    
 		    thread_no = threadNo;
 		    queue = (struct coordinate*)(((void*)work) + sizeof(struct workblock));
