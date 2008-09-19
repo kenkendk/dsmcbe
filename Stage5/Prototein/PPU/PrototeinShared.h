@@ -12,10 +12,10 @@
 #define MASTER_COMPLETION_LOCK 4
 
 //This is the buffer where each SPU will write data into
-#define WINNER_OFFSET 100
+#define WINNER_OFFSET 500
 
 //This is the actual workblock ID
-#define WORKITEM_OFFSET 200
+#define WORKITEM_OFFSET 1000
 
 //The number of lightweight threads on the SPU
 #define SPU_FIBERS 0

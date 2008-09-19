@@ -1261,7 +1261,9 @@ void* SPU_MainThread(void* dummy)
 	//Event base, keeps the mutex locked, until we wait for events
 #ifdef EVENT_BASED
 	struct timespec waittime;
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&spu_rq_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 #endif
 
 	while(!spu_terminate)
@@ -1272,7 +1274,9 @@ void* SPU_MainThread(void* dummy)
 //Non-event based just needs the lock for accessing the queue	
 #ifndef EVENT_BASED
 		//Lock the mutex once, and read all the data
+		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&spu_rq_mutex);
+		//printf(WHERESTR "locked mutex\n", WHEREARG);
 
 		for(i = 0; i < spe_thread_count; i++)
 			spuhandler_HandleRequestCoordinatorMessages(&spu_states[i]);
@@ -1321,8 +1325,10 @@ void* SPU_EventWatcher(void* dummy)
 		if (event_count == -1)
 			REPORT_ERROR("spe_event_wait failed");
 		
-		//After each event, trigger this 
+		//After each event, trigger this
+		//printf(WHERESTR "locking mutex\n", WHEREARG); 
 		pthread_mutex_lock(&spu_rq_mutex);
+		//printf(WHERESTR "locked mutex\n", WHEREARG);
 		pthread_cond_signal(&spu_rq_event);
 		pthread_mutex_unlock(&spu_rq_mutex);
 		
@@ -1416,7 +1422,9 @@ void TerminateSPUHandler(int force)
 	spu_terminate = force | TRUE;
 	
 #ifdef EVENT_BASED
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&spu_rq_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	pthread_cond_signal(&spu_rq_event);
 	pthread_mutex_unlock(&spu_rq_mutex);
 	
