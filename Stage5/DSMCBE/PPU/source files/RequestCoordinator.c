@@ -1297,7 +1297,6 @@ void HandleAcquireResponse(QueueableItem item)
 	{
 		//printf(WHERESTR "fixing pagetable waiters\n", WHEREARG);
 
-		//TODO: Must be a double queue
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
 		//printf(WHERESTR "locked mutex\n", WHEREARG);
