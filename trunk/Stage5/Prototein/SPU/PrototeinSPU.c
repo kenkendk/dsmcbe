@@ -113,7 +113,10 @@ int FoldPrototein(unsigned long long id)
 		    //printf(WHERESTR "thread %d:%d acquired work %d of %d\n", WHEREARG, thread_id, threadNo, synclock[0], synclock[1]);
 		    synclock[0]++;
 	    	//printf("thread %d:%d Start - Release write SYNCLOCK\n", thread_id, threadNo);
+	    	//if (synclock[0] >= synclock[1])
+	    		//printf(WHERESTR "thread %d:%d is releasing the last item\n", WHEREARG, thread_id, threadNo);
 	    	release(synclock);
+	    	
 	    	//printf("thread %d:%d End - Release write SYNCLOCK\n", thread_id, threadNo);
 	
 		    thread_no = threadNo;
@@ -160,6 +163,7 @@ int FoldPrototein(unsigned long long id)
 
     //printf(WHERESTR "SPU %d has completed %d jobs\n", WHEREARG, thread_id, totalwork);
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
+	//sleep((thread_id * 0.5) + 1);
     winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2));
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
     memcpy(winner_object + (sizeof(int) * 2), winner, sizeof(struct coordinate) * prototein_length);
@@ -172,10 +176,9 @@ int FoldPrototein(unsigned long long id)
     FREE(places);
    	FREE(map);
 	
-	//sleep(5);
-    printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
+    //printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
     terminate();
-    printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
+    //printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
 	return 0;
 }
 

@@ -90,7 +90,9 @@ void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event,
 {
 	invalidateSubscriber sub;
 	
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&invalidate_queue_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	
 	if ((sub = malloc(sizeof(struct invalidateSubscriber))) == NULL)
 		REPORT_ERROR("malloc error");	
@@ -107,7 +109,9 @@ void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event,
 void UnregisterInvalidateSubscriber(GQueue** q)
 {
 	
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&invalidate_queue_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	
 	FREE(g_hash_table_lookup(GinvalidateSubscribers, q));
 	g_hash_table_remove(GinvalidateSubscribers, q);
@@ -502,7 +506,9 @@ void DoInvalidate(GUID dataItem)
 
 	//printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
 
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&invalidate_queue_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	//kl = g_hash_table_get_keys(GinvalidateSubscribers);
 	kl = g_hash_table_get_values(GinvalidateSubscribers);
 
@@ -560,7 +566,9 @@ void DoInvalidate(GUID dataItem)
 		unsigned int* count = g_hash_table_lookup(GallocatedItemsDirty, obj);
 		*count = *count + 1;
 
+		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(sub->mutex);
+		//printf(WHERESTR "locked mutex\n", WHEREARG);
 		
 		g_queue_push_tail(*sub->Gqueue, requ);
 		if (sub->event != NULL)
@@ -648,8 +656,11 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	
 	GQueue* q;
 	dataObject obj;
-			
+
 	//printf(WHERESTR "Start acquire on id %i\n", WHEREARG, request->dataItem);
+
+	unsigned int machineId = GetMachineID(request->dataItem);
+			
 	
 	//Check that the item exists
 	if ((obj = g_hash_table_lookup(GallocatedItems, (void*)request->dataItem)) != NULL)
@@ -665,6 +676,9 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				RespondAcquire(item, obj);
 			} else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE) {			
 				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
+				//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+					//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
+
 				g_queue_push_head(q, NULL);
 				
 				if (obj->id != PAGE_TABLE_ID)
@@ -681,15 +695,21 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 
 		}
 		else {
-			//Otherwise add the request to the wait list
-			//printf(WHERESTR "Object locked\n", WHEREARG);
+			//Otherwise add the request to the wait list			
+			//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+				//printf(WHERESTR "Object locked\n", WHEREARG);
+				
 			g_queue_push_tail(q, item);
 		}
 	}
 	else
 	{
-		//printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
 		//Create a list if none exists
+
+		//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+			//printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
+
+
 		if (g_hash_table_lookup(Gwaiters, (void*)request->dataItem) == NULL)
 			g_hash_table_insert(Gwaiters, (void*)request->dataItem, (void*)g_queue_new());
 		
@@ -707,6 +727,10 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 	GQueue* q;
 	dataObject obj;
 	QueueableItem next;
+	
+	//unsigned int machineId = GetMachineID(request->dataItem);
+	//if (machineId == 0 && request->dataItem == 0)
+		//printf(WHERESTR "Release for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 	
 	//printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
 	if (request->mode == ACQUIRE_MODE_READ)
@@ -759,7 +783,9 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 					//printf(WHERESTR "Acquire for the next in the queue for %d\n", WHEREARG, request->dataItem);
 					next = g_queue_pop_head(q);
 					if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
-						//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
+						//if (machineId == 0 && ((struct acquireRequest*)next->dataRequest)->dataItem == 0)
+							//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
+
 						g_queue_push_head(q, NULL);
 
 						GUID id = obj->id;
@@ -880,6 +906,8 @@ void HandleAcquireRequest(QueueableItem item)
 	unsigned int machineId = GetMachineID(req->dataItem);
 	void* obj;
 	//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number, req->requestID);
+
+
 	
 	if (machineId != dsmcbe_host_number && machineId != UINT_MAX)
 	{
@@ -1111,7 +1139,11 @@ void SingleInvalidate(QueueableItem item, GUID id)
 	req->requestID = 0;
 	
 	if (item->mutex != NULL)
+	{
+		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(item->mutex);
+		//printf(WHERESTR "locked mutex\n", WHEREARG);
+	}
 	g_queue_push_tail(*(item->Gqueue), req);
 	
 	if (item->event != NULL)
@@ -1182,11 +1214,11 @@ void HandleAcquireResponse(QueueableItem item)
 	if ((dq = g_hash_table_lookup(GpendingRequests, (void*)object->id)) != NULL)
 	{
 		//printf(WHERESTR "testing local copy\n", WHEREARG);
+
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
-		//printf(WHERESTR "locking mutex\n", WHEREARG);
-		pthread_mutex_lock(&queue_mutex);
-		
+		pthread_mutex_lock(&queue_mutex);		
 		//printf(WHERESTR "locked mutex\n", WHEREARG);
+		
 		while(!g_queue_is_empty(dq))
 		{
 			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
@@ -1224,6 +1256,40 @@ void HandleAcquireResponse(QueueableItem item)
 	}
 
 	//printf(WHERESTR "testing local copy\n", WHEREARG);
+	if ((((struct acquireResponse*)item->dataRequest)->mode != ACQUIRE_MODE_READ) && (GpagetableWaiters == NULL) && (req->dataItem == PAGE_TABLE_ID))
+	{
+		REPORT_ERROR("Recieved pagetable in write, but no objects are being created!");
+		QueueableItem qs;
+		struct releaseRequest* rr;
+
+		if ((qs = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+			REPORT_ERROR("MALLOC error");
+		if ((rr = MALLOC(sizeof(struct releaseRequest))) == NULL)
+			REPORT_ERROR("MALLOC error");
+
+		qs->event = NULL;
+		qs->mutex = NULL;
+		qs->Gqueue = NULL;
+		qs->dataRequest = rr;
+
+		//printf(WHERESTR "releasing pagetable, %d\n", WHEREARG, req->dataItem);
+		rr->packageCode = PACKAGE_RELEASE_REQUEST;
+		rr->data = req->data;
+		rr->dataItem = req->dataItem;
+		rr->dataSize = req->dataSize;
+		rr->mode = req->mode;
+		rr->offset = 0;
+		rr->requestID = req->requestID;
+		
+		//Local pagetable, or remote?
+		if (dsmcbe_host_number == PAGE_TABLE_OWNER)
+			DoRelease(qs, (struct releaseRequest*)qs->dataRequest);
+		else
+		{
+			NetRequest(qs, PAGE_TABLE_OWNER);
+
+		}
+	}
 
 
 	//We have recieved a new copy of the page table, re-enter all those awaiting this
@@ -1233,9 +1299,13 @@ void HandleAcquireResponse(QueueableItem item)
 
 		//TODO: Must be a double queue
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
-		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&queue_mutex);
 		//printf(WHERESTR "locked mutex\n", WHEREARG);
+		
+		GQueue* newpagetablewaiters = NULL;
+		
+		unsigned int hasCreated = FALSE;
+		
 		while(!g_queue_is_empty(GpagetableWaiters))
 		{
 			QueueableItem cr = g_queue_pop_head(GpagetableWaiters);
@@ -1244,8 +1314,9 @@ void HandleAcquireResponse(QueueableItem item)
 			if (((struct createRequest*)cr->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
 			{
 				//printf(WHERESTR "waiter was for create %d\n", WHEREARG, ((struct createRequest*)cr->dataRequest)->dataItem);
-				if (((struct acquireResponse*)item->dataRequest)->mode != ACQUIRE_MODE_READ)
+				if (((struct acquireResponse*)item->dataRequest)->mode != ACQUIRE_MODE_READ && !hasCreated)
 				{
+					hasCreated = TRUE;
 					//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 					pthread_mutex_unlock(&queue_mutex);
 					//printf(WHERESTR "unlocked mutex\n", WHEREARG);
@@ -1292,15 +1363,21 @@ void HandleAcquireResponse(QueueableItem item)
 					if (dsmcbe_host_number == PAGE_TABLE_OWNER)
 						DoRelease(qs, (struct releaseRequest*)qs->dataRequest);
 					else
+					{
 						NetRequest(qs, PAGE_TABLE_OWNER);
 
+					}
 					//printf(WHERESTR "locking mutex\n", WHEREARG);
 					pthread_mutex_lock(&queue_mutex);
 					//printf(WHERESTR "locked mutex\n", WHEREARG);
 					
 				}
-				
-				break;
+				else
+				{
+					if (newpagetablewaiters == NULL)
+						newpagetablewaiters = g_queue_new();
+					g_queue_push_head(newpagetablewaiters, cr);
+				}
 			}
 			else
 			{
@@ -1308,11 +1385,13 @@ void HandleAcquireResponse(QueueableItem item)
 				g_queue_push_tail(GbagOfTasks, cr);
 			}
 		}
+		
+		g_queue_free(GpagetableWaiters);
+		GpagetableWaiters = newpagetablewaiters;
+
 		//printf(WHERESTR "unlocking mutex\n", WHEREARG);				
 		pthread_mutex_unlock(&queue_mutex);
 		//printf(WHERESTR "unlocked mutex\n", WHEREARG);
-		if (g_queue_is_empty(GpagetableWaiters))
-			GpagetableWaiters = NULL;
 	}
 	
 	FREE(item->dataRequest);

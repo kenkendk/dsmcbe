@@ -96,7 +96,9 @@ void NetUnsubscribe(GUID dataitem, unsigned int machineId)
 	req->dataSize = 0;
 	req->offset = 0;
 	
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&net_work_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	g_queue_push_tail(Gnet_requestQueues[machineId], req);
 	pthread_cond_signal(&net_work_ready);
 	pthread_mutex_unlock(&net_work_mutex);
@@ -243,7 +245,9 @@ void NetInvalidate(GUID id)
 	if (net_remote_hosts == 0)
 		return;
 	
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&net_work_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	//printf(WHERESTR "Taking lock: %d\n", WHEREARG, (int)&net_work_mutex);
 	for(i = 0; i < net_remote_hosts; i++)
 	{
@@ -277,7 +281,9 @@ void TerminateNetworkHandler(int force)
 	if (net_remote_hosts == 0)
 		return;
 	
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&net_work_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	pthread_cond_signal(&net_work_ready);
 	pthread_mutex_unlock(&net_work_mutex);
 	
@@ -419,7 +425,9 @@ void* net_Writer(void* data)
 		//Catch and filter invalidates
 		if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 		{
+			//printf(WHERESTR "locking mutex\n", WHEREARG);
 			pthread_mutex_lock(&net_leaseLock);
+			//printf(WHERESTR "locked mutex\n", WHEREARG);
 			
 			itemid = ((struct invalidateRequest*)package)->dataItem;
 			
@@ -459,7 +467,9 @@ void* net_Writer(void* data)
 		}
 		else if (((struct createRequest*)package)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
 		{
+			//printf(WHERESTR "locking mutex\n", WHEREARG);
 			pthread_mutex_lock(&net_leaseLock);
+			//printf(WHERESTR "locked mutex\n", WHEREARG);
 			itemid = ((struct acquireResponse*)package)->dataItem;
 			
 			//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
@@ -540,8 +550,10 @@ void net_processPackage(void* data, unsigned int machineId)
 			{
 				itemid = ((struct releaseRequest*)data)->dataItem;
 				//printf(WHERESTR "Processing release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
-							
+				
+				//printf(WHERESTR "locking mutex\n", WHEREARG);			
 				pthread_mutex_lock(&net_leaseLock);
+				//printf(WHERESTR "locked mutex\n", WHEREARG);
 				//The read release request implies that the sender has destroyed the copy
 				if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
 					g_hash_table_insert(Gnet_leaseTable, (void*)itemid, g_hash_table_new(NULL, NULL));
@@ -577,7 +589,9 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 		//case PACKAGE_NACK:
 		
+			//printf(WHERESTR "locking mutex\n", WHEREARG);
 			pthread_mutex_lock(&net_work_mutex);
+			//printf(WHERESTR "locked mutex\n", WHEREARG);
 			
 			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
 			{
@@ -622,7 +636,11 @@ void net_processPackage(void* data, unsigned int machineId)
 				
 				//Other responses are sent directly to the reciever
 				if (ui->mutex != NULL)
+				{
+					//printf(WHERESTR "locking mutex\n", WHEREARG);
 					pthread_mutex_lock(ui->mutex);
+					//printf(WHERESTR "locked mutex\n", WHEREARG);
+				}
 				if (ui->Gqueue != NULL)
 					//queue_enq(*(ui->queue), data);
 					g_queue_push_tail(*(ui->Gqueue), data);
