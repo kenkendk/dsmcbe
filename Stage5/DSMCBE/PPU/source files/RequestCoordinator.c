@@ -1,4 +1,4 @@
-/*
+ /*
  *
  * This module contains implementation code for
  * Coordinating requests from various sources
@@ -94,7 +94,7 @@ void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event,
 	pthread_mutex_lock(&invalidate_queue_mutex);
 	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	
-	if ((sub = malloc(sizeof(struct invalidateSubscriber))) == NULL)
+	if ((sub = MALLOC(sizeof(struct invalidateSubscriber))) == NULL)
 		REPORT_ERROR("malloc error");	
 	
 	sub->mutex = mutex;
@@ -113,8 +113,10 @@ void UnregisterInvalidateSubscriber(GQueue** q)
 	pthread_mutex_lock(&invalidate_queue_mutex);
 	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	
-	FREE(g_hash_table_lookup(GinvalidateSubscribers, q));
-	g_hash_table_remove(GinvalidateSubscribers, q);
+	void* ptr = g_hash_table_lookup(GinvalidateSubscribers, q);
+	g_hash_table_remove(GinvalidateSubscribers, q); 
+	FREE(ptr);
+	ptr = NULL;
 	
 	pthread_mutex_unlock(&invalidate_queue_mutex);
 }
@@ -147,14 +149,23 @@ void TerminateCoordinator(int force)
 	}
 	
 	if (GpagetableWaiters != NULL)
-		g_queue_free(GpagetableWaiters);
+		g_queue_free(GpagetableWaiters);		
+	GpagetableWaiters = NULL;
+			
 	g_queue_free(GbagOfTasks);
+	GbagOfTasks = NULL;
+	
 	g_queue_free(GpriorityResponses);
+	GpriorityResponses = NULL;
 	
 	g_hash_table_destroy(GallocatedItems);
+	GallocatedItems = NULL;
 	g_hash_table_destroy(GallocatedItemsDirty);
+	GallocatedItemsDirty = NULL;
 	g_hash_table_destroy(Gwaiters);
+	Gwaiters = NULL;
 	g_hash_table_destroy(GpendingRequests);
+	GpendingRequests = NULL;
 	
 	pthread_join(workthread, NULL);
 	
@@ -245,6 +256,7 @@ void ProcessWaiters(unsigned int* pageTable)
 			
 			g_hash_table_iter_steal(&iter);							 
 			g_queue_free(dq);
+			dq = NULL;
 		}
 	}
 
@@ -387,10 +399,12 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	resp->data = obj->EA;
 	resp->dataItem = obj->id;
 	if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+	{
 		if (dsmcbe_host_number != GetMachineID(obj->id))
 			resp->mode = ACQUIRE_MODE_WRITE_OK;
 		else
 			resp->mode = ACQUIRE_MODE_WRITE;
+	}
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
 		resp->mode = ACQUIRE_MODE_READ;
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
@@ -582,6 +596,7 @@ void DoInvalidate(GUID dataItem)
 	pthread_mutex_unlock(&invalidate_queue_mutex);
 
 	g_list_free(kl);
+	kl = NULL;
 
 	//printf(WHERESTR "Invalidate request sent\n", WHEREARG);
 }
@@ -1251,6 +1266,7 @@ void HandleAcquireResponse(QueueableItem item)
 		{
 			g_hash_table_remove(GpendingRequests, (void*)object->id);
 			g_queue_free(dq);
+			dq = NULL;
 		}
 		
 	}

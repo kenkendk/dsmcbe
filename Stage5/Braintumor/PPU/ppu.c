@@ -72,10 +72,19 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	package->canonAX = canonAX;
 	package->canonAY = canonAY;
 	release(package);
-	
+		
 	unsigned long size;
-	for(i = 0; i < SPU_THREADS; i++)
-		release(acquire(FINISHED+(id*10)+i, &size, ACQUIRE_MODE_READ));
+	unsigned int* count = acquire(COUNT, &size, ACQUIRE_MODE_READ);
+	
+	//printf("SPU_THREADS is %i and COUNT is %i\n", SPU_THREADS, *count);
+	for(i = 0; i < *count; i++)
+	{
+		//printf("Reading FINISH package with id %i\n", FINISHED + (id * 1000) + i);
+		release(acquire(FINISHED+(id*1000)+i, &size, ACQUIRE_MODE_READ));
+		//printf("Read FINISH package with id %i\n", FINISHED + (id * 1000) + i);
+		
+	}
+	release(count);
 		 				
 	//printf("\n\nStart working on results\n\n");
 	
@@ -377,5 +386,7 @@ int main(int argc, char* argv[])
 		for(i = 0; i < SPU_THREADS; i++)
 			pthread_join(threads[i], NULL);
 	}
+	printf("Going to sleep before we die\n");
+	sleep(10);
 	return 0;
 }

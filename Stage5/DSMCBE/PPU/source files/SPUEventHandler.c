@@ -191,6 +191,7 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 	g_queue_remove(state->agedObjectMap, (void*)obj->id);
 	spu_memory_free(state->map, obj->LS);
 	free(obj);
+	obj = NULL;
 	
 	if (state->terminated != UINT_MAX && g_hash_table_size(state->itemsById) == 0)
 	{
@@ -207,7 +208,7 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req)
 {
 	QueueableItem qi;
-	if ((qi = malloc(sizeof(struct QueueableItemStruct))) == NULL)
+	if ((qi = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 		REPORT_ERROR("malloc error");
 	
 	qi->dataRequest = req;
@@ -408,7 +409,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	}
 	
 	struct spu_pendingRequest* preq;
-	if ((preq = malloc(sizeof(struct spu_pendingRequest))) == NULL)
+	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 		
 	preq->objId = id;
@@ -418,7 +419,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
 	struct acquireRequest* req;
-	if ((req = malloc(sizeof(struct acquireRequest))) == NULL)
+	if ((req = MALLOC(sizeof(struct acquireRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 	
 	req->packageCode = packageCode;
@@ -496,7 +497,7 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	}
 	
 	struct spu_pendingRequest* preq;
-	if ((preq = malloc(sizeof(struct spu_pendingRequest))) == NULL)
+	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 		
 	preq->objId = id;
@@ -506,7 +507,7 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
 	struct createRequest* req;
-	if ((req = malloc(sizeof(struct createRequest))) == NULL)
+	if ((req = MALLOC(sizeof(struct createRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 	
 	req->packageCode = PACKAGE_CREATE_REQUEST;
@@ -525,7 +526,7 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 #endif
 
 	struct spu_pendingRequest* preq;
-	if ((preq = malloc(sizeof(struct spu_pendingRequest))) == NULL)
+	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 		
 	preq->objId = id;
@@ -535,7 +536,7 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
 	struct acquireBarrierRequest* req;
-	if ((req = malloc(sizeof(struct acquireBarrierRequest))) == NULL)
+	if ((req = MALLOC(sizeof(struct acquireBarrierRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 	
 	req->packageCode = PACKAGE_ACQUIRE_BARRIER_REQUEST;
@@ -574,7 +575,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 		//printf(WHERESTR "Handling write release\n", WHEREARG);
 		//Get a group id, and register the active transfer
 		struct spu_pendingRequest* preq;
-		if((preq = malloc(sizeof(struct spu_pendingRequest))) == NULL)
+		if((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
 			REPORT_ERROR("malloc error");
 		
 		preq->objId = obj->id;
@@ -804,7 +805,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		printf(WHERESTR "Handling acquire response for id: %d, requestId: %d, object did not exist, creating\n", WHEREARG, preq->objId, data->requestID);
 #endif
 
-		if ((obj = malloc(sizeof(struct spu_dataObject))) == NULL)
+		if ((obj = MALLOC(sizeof(struct spu_dataObject))) == NULL)
 			REPORT_ERROR("malloc error");
 			
 		obj->count = 1;
@@ -860,7 +861,8 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
 		{
 			g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-			free(preq);
+			//free(preq);
+			preq = NULL;
 		}	
 	}
 	
@@ -898,8 +900,8 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 #endif
 			//If this was the last release, check for invalidates, and otherwise register in the age map
 			
-			//if (TRUE)
-			if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)			
+			//if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)			
+			if (TRUE)
 			{
 #ifdef DEBUG_COMMUNICATION	
 				if (state->terminated != UINT_MAX)
@@ -933,7 +935,8 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
 	if (obj == NULL)
 	{
-		free(preq);
+		//free(preq);
+		preq = NULL;
 		REPORT_ERROR("DMA was completed, but there was not allocated space?");
 		return;
 	}
@@ -961,7 +964,10 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		PUSH_TO_SPU(state, obj->size);
 		
 		if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
-			free(preq);
+		{
+			//free(preq);
+			preq = NULL;
+		}
 	}
 	else if(preq->DMAcount == 0)
 	{
@@ -972,7 +978,7 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		//__asm__ __volatile__("lwsync" : : : "memory");
 		
 		struct releaseRequest* req;
-		if ((req = malloc(sizeof(struct releaseRequest))) == NULL)
+		if ((req = MALLOC(sizeof(struct releaseRequest))) == NULL)
 			REPORT_ERROR("malloc error");
 			
 		/*if (obj->id == 103)
@@ -1020,7 +1026,8 @@ void spuhandler_HandleReleaseResponse(struct SPU_State* state, unsigned int requ
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
 
 	g_hash_table_remove(state->pendingRequests, (void*)requestId);
-	free(preq);
+	//free(preq);
+	preq = NULL;
 
 	if (obj == NULL || obj->count == 0)
 	{
@@ -1045,7 +1052,8 @@ void spuhandler_HandleBarrierResponse(struct SPU_State* state, unsigned int requ
 	}
 
 	g_hash_table_remove(state->pendingRequests, (void*)requestId);
-	free(preq);
+	//free(preq);
+	preq = NULL;
 
 	PUSH_TO_SPU(state, requestId);
 }
@@ -1356,7 +1364,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	
 	spu_terminate = FALSE;
 	
-	if ((spu_states = malloc(sizeof(struct SPU_State) * thread_count)) == NULL)
+	if ((spu_states = MALLOC(sizeof(struct SPU_State) * thread_count)) == NULL)
 		REPORT_ERROR("malloc error");
 		
 	if (pthread_mutex_init(&spu_rq_mutex, NULL) != 0) REPORT_ERROR("Mutex initialization failed");
@@ -1368,7 +1376,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	if (spu_event_handler == NULL)
 		REPORT_ERROR("Broken event handler");
 		
-	if ((registered_events = malloc(sizeof(spe_event_unit_t) * spe_thread_count)) == NULL)
+	if ((registered_events = MALLOC(sizeof(spe_event_unit_t) * spe_thread_count)) == NULL)
 		REPORT_ERROR("malloc error");
 #endif
 
@@ -1438,12 +1446,16 @@ void TerminateSPUHandler(int force)
 	{
 		g_hash_table_destroy(spu_states[i].activeDMATransfers);
 		g_queue_free(spu_states[i].agedObjectMap);
+		spu_states[i].agedObjectMap = NULL;
 		g_hash_table_destroy(spu_states[i].itemsById);
 		g_hash_table_destroy(spu_states[i].itemsByPointer);
 		g_queue_free(spu_states[i].mailboxQueue);
+		spu_states[i].mailboxQueue = NULL;
 		g_hash_table_destroy(spu_states[i].pendingRequests);
 		g_queue_free(spu_states[i].releaseWaiters);
+		spu_states[i].releaseWaiters = NULL;
 		g_queue_free(spu_states[i].queue);
+		spu_states[i].queue = NULL;
 
 		spu_memory_destroy(spu_states[i].map);
 
@@ -1460,6 +1472,7 @@ void TerminateSPUHandler(int force)
 	spe_event_handler_destroy(&spu_event_handler);
 #endif
 	free(spu_states);
+	spu_states = NULL;
 	
 }
 

@@ -60,7 +60,6 @@ struct acquireResponse
     int mode;
     unsigned long dataSize;
     void* data;
-    void* dmaComplete;
 };
 
 struct writebufferReady
@@ -181,7 +180,7 @@ struct packageBuffer
 #define free_align(x) spu_dsmcbe_memory_free(x)*/
   
 #else
-  #define MALLOC(x) (((x) == 0) ? NULL : malloc(x))
+  #define MALLOC(x) (((x) == 0) ? NULL : calloc(x, 1))
   #define FREE(x) free(x)
   #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : _malloc_align(x,y))
   #define FREE_ALIGN(x) _free_align(x)

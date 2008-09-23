@@ -1,6 +1,6 @@
 #include "../header files/SPU_MemoryAllocator.h"
 #include "../../common/debug.h"
-#include <malloc.h>
+#include "../../common/datapackages.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -75,7 +75,7 @@ void printMap(SPU_Memory_Map* map)
 	}
 	
 	printf("List printed\n\n");
-	sleep(1);
+	//sleep(1);
 }
 
 
@@ -148,7 +148,7 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 			}
 			else
 			{
-				obj = malloc(sizeof(struct SPU_Memory_Object_struct));				
+				obj = MALLOC(sizeof(struct SPU_Memory_Object_struct));				
 				obj->pointer = (unsigned int)offset;
 				obj->size = (unsigned int)size;
 				
@@ -164,7 +164,7 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 	
 	if((unsigned int)(offset + size) <= (unsigned int)(map->offset + map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE))
 	{
-		obj = malloc(sizeof(struct SPU_Memory_Object_struct));				
+		obj = MALLOC(sizeof(struct SPU_Memory_Object_struct));				
 		obj->pointer = (unsigned int)offset;
 		obj->size = (unsigned int)size;
 		
@@ -433,7 +433,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size, unsigned int
 SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 	SPU_Memory_Map* map;
 	
-	if ((map = malloc(sizeof(SPU_Memory_Map))) == NULL)
+	if ((map = MALLOC(sizeof(SPU_Memory_Map))) == NULL)
 		REPORT_ERROR("malloc error");
 
 	//Always adjust to start at 16 byte boundary
@@ -456,7 +456,7 @@ SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 #ifdef USEDYNAMICPARTITIONSCHEME
 	map->bitmap = NULL;
 	struct SPU_Memory_Object_struct* obj = NULL;
-	obj = malloc(sizeof(struct SPU_Memory_Object_struct));				
+	obj = MALLOC(sizeof(struct SPU_Memory_Object_struct));
 	obj->pointer = (unsigned int)map->offset;
 	obj->size = (unsigned int)map->size * ALIGN_SIZE_COUNT * BITS_PR_BYTE;	
 	map->bitmap = g_list_insert(map->bitmap, obj, 0);
@@ -465,7 +465,7 @@ SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
 	printMap(map);
 #endif	
 #else	
-	map->bitmap = malloc(map->size);
+	map->bitmap = MALLOC(map->size);
 	memset(map->bitmap, 0, map->size);
 #endif	
 
@@ -476,7 +476,6 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 #ifdef DEBUGMAP	
 	printf(WHERESTR "MEMMGR - Trying to malloc %i\n", WHEREARG, size);
 #endif	
-	unsigned int first_free;
 	unsigned int bitsize = SIZE_TO_BITS(size);
 	void* data = SPU_Memory_find_chunk(map, size);
 	if (data == NULL)
@@ -486,8 +485,12 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 #ifndef USEDYNAMICPARTITIONSCHEME	
 	SPU_Memory_update_bitmap(map, data, bitsize, 0xff);
 #endif	
+
 	map->free_mem -= bitsize * ALIGN_SIZE_COUNT;
-	
+
+#ifndef USEDYNAMICPARTITIONSCHEME	
+	unsigned int first_free;
+
 	//It is not possible for the bitmap to be updated, unless it is allocated.
 	//Settting the pointer to the end of the current allocation should thus always be safe
 	if (bitsize > SIZE_THRESHOLD) {
@@ -497,7 +500,7 @@ void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 		//if (spu_memory_free_bit_count[map->bitmap[map->first_free]] == 0)
 			map->first_free = first_free; //(((((unsigned int)data) + 0) + (bitsize * ALIGN_SIZE_COUNT)) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
 	}
-	
+#endif	
 	return data; 
 }
 
@@ -516,7 +519,8 @@ void spu_memory_free(SPU_Memory_Map* map, void* data) {
 	
 	g_hash_table_remove(map->allocated, data);
 	map->free_mem += bitsize * ALIGN_SIZE_COUNT;
-	
+
+#ifndef USEDYNAMICPARTITIONSCHEME		
 	unsigned int newguess = 0;
 	
 	if (bitsize > SIZE_THRESHOLD) {
@@ -525,10 +529,12 @@ void spu_memory_free(SPU_Memory_Map* map, void* data) {
 			map->last_free = MIN(newguess, map->size - 2);  
 	} else {
 		newguess = (((unsigned int)data) - map->offset) / ALIGN_SIZE_COUNT / BITS_PR_BYTE;
+		//newguess = 1;
+		map->first_free = 1;
 		if (newguess < map->first_free)
 			map->first_free = MAX(newguess, 0);  
 	}
-	
+#endif	
 }
 
 void spu_memory_destroy(SPU_Memory_Map* map) {
@@ -538,4 +544,5 @@ void spu_memory_destroy(SPU_Memory_Map* map) {
 	g_hash_table_destroy(map->allocated);
 	map->allocated = NULL;
 	free(map);
+	map = NULL;
 }

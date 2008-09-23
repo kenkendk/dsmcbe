@@ -7,8 +7,6 @@
 #include "../Common/Common.h"
 #include "../DSMCBE/common/debug.h"
 
-#define clean(x)
-
 #define Y 3
 #define X 3
 
@@ -54,7 +52,7 @@ float random_normal_variant(float mean, float variant)
 	return (float)((V2 * fac * variant) + mean);
 }
 
-int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* buffer, struct CURRENT_GRID current_grid, unsigned int NextID)
+int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* buffer, struct CURRENT_GRID current_grid)
 {
 	int i;
 	int more = FALSE;
@@ -80,9 +78,6 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 	
 	for(i=0; i<pcnt; i++)
 	{		
-		if (i % 500 == 0)
-			getAsyncStatus(NextID);
-			
 		if(points[i].alive == TRUE)
 		{		
 			x = points[i].x;
@@ -170,7 +165,7 @@ int main(unsigned long long id)
 	
 	initialize();
 
-	//printf("SPU: Ready to start\n");
+	printf("SPU %i: Ready to start\n", speID);
 	unsigned long size;
 	unsigned int* ptr;
 	//printf(WHERESTR "Starting acquire count with id %i\n", WHEREARG, COUNT);
@@ -180,7 +175,6 @@ int main(unsigned long long id)
 	*ptr = speID + 1;
 	release(ptr);
 	//printf(WHERESTR "Released count with pointer %i\n", WHEREARG, ptr);
-	clean(COUNT);
 	
 	if (SPU_FIBERS > 1)
 		threadNo = CreateThreads(SPU_FIBERS);
@@ -218,7 +212,7 @@ int main(unsigned long long id)
 			CTHEIGTH = package->heigth;			
 		
 			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
-			//printf("spu.c: pid: %i, maxpid %i\n", pid, maxpid);
+			printf("spu %i: pid: %i, maxpid %i\n", speID, pid, maxpid);
 				
 			//if ((pid % (maxpid / 10)) == 0 && pid != maxpid)
 				//printf("-\n");
@@ -228,15 +222,16 @@ int main(unsigned long long id)
 				//printf(WHERESTR "Released package with pointer %i\n", WHEREARG, package);
 				//if(jobID == 4)
 					//getStats();
-					 
-				release(create(FINISHED + (jobID * 10) + speID, 1));
+
+				printf("spu %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);									 
+				release(create(FINISHED + (jobID * 1000) + speID, 1));
+				printf("spu %i: Created FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);
 				jobID++;
 				continue;
 			}
 				
 			package->id = pid + 1;
 			release(package);
-			clean(JOB+jobID);
 			//printf(WHERESTR "Released package with pointer %i\n", WHEREARG, package);
 			
 			//printf(WHERESTR "Starting acquire points with id %i\n", WHEREARG, RESULT + pid);
@@ -263,9 +258,9 @@ int main(unsigned long long id)
 
 			unsigned char* buffer;
 			unsigned int id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10)); 
-			unsigned int bufferID1;
-			unsigned int bufferID2;
-    		unsigned int currentID;			
+			unsigned int bufferID1 = 0;
+			unsigned int bufferID2 = 0;
+    		unsigned int currentID = 0;			
 
 			//printf(WHERESTR "Starting acquire buffer with id %i\n", WHEREARG, id);
 			bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);
@@ -293,7 +288,7 @@ int main(unsigned long long id)
 
 						buffer = endAsync(currentID, &size);
 						//printf(WHERESTR "Acquire for buffer returned pointer id %i\n", WHEREARG, buffer);
-						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid, currentID == bufferID1 ? bufferID2 : bufferID1);			
+						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
 						release(buffer);
 						//printf(WHERESTR "Released buffer with pointer %i\n", WHEREARG, buffer);
 
@@ -323,7 +318,7 @@ int main(unsigned long long id)
 								
 				buffer = endAsync(currentID, &size);
 				//printf(WHERESTR "Acquire for buffer returned pointer id %i\n", WHEREARG, buffer);
-				more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid, currentID == bufferID1 ? bufferID2 : bufferID1);
+				more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
 				release(buffer);
 				//printf(WHERESTR "Released buffer with pointer %i\n", WHEREARG, buffer);
 				
@@ -341,7 +336,6 @@ int main(unsigned long long id)
 			}
 			release(points);
 			//printf(WHERESTR "Released points with pointer %i\n", WHEREARG, points);
-			clean(RESULT + pid);
 		}
 		if (SPU_FIBERS > 1)
 			TerminateThread();
