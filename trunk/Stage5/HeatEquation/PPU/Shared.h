@@ -1,17 +1,20 @@
 #ifndef SHARED_H_
 #define SHARED_H_
 
+//Toggle graphic display on or off
 #define GRAPHICS
 
-#define USE_BARRIER
+//Defines the size of each work block (approximate value)
+#define BLOCK_SIZE (64 * 1024)
 
-#define SLICE_HEIGHT 128
-
+//How often the graphics should update
 #define UPDATE_FREQ 10
 
+//Offset calculation
 #define MAPOFFSET(x,y) (((y) * (map_width)) + (x))
 #define MAPVALUE(x,y) (data[MAPOFFSET((x),(y))])
 
+//Simple macros
 #ifndef MIN
 #define MIN(x,y) ((x) <= (y) ? (x) : (y))
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
@@ -22,6 +25,7 @@
 #define ABS(x) ((x) > 0 ? (x) : ((x) * -1))
 #endif 
 
+//The SPU only handles float in hardware, so double has to be simulated
 #define PROBLEM_DATA_TYPE float
 
 //Structure for sending data between two units
@@ -75,6 +79,8 @@ struct Results
 #define EX_BARRIER_3 6 
 #define BARRIER_LOCK_EXTRA 7
 #define EX_BARRIER_X 8 
+
+#define MASTER_COMPLETION_LOCK 15
 
 #define WORK_OFFSET 100
 #define FIRST_ROW_OFFSET 500

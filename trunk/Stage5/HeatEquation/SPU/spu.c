@@ -298,7 +298,6 @@ int main(long long id)
 			//TODO: If there is just one job and two SPU's, this does not work...
 			if (job->nextjob == job->count)
 			{
-				delta = 0.0;
 				job->nextjob = 0;
 				job->red_round = !job->red_round;
 			}
