@@ -63,6 +63,8 @@ GHashTable** Gnet_idlookups;
 //These are the sequence numbers assigned to the packages, a unique sequence for each host
 unsigned int* net_sequenceNumbers;
 
+unsigned int DSMCBE_MachineCount() { return net_remote_hosts; }
+
 void NetUnsubscribe(GUID dataitem, unsigned int machineId)
 {
 	struct releaseRequest* req;
@@ -865,7 +867,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 			if (send(fd, package, sizeof(struct acquireResponse) - sizeof(void*), MSG_MORE) != sizeof(struct acquireResponse) - sizeof(void*))
 				REPORT_ERROR("Failed to send entire acquire response package");
 			if (((struct acquireResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
-			printf(WHERESTR "Data is %u, size is %u\n", WHEREARG, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize);
+			//printf(WHERESTR "Data is %u, size is %u\n", WHEREARG, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize);
 			if (send(fd, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize, 0) != ((struct acquireResponse*)package)->dataSize)
 				REPORT_ERROR("Failed to send entire acquire response data package");			 
 			break;

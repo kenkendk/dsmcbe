@@ -113,6 +113,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		MAPVALUE(map_width - 1, j) = -273.15;
 	}
 
+	unsigned int slice_height = BLOCK_SIZE / (map_width * sizeof(PROBLEM_DATA_TYPE));
 
 #ifdef GRAPHICS
 	printf(WHERESTR "Displaying map (%d x %d)\n", WHEREARG, map_width, map_height);
@@ -132,12 +133,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	
 	while(remainingLines > 0)
 	{
-		unsigned int thisHeight;
-		if (SLICE_HEIGHT > remainingLines)
-			thisHeight = remainingLines;
-		else
-			thisHeight = SLICE_HEIGHT;
-
+		unsigned int thisHeight = MIN(slice_height, remainingLines);
 		//printf(WHERESTR "Created work %d, height: %d\n", WHEREARG, WORK_OFFSET + rows, thisHeight);
 		
 		remainingLines -= thisHeight;
@@ -168,6 +164,9 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
 		rows++;
 	}
+	
+	if (DSMCBE_MachineCount() != 0)
+		spu_count *= DSMCBE_MachineCount(); 
 
 	//Let all SPU's compete for a number
 	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
@@ -209,12 +208,13 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
 		}
 
-		//printf(WHERESTR "manual barrier done\n", WHEREARG);
 
 
         if((cnt + 1) == UPDATE_FREQ)
 			printf(WHERESTR "Updating graphics, delta: %lf\n", WHEREARG, barrier->delta);
-
+		else
+			printf(WHERESTR "manual barrier done, delta: %lf\n", WHEREARG, barrier->delta);
+		
 		release(barrier);
 		
         cnt++;
@@ -286,7 +286,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		fprintf(stderr, "Wrong number of parameters, please use either \"./PPU <spu_count>\" or \"./PPU <machineid> <filename> <spu_count>\"\n\n");
+		fprintf(stderr, "Wrong number of parameters, please use either:\n\"./PPU <spu_count>\"\n or \n\"./PPU <machineid> <filename> <spu_count>\"\n\n");
 		exit(-1);
 	}
 
@@ -295,7 +295,15 @@ int main(int argc, char* argv[])
 	//printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
 	
 	if (machineid == 0)
-		Coordinator(128, 512, spu_count);
+	{
+		Coordinator(128, 1024, spu_count);
+		release(create(MASTER_COMPLETION_LOCK, 1));
+	}
+	else
+	{
+		unsigned long size;
+		release(acquire(MASTER_COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
+	}
 	
 	//printf(WHERESTR "Shutting down machine %d\n", WHEREARG, machineid);
 	
