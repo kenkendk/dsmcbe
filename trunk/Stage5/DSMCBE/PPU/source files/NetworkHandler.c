@@ -700,7 +700,7 @@ void* net_readPackage(int fd)
 			blocksize = sizeof(struct acquireResponse);
 			if ((data = MALLOC(blocksize)) == NULL)
 				REPORT_ERROR("MALLOC error");
-			blocksize -= sizeof(unsigned long);
+			blocksize -= sizeof(void*);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire response package"); 
 
@@ -714,7 +714,7 @@ void* net_readPackage(int fd)
 			}
 			else 
 				((struct acquireResponse*)data)->data = NULL;
-				
+			
 			break;
 		case PACKAGE_RELEASE_REQUEST:
 			blocksize = sizeof(struct releaseRequest);
@@ -847,43 +847,55 @@ void net_sendPackage(void* package, unsigned int machineId)
 	{
 		case PACKAGE_CREATE_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct createRequest), 0);
+			if (send(fd, package, sizeof(struct createRequest), 0) != sizeof(struct createRequest))
+				REPORT_ERROR("Failed to send entire create request read package");			 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct acquireRequest), 0);
+			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
+				REPORT_ERROR("Failed to send entire acquire request read package");
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct acquireRequest), 0);
+			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
+				REPORT_ERROR("Failed to send entire acquire request write package");			 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct acquireResponse) - sizeof(unsigned long), MSG_MORE);
+			if (send(fd, package, sizeof(struct acquireResponse) - sizeof(void*), MSG_MORE) != sizeof(struct acquireResponse) - sizeof(void*))
+				REPORT_ERROR("Failed to send entire acquire response package");
 			if (((struct acquireResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize, 0); 
+			printf(WHERESTR "Data is %u, size is %u\n", WHEREARG, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize);
+			if (send(fd, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize, 0) != ((struct acquireResponse*)package)->dataSize)
+				REPORT_ERROR("Failed to send entire acquire response data package");			 
 			break;
 		case PACKAGE_RELEASE_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct releaseRequest) - sizeof(unsigned long), MSG_MORE);
+			if (send(fd, package, sizeof(struct releaseRequest) - sizeof(void*), MSG_MORE) != sizeof(struct releaseRequest) - sizeof(void*))
+				REPORT_ERROR("Failed to send entire release request package");
 			if (((struct releaseRequest*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, ((struct releaseRequest*)package)->data, ((struct releaseRequest*)package)->dataSize, 0); 
+			if (send(fd, ((struct releaseRequest*)package)->data, ((struct releaseRequest*)package)->dataSize, 0) != ((struct releaseRequest*)package)->dataSize)
+				REPORT_ERROR("Failed to send entire release request data package");				  
 			break;
 		case PACKAGE_RELEASE_RESPONSE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct releaseResponse), 0);
+			if (send(fd, package, sizeof(struct releaseResponse), 0) != sizeof(struct releaseResponse))
+				REPORT_ERROR("Failed to send entire release response package"); 
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct invalidateRequest), 0);
+			if (send(fd, package, sizeof(struct invalidateRequest), 0) != sizeof(struct invalidateRequest))
+				REPORT_ERROR("Failed to send entire invalidate request package");
 			break;
 		case PACKAGE_INVALIDATE_RESPONSE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct invalidateResponse), 0);
+			if (send(fd, package, sizeof(struct invalidateResponse), 0) != sizeof(struct invalidateResponse))
+				REPORT_ERROR("Failed to send entire invalidate response package");
 			break;
 		case PACKAGE_NACK:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct NACK), 0);
+			if (send(fd, package, sizeof(struct NACK), 0) != sizeof(struct NACK))
+				REPORT_ERROR("Failed to send entire nack package");				
 			break;
 		case PACKAGE_MIGRATION_RESPONSE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
@@ -895,11 +907,13 @@ void net_sendPackage(void* package, unsigned int machineId)
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct acquireBarrierRequest), 0);
+			if (send(fd, package, sizeof(struct acquireBarrierRequest), 0) != sizeof(struct acquireBarrierRequest))
+				REPORT_ERROR("Failed to send entire acquire barrier request package");				
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct acquireBarrierResponse), 0);
+			if (send(fd, package, sizeof(struct acquireBarrierResponse), 0) != sizeof(struct acquireBarrierResponse))
+				REPORT_ERROR("Failed to send entire acquire barrier response package");				
 			break;
 		case PACKAGE_WRITEBUFFER_READY:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
