@@ -247,7 +247,7 @@ int main(long long id)
 
 			if (!red_round)
 			{
-				//printf(WHERESTR "SPU %d is waiting for manual barrier\n", WHEREARG, spu_no);
+				printf(WHERESTR "SPU %d is waiting for manual barrier\n", WHEREARG, spu_no);
 				barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
 	
 				if (barrier->lock_count == 0)
@@ -288,7 +288,7 @@ int main(long long id)
 			}
 			else
 			{
-				//printf(WHERESTR "SPU %d is waiting for barrier\n", WHEREARG, spu_no);
+				printf(WHERESTR "SPU %d is waiting for barrier\n", WHEREARG, spu_no);
 				acquireBarrirer(EX_BARRIER_1);
 			}
 			

@@ -272,6 +272,24 @@ int main(int argc, char* argv[])
 	int machineid;
 	pthread_t* pthreads;
 	
+	/*printf("Size: %d\n", sizeof(struct Assignment_Unit));
+	
+	struct Assignment_Unit* x = malloc(sizeof(struct Assignment_Unit));
+	x->epsilon = 0.0;
+	x->map_height = 0;
+	x->map_width = 0;
+	x->sharedCount = 0;
+	x->spu_count = 0;
+	x->spu_no = 0;
+	
+	size_t i;
+	for(i = 0; i < sizeof(struct Assignment_Unit); i++)
+	{
+		printf("Byte %d is %d\n", i, ((char*)x)[i]);	
+	}
+	
+	sleep(5);*/
+	
 	if (argc == 2)
 	{
 		spu_count = atoi(argv[1]);

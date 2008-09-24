@@ -53,7 +53,7 @@ struct Assignment_Unit
 	unsigned int spu_no;
 	unsigned int spu_count;
 	unsigned int sharedCount;
-	double epsilon;
+	float epsilon;
 };
 
 struct Barrier_Unit

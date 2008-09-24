@@ -412,9 +412,13 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 		
+	//printf(WHERESTR "New pointer: %d\n", WHEREARG, (unsigned int)preq);
+
 	preq->objId = id;
 	preq->operation = packageCode;
 	preq->requestId = requestId;
+	preq->DMAcount = 0;
+	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
 	
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
@@ -503,6 +507,8 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	preq->objId = id;
 	preq->operation = PACKAGE_CREATE_REQUEST;
 	preq->requestId = requestId;
+	preq->DMAcount = 0;
+	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
 	
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
@@ -532,7 +538,9 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 	preq->objId = id;
 	preq->operation = PACKAGE_ACQUIRE_BARRIER_REQUEST;
 	preq->requestId = requestId;
-	
+	preq->DMAcount = 0;
+	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
+		
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
 	struct acquireBarrierRequest* req;
@@ -581,8 +589,8 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 		preq->objId = obj->id;
 		preq->requestId = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
 		preq->operation = PACKAGE_RELEASE_REQUEST;
+		preq->DMAcount = 0;
 		
-
 		preq->DMAcount = (MAX(ALIGNED_SIZE(obj->size), SPE_DMA_MAX_TRANSFERSIZE) + (SPE_DMA_MAX_TRANSFERSIZE - 1)) / SPE_DMA_MAX_TRANSFERSIZE;
 		for(i = 0; i < preq->DMAcount; i++)
 		{			
@@ -995,6 +1003,12 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 				}
 			printf(WHERESTR "Done testing %d bytes\n", WHEREARG, (int)obj->size);
 		}*/
+		
+		/*printf(WHERESTR "Operation: %d\n", WHEREARG, preq->operation);
+		printf(WHERESTR "Objid: %d\n", WHEREARG, preq->objId);
+		printf(WHERESTR "DMACount: %d\n", WHEREARG, preq->DMAcount);
+		printf(WHERESTR "requestId: %d\n", WHEREARG, preq->requestId);
+		printf(WHERESTR "Pointer: %d\n", WHEREARG, (unsigned int)preq);*/
 			
 		req->data = obj->EA;
 		req->dataItem = obj->id;
@@ -1394,6 +1408,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].releaseWaiters = g_queue_new();
 		spu_states[i].queue = g_queue_new();
 		spu_states[i].terminated = UINT_MAX;
+		spu_states[i].releaseSeqNo = 0;
 		
 #ifdef EVENT_BASED
 		RegisterInvalidateSubscriber(&spu_rq_mutex, &spu_rq_event, &spu_states[i].queue);
