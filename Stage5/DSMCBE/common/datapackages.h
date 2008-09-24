@@ -142,7 +142,7 @@ struct packageBuffer
 	unsigned char buffer[MAX_PACKAGE_SIZE - sizeof(unsigned int)];
 };
 
-#define PACKAGE_SIZE(x) (x == 0 ? 0 : (x == 1 ? sizeof(struct createRequest) : ( x == 2 ? sizeof(struct acquireRequest) : ( x == 3 ? sizeof(struct acquireRequest) : ( x == 4 ? sizeof(struct acquireResponse) : ( x == 5  ? sizeof(struct writebufferReady) : ( x == 6 ? sizeof(struct migrationResponse) : ( x == 7 ? sizeof(struct releaseRequest) : ( x == 8 ? sizeof(struct releaseResponse) : ( x == 9 ? sizeof(struct NACK) : ( x == 10 ? sizeof(struct invalidateRequest) : ( x == 11 ? sizeof(struct invalidateResponse) : ( x == 16 ? sizeof(struct acquireBarrierRequest) : ( x == 17 ? sizeof(struct acquireBarrierResponse) : 0))))))))))))))
+//#define PACKAGE_SIZE(x) (x == 0 ? 0 : (x == 1 ? sizeof(struct createRequest) : ( x == 2 ? sizeof(struct acquireRequest) : ( x == 3 ? sizeof(struct acquireRequest) : ( x == 4 ? sizeof(struct acquireResponse) : ( x == 5  ? sizeof(struct writebufferReady) : ( x == 6 ? sizeof(struct migrationResponse) : ( x == 7 ? sizeof(struct releaseRequest) : ( x == 8 ? sizeof(struct releaseResponse) : ( x == 9 ? sizeof(struct NACK) : ( x == 10 ? sizeof(struct invalidateRequest) : ( x == 11 ? sizeof(struct invalidateResponse) : ( x == 16 ? sizeof(struct acquireBarrierRequest) : ( x == 17 ? sizeof(struct acquireBarrierResponse) : 0))))))))))))))
 
 #define ALIGNED_SIZE(x) (x + ((16 - x) % 16))
 
@@ -188,9 +188,15 @@ struct packageBuffer
   #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : fbmMallocAlign((x) + 1024, y, WHEREARG))
   #define FREE_ALIGN(x) fbmFreeAlign(x, WHEREARG)
 */
+/*
+  #define MALLOC(x) (((x) == 0) ? NULL : malloc((x)+1024))
+  #define FREE(x) free(x)
+  #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : _malloc_align((x)+1024, y))
+  #define FREE_ALIGN(x) _free_align(x)
+*/
   #define MALLOC(x) (((x) == 0) ? NULL : malloc(x))
   #define FREE(x) free(x)
-  #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : _malloc_align(x, y))
+  #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : _malloc_align(x,y))
   #define FREE_ALIGN(x) _free_align(x)
 
 #endif /* DSMCBE_SPU */
