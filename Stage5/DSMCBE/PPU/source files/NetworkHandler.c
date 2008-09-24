@@ -143,7 +143,55 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	}
 	
 	//TODO: Verify that this macro is accurate 
-	packagesize = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
+	int temp = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
+	
+	switch (((struct createRequest*)(item->dataRequest))->packageCode) {
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+			packagesize = sizeof(struct acquireBarrierRequest); 	
+			break;
+		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+			packagesize = sizeof(struct acquireBarrierResponse); 	
+			break;
+		case PACKAGE_ACQUIRE_REQUEST_READ:
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			packagesize = sizeof(struct acquireRequest); 	
+			break;			
+		case PACKAGE_ACQUIRE_RESPONSE:
+			packagesize = sizeof(struct acquireResponse); 	
+			break;			
+		case PACKAGE_CREATE_REQUEST:
+			packagesize = sizeof(struct createRequest); 	
+			break;			
+		case PACKAGE_INVALIDATE_REQUEST:
+			packagesize = sizeof(struct invalidateRequest); 	
+			break;			
+		case PACKAGE_INVALIDATE_RESPONSE:
+			packagesize = sizeof(struct invalidateResponse); 	
+			break;			
+		case PACKAGE_MIGRATION_RESPONSE:
+			packagesize = sizeof(struct migrationResponse); 	
+			break;			
+		case PACKAGE_NACK:
+			packagesize = sizeof(struct NACK); 	
+			break;			
+		case PACKAGE_RELEASE_REQUEST:
+			packagesize = sizeof(struct releaseRequest); 	
+			break;			
+		case PACKAGE_RELEASE_RESPONSE:
+			packagesize = sizeof(struct releaseResponse); 	
+			break;			
+		case PACKAGE_WRITEBUFFER_READY:
+			packagesize = sizeof(struct writebufferReady); 	
+			break;			
+		default:
+			packagesize = 0;
+			break;
+	}
+	
+	if (temp != packagesize)
+	{
+		fprintf(stderr, "Packagecode %u temp %i vs. packagesize %i", ((struct createRequest*)(item->dataRequest))->packageCode, temp, packagesize);
+	}
 
 	if ((datacopy = MALLOC(packagesize)) == NULL)
 	{
@@ -688,14 +736,14 @@ void* net_readPackage(int fd)
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 			blocksize = sizeof(struct acquireRequest);
 			if ((data = MALLOC(blocksize)) == NULL)
-				REPORT_ERROR("MALLOC error");
+				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire read package"); 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 			blocksize = sizeof(struct acquireRequest);
 			if ((data = MALLOC(blocksize)) == NULL)
-				REPORT_ERROR("MALLOC error");
+				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire write package"); 
 			break;
@@ -711,7 +759,7 @@ void* net_readPackage(int fd)
 			if (blocksize != 0)
 			{
 				if ((((struct acquireResponse*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
-					REPORT_ERROR("Failed to allocate space for acquire response data");
+					REPORT_ERROR("Failed to allocate space for acquire response data");					
 				if (recv(fd, ((struct acquireResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 					REPORT_ERROR("Failed to read package data from acquire response");
 			}
@@ -731,7 +779,7 @@ void* net_readPackage(int fd)
 			if (blocksize != 0)
 			{
 				if ((((struct releaseRequest*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
-					REPORT_ERROR("Failed to allocate space for release request data");
+					REPORT_ERROR("Failed to allocate space for release request data");					
 				if (recv(fd, ((struct releaseRequest*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 					REPORT_ERROR("Failed to read package data from release request");
 			} else {
@@ -741,16 +789,14 @@ void* net_readPackage(int fd)
 		case PACKAGE_RELEASE_RESPONSE:
 			blocksize = sizeof(struct releaseResponse);
 			if ((data = MALLOC(blocksize)) == NULL)
-				REPORT_ERROR("MALLOC error");
+				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire release response package"); 
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:
 			blocksize = sizeof(struct invalidateRequest);
-			//printf(WHERESTR "Reading network package, type: %d, size: %d\n", WHEREARG, type, blocksize);
 			if ((data = MALLOC(blocksize)) == NULL)
 				REPORT_ERROR("MALLOC error");
-			//printf(WHERESTR "Reading network package, type: %d, pointer:%d, fd: %d, size: %d\n", WHEREARG, type, (int)data, fd, blocksize);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire invalidate request package"); 
 			//printf(WHERESTR "Read network package, type: %d\n", WHEREARG, type);
@@ -758,14 +804,14 @@ void* net_readPackage(int fd)
 		case PACKAGE_INVALIDATE_RESPONSE:
 			blocksize = sizeof(struct invalidateResponse);
 			if ((data = MALLOC(blocksize)) == NULL)
-				REPORT_ERROR("MALLOC error");
+				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire invalidate response package"); 
 			break;
 		case PACKAGE_NACK:
 			blocksize = sizeof(struct NACK);
 			if ((data = MALLOC(blocksize)) == NULL)
-				REPORT_ERROR("MALLOC error");
+				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire nack package"); 
 			break;
@@ -782,7 +828,7 @@ void* net_readPackage(int fd)
 			if (blocksize != 0)
 			{
 				if ((((struct migrationResponse*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
-					REPORT_ERROR("Failed to allocate space for migration response data");
+					REPORT_ERROR("Failed to allocate space for migration response data");	
 				if (recv(fd, ((struct migrationResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 					REPORT_ERROR("Failed to read package data from migration response");
 			}
@@ -804,7 +850,7 @@ void* net_readPackage(int fd)
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 			blocksize = sizeof(struct acquireBarrierRequest);
 			if ((data = MALLOC(blocksize)) == NULL)
-				REPORT_ERROR("MALLOC error");
+				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire barrier package"); 
 			break;
@@ -812,7 +858,7 @@ void* net_readPackage(int fd)
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 			blocksize = sizeof(struct acquireBarrierResponse);
 			if ((data = MALLOC(blocksize)) == NULL)
-				REPORT_ERROR("MALLOC error");
+				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire barrier package"); 
 			break;
@@ -868,7 +914,6 @@ void net_sendPackage(void* package, unsigned int machineId)
 			if (send(fd, package, sizeof(struct acquireResponse) - sizeof(void*), MSG_MORE) != sizeof(struct acquireResponse) - sizeof(void*))
 				REPORT_ERROR("Failed to send entire acquire response package");
 			if (((struct acquireResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
-			//printf(WHERESTR "Data is %u, size is %u\n", WHEREARG, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize);
 			if (send(fd, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize, 0) != ((struct acquireResponse*)package)->dataSize)
 				REPORT_ERROR("Failed to send entire acquire response data package");			 
 			break;

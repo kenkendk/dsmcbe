@@ -296,6 +296,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 
 pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_count)
 {
+	fbminit();
 	size_t i;
 	spe_context_ptr_t* spe_ids;
 	pthread_t* spu_threads;
