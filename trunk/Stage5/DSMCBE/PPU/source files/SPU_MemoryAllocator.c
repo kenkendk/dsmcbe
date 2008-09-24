@@ -20,7 +20,6 @@ typedef struct SPU_Memory_Object_struct SPU_Memory_Object;
 #define SIZE_THRESHOLD 16000000
 #define ALIGN_SIZE_COUNT 16
 #define BITS_PR_BYTE 8
-#define ALIGNED_SIZE(x) (x + ((ALIGN_SIZE_COUNT - x) % ALIGN_SIZE_COUNT))
 #define SIZE_TO_BITS(x) (ALIGNED_SIZE(size) / ALIGN_SIZE_COUNT)
 
 //This lookup table counts the number of consecutive bits that are zero, going from the left (MSB) 
@@ -543,6 +542,6 @@ void spu_memory_destroy(SPU_Memory_Map* map) {
 #endif	
 	g_hash_table_destroy(map->allocated);
 	map->allocated = NULL;
-	free(map);
+	FREE(map);
 	map = NULL;
 }

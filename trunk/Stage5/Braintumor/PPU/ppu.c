@@ -387,6 +387,6 @@ int main(int argc, char* argv[])
 			pthread_join(threads[i], NULL);
 	}
 	printf("Going to sleep before we die\n");
-	sleep(10);
+	sleep(1);
 	return 0;
 }

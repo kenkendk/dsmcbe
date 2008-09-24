@@ -9,8 +9,6 @@
 #include "../../common/debug.h"
 #include "../../common/datapackages.h"
 
-#define ALIGNED_SIZE(x) (x + ((16 - x) % 16))
-
 //The number of avalible DMA group ID's
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU! 
 #define MAX_DMA_GROUPID 16
@@ -30,7 +28,7 @@
 
 //This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
 //Set to zero to disable alternate transfer methods
-#define SPE_DMA_MIN_TRANSFERSIZE 16
+#define SPE_DMA_MIN_TRANSFERSIZE (16)
 
 //This structure represents an item on the SPU
 struct spu_dataObject
@@ -87,7 +85,7 @@ struct SPU_State
 	GHashTable* itemsById;
 	//This is a list of all allocated objects on the SPU, key is LS pointer, value is dataObject*
 	GHashTable* itemsByPointer;
-	//This is a list of all pending requests, key is requestId, value is pendingRequest*
+	//This is a list of all pending requests, key is requestId, value is dataObject*
 	GHashTable* pendingRequests;
 	//This is a list of all active DMA transfers, key is DMAGroupID, value is pendingRequest*
 	GHashTable* activeDMATransfers;
@@ -190,7 +188,7 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 	g_hash_table_remove(state->itemsByPointer, (void*)obj->LS);
 	g_queue_remove(state->agedObjectMap, (void*)obj->id);
 	spu_memory_free(state->map, obj->LS);
-	free(obj);
+	FREE(obj);
 	obj = NULL;
 	
 	if (state->terminated != UINT_MAX && g_hash_table_size(state->itemsById) == 0)
@@ -411,7 +409,9 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	struct spu_pendingRequest* preq;
 	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
 		REPORT_ERROR("malloc error");
-		
+
+	// Setting DMAcount to UINT_MAX to initialize the struct.
+	preq->DMAcount = UINT_MAX;		
 	//printf(WHERESTR "New pointer: %d\n", WHEREARG, (unsigned int)preq);
 
 	preq->objId = id;
@@ -504,6 +504,8 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 		
+	// Setting DMAcount to UINT_MAX to initialize the struct.
+	preq->DMAcount = UINT_MAX;
 	preq->objId = id;
 	preq->operation = PACKAGE_CREATE_REQUEST;
 	preq->requestId = requestId;
@@ -534,7 +536,9 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 	struct spu_pendingRequest* preq;
 	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
 		REPORT_ERROR("malloc error");
-		
+
+	// Setting DMAcount to UINT_MAX to initialize the struct.
+	preq->DMAcount = UINT_MAX;		
 	preq->objId = id;
 	preq->operation = PACKAGE_ACQUIRE_BARRIER_REQUEST;
 	preq->requestId = requestId;
@@ -589,9 +593,8 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 		preq->objId = obj->id;
 		preq->requestId = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
 		preq->operation = PACKAGE_RELEASE_REQUEST;
-		preq->DMAcount = 0;
-		
 		preq->DMAcount = (MAX(ALIGNED_SIZE(obj->size), SPE_DMA_MAX_TRANSFERSIZE) + (SPE_DMA_MAX_TRANSFERSIZE - 1)) / SPE_DMA_MAX_TRANSFERSIZE;
+
 		for(i = 0; i < preq->DMAcount; i++)
 		{			
 			obj->DMAId = NEXT_SEQ_NO(state->dmaSeqNo, MAX_DMA_GROUPID);
@@ -685,7 +688,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 #endif
 	
 	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)data->requestID);
-	unsigned int i;
+	unsigned int i = 0;
 	if (preq == NULL)
 	{
 		REPORT_ERROR("Found response to an unknown request");
@@ -831,13 +834,16 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		
 		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
 		
+		//printf(WHERESTR "obj->size %lu\n", WHEREARG, obj->size);
+		//printf(WHERESTR "data->dataSize %lu\n", WHEREARG, data->dataSize);
 		preq->DMAcount = (MAX(ALIGNED_SIZE(obj->size), SPE_DMA_MAX_TRANSFERSIZE) + (SPE_DMA_MAX_TRANSFERSIZE - 1)) / SPE_DMA_MAX_TRANSFERSIZE;
+		//printf(WHERESTR "preq->DMAcount %i\n", WHEREARG, preq->DMAcount);
 
 #ifdef DEBUG_COMMUNICATION
 		printf(WHERESTR "DMAcount is %i, size is %li\n", WHEREARG, preq->DMAcount, obj->size);
 #endif		
-		unsigned int sizeRemain = obj->size;
-		unsigned int sizeDone = 0;
+		unsigned long sizeRemain = obj->size;
+		unsigned long sizeDone = 0;
 		for(i = 0; i < preq->DMAcount; i++)
 		{
 			obj->DMAId = NEXT_SEQ_NO(state->dmaSeqNo, MAX_DMA_GROUPID);
@@ -869,7 +875,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
 		{
 			g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-			//free(preq);
+			FREE(preq);
 			preq = NULL;
 		}	
 	}
@@ -943,7 +949,7 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
 	if (obj == NULL)
 	{
-		//free(preq);
+		FREE(preq);
 		preq = NULL;
 		REPORT_ERROR("DMA was completed, but there was not allocated space?");
 		return;
@@ -973,7 +979,7 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		
 		if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
 		{
-			//free(preq);
+			FREE(preq);
 			preq = NULL;
 		}
 	}
@@ -1040,7 +1046,7 @@ void spuhandler_HandleReleaseResponse(struct SPU_State* state, unsigned int requ
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
 
 	g_hash_table_remove(state->pendingRequests, (void*)requestId);
-	//free(preq);
+	FREE(preq);
 	preq = NULL;
 
 	if (obj == NULL || obj->count == 0)
@@ -1066,7 +1072,7 @@ void spuhandler_HandleBarrierResponse(struct SPU_State* state, unsigned int requ
 	}
 
 	g_hash_table_remove(state->pendingRequests, (void*)requestId);
-	//free(preq);
+	FREE(preq);
 	preq = NULL;
 
 	PUSH_TO_SPU(state, requestId);
@@ -1221,7 +1227,7 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 		}
 		
 		if (resp != NULL)
-			free(resp);
+			FREE(resp);
 		resp = NULL;
 	}
 }
@@ -1486,7 +1492,7 @@ void TerminateSPUHandler(int force)
 	pthread_cond_destroy(&spu_rq_event);
 	spe_event_handler_destroy(&spu_event_handler);
 #endif
-	free(spu_states);
+	FREE(spu_states);
 	spu_states = NULL;
 	
 }

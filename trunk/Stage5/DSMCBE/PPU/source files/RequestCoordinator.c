@@ -1121,6 +1121,7 @@ void HandleInvalidateResponse(QueueableItem item)
 
 		if ((temp = g_hash_table_lookup(rc_GallocatedItems, (void*)object->id)) == NULL || temp != object)
 		{  		
+			//printf(WHERESTR "Special case: Why is obect not in allocatedItemsDirty or allocedItems?\n", WHEREARG);
 			//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d)\n", WHEREARG, object->id, (int)object, (int)object->EA);
 			FREE_ALIGN(object->EA);
 			object->EA = NULL;
@@ -1495,7 +1496,7 @@ void* rc_ProccessWork(void* data)
 			}
 			else if (datatype == PACKAGE_CREATE_REQUEST)
 			{
-				printf(WHERESTR "Special case: %d", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
+				//printf(WHERESTR "Special case: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
 				RequestPageTable(ACQUIRE_MODE_WRITE);
 			}
 			

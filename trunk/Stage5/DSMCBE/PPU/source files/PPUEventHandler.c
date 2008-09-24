@@ -355,7 +355,7 @@ void* threadCreate(GUID id, unsigned long size)
 
 	//recordPointer(retval, id, size, 0, ACQUIRE_MODE_WRITE);	
 	
-	free(ar);
+	FREE(ar);
 	ar = NULL;
 	return retval;	
 }
@@ -439,7 +439,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 				
 				EnqueInvalidateResponse(req->requestID);
 				
-				free(req);
+				FREE(req);
 				req = NULL;
 			}
 		}
@@ -510,7 +510,7 @@ void threadAcquireBarrier(GUID id)
 
 	//Perform the request and await the response
 	ar = (struct acquireBarrierResponse*)forwardRequest(cr);
-	free(ar);
+	FREE(ar);
 	ar = NULL;
 	return;
 }
@@ -615,7 +615,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		//recordPointer(retval, id, *size, 0, type);
 	}
 	
-	free(ar);
+	FREE(ar);
 	ar = NULL;
 	return retval;	
 }
@@ -673,7 +673,7 @@ void threadRelease(void* data)
 			if(rr->packageCode != PACKAGE_RELEASE_RESPONSE)
 				REPORT_ERROR("Reponse to release had unexpected type");
 			
-			free(rr);
+			FREE(rr);
 			rr = NULL;
 		}
 

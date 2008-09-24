@@ -225,8 +225,10 @@ int main(unsigned long long id)
 				//if(jobID == 4)
 					//getStats();
 
-				//printf("SPU %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);									 
-				release(create(FINISHED + (jobID * 1000) + speID, 4));
+				//printf("SPU %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);
+				unsigned int* ptr = create(FINISHED + (jobID * 1000) + speID, sizeof(unsigned int));
+				*ptr = speID; 									 
+				release(ptr);
 				//printf("SPU %i: Created FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);
 				jobID++;
 				continue;
