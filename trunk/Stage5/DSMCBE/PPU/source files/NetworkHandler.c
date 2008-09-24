@@ -143,7 +143,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	}
 	
 	//TODO: Verify that this macro is accurate 
-	int temp = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
+	//int temp = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
 	
 	switch (((struct createRequest*)(item->dataRequest))->packageCode) {
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
@@ -188,10 +188,10 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 			break;
 	}
 	
-	if (temp != packagesize)
-	{
-		fprintf(stderr, "Packagecode %u temp %i vs. packagesize %i", ((struct createRequest*)(item->dataRequest))->packageCode, temp, packagesize);
-	}
+	//if (temp != packagesize)
+	//{
+		//fprintf(stderr, "Packagecode %u temp %i vs. packagesize %i", ((struct createRequest*)(item->dataRequest))->packageCode, temp, packagesize);
+	//}
 
 	if ((datacopy = MALLOC(packagesize)) == NULL)
 	{
