@@ -14,7 +14,7 @@
 #define ACQUIRE_MODE_CREATE (ACQUIRE_MODE_WRITE_OK + 1)
 #define ACQUIRE_MODE_BLOCKED (ACQUIRE_MODE_CREATE + 1)
 
-#define NEXT_SEQ_NO(current, max) (current = (current+1) % (max)) 
+#define NEXT_SEQ_NO(current, max) ((current) = ((current)+1) % (max)) 
 
 #define PACKAGE_INVALID 0
 #define PACKAGE_CREATE_REQUEST 1
@@ -134,7 +134,7 @@ struct acquireBarrierResponse
 #define MAX(a,b) (a > b ? a : b)
 #endif
 
-#define MAX_PACKAGE_SIZE MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(sizeof(struct createRequest), sizeof(struct acquireRequest)), sizeof(struct acquireResponse)), sizeof(struct writebufferReady)), sizeof(struct migrationResponse)), sizeof(struct releaseRequest)), sizeof(struct releaseResponse)), sizeof(struct NACK)), sizeof(struct invalidateRequest)), sizeof(struct invalidateResponse))
+#define MAX_PACKAGE_SIZE MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(sizeof(struct createRequest), sizeof(struct acquireRequest)), sizeof(struct acquireResponse)), sizeof(struct writebufferReady)), sizeof(struct migrationResponse)), sizeof(struct releaseRequest)), sizeof(struct releaseResponse)), sizeof(struct NACK)), sizeof(struct invalidateRequest)), sizeof(struct invalidateResponse)), sizeof(struct acquireBarrierRequest)), sizeof(struct acquireBarrierResponse))
 
 struct packageBuffer
 {
@@ -142,7 +142,7 @@ struct packageBuffer
 	unsigned char buffer[MAX_PACKAGE_SIZE - sizeof(unsigned int)];
 };
 
-#define PACKAGE_SIZE(x) (x == 0 ? 0 : (x == 1 ? sizeof(struct createRequest) : ( x == 2 ? sizeof(struct acquireRequest) : ( x == 3 ? sizeof(struct acquireRequest) : ( x == 4 ? sizeof(struct acquireResponse) : ( x == 5  ? sizeof(struct writebufferReady) : ( x == 6 ? sizeof(struct migrationResponse) : ( x == 7 ? sizeof(struct releaseRequest) : ( x == 8 ? sizeof(struct releaseResponse) : ( x == 9 ? sizeof(struct NACK) : ( x == 10 ? sizeof(struct invalidateRequest) : ( x == 11 ? sizeof(struct invalidateResponse) : 0))))))))))))
+#define PACKAGE_SIZE(x) (x == 0 ? 0 : (x == 1 ? sizeof(struct createRequest) : ( x == 2 ? sizeof(struct acquireRequest) : ( x == 3 ? sizeof(struct acquireRequest) : ( x == 4 ? sizeof(struct acquireResponse) : ( x == 5  ? sizeof(struct writebufferReady) : ( x == 6 ? sizeof(struct migrationResponse) : ( x == 7 ? sizeof(struct releaseRequest) : ( x == 8 ? sizeof(struct releaseResponse) : ( x == 9 ? sizeof(struct NACK) : ( x == 10 ? sizeof(struct invalidateRequest) : ( x == 11 ? sizeof(struct invalidateResponse) : ( x == 16 ? sizeof(struct acquireBarrierRequest) : ( x == 17 ? sizeof(struct acquireBarrierResponse) : 0))))))))))))))
 
 #ifdef DSMCBE_SPU
 

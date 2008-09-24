@@ -620,34 +620,49 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 {
 	GQueue* q;
 	dataObject obj;
-			
-	//printf(WHERESTR "Start acquire barrier on id %i\n", WHEREARG, request->dataItem);
 	
-	//Check that the item exists
-	if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
+	unsigned int machineId = GetMachineID(request->dataItem);		
+	
+	if (machineId == UINT_MAX)
 	{
-		if (obj->size < (sizeof(unsigned int) * 2))
-			REPORT_ERROR("Invalid size for barrier!");
+		if (g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem) == NULL)
+			g_hash_table_insert(rc_Gwaiters, (void*)request->dataItem, g_queue_new());
+		g_queue_push_tail(g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem), request);
+	}
+	else if (machineId != dsmcbe_host_number)
+	{
+		NetRequest(item, machineId);
+	}
+	else
+	{ // && machineId != UINT_MAX)
+		printf(WHERESTR "Start acquire barrier on id %i\n", WHEREARG, request->dataItem);
 		
-		//We keep a count, because g_queue_get_length itterates the queue
-		q = obj->Gwaitqueue;
-		((unsigned int*)obj->EA)[1]++;
-		
-		//We have the last acquire in, free them all!
-		if (((unsigned int*)obj->EA)[1] == ((unsigned int*)obj->EA)[0])
+		//Check that the item exists
+		if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
 		{
-			//printf(WHERESTR "Releasing barrier on id %i\n", WHEREARG, request->dataItem);
+			if (obj->size < (sizeof(unsigned int) * 2))
+				REPORT_ERROR("Invalid size for barrier!");
 			
-			((unsigned int*)obj->EA)[1] = 0;
-			while(!g_queue_is_empty(q))
-				RespondAcquireBarrier(g_queue_pop_head(q));
+			//We keep a count, because g_queue_get_length itterates the queue
+			q = obj->Gwaitqueue;
+			((unsigned int*)obj->EA)[1]++;
 			
-			//Also respond to the last one in, but we did not put it in the queue
-			RespondAcquireBarrier(item);
+			//We have the last acquire in, free them all!
+			if (((unsigned int*)obj->EA)[1] == ((unsigned int*)obj->EA)[0])
+			{
+				//printf(WHERESTR "Releasing barrier on id %i\n", WHEREARG, request->dataItem);
+				
+				((unsigned int*)obj->EA)[1] = 0;
+				while(!g_queue_is_empty(q))
+					RespondAcquireBarrier(g_queue_pop_head(q));
+				
+				//Also respond to the last one in, but we did not put it in the queue
+				RespondAcquireBarrier(item);
+			}
+			else
+				g_queue_push_tail(q, item);
+			
 		}
-		else
-			g_queue_push_tail(q, item);
-		
 	}
 }
 

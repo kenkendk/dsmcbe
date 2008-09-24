@@ -141,7 +141,8 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		REPORT_ERROR("MALLOC error");
 		return;
 	}
-
+	
+	//TODO: Verify that this macro is accurate 
 	packagesize = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
 
 	if ((datacopy = MALLOC(packagesize)) == NULL)
@@ -618,7 +619,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			FREE(w);
 			w = NULL;
 
-			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_BARRIER_RESPONSE)
+			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE)
 			{
 				//printf(WHERESTR "Acquire response package from %d, for guid: %d, reqId: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->dataItem, ((struct acquireResponse*)data)->requestID);
 				if ((ui = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
