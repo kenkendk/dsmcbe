@@ -49,7 +49,6 @@ struct acquireRequest
     unsigned int packageCode; // = 2
     unsigned int requestID;
     GUID dataItem;
-    //void* spe;
 };
 
 struct acquireResponse

@@ -718,6 +718,7 @@ void* net_readPackage(int fd)
 	unsigned int type;
 	void* data;
 	int blocksize;
+	int transfersize;
 	
 	data = NULL;
 
@@ -758,7 +759,11 @@ void* net_readPackage(int fd)
 			blocksize = ((struct acquireResponse*)data)->dataSize;
 			if (blocksize != 0)
 			{
-				if ((((struct acquireResponse*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
+				transfersize = blocksize + ((16 - blocksize) % 16);
+				if (transfersize == 0)
+					transfersize = 16;
+				
+				if ((((struct acquireResponse*)data)->data = MALLOC_ALIGN(transfersize, 7)) == NULL)
 					REPORT_ERROR("Failed to allocate space for acquire response data");					
 				if (recv(fd, ((struct acquireResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 					REPORT_ERROR("Failed to read package data from acquire response");
@@ -778,7 +783,11 @@ void* net_readPackage(int fd)
 			blocksize = ((struct releaseRequest*)data)->dataSize;
 			if (blocksize != 0)
 			{
-				if ((((struct releaseRequest*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
+				transfersize = blocksize + ((16 - blocksize) % 16);
+				if (transfersize == 0)
+					transfersize = 16;
+				
+				if ((((struct releaseRequest*)data)->data = MALLOC_ALIGN(transfersize, 7)) == NULL)
 					REPORT_ERROR("Failed to allocate space for release request data");					
 				if (recv(fd, ((struct releaseRequest*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 					REPORT_ERROR("Failed to read package data from release request");
@@ -827,7 +836,12 @@ void* net_readPackage(int fd)
 			blocksize = ((struct migrationResponse*)data)->dataSize;
 			if (blocksize != 0)
 			{
-				if ((((struct migrationResponse*)data)->data = MALLOC_ALIGN(blocksize, 7)) == NULL)
+				transfersize = blocksize + ((16 - blocksize) % 16);
+				if (transfersize == 0)
+					transfersize = 16;
+				
+				
+				if ((((struct migrationResponse*)data)->data = MALLOC_ALIGN(transfersize, 7)) == NULL)
 					REPORT_ERROR("Failed to allocate space for migration response data");	
 				if (recv(fd, ((struct migrationResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
 					REPORT_ERROR("Failed to read package data from migration response");
