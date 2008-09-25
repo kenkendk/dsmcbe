@@ -8,8 +8,8 @@ struct POINTS
 	unsigned char alive;
 };
 
-struct PACKAGE {
-	
+struct PACKAGE 
+{	
 	unsigned int id;
 	unsigned int maxid;
 	unsigned int heigth; 
@@ -19,4 +19,7 @@ struct PACKAGE {
 	int canonY; 
 	float canonAX; 
 	float canonAY;
+	unsigned int dummy1; 
+	unsigned int dummy2; 
+	unsigned int dummy3; 
 };
