@@ -181,6 +181,7 @@ void RelayEnqueItem(QueueableItem q)
 	relay->event = &ppu_queue_cond;
 	relay->mutex= &ppu_queue_mutex;
 	relay->Gqueue = &Gppu_work_queue;
+	relay->callback = NULL;
 	
 	q->dataRequest = NULL;
 	
@@ -211,6 +212,7 @@ void* forwardRequest(void* data)
 	q->event = &ppu_dummy_cond;
 	q->mutex = &ppu_dummy_mutex;
 	q->Gqueue = &Gppu_dummy;
+	q->callback = NULL;
 	
 	//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);	
 	

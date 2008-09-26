@@ -209,6 +209,7 @@ void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req
 	if ((qi = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 		REPORT_ERROR("malloc error");
 	
+	qi->callback = NULL;
 	qi->dataRequest = req;
 #ifdef EVENT_BASED		
 		qi->event = &spu_rq_event;
@@ -441,21 +442,21 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 #ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
 #endif
-
+		unsigned int transfersize = ALIGNED_SIZE(size);
 		if (toSPU)
 		{
-			if (spe_mfcio_get(state->context, LS, (void*)EA, ALIGNED_SIZE(size), groupId, 0, 0) != 0)
+			if (spe_mfcio_get(state->context, LS, (void*)EA, transfersize, groupId, 0, 0) != 0)
 			{
 				REPORT_ERROR("DMA transfer from EA to LS failed");
-				fprintf(stderr, WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
+				fprintf(stderr, WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, transfersize, groupId);
 			}
 		}
 		else
 		{
-			if (spe_mfcio_put(state->context, LS, (void*)EA, ALIGNED_SIZE(size), groupId, 0, 0) != 0)
+			if (spe_mfcio_put(state->context, LS, (void*)EA, transfersize, groupId, 0, 0) != 0)
 			{
 				REPORT_ERROR("DMA transfer from LS to EA failed");
-				fprintf(stderr, WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
+				fprintf(stderr, WHERESTR "Initiating DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, transfersize, groupId);
 			}
 		}
 	}
