@@ -198,6 +198,8 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
 	delta = epsilon + 1;
 	
+	unsigned int zprint = 0;
+	
 	while(delta > epsilon)
 	{
 		//printf(WHERESTR "Waiting for manual barrier\n", WHEREARG);
@@ -206,6 +208,12 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		{
 			release(barrier);
 			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
+			zprint++;
+			if (zprint == 1000000)
+			{
+				zprint = 0;
+				printf(WHERESTR "Waiting for barrier lock, count: %d, exp: %d\n", WHEREARG, barrier->lock_count, spu_count);
+			}
 		}
 
 

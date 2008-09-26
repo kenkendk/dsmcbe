@@ -237,7 +237,11 @@ int main(long long id)
 	{
 		//printf(WHERESTR "SPU %d is waiting for job lock\n", WHEREARG, spu_no);
 		job = acquire(JOB_LOCK, &size, ACQUIRE_MODE_WRITE);
+
+		//printf(WHERESTR "SPU %d got job %d, red: %d\n", WHEREARG, spu_no, job->nextjob, job->red_round);
+
 		jobno = job->nextjob;
+
 		
 		while (job->nextjob >= job->count)
 		{
@@ -247,7 +251,7 @@ int main(long long id)
 
 			if (!red_round)
 			{
-				printf(WHERESTR "SPU %d is waiting for manual barrier\n", WHEREARG, spu_no);
+				//printf(WHERESTR "SPU %d is waiting for manual barrier\n", WHEREARG, spu_no);
 				barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
 	
 				if (barrier->lock_count == 0)
@@ -255,15 +259,25 @@ int main(long long id)
 				else
 					barrier->delta += delta;
 
-				//printf(WHERESTR "At barrier for spu %d, delta was: %lf\n", WHEREARG, spu_no, delta);
+				//printf(WHERESTR "At barrier for spu %d, delta was: %lf (%lf), count was: %d\n", WHEREARG, spu_no, delta, barrier->delta, barrier->lock_count);
 				delta = 0.0;
 	
 #ifdef GRAPHICS
 				if (barrier->lock_count == spu_count)
+				{
 #else
 				if (barrier->lock_count == spu_count - 1)
+				{
+					barrier->print_count++;
+					if (barrier->print_count == 100)
+					{
+						barrier->print_count = 0;
+						printf(WHERESTR "SPU %d is reporting delta: %lf\n", WHEREARG, spu_no, barrier->delta);
+					}
 #endif		
+
 					barrier->lock_count = 0;
+				}
 				else
 					barrier->lock_count++;
 
@@ -282,16 +296,17 @@ int main(long long id)
 				roundDelta = barrier->delta;
 				release(barrier);
 				
-				
 				if (roundDelta < epsilon)
 					break;
 			}
 			else
 			{
-				printf(WHERESTR "SPU %d is waiting for barrier\n", WHEREARG, spu_no);
+				//printf(WHERESTR "SPU %d is waiting for barrier\n", WHEREARG, spu_no);
 				acquireBarrirer(EX_BARRIER_1);
+			
 			}
 			
+			red_round = !red_round;
 	
 			//printf(WHERESTR "SPU %d is fetching job\n", WHEREARG, spu_no);
 			job = acquire(JOB_LOCK, &size, ACQUIRE_MODE_WRITE);
@@ -308,7 +323,7 @@ int main(long long id)
 		
 		//printf(WHERESTR "SPU %d got job %d, red: %d\n", WHEREARG, spu_no, job->nextjob, job->red_round);
 		jobno = job->nextjob;
-		red_round = job->red_round;
+		//red_round = job->red_round;
 		job->nextjob++;
 		
 		release(job);

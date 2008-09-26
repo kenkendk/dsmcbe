@@ -323,6 +323,13 @@ void RespondAny(QueueableItem item, void* resp)
 	if (item->Gqueue != NULL)
 		g_queue_push_tail(*(item->Gqueue), resp);
 		
+	if (item->callback != NULL)
+	{
+		//printf(WHERESTR "responding, callback %i\n", WHEREARG, (int)item->callback);
+		(*(item->callback))(item, resp);
+		//printf(WHERESTR "responding, callback %i\n", WHEREARG, (int)item->callback);
+	}
+		
 	if (item->event != NULL)
 		pthread_cond_signal(item->event);
 	
@@ -437,9 +444,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 
 		
 	size = request->dataSize;
-	transfersize = size + ((16 - size) % 16);
-	if (transfersize == 0)
-		transfersize = 16;
+	transfersize = ALIGNED_SIZE(size);
 		
 	data = MALLOC_ALIGN(transfersize, 7);
 	if (data == NULL)
@@ -485,7 +490,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 }
 
 //Perform all actions related to an invalidate
-void DoInvalidate(GUID dataItem)
+void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 {
 	
 	GList* kl;
@@ -564,7 +569,7 @@ void DoInvalidate(GUID dataItem)
 		else
 			REPORT_ERROR("Could not insert into pendingSequenceNr");
 		unsigned int* count = g_hash_table_lookup(rc_GallocatedItemsDirty, obj);
-		*count = *count + 1;
+		(*count)++;
 
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(sub->mutex);
@@ -584,6 +589,36 @@ void DoInvalidate(GUID dataItem)
 	g_list_free(kl);
 	kl = NULL;
 
+	//if (TRUE || invalidateNet)
+	if (DSMCBE_MachineCount() != 0)
+	{
+		struct invalidateRequest* requ;
+		if ((requ = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
+			REPORT_ERROR("MALLOC error");
+		
+		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
+		requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
+		requ->dataItem = dataItem;
+		
+		if (g_hash_table_lookup(rc_GpendingSequenceNr, (void*)requ->requestID) == NULL)		
+			g_hash_table_insert(rc_GpendingSequenceNr, (void*)requ->requestID, obj);
+		else
+			REPORT_ERROR("Could not insert into pendingSequenceNr");
+		unsigned int* count = g_hash_table_lookup(rc_GallocatedItemsDirty, obj);
+		(*count)++;		
+		
+		struct QueueableItemStruct* ui;
+		if ((ui = (struct QueueableItemStruct*)MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
+			REPORT_ERROR("MALLOC error");
+		
+		ui->mutex = &rc_queue_mutex;
+		ui->event = &rc_queue_ready;
+		ui->Gqueue = &rc_GbagOfTasks;
+		ui->callback = NULL;
+		ui->dataRequest = requ;
+		
+		NetRequest(ui, UINT_MAX);
+	}
 	//printf(WHERESTR "Invalidate request sent\n", WHEREARG);
 }
 
@@ -635,7 +670,7 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 	}
 	else
 	{ // && machineId != UINT_MAX)
-		printf(WHERESTR "Start acquire barrier on id %i\n", WHEREARG, request->dataItem);
+		//printf(WHERESTR "Start acquire barrier on id %i\n", WHEREARG, request->dataItem);
 		
 		//Check that the item exists
 		if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
@@ -703,7 +738,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				RespondAcquire(item, obj);
 					
 				if (obj->id != PAGE_TABLE_ID)
-					DoInvalidate(obj->id);
+					DoInvalidate(obj->id, TRUE);
 					
 				//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, obj->id);
 				NetInvalidate(obj->id);
@@ -809,7 +844,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 							RecordBufferRequest(next, obj);
 						RespondAcquire(next, obj);
 						if (id != PAGE_TABLE_ID)
-							DoInvalidate(id);
+							DoInvalidate(id, TRUE);
 						
 						//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
 						NetInvalidate(id);
@@ -872,6 +907,7 @@ void RequestPageTable(int mode)
 		q->mutex = &rc_queue_mutex;
 		q->event = &rc_queue_ready;
 		q->Gqueue = &rc_GpriorityResponses;			
+		q->callback = NULL;
 
 		//printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 
@@ -1036,7 +1072,7 @@ void HandleInvalidateRequest(QueueableItem item)
 	struct invalidateRequest* req = item->dataRequest;
 	
 	//printf(WHERESTR "processing network invalidate request for: %d\n", WHEREARG, req->dataItem);
-	DoInvalidate(req->dataItem);
+	DoInvalidate(req->dataItem, FALSE);
 	
 	if (dsmcbe_host_number != PAGE_TABLE_OWNER && req->dataItem == PAGE_TABLE_ID)
 	{
@@ -1207,7 +1243,7 @@ void HandleAcquireResponse(QueueableItem item)
 			g_hash_table_insert(rc_GallocatedItems, (void*)object->id, object);
 		else
 		{
-			DoInvalidate(object->id);
+			DoInvalidate(object->id, FALSE);
 			if (g_hash_table_lookup(rc_GallocatedItems, (void*)object->id) == NULL)
 				g_hash_table_insert(rc_GallocatedItems, (void*)object->id, object);
 			else
@@ -1238,18 +1274,25 @@ void HandleAcquireResponse(QueueableItem item)
 		{
 			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
 			QueueableItem q = (QueueableItem)g_queue_pop_head(dq);
-			//printf(WHERESTR "waiter package type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID);
+			//printf(WHERESTR "waiter package type: %d, reqId: %d, mode: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID, req->mode);
 			if (((struct createRequest*)q->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			{
-				//printf(WHERESTR "Sending AcquireResponse\n", WHEREARG);
-				//printf(WHERESTR "unlocking mutex\n", WHEREARG);
-				pthread_mutex_unlock(&rc_queue_mutex);
-				isLocked = 0;
-				//printf(WHERESTR "unlocked mutex\n", WHEREARG);
-				RespondAcquire(q, g_hash_table_lookup(rc_GallocatedItems, (void*)object->id));
-				//DoInvalidate(object->id);
-				//SingleInvalidate(q, object->id);
-				
+				if (req->mode != ACQUIRE_MODE_READ)
+				{
+					//printf(WHERESTR "Sending AcquireResponse\n", WHEREARG);
+					//printf(WHERESTR "unlocking mutex\n", WHEREARG);
+					pthread_mutex_unlock(&rc_queue_mutex);
+					isLocked = 0;
+					//printf(WHERESTR "unlocked mutex\n", WHEREARG);
+					RespondAcquire(q, g_hash_table_lookup(rc_GallocatedItems, (void*)object->id));
+					//DoInvalidate(object->id);
+					//SingleInvalidate(q, object->id);
+				}
+				else
+				{
+					//Oops, put it back in!
+					g_queue_push_head(dq, q);
+				}
 				break;
 			}
 			else
@@ -1286,6 +1329,7 @@ void HandleAcquireResponse(QueueableItem item)
 		qs->event = NULL;
 		qs->mutex = NULL;
 		qs->Gqueue = NULL;
+		qs->callback = NULL;
 		qs->dataRequest = rr;
 
 		//printf(WHERESTR "releasing pagetable, %d\n", WHEREARG, req->dataItem);
@@ -1363,6 +1407,7 @@ void HandleAcquireResponse(QueueableItem item)
 					qs->event = NULL;
 					qs->mutex = NULL;
 					qs->Gqueue = NULL;
+					qs->callback = NULL;
 					qs->dataRequest = rr;
 
 					//printf(WHERESTR "releasing pagetable, %d\n", WHEREARG, req->dataItem);
@@ -1458,6 +1503,7 @@ void* rc_ProccessWork(void* data)
 			item->event = &rc_queue_ready;
 			item->mutex = &rc_queue_mutex;
 			item->Gqueue = &rc_GpriorityResponses;
+			item->callback = NULL;
 			isPtResponse = 1;
 		}
 		else

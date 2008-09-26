@@ -2,7 +2,7 @@
 #define SHARED_H_
 
 //Toggle graphic display on or off
-#define GRAPHICS
+//#define GRAPHICS
 
 //Defines the size of each work block (approximate value)
 #define BLOCK_SIZE (64 * 1024)

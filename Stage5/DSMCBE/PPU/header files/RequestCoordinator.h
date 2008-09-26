@@ -26,6 +26,7 @@ struct QueueableItemStruct {
 	pthread_cond_t* event;
 	GQueue** Gqueue;
 	void* dataRequest;
+	void (*callback)(QueueableItem, void* data);
 };
 
 //Requesters must call this function to interact with the coordinator

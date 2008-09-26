@@ -44,6 +44,12 @@ GQueue** Gnet_requestQueues;
 GHashTable* Gnet_leaseTable;
 GHashTable* Gnet_writeInitiator;
 
+//Keep track of which objects are in queue for the network
+GHashTable* Gnet_activeTransfers;
+
+//Keep a list of pending invalidates for each object
+GHashTable* Gnet_pendingInvalidates;
+
 //The number of hosts
 static unsigned int net_remote_hosts;
 //An array of file descriptors for the remote hosts
@@ -63,7 +69,7 @@ GHashTable** Gnet_idlookups;
 //These are the sequence numbers assigned to the packages, a unique sequence for each host
 unsigned int* net_sequenceNumbers;
 
-unsigned int DSMCBE_MachineCount() { return net_remote_hosts; }
+inline unsigned int DSMCBE_MachineCount() { return net_remote_hosts; }
 
 void NetUnsubscribe(GUID dataitem, unsigned int machineId)
 {
@@ -71,7 +77,7 @@ void NetUnsubscribe(GUID dataitem, unsigned int machineId)
 
 	if (net_remote_hosts == 0)
 	{
-		printf(WHERESTR "Returning\n", WHEREARG);
+		//printf(WHERESTR "Returning\n", WHEREARG);
 		return;
 	}
 	
@@ -107,6 +113,41 @@ void NetUnsubscribe(GUID dataitem, unsigned int machineId)
 	
 }
 
+void NetRespondToInvalidate(struct QueueableItemStruct* ui)
+{
+	EnqueInvalidateResponse(((struct invalidateRequest*)ui->dataRequest)->requestID);
+	free(ui->dataRequest);
+	ui->dataRequest = NULL;
+	free(ui);
+	ui = NULL;	
+}
+
+void NetEnqueueCallback(QueueableItem item, void* data)
+{
+	if (net_remote_hosts == 0)
+		return;
+		
+	//Mark the object as active
+	if (
+		((struct createRequest*)(data))->packageCode == PACKAGE_ACQUIRE_RESPONSE || 
+		((struct createRequest*)(data))->packageCode == PACKAGE_MIGRATION_RESPONSE ||
+		((struct createRequest*)(data))->packageCode == PACKAGE_RELEASE_REQUEST
+	)
+	{
+		//printf(WHERESTR "Sending package with type: %d, for id: %d.\n", WHEREARG, ((struct createRequest*)data)->packageCode, ((struct invalidateRequest*)data)->dataItem);
+		unsigned int* v = g_hash_table_lookup(Gnet_activeTransfers, (void*)((struct createRequest*)(data))->dataItem);
+		
+		if (v == NULL)
+		{
+			v = MALLOC(sizeof(unsigned int));
+			*v = 0;
+			g_hash_table_insert(Gnet_activeTransfers, (void*)((struct createRequest*)(data))->dataItem, v);
+		}
+
+		(*v)++;
+	}
+}
+
 void NetRequest(QueueableItem item, unsigned int machineId)
 {
 		
@@ -130,6 +171,41 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		return;
 	}
 
+	if (((struct createRequest*)(item->dataRequest))->packageCode == PACKAGE_INVALIDATE_REQUEST)
+	{
+		if (net_remote_hosts == 0)
+		{
+			NetRespondToInvalidate(item);
+			return;
+		}
+		
+
+		pthread_mutex_lock(&net_work_mutex);
+		
+		unsigned int* v = g_hash_table_lookup(Gnet_activeTransfers, (void*)((struct invalidateRequest*)(item->dataRequest))->dataItem);
+		if (v == NULL || *v == 0)
+		{
+			pthread_mutex_unlock(&net_work_mutex);
+			NetRespondToInvalidate(item);
+			return;
+		}
+		else
+		{
+			//REPORT_ERROR("Delaying invalidate!");
+			if (g_hash_table_lookup(Gnet_pendingInvalidates, (void*)((struct invalidateRequest*)(item->dataRequest))->dataItem) != NULL)
+			{
+				REPORT_ERROR("Found pending invalidates in table already!");
+			}
+			else 
+			{
+				g_hash_table_insert(Gnet_pendingInvalidates, (void*)((struct invalidateRequest*)(item->dataRequest))->dataItem, item);
+			}
+				
+			pthread_mutex_unlock(&net_work_mutex);
+			return;
+		}
+	}
+
 	if (machineId > net_remote_hosts)
 	{
 		REPORT_ERROR("Invalid machineId detected");
@@ -142,10 +218,10 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		return;
 	}
 	
-	//TODO: Verify that this macro is accurate 
-	//int temp = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
+
+	packagesize = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
 	
-	switch (((struct createRequest*)(item->dataRequest))->packageCode) {
+	/*switch (((struct createRequest*)(item->dataRequest))->packageCode) {
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 			packagesize = sizeof(struct acquireBarrierRequest); 	
 			break;
@@ -186,7 +262,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 		default:
 			packagesize = 0;
 			break;
-	}
+	}*/
 	
 	//if (temp != packagesize)
 	//{
@@ -218,6 +294,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, MALLOC: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
 
+	NetEnqueueCallback(item, datacopy);	
 	
 	//printf(WHERESTR "Mapping request id %d to %d\n", WHEREARG, w->origId, nextId);
 	if (g_hash_table_lookup(Gnet_idlookups[machineId], (void*)nextId) == NULL)
@@ -276,7 +353,9 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	pthread_mutex_init(&net_leaseLock, NULL); 
 	Gnet_leaseTable = g_hash_table_new(NULL, NULL);
 	Gnet_writeInitiator = g_hash_table_new(NULL, NULL);
-
+	Gnet_activeTransfers = g_hash_table_new(NULL, NULL);
+	Gnet_pendingInvalidates = g_hash_table_new(NULL, NULL);
+	
 	/* For portability, explicitly create threads in a joinable state */
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -533,6 +612,12 @@ void* net_Writer(void* data)
 				//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
 				g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno, (void*)1);
 			}
+			else
+			{
+				//No need to transfer again...
+				//printf(WHERESTR "Saved %d bytes of network traffic!\n", WHEREARG, ((struct acquireResponse*)package)->dataSize); 
+				((struct acquireResponse*)package)->dataSize = 0;
+			}
 				
 			if (((struct acquireResponse*)package)->mode == ACQUIRE_MODE_WRITE)
 			{
@@ -553,8 +638,39 @@ void* net_Writer(void* data)
 	
 		if (package != NULL)
 		{
-			//printf(WHERESTR "Sending package with type: %d, to %d for id: %d.\n", WHEREARG, ((struct createRequest*)package)->packageCode, hostno, ((struct invalidateRequest*)package)->dataItem);
 			net_sendPackage(package, hostno);
+			
+			if (
+				((struct createRequest*)package)->packageCode == PACKAGE_ACQUIRE_RESPONSE || 
+				((struct createRequest*)package)->packageCode == PACKAGE_MIGRATION_RESPONSE ||
+				((struct createRequest*)package)->packageCode == PACKAGE_RELEASE_REQUEST
+			)
+			{
+				//printf(WHERESTR "Sending package with type: %d, to %d for id: %d.\n", WHEREARG, ((struct createRequest*)package)->packageCode, 	hostno, ((struct invalidateRequest*)package)->dataItem);
+				
+				unsigned int locked = TRUE;
+				pthread_mutex_lock(&net_work_mutex);
+
+				unsigned int* v = g_hash_table_lookup(Gnet_activeTransfers, (void*)((struct acquireResponse*)(package))->dataItem);
+				if (v == NULL) { REPORT_ERROR("response was not registered!"); }
+				if (*v == 0) { REPORT_ERROR("response was not registered!"); }
+				(*v)--;
+				
+				if (*v == 0)
+				{  
+					struct QueueableItemStruct* ui = g_hash_table_lookup(Gnet_pendingInvalidates, (void*)((struct acquireResponse*)(package))->dataItem);
+					if (ui != NULL)
+					{
+						g_hash_table_remove(Gnet_pendingInvalidates, (void*)((struct acquireResponse*)(package))->dataItem);
+						pthread_mutex_unlock(&net_work_mutex);
+						locked = FALSE;
+						NetRespondToInvalidate(ui);
+					}
+				}
+				
+				if (locked)
+					pthread_mutex_unlock(&net_work_mutex);
+			}
 
 			FREE(package);
 			package = NULL;
@@ -630,6 +746,8 @@ void net_processPackage(void* data, unsigned int machineId)
 			ui->Gqueue = &Gnet_requestQueues[machineId];
 			ui->mutex = &net_work_mutex;
 			ui->event = &net_work_ready;
+			ui->callback = &NetEnqueueCallback;
+			//printf(WHERESTR "Enqued with callback %d\n", WHEREARG, (int)ui->callback);
 			EnqueItem(ui);
 			break;
 		
@@ -676,6 +794,7 @@ void net_processPackage(void* data, unsigned int machineId)
 				ui->event = NULL;
 				ui->mutex = NULL;
 				ui->Gqueue = NULL;
+				ui->callback = NULL;
 				ui->dataRequest = data;				
 
 				//Forward this to the request coordinator, so it may record the data and propagate it
@@ -759,9 +878,9 @@ void* net_readPackage(int fd)
 			blocksize = ((struct acquireResponse*)data)->dataSize;
 			if (blocksize != 0)
 			{
-				transfersize = blocksize + ((16 - blocksize) % 16);
-				if (transfersize == 0)
-					transfersize = 16;
+				transfersize = ALIGNED_SIZE(blocksize);
+				
+				//printf(WHERESTR "Blocksize: %d, Transfersize: %d\n", WHEREARG, blocksize, transfersize);
 				
 				if ((((struct acquireResponse*)data)->data = MALLOC_ALIGN(transfersize, 7)) == NULL)
 					REPORT_ERROR("Failed to allocate space for acquire response data");					
@@ -783,10 +902,7 @@ void* net_readPackage(int fd)
 			blocksize = ((struct releaseRequest*)data)->dataSize;
 			if (blocksize != 0)
 			{
-				transfersize = blocksize + ((16 - blocksize) % 16);
-				if (transfersize == 0)
-					transfersize = 16;
-				
+				transfersize = ALIGNED_SIZE(blocksize);
 				if ((((struct releaseRequest*)data)->data = MALLOC_ALIGN(transfersize, 7)) == NULL)
 					REPORT_ERROR("Failed to allocate space for release request data");					
 				if (recv(fd, ((struct releaseRequest*)data)->data, blocksize, MSG_WAITALL) != blocksize)
@@ -836,11 +952,7 @@ void* net_readPackage(int fd)
 			blocksize = ((struct migrationResponse*)data)->dataSize;
 			if (blocksize != 0)
 			{
-				transfersize = blocksize + ((16 - blocksize) % 16);
-				if (transfersize == 0)
-					transfersize = 16;
-				
-				
+				transfersize = ALIGNED_SIZE(blocksize);
 				if ((((struct migrationResponse*)data)->data = MALLOC_ALIGN(transfersize, 7)) == NULL)
 					REPORT_ERROR("Failed to allocate space for migration response data");	
 				if (recv(fd, ((struct migrationResponse*)data)->data, blocksize, MSG_WAITALL) != blocksize)
@@ -929,7 +1041,8 @@ void net_sendPackage(void* package, unsigned int machineId)
 				REPORT_ERROR("Failed to send entire acquire response package");
 			if (((struct acquireResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
 			if (send(fd, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize, 0) != ((struct acquireResponse*)package)->dataSize)
-				REPORT_ERROR("Failed to send entire acquire response data package");			 
+				REPORT_ERROR("Failed to send entire acquire response data package");
+
 			break;
 		case PACKAGE_RELEASE_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
@@ -966,6 +1079,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 			send(fd, ((struct migrationResponse*)package)->data, ((struct migrationResponse*)package)->dataSize, MSG_MORE); 
 			if (((struct migrationResponse*)package)->waitList == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, ((struct migrationResponse*)package)->waitList, ((struct migrationResponse*)package)->waitListSize, 0); 
+
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
