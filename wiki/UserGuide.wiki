@@ -1,0 +1,27 @@
+#summary The DSMCBE user guide
+#labels Featured,Phase-Implementation
+
+= Introduction =
+This page describes how you can build programs for the Cell BE platform, using DSMCBE.
+
+= Pre-requisites =
+Before you can start using DSMCBE, you must know how to write programs for the Cell Platform. This guide will not explain this. You can read [http://www-01.ibm.com/chips/techlib/techlib.nsf/techdocs/FC857AE550F7EB83872571A80061F788 this IBM guide], if you want to get started. 
+
+When building Cell projects, you are usually building a PPU unit and an SPU unit. Although you can run cell programs (and DSMCBE programs) without an SPU unit, they will not give you high performance.
+
+Due to requirements from the [http://www.migrid.org/ MiG project] DSMCBE requires [http://library.gnome.org/devel/glib/ GLib 2.14.6]. If you machine does not have that version of GLib installed, you can get it from [http://code.google.com/p/dsmcbe/source/browse/#svn/trunk/glib-ppc32/usr/lib the svn source].
+
+= Linking and using DSMCBE =
+Once you have a copy of DSMCBE, you should reference the header files. For the PPU unit, you must include dsmcbe_ppu.h, and for the SPU unit, you must include dsmcbe_spu.h.
+
+When linking, the PPU must link to libdsmcbe_ppu.a and the SPU must link to libdsmcbe_spu.a.
+
+A sample PPU compile command would be:
+{{{
+ppu-gcc -ldsmcbe_ppu -lthread-2.0 -lglib-2.0 file.c -o"Program"
+}}}
+
+A sample SPU compile command would be:
+{{{
+spu-gcc -ldsmcbe_spu file.c -o"SPU"
+}}}
