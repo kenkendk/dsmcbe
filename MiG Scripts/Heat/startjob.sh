@@ -7,6 +7,6 @@
 #cat network.txt
 #echo "Test"
 
-echo "Running ./$1 $2 network.txt $3 $4 $5"
-./$1 $2 network.txt $3 $4 $5
+echo "Running ./$1 $2 network.txt $3"
+./$1 $2 network.txt $3
 echo "Done running"

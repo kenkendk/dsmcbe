@@ -6,6 +6,7 @@ touch ./network.txt
 COUNTER=1
 LIMIT=$1
 let LIMIT=LIMIT+1
+let PORT=10000+`date +%-M%S`
 
 while [  $COUNTER -lt $LIMIT ]; do
 	if [ $COUNTER -lt 10 ]; then
@@ -14,7 +15,6 @@ while [  $COUNTER -lt $LIMIT ]; do
 		HOSTID=$COUNTER
 	fi
 
-	let PORT=40013+COUNTER
 	HOSTNAME=`echo -n PS3-$HOSTID`
 	echo "$HOSTNAME $PORT" >> ./network.txt
 
