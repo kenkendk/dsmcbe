@@ -2,7 +2,7 @@
 DIKU
 
 ::EXECUTE::
-./go.sh 2 proto 6 PPPPPHHHHHHHPPPPPPPP
+./go.sh 14 proto 6 PPPPPPHHHHPHHHHPPPPPPPPHH
 
 ::RUNTIMEENVIRONMENT::
 
@@ -11,6 +11,7 @@ DIKU
 ::VERIFYFILES::
 
 ::INPUTFILES::
+network_test.txt
 
 ::JOBTYPE::
 batch
@@ -25,7 +26,7 @@ go.sh
 1
 
 ::CPUTIME::
-120
+275
 
 ::PLATFORM::
 
@@ -46,8 +47,6 @@ go.sh
 16
 
 ::OUTPUTFILES::
-PS3-02.stderr
-PS3-02.stdout
 
 ::JOBNAME::
 Prototein Test 1
