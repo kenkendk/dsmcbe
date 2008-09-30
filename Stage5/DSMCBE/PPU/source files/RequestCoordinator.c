@@ -229,8 +229,8 @@ void ProcessWaiters(unsigned int* pageTable)
 	g_hash_table_iter_init (&iter, rc_Gwaiters);
 	while (g_hash_table_iter_next (&iter, &key, &value)) 
 	{
-		//printf(WHERESTR "Trying item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
-		if (((unsigned int*)pageTable)[(GUID)key] != UINT_MAX)
+		//printf(WHERESTR "Trying item %d\n", WHEREARG, (int)key);
+		if (pageTable[(GUID)key] != UINT_MAX)
 		{
 			//printf(WHERESTR "Matched, emptying queue item %d\n", WHEREARG, (GUID)ht_iter_get_key(it));
 			GQueue* dq = g_hash_table_lookup(rc_Gwaiters, key);
@@ -1218,8 +1218,14 @@ void HandleAcquireResponse(QueueableItem item)
 			REPORT_ERROR("Requester had sent response without data for non-existing local object");
 			
 		//printf(WHERESTR "acquire response had local copy, id: %d, size: %d\n", WHEREARG, req->dataItem, (int)req->dataSize);
+		//printf(WHERESTR "acquire response had local copy, EA: %d, size: %d\n", WHEREARG, (int)object->EA, (int)object->size);
+		
+		//Copy back the page table on the page table owner
 		if (req->dataSize != 0 && req->data != NULL && object->EA != NULL && req->data != object->EA)
 			memcpy(object->EA, req->data, req->dataSize);
+			
+		req->dataSize = object->size;
+		req->data = object->EA;
 	}
 	else
 	{
@@ -1380,7 +1386,7 @@ void HandleAcquireResponse(QueueableItem item)
 					pthread_mutex_unlock(&rc_queue_mutex);
 					//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 					//printf(WHERESTR "incoming response was for write %d\n", WHEREARG, req->dataItem);
-					unsigned int* pagetable = (unsigned int*)req->data;
+					unsigned int* pagetable = object->EA;
 					GUID id = ((struct createRequest*)cr->dataRequest)->dataItem;
 					//Ensure we are the creators
 					if (pagetable[id] != UINT_MAX)
