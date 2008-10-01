@@ -110,7 +110,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	for( j = 0; j < map_height; j++)
 	{
 		MAPVALUE(0, j) = -273.15;
-		MAPVALUE(map_width - 1, j) = -273.15;
+		MAPVALUE(map_width - 1, j) = 40.0;
 	}
 
 	unsigned int slice_height = BLOCK_SIZE / (map_width * sizeof(PROBLEM_DATA_TYPE));
@@ -322,7 +322,7 @@ int main(int argc, char* argv[])
 	
 	if (machineid == 0)
 	{
-		Coordinator(128, 1024, spu_count);
+		Coordinator(128, 96 * 66, spu_count);
 		release(create(MASTER_COMPLETION_LOCK, 1));
 	}
 	else
