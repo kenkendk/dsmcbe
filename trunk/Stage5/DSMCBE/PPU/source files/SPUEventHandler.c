@@ -799,6 +799,8 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 				PUSH_TO_SPU(state, preq->requestId;);
 				PUSH_TO_SPU(state, NULL);
 				PUSH_TO_SPU(state, 0);
+				g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+				FREE(preq);
 				return TRUE;
 				
 			}
@@ -845,7 +847,8 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 #endif		
 		unsigned long sizeRemain = obj->size;
 		unsigned long sizeDone = 0;
-		for(i = 0; i < preq->DMAcount; i++)
+		unsigned int DMACount = preq->DMAcount;
+		for(i = 0; i < DMACount; i++)
 		{
 			obj->DMAId = NEXT_SEQ_NO(state->dmaSeqNo, MAX_DMA_GROUPID);
 			g_hash_table_insert(state->activeDMATransfers, (void*)obj->DMAId, preq);
@@ -873,7 +876,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		PUSH_TO_SPU(state, obj->LS);
 		PUSH_TO_SPU(state, obj->size);
 		
-		if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
+		//if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
 		{
 			g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
 			FREE(preq);
@@ -978,11 +981,8 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		PUSH_TO_SPU(state, obj->LS);
 		PUSH_TO_SPU(state, obj->size);
 		
-		if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
-		{
-			FREE(preq);
-			preq = NULL;
-		}
+		FREE(preq);
+		preq = NULL;
 	}
 	else if(preq->DMAcount == 0)
 	{
