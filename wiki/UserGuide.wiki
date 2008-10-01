@@ -169,3 +169,26 @@ DSMCBE does not perform package scheduling, and it is therefore recomended to us
 
 Machine number zero is also special, because it maintains a table that describes the location of all objects. When a new object is created, machine zero is notified of this action. If the program creates many objects, machine zero can be overloaded, but this does not happen with
 regular use.
+
+= Using barriers =
+A barrier in DSMCBE can be implemented by creating an object containing an integer, initialized to the value zero. Each component that join the barrier acquires the object in *READ_WRITE* mode. The integer in the object is incremented and is compared to the total number of components expected to join the barrier. If the number is equal to the expected number of components, the number is set to zero. If not, the component repeatedly calls *acquire* for the object in *READ_ONLY* mode until this value is zero. An example of this could be:
+{{{
+#define BARRIER_COUNT 4
+#define BARRIER_ID 42
+unsigned int size;
+
+unsigned int* barrier = acquire(BARRIER_ID, &size, ACQUIRE_MODE_WRITE);
+(*barrier)++;
+if (*barrier == BARRIER_COUNT)
+    *barrier = 0;
+
+while(*barrier != 0)
+{
+	release(barrier);
+	acquire(BARRIER_ID, &size, ACQUIRE_MODE_READ);
+}
+release(barrier);
+}}}
+This works very well, and optimizations in DSMCBE heavily reduces the amount of data transfered. But each write to the object requires that the changes are distributed to the reading components. Since the content has no use other than for determining if the end criteria has been met, it can be optimized even more. For this reason, DSMCBE has an optimized barrier function where no unnecesary data is transmitted.
+
+A barrier is created by calling the function *createBarrier* with the barrier *GUID*, and the number of processes that are meeting in the barrier. Processes that join in the barrier can call *acquireBarrier* with the barrier *GUID*. The call will block until all processes have arrived. Unlike a traditional *acquire*, no pointer is returned and *release* may not be called. 
