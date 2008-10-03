@@ -28,7 +28,7 @@
 
 //This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
 //Set to zero to disable alternate transfer methods
-#define SPE_DMA_MIN_TRANSFERSIZE (16)
+#define SPE_DMA_MIN_TRANSFERSIZE (32)
 
 //This structure represents an item on the SPU
 struct spu_dataObject

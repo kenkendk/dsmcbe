@@ -494,6 +494,7 @@ void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 {
 	
 	GList* kl;
+	GList* toplist;
 	dataObject obj;
 	invalidateSubscriber sub;
 
@@ -515,7 +516,7 @@ void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 	pthread_mutex_lock(&rc_invalidate_queue_mutex);
 	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	//kl = g_hash_table_get_keys(rc_GinvalidateSubscribers);
-	kl = g_hash_table_get_values(rc_GinvalidateSubscribers);
+	toplist = kl = g_hash_table_get_values(rc_GinvalidateSubscribers);
 
 	if (dsmcbe_host_number != GetMachineID(dataItem))
 	{
@@ -536,6 +537,7 @@ void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 			g_hash_table_remove(rc_GallocatedItems, (void*)dataItem);
 			FREE(obj);
 			obj = NULL;
+			g_list_free(toplist);
 			pthread_mutex_unlock(&rc_invalidate_queue_mutex);
 			return;
 		}
@@ -586,7 +588,7 @@ void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 	}
 	pthread_mutex_unlock(&rc_invalidate_queue_mutex);
 
-	g_list_free(kl);
+	g_list_free(toplist);
 	kl = NULL;
 
 	//if (TRUE || invalidateNet)
