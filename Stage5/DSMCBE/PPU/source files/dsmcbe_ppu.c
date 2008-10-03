@@ -311,8 +311,7 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 		g_thread_init (NULL);
 	else
 		printf(WHERESTR "Warning: GLIB is not THREAD SAFE!!\n", WHEREARG);	
-
-
+ 
 	if (path != NULL) {
 		dsmcbe_host_number = id;
 		sockets = initializeNetwork(id, path, &socketsCount);
