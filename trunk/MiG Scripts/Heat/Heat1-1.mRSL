@@ -19,13 +19,13 @@ Prototein Test 1
 batch
 
 ::EXECUTABLES::
-proto
+heat
 
 ::DISK::
 1
 
 ::CPUTIME::
-23040
+9999
 
 ::PLATFORM::
 
