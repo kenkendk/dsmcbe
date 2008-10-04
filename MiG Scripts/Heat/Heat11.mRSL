@@ -17,7 +17,7 @@ network_test.txt
 batch
 
 ::EXECUTABLES::
-proto
+heat
 startjob.sh
 setup.sh
 go.sh
