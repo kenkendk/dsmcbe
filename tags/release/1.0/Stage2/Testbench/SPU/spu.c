@@ -1,0 +1,79 @@
+#include "spu.h"
+#include <common/datastructures.h>
+
+//We need the counter on the heap so the threads share it
+static int counter = 0;
+
+int main(int argc, char **argv) {
+	
+	initialize();
+	
+	printf(WHERESTR "Hello World\n", WHEREARG);
+	unsigned long size;
+	unsigned int i;
+	unsigned int items;
+	int threadNo;
+	int* allocation;
+	
+	threadNo = CreateThreads(SPU_FIBERS);
+	if (threadNo != -1)
+	{	
+		printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
+		allocation = acquire(ETTAL, &size);
+				
+		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d.\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210);
+		
+		*allocation = 210;
+				
+		release(allocation);
+		printf(WHERESTR "Thread #%d, release completed\n", WHEREARG, threadNo);
+		
+		printf(WHERESTR "Thread #%d, reading large value\n", WHEREARG, threadNo);
+		unsigned int* largeblock = acquire(LARGE_ITEM, &size);
+		
+		items = size / sizeof(unsigned int);
+		printf(WHERESTR "Thread #%d, read large value (%d, %d) (ls: %d)\n", WHEREARG, threadNo, (int)size, items, (int)largeblock);
+
+	
+		//The first to get here has counter == 0	
+		for(i = 0; i < items; i++)
+		{
+			if (largeblock[i] != (i + (counter * 2)))
+				printf(WHERESTR "Thread #%d, Invalid value at %d\n", WHEREARG, threadNo, i);
+			largeblock[i] = i + ((counter + 1) * 2);
+		}
+		counter++;
+		
+		printf(WHERESTR "Thread #%d, releasing large value\n", WHEREARG, threadNo);
+		release(largeblock);
+				
+		printf(WHERESTR "Thread #%d, released large value\n", WHEREARG, threadNo);
+
+		//Memory leak testing, the SPU memory is very limited so a million runs usually reveal the problem
+		for(i = 0; i < 1000000; i++)
+		{
+			if (i % 1000 == 0)
+				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
+			release(acquire(LARGE_ITEM, &size));
+		}
+
+		TerminateThread();
+	}
+	
+	printf(WHERESTR "Creating new item\n", WHEREARG);
+	allocation = create(SPUITEM, sizeof(unsigned int));
+	printf(WHERESTR "Created new item\n", WHEREARG);
+	*allocation = 4;
+	printf(WHERESTR "Releasing new item\n", WHEREARG);
+	release(allocation);
+	printf(WHERESTR "Released new item\n", WHEREARG);
+	
+	
+	terminate();
+	printf(WHERESTR "Done\n", WHEREARG);
+	
+	
+	
+	return 0;
+}
+
