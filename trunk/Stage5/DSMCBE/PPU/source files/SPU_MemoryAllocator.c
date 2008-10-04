@@ -71,6 +71,7 @@ void SPU_Memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned int si
 				{
 					prev->size += next->size + size;
 					map->bitmap = g_list_remove(map->bitmap, next);
+					free(next);
 #ifdef DEBUGMAP
 					printf(WHERESTR "Freed %i bytes at %i using prev and next free\n", WHEREARG, size, (unsigned int)offset);
 					printMap(map);
@@ -198,6 +199,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 		else
 		{
 			map->bitmap = g_list_remove(map->bitmap, best);
+			free(best);
 #ifdef DEBUGMAP
 			printf(WHERESTR "2:Allocated %i bytes at %i\n", WHEREARG, size, position);
 #endif			

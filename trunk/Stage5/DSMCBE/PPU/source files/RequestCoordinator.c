@@ -415,6 +415,7 @@ void RespondRelease(QueueableItem item)
 	
 	struct releaseResponse* resp;
 	
+	//TODO: This occasionally leaks memory
 	if ((resp = (struct releaseResponse*)MALLOC(sizeof(struct releaseResponse))) == NULL)
 		REPORT_ERROR("MALLOC error");
 	
@@ -562,14 +563,26 @@ void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 		
 		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
 		requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
+		
+		if (g_hash_table_size(rc_GpendingSequenceNr) > (MAX_SEQUENCE_NR / 2))
+			REPORT_ERROR("Likely problem with indvalidate requests...");
+
+		while (g_hash_table_lookup(rc_GpendingSequenceNr, (void*)requ->requestID) != NULL && g_hash_table_size(rc_GpendingSequenceNr) < MAX_SEQUENCE_NR)
+			requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
+
+		
 		requ->dataItem = dataItem;
 		
 		sub = kl->data;
 		
+		
 		if (g_hash_table_lookup(rc_GpendingSequenceNr, (void*)requ->requestID) == NULL)		
 			g_hash_table_insert(rc_GpendingSequenceNr, (void*)requ->requestID, obj);
 		else
+		{
+			printf(WHERESTR "Seqnr is :%d, table count is: %d\n", WHEREARG, requ->requestID, g_hash_table_size(rc_GpendingSequenceNr));
 			REPORT_ERROR("Could not insert into pendingSequenceNr");
+		}
 		unsigned int* count = g_hash_table_lookup(rc_GallocatedItemsDirty, obj);
 		(*count)++;
 
@@ -600,6 +613,13 @@ void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 		
 		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
 		requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
+		
+		if (g_hash_table_size(rc_GpendingSequenceNr) > (MAX_SEQUENCE_NR / 2))
+			REPORT_ERROR("Likely problem with indvalidate requests...");
+
+		while (g_hash_table_lookup(rc_GpendingSequenceNr, (void*)requ->requestID) != NULL && g_hash_table_size(rc_GpendingSequenceNr) < MAX_SEQUENCE_NR)
+			requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
+
 		requ->dataItem = dataItem;
 		
 		if (g_hash_table_lookup(rc_GpendingSequenceNr, (void*)requ->requestID) == NULL)		
@@ -902,6 +922,7 @@ void RequestPageTable(int mode)
 		acq->packageCode = mode == ACQUIRE_MODE_READ ? PACKAGE_ACQUIRE_REQUEST_READ : PACKAGE_ACQUIRE_REQUEST_WRITE;
 		acq->requestID = 0;
 
+		//TODO: This is never free'd (aka memory leak)
 		if ((q = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 			REPORT_ERROR("MALLOC error");
 
@@ -912,7 +933,6 @@ void RequestPageTable(int mode)
 		q->callback = NULL;
 
 		//printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
-
 		if (dsmcbe_host_number != PAGE_TABLE_OWNER) {
 			//printf(WHERESTR "Sending PagetableRequest through Network\n", WHEREARG);
 			NetRequest(q, PAGE_TABLE_OWNER);
@@ -1015,6 +1035,7 @@ void HandleReleaseRequest(QueueableItem item)
 			DoInvalidate(req->dataItem);*/
 
 		NetRequest(item, machineId);
+		free(item->dataRequest);
 	}
 	else
 	{
