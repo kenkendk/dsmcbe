@@ -26,52 +26,26 @@ unsigned int jobno;
 
 
 //#define GET_MAP_VALUE(x,y) (((y) < adjustTop && firstRows != NULL) ? &firstRows[((y) * width) + x] : (((y) > height - 3 && lastRows != NULL) ? &lastRows[(((y) - 1 - height) * width) + x] : &data[(((y) - adjustTop) * width) + x]))  
-#define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data, dataSize, firstSize, lastSize, work_item->line_start)
+#define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data)
 
 //#define CHECK_BOUNDS(arr, index, sz) if (((unsigned int)(arr) > (unsigned int)(&arr[index])) || (((unsigned int)(&arr[index]) > ((unsigned int)(arr)) + sz))) REPORT_ERROR("Outside bounds!"); 
 #define CHECK_BOUNDS(arr, index, sz)
 
-PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirst, unsigned int isLast, unsigned int width, unsigned int height, PROBLEM_DATA_TYPE* firstRows, PROBLEM_DATA_TYPE* lastRows, PROBLEM_DATA_TYPE* data, unsigned long dataSize, unsigned long firstSize, unsigned long lastSize, unsigned int startLine)
+PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirst, unsigned int isLast, unsigned int width, unsigned int height, PROBLEM_DATA_TYPE* firstRows, PROBLEM_DATA_TYPE* lastRows, PROBLEM_DATA_TYPE* data)
 {
-	unsigned int print = 0;//(y < 4) || (y > height - 4);
 	
 	if (!isFirst && y < 2)
-	{
-		if (print)
-			printf("Mapped (%d, %d) to firstRows (%d)\n", x, y, y);
-		
-		//CHECK_BOUNDS(firstRows, y * width + x, firstSize);
 		return &firstRows[y * width + x];
-	}
 	else if (!isLast && y >= height - 2)
-	{
-		if (print)
-			printf("Mapped (%d, %d) to lastRows (%d)\n", x, y, (y - (height - 2)));
-
-		//CHECK_BOUNDS(lastRows, (y - (height - 2)) * width + x, lastSize);
 		return &lastRows[(y - (height - 2)) * width + x];
-	}
 	else if (!isFirst)
-	{
-		/*if (((startLine + (y - 2) == 485) || (startLine + (y - 2) == 486)) && x >= 124)
-			printf(WHERESTR "Value at (%d,%d) is: %lf\n", WHEREARG, x, startLine + (y - 2), data[(y - 2) * width + x]);*/
-			 
-		if (print)
-			printf("Mapped (%d, %d) to data (%d)\n", x, y, y - 2);
-		//CHECK_BOUNDS(data, (y - 2) * width + x, dataSize);
 		return &data[(y - 2) * width + x];
-	}
 	else
-	{
-		if (print)
-			printf("Mapped (%d, %d) to data (%d)\n", x, y, y);
-		//CHECK_BOUNDS(data, y * width + x, dataSize);
 		return &data[y * width + x];
-	}
 }
 
 
-void solve(struct Work_Unit* work_item, unsigned long worksize)
+void solve(struct Work_Unit* work_item)
 {
 	//printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, jobno);
 	unsigned int x, y;
@@ -90,7 +64,6 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
     
 	unsigned int isFirst = 1;
 	unsigned int isLast = 1;
-	unsigned int dataSize = work_item->buffer_size * sizeof(PROBLEM_DATA_TYPE);
 
 	data = (PROBLEM_DATA_TYPE*)&work_item->problem;
 
@@ -206,10 +179,9 @@ void solve(struct Work_Unit* work_item, unsigned long worksize)
 int main(long long id)
 {
     struct Work_Unit* work_item;
-    struct Job_Control* job;
     struct Barrier_Unit* barrier;
     unsigned long size;
-    double roundDelta;
+    size_t i;
     
     initialize();
     
@@ -225,124 +197,108 @@ int main(long long id)
 	map_height = boot->map_height;
 	epsilon = boot->epsilon;
 	sharedCount = boot->sharedCount;
+
+	unsigned int firstJob = boot->next_job_no;
+	unsigned int jobCount = boot->job_count;
+	if (firstJob + jobCount > boot->maxjobs)
+		jobCount = boot->maxjobs - firstJob;
+	
 	boot->spu_no++;
+	boot->next_job_no += jobCount;
+	
+	//printf(WHERESTR "SPU %d has %d jobs, starting at %d\n", WHEREARG, spu_no, jobCount, firstJob); 
+	
 	release(boot);
 
-    roundDelta = epsilon + 1.0;
+	unsigned int completionid = beginAcquire(DELTA_THRESHOLD_EXCEEDED, ACQUIRE_MODE_READ);
 	delta = 0.0;
 
-	//printf(WHERESTR "SPU %d is booting\n", WHEREARG, spu_no);
-	
-	while(1)
+	while(getAsyncStatus(completionid) != SPU_DSMCBE_ASYNC_READY)
 	{
-		//printf(WHERESTR "SPU %d is waiting for job lock\n", WHEREARG, spu_no);
-		job = acquire(JOB_LOCK, &size, ACQUIRE_MODE_WRITE);
+		delta = 0.0;
 
-		//printf(WHERESTR "SPU %d got job %d, red: %d\n", WHEREARG, spu_no, job->nextjob, job->red_round);
-
-		jobno = job->nextjob;
-
-		
-		while (job->nextjob >= job->count)
+		//printf(WHERESTR "SPU %d is at red\n", WHEREARG, spu_no);
+		//Red round
+		red_round = 1;
+		for(i = 0; i < jobCount; i++)
 		{
-			//printf(WHERESTR "SPU %d is releasing job lock\n", WHEREARG, spu_no);
-			release(job);
-
-
-			if (!red_round)
-			{
-				//printf(WHERESTR "SPU %d is waiting for manual barrier\n", WHEREARG, spu_no);
-				barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
-	
-				if (barrier->lock_count == 0)
-					barrier->delta = delta;
-				else
-					barrier->delta += delta;
-
-				//printf(WHERESTR "At barrier for spu %d, delta was: %lf (%lf), count was: %d\n", WHEREARG, spu_no, delta, barrier->delta, barrier->lock_count);
-				delta = 0.0;
-	
-#ifdef GRAPHICS
-				if (barrier->lock_count == spu_count)
-				{
-#else
-				if (barrier->lock_count == spu_count - 1)
-				{
-					barrier->print_count++;
-					if (barrier->print_count == 100)
-					{
-						barrier->print_count = 0;
-						printf(WHERESTR "SPU %d is reporting delta: %lf\n", WHEREARG, spu_no, barrier->delta);
-					}
-#endif		
-
-					barrier->lock_count = 0;
-				}
-				else
-					barrier->lock_count++;
-
-				//printf(WHERESTR "SPU %d is waiting for manual barrier, count: %d\n", WHEREARG, spu_no, barrier->lock_count);
-
-	
-				while(barrier->lock_count != 0)
-				{ 
-					release(barrier);
-					barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
-					//sleep(2);
-					//printf(WHERESTR "SPU %d is waiting for manual barrier, count: %d\n", WHEREARG, spu_no, barrier->lock_count);
-
-				}
-				deltasum += barrier->delta;
-				roundDelta = barrier->delta;
-				release(barrier);
-				
-				if (roundDelta < epsilon)
-					break;
-			}
-			else
-			{
-				//printf(WHERESTR "SPU %d is waiting for barrier\n", WHEREARG, spu_no);
-				acquireBarrirer(EX_BARRIER_1);
-			
-			}
-			
-			red_round = !red_round;
-	
-			//printf(WHERESTR "SPU %d is fetching job\n", WHEREARG, spu_no);
-			job = acquire(JOB_LOCK, &size, ACQUIRE_MODE_WRITE);
-			//TODO: If there is just one job and two SPU's, this does not work...
-			if (job->nextjob == job->count)
-			{
-				job->nextjob = 0;
-				job->red_round = !job->red_round;
-			}
+		    work_item = acquire(WORK_OFFSET + firstJob + i, &size, ACQUIRE_MODE_WRITE);
+	    	solve(work_item);
+			release(work_item);
 		}
 		
-		if (roundDelta < epsilon)
-			break;
+		//printf(WHERESTR "SPU %d is at red barrier\n", WHEREARG, spu_no);
+		//Wait
+		acquireBarrier(EX_BARRIER_1);
 		
-		//printf(WHERESTR "SPU %d got job %d, red: %d\n", WHEREARG, spu_no, job->nextjob, job->red_round);
-		jobno = job->nextjob;
-		//red_round = job->red_round;
-		job->nextjob++;
+		//printf(WHERESTR "SPU %d is at black\n", WHEREARG, spu_no);
+		//Black round
+		red_round = 0;
+		for(i = 0; i < jobCount; i++)
+		{
+		    work_item = acquire(WORK_OFFSET + firstJob + i, &size, ACQUIRE_MODE_WRITE);
+	    	solve(work_item);
+			release(work_item);
+		}
 		
-		release(job);
+		//printf(WHERESTR "SPU %d is at black lock\n", WHEREARG, spu_no);
+		//Gather delta sum
+		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
+	
+		if (barrier->lock_count == 0)
+			barrier->delta = delta;
+		else
+			barrier->delta += delta;
+
+		//Update graphics or report status			
+#ifdef GRAPHICS
+		if (barrier->lock_count == spu_count)
+		{
+#else
+		if (barrier->lock_count == spu_count - 1)
+		{
+			barrier->print_count++;
+			if (barrier->print_count == 100)
+			{
+				barrier->print_count = 0;
+				printf(WHERESTR "SPU %d is reporting delta: %lf\n", WHEREARG, spu_no, barrier->delta);
+			}
+#endif		
+			//Reset lock for next round
+			barrier->lock_count = 0;
+			
+			//Determine if exit condition is reached
+			if (barrier->delta < epsilon)
+				release(create(DELTA_THRESHOLD_EXCEEDED, sizeof(int)));
+		}
+		else
+			barrier->lock_count++;
+			
+		release(barrier);
 		
+		//printf(WHERESTR "SPU %d is at black barrier\n", WHEREARG, spu_no);
+		acquireBarrier(EX_BARRIER_1);		
+
+#ifdef GRAPHICS
+		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
+		while(barrier->lock_count != 0)
+		{
+			release(barrier);
+			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
+		}
+		release(barrier);
+#endif
 		
-		//printf(WHERESTR "SPU %d is starting\n", WHEREARG, spu_no);
-		    
-		//printf(WHERESTR "SPU %d is fetching work %d\n", WHEREARG, spu_no, WORK_OFFSET + jobno);
-	    work_item = acquire(WORK_OFFSET + jobno, &size, ACQUIRE_MODE_WRITE);
-	    solve(work_item, size);
-		release(work_item);
 	}
+	
+	release(endAsync(completionid, &size));
 	
 	struct Results* res = create(RESULT_OFFSET + spu_no, sizeof(struct Results));
 	res->deltaSum = deltasum;
 	res->rc = rc;
 	release(res);
 	
-	printf(WHERESTR "SPU %d is terminating, delta was: %lf, epsilon was: %lf\n", WHEREARG, spu_no, roundDelta, epsilon);
+	printf(WHERESTR "SPU %d is terminating, epsilon was: %lf\n", WHEREARG, spu_no, epsilon);
 	terminate();	
 	//printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
 	  

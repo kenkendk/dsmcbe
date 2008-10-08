@@ -390,7 +390,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	return spu_dsmcbe_pendingRequests[requestNo].pointer;
 }
 
-void acquireBarrirer(GUID id) {
+void acquireBarrier(GUID id) {
 	spu_dsmcbe_endAsync(spu_dsmcbe_acquire_barrier_begin(id), NULL);		
 }
  

@@ -14,6 +14,6 @@ extern void* create(GUID id, unsigned long size);
 extern void* acquire(GUID id, unsigned long* size, int type);
 extern void release(void* data);
 extern void createBarrier(GUID id, unsigned int count);
-extern void acquireBarrirer(GUID id);
+extern void acquireBarrier(GUID id);
 
 #endif /*DSMCBE_H_*/
