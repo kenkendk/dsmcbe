@@ -39,13 +39,6 @@ struct Work_Unit
     PROBLEM_DATA_TYPE problem;
 };
 
-struct Job_Control
-{
-	unsigned int count;
-	unsigned int nextjob;
-	unsigned int red_round;
-};
-
 struct Assignment_Unit
 {
 	unsigned int map_width;
@@ -53,6 +46,9 @@ struct Assignment_Unit
 	unsigned int spu_no;
 	unsigned int spu_count;
 	unsigned int sharedCount;
+	unsigned int next_job_no;
+	unsigned int maxjobs;
+	unsigned int job_count;
 	float epsilon;
 };
 
@@ -81,6 +77,7 @@ struct Results
 #define EX_BARRIER_X 8 
 
 #define MASTER_COMPLETION_LOCK 15
+#define DELTA_THRESHOLD_EXCEEDED 16
 
 #define WORK_OFFSET 100
 #define FIRST_ROW_OFFSET 500

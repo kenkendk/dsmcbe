@@ -130,6 +130,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	unsigned int sharedCount = 0;
 	unsigned int remainingLines = map_height;
 	unsigned int lineOffset = 0;
+	unsigned int workUnits = 0;
 	
 	while(remainingLines > 0)
 	{
@@ -143,6 +144,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		send_buffer->buffer_size = map_width * thisHeight;
 		send_buffer->heigth = thisHeight;
 		send_buffer->line_start = lineOffset;
+		workUnits++;
 
 		memcpy(&send_buffer->problem, &data[send_buffer->line_start * map_width], send_buffer->buffer_size * sizeof(PROBLEM_DATA_TYPE));
 		
@@ -176,7 +178,14 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	boot->spu_no = 0;
 	boot->spu_count = spu_count;
 	boot->epsilon = epsilon;
+	boot->next_job_no = 0;
+	boot->job_count = (workUnits + (spu_count - 1)) / spu_count;
+	boot->maxjobs = workUnits;
+
+	//printf(WHERESTR "Created %d jobs, and each of the %d SPU's get %d items\n", WHEREARG, boot->maxjobs, spu_count, boot->job_count); 
+
 	release(boot);
+	
 	
 	//Set up the barrier
 	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
@@ -186,12 +195,6 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	release(barrier);
 	
 	createBarrier(EX_BARRIER_1, spu_count);
-
-	struct Job_Control* jobs = create(JOB_LOCK, sizeof(struct Job_Control));
-	jobs->count = rows;
-	jobs->nextjob = 0;
-	jobs->red_round = 1;
-	release(jobs);
 
 //Periodically update window?
 #ifdef GRAPHICS
@@ -232,6 +235,9 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
             show(data, map_width, map_height);
             cnt = 0;    
         }
+    
+    	if (delta <= epsilon)
+    		release(create(DELTA_THRESHOLD_EXCEEDED));
        
         barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
 		//printf(WHERESTR "manual barrier done, setting lock count to 0\n", WHEREARG);
@@ -239,6 +245,9 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
         delta = barrier->delta;
         release(barrier);
 	}
+	
+	
+	
 #endif /* GRAPHICS */
 
     deltasum = 0.0;
@@ -322,7 +331,7 @@ int main(int argc, char* argv[])
 	
 	if (machineid == 0)
 	{
-		Coordinator(128, 96 * 66, spu_count);
+		Coordinator(128, 6 * 66, spu_count);
 		release(create(MASTER_COMPLETION_LOCK, 1));
 	}
 	else
