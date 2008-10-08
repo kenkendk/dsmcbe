@@ -331,7 +331,7 @@ int main(int argc, char* argv[])
 	
 	if (machineid == 0)
 	{
-		Coordinator(128, 6 * 66, spu_count);
+		Coordinator(128, 96 * 66, spu_count);
 		release(create(MASTER_COMPLETION_LOCK, 1));
 	}
 	else
