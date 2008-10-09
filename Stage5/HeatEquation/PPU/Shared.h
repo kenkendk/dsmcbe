@@ -72,12 +72,10 @@ struct Results
 
 #define EX_BARRIER_1 4 
 #define EX_BARRIER_2 5 
-#define EX_BARRIER_3 6 
 #define BARRIER_LOCK_EXTRA 7
 #define EX_BARRIER_X 8 
 
 #define MASTER_COMPLETION_LOCK 15
-#define DELTA_THRESHOLD_EXCEEDED 16
 
 #define WORK_OFFSET 100
 #define FIRST_ROW_OFFSET 500

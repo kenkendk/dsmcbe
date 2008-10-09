@@ -1,4 +1,3 @@
-
 #include "StopWatch.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -195,6 +194,7 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	release(barrier);
 	
 	createBarrier(EX_BARRIER_1, spu_count);
+	createBarrier(EX_BARRIER_2, spu_count);
 
 //Periodically update window?
 #ifdef GRAPHICS
