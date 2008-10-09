@@ -22,7 +22,6 @@ double epsilon;
 
 unsigned int spu_count;
 unsigned int spu_no;
-unsigned int jobno;
 
 
 //#define GET_MAP_VALUE(x,y) (((y) < adjustTop && firstRows != NULL) ? &firstRows[((y) * width) + x] : (((y) > height - 3 && lastRows != NULL) ? &lastRows[(((y) - 1 - height) * width) + x] : &data[(((y) - adjustTop) * width) + x]))  
@@ -47,7 +46,7 @@ PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirs
 
 void solve(struct Work_Unit* work_item)
 {
-	//printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, jobno);
+	printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
 	unsigned int x, y;
 	unsigned int height, width;
 	unsigned long firstSize;
@@ -210,10 +209,9 @@ int main(long long id)
 	
 	release(boot);
 
-	unsigned int completionid = beginAcquire(DELTA_THRESHOLD_EXCEEDED, ACQUIRE_MODE_READ);
-	delta = 0.0;
+	delta = epsilon + 1;
 
-	while(getAsyncStatus(completionid) != SPU_DSMCBE_ASYNC_READY)
+	while(delta > epsilon)
 	{
 		delta = 0.0;
 
@@ -266,10 +264,6 @@ int main(long long id)
 #endif		
 			//Reset lock for next round
 			barrier->lock_count = 0;
-			
-			//Determine if exit condition is reached
-			if (barrier->delta < epsilon)
-				release(create(DELTA_THRESHOLD_EXCEEDED, sizeof(int)));
 		}
 		else
 			barrier->lock_count++;
@@ -277,28 +271,28 @@ int main(long long id)
 		release(barrier);
 		
 		//printf(WHERESTR "SPU %d is at black barrier\n", WHEREARG, spu_no);
-		acquireBarrier(EX_BARRIER_1);		
-
-#ifdef GRAPHICS
+		acquireBarrier(EX_BARRIER_2);	
+		
 		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
 		while(barrier->lock_count != 0)
 		{
+#ifndef GRAPHICS
+			printf(WHERESTR "SPU %d reported bad timings\n", WHEREARG, spu_no);
+#endif
+			//We should not get here unless were are displaying graphics
 			release(barrier);
 			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
 		}
+		delta = barrier->delta;
 		release(barrier);
-#endif
-		
 	}
-	
-	release(endAsync(completionid, &size));
 	
 	struct Results* res = create(RESULT_OFFSET + spu_no, sizeof(struct Results));
 	res->deltaSum = deltasum;
 	res->rc = rc;
 	release(res);
 	
-	printf(WHERESTR "SPU %d is terminating, epsilon was: %lf\n", WHEREARG, spu_no, epsilon);
+	printf(WHERESTR "SPU %d is terminating, delta was: %lf, epsilon was: %lf\n", WHEREARG, spu_no, delta, epsilon);
 	terminate();	
 	//printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
 	  
