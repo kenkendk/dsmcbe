@@ -17,6 +17,13 @@
 
 //#define DEBUG_PACKAGES
 
+//The number of write requests to record
+#define MAX_RECORDED_WRITE_REQUESTS 5
+//The number of request required from a single machine 
+// (out of MAX_RECORDED_WRITE_REQUESTS) for migration to activate 
+#define MIGRATION_THRESHOLD 4
+
+
 volatile int terminate;
 
 pthread_mutex_t rc_invalidate_queue_mutex;
@@ -49,10 +56,16 @@ typedef struct dataObjectStruct *dataObject;
 //This structure contains information about the registered objects
 struct dataObjectStruct{
 	
+	//The objects GUID
 	GUID id;
+	//The object data in main memory
 	void* EA;
+	//The size of the object
 	unsigned long size;
+	//The list of pending requests
 	GQueue* Gwaitqueue;
+	//A list of ID's of write requesters, used for migration decisions
+	GQueue* GrequestCount;
 };
 
 typedef struct invalidateSubscriber* invalidateSubscriber;
@@ -196,6 +209,7 @@ void InitializeCoordinator()
 			obj->EA = MALLOC_ALIGN(obj->size, 7);
 			obj->id = PAGE_TABLE_ID;
 			obj->Gwaitqueue = g_queue_new();
+			obj->GrequestCount = g_queue_new();
 			
 			for(i = 0; i < PAGE_TABLE_SIZE; i++)
 				((unsigned int*)obj->EA)[i] = UINT_MAX;
@@ -379,7 +393,6 @@ void RespondAcquireBarrier(QueueableItem item)
 //Responds to an acquire request
 void RespondAcquire(QueueableItem item, dataObject obj)
 {
-	
 	struct acquireResponse* resp;
 	if ((resp = (struct acquireResponse*)MALLOC(sizeof(struct acquireResponse))) == NULL)
 		REPORT_ERROR("MALLOC error");
@@ -464,6 +477,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	object->id = request->dataItem;
 	object->EA = data;
 	object->size = size;
+	object->GrequestCount = g_queue_new();
 
 	//If there are pending acquires, add them to the list
 	if ((object->Gwaitqueue = g_hash_table_lookup(rc_Gwaiters, (void*)object->id)) != NULL)
@@ -536,6 +550,10 @@ void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 			FREE_ALIGN(obj->EA);
 			obj->EA = NULL;
 			g_hash_table_remove(rc_GallocatedItems, (void*)dataItem);
+			if (obj->Gwaitqueue != NULL)
+				g_queue_free(obj->Gwaitqueue);
+			if (obj->Gwaitqueue != NULL)
+				g_queue_free(obj->GrequestCount);
 			FREE(obj);
 			obj = NULL;
 			g_list_free(toplist);
@@ -638,6 +656,7 @@ void DoInvalidate(GUID dataItem, unsigned int invalidateNet)
 		ui->Gqueue = &rc_GbagOfTasks;
 		ui->callback = NULL;
 		ui->dataRequest = requ;
+		ui->machineId = dsmcbe_host_number;
 		
 		NetRequest(ui, UINT_MAX);
 	}
@@ -723,6 +742,26 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 	}
 }
 
+int TestForMigration(QueueableItem next, dataObject obj)
+{
+	if (DSMCBE_MachineCount() > 1)
+	{
+		g_queue_push_tail(obj->GrequestCount, (void*)next->machineId);
+		if (g_queue_get_length(obj->GrequestCount) > MAX_RECORDED_WRITE_REQUESTS)
+		{
+			g_queue_pop_head(obj->GrequestCount);
+			size_t i, xxx;
+			for(i = 0; i < g_queue_get_length(obj->GrequestCount); i++)
+				g_queue_peek_nth_link(obj->GrequestCount, i);
+				
+			if (xxx > MIGRATION_THRESHOLD && xxx != dsmcbe_host_number) 
+				return TRUE;
+		}
+	}
+	
+	return FALSE;
+}
+
 //Performs all actions releated to an acquire request
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
@@ -752,6 +791,10 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 					//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 
+
+				if (TestForMigration(item, obj))
+					; //TODO: What?
+							
 				g_queue_push_head(q, NULL);
 				
 				if (obj->id != PAGE_TABLE_ID)
@@ -859,6 +902,9 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 						//if (machineId == 0 && ((struct acquireRequest*)next->dataRequest)->dataItem == 0)
 							//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 
+						if (TestForMigration(next, obj))
+							; //TODO: What?
+							
 						g_queue_push_head(q, NULL);
 
 						GUID id = obj->id;
@@ -931,6 +977,7 @@ void RequestPageTable(int mode)
 		q->event = &rc_queue_ready;
 		q->Gqueue = &rc_GpriorityResponses;			
 		q->callback = NULL;
+		q->machineId = dsmcbe_host_number;
 
 		//printf(WHERESTR "processing PT event %d\n", WHEREARG, dsmcbe_host_number);
 		if (dsmcbe_host_number != PAGE_TABLE_OWNER) {
@@ -1062,6 +1109,7 @@ void HandleReleaseRequest(QueueableItem item)
 				obj->id = req->dataItem;
 				obj->size = req->dataSize;
 				obj->Gwaitqueue = tmp;
+				obj->GrequestCount = g_queue_new();
 				
 				if (g_hash_table_lookup(rc_GallocatedItems, (void*)obj->id) == NULL)
 					g_hash_table_insert(rc_GallocatedItems, (void*)obj->id, obj);
@@ -1180,10 +1228,14 @@ void HandleInvalidateResponse(QueueableItem item)
 
 		if ((temp = g_hash_table_lookup(rc_GallocatedItems, (void*)object->id)) == NULL || temp != object)
 		{  		
-			//printf(WHERESTR "Special case: Why is obect not in allocatedItemsDirty or allocedItems?\n", WHEREARG);
+			//printf(WHERESTR "Special case: Why is object not in allocatedItemsDirty or allocedItems?\n", WHEREARG);
 			//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d)\n", WHEREARG, object->id, (int)object, (int)object->EA);
 			FREE_ALIGN(object->EA);
 			object->EA = NULL;
+			if (object->Gwaitqueue != NULL)
+				g_queue_free(object->Gwaitqueue);
+			if (object->Gwaitqueue != NULL)
+				g_queue_free(object->GrequestCount);
 			FREE(object);
 			object = NULL;
 		}
@@ -1263,6 +1315,7 @@ void HandleAcquireResponse(QueueableItem item)
 		object->EA = req->data;
 		object->size = req->dataSize;
 		object->Gwaitqueue = NULL;
+		object->GrequestCount = g_queue_new();
 
 		/*if (req->dataItem == PAGE_TABLE_ID)
 			printf(WHERESTR "pagetable entry 1 = %d\n", WHEREARG, ((unsigned int*)object->EA)[1]);*/
@@ -1533,6 +1586,7 @@ void* rc_ProccessWork(void* data)
 			item->mutex = &rc_queue_mutex;
 			item->Gqueue = &rc_GpriorityResponses;
 			item->callback = NULL;
+			item->machineId = dsmcbe_host_number;
 			isPtResponse = 1;
 		}
 		else

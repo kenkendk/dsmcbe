@@ -27,6 +27,7 @@ struct QueueableItemStruct {
 	GQueue** Gqueue;
 	void* dataRequest;
 	void (*callback)(QueueableItem, void* data);
+	unsigned int machineId;
 };
 
 //Requesters must call this function to interact with the coordinator
