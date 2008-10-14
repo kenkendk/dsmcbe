@@ -8,6 +8,7 @@
 #include "../header files/RequestCoordinator.h"
 #include "../../common/debug.h"
 #include "../../common/datapackages.h"
+#include "../header files/NetworkHandler.h"
 
 //The number of avalible DMA group ID's
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU! 
@@ -218,6 +219,7 @@ void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req
 #endif
 		qi->mutex = &spu_rq_mutex;
 		qi->Gqueue = &state->queue;
+		qi->machineId = dsmcbe_host_number;
 		
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Inserting item into request coordinator queue\n", WHEREARG);
