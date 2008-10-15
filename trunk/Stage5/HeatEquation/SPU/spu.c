@@ -181,6 +181,7 @@ int main(long long id)
     struct Barrier_Unit* barrier;
     unsigned long size;
     size_t i;
+    unsigned int prefetch, prefetch_temp;
     
     initialize();
     
@@ -218,9 +219,15 @@ int main(long long id)
 		//printf(WHERESTR "SPU %d is at red\n", WHEREARG, spu_no);
 		//Red round
 		red_round = 1;
+		
+		prefetch = beginAcquire(WORK_OFFSET + firstJob + i, ACQUIRE_MODE_WRITE);
+		
 		for(i = 0; i < jobCount; i++)
 		{
-		    work_item = acquire(WORK_OFFSET + firstJob + i, &size, ACQUIRE_MODE_WRITE);
+		    if (i + 1 < jobCount)
+		    	prefetch_temp = beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
+		    work_item = endAsync(prefetch, &size);
+		    prefetch = prefetch_temp;
 	    	solve(work_item);
 			release(work_item);
 		}
@@ -232,9 +239,15 @@ int main(long long id)
 		//printf(WHERESTR "SPU %d is at black\n", WHEREARG, spu_no);
 		//Black round
 		red_round = 0;
+
+		prefetch = beginAcquire(WORK_OFFSET + firstJob + i, ACQUIRE_MODE_WRITE);
+
 		for(i = 0; i < jobCount; i++)
 		{
-		    work_item = acquire(WORK_OFFSET + firstJob + i, &size, ACQUIRE_MODE_WRITE);
+		    if (i + 1 < jobCount)
+		    	prefetch_temp = beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
+		    work_item = endAsync(prefetch, &size);
+		    prefetch = prefetch_temp;
 	    	solve(work_item);
 			release(work_item);
 		}
