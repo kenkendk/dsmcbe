@@ -46,7 +46,7 @@ PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirs
 
 void solve(struct Work_Unit* work_item)
 {
-	printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
+	//printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
 	unsigned int x, y;
 	unsigned int height, width;
 	unsigned long firstSize;
@@ -220,7 +220,7 @@ int main(long long id)
 		//Red round
 		red_round = 1;
 		
-		prefetch = beginAcquire(WORK_OFFSET + firstJob + i, ACQUIRE_MODE_WRITE);
+		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 		
 		for(i = 0; i < jobCount; i++)
 		{
@@ -240,7 +240,7 @@ int main(long long id)
 		//Black round
 		red_round = 0;
 
-		prefetch = beginAcquire(WORK_OFFSET + firstJob + i, ACQUIRE_MODE_WRITE);
+		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 
 		for(i = 0; i < jobCount; i++)
 		{
