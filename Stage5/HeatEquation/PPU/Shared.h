@@ -5,7 +5,7 @@
 //#define GRAPHICS
 
 //Defines the size of each work block (approximate value)
-#define BLOCK_SIZE (32 * 1024)
+#define BLOCK_SIZE (100 * 1024)
 
 //How often the graphics should update
 #define UPDATE_FREQ 10
