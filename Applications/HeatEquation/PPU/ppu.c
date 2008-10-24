@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <malloc.h>
-#include "../../DSMCBE/dsmcbe_ppu.h"
-#include "../../DSMCBE/common/debug.h"
+#include "dsmcbe_ppu.h"
+#include "common/debug.h"
 #include "Shared.h"
 #include "graphicsScreen.h"
 
