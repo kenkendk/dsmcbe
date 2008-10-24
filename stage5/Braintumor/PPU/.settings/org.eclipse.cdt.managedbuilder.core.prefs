@@ -1,0 +1,20 @@
+#Tue Aug 26 09:37:03 CEST 2008
+celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.1994729292/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.1994729292/internalBuilder/ignoreErr=true
+celldt.managedbuild.config.cell.ppu.gnu32.exe.release.986922933/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu32.exe.release.986922933/internalBuilder/ignoreErr=true
+celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.73868959/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.73868959/internalBuilder/ignoreErr=true
+celldt.managedbuild.config.cell.ppu.gnu64.exe.release.400210375/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu64.exe.release.400210375/internalBuilder/ignoreErr=true
+eclipse.preferences.version=1
+environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.1994729292=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.ppu.gnu32.exe.release.986922933=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.73868959=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentLibrary/celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.1994729292=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="LIBRARY_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentLibrary/celldt.managedbuild.config.cell.ppu.gnu32.exe.release.986922933=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="LIBRARY_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentLibrary/celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.73868959=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="LIBRARY_PATH" operation\="remove"/>\n</environment>\n
+environment/project=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
+environment/project/celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.1994729292=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
+environment/project/celldt.managedbuild.config.cell.ppu.gnu32.exe.release.986922933=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
+environment/project/celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.73868959=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
