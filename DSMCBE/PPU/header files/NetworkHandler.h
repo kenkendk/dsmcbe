@@ -6,13 +6,12 @@
 void InitializeNetworkHandler(int* handles, unsigned int host_count);
 void TerminateNetworkHandler(int force);
 
-unsigned int GetMachineID(GUID itemId);
-int SetMachineID(GUID itemId, unsigned int machineId, unsigned int expectedId);
+OBJECT_TABLE_ENTRY_TYPE GetMachineID(GUID itemId);
 
 void NetInvalidate(GUID id);
 void NetRequest(QueueableItem item, unsigned int machineId);
 void NetUnsubscribe(GUID dataitem, unsigned int machineId);
 
-extern unsigned int dsmcbe_host_number;
+extern OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number;
 
 #endif /*NETWORKHANDLER_H_*/

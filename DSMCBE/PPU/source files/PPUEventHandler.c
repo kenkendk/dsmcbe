@@ -308,13 +308,13 @@ void* threadCreate(GUID id, unsigned long size)
 	struct acquireResponse* ar;
 	void* retval;
 	
-	if (id == PAGE_TABLE_ID)
+	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("cannot request pagetable");
 		return NULL;
 	}
 	
-	if (id >= PAGE_TABLE_SIZE)
+	if (id >= OBJECT_TABLE_SIZE)
 	{
 		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
 		return NULL;
@@ -488,13 +488,13 @@ void threadAcquireBarrier(GUID id)
 	struct acquireBarrierRequest* cr;
 	struct acquireBarrierResponse* ar;
 	
-	if (id == PAGE_TABLE_ID)
+	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("cannot request pagetable");
 		return;
 	}
 	
-	if (id >= PAGE_TABLE_SIZE)
+	if (id >= OBJECT_TABLE_SIZE)
 	{
 		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
 		return;
@@ -523,15 +523,15 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	struct acquireResponse* ar;
 	PointerEntry pe;
 	
-	if (id == PAGE_TABLE_ID)
+	if (id == OBJECT_TABLE_ID)
 	{
-		REPORT_ERROR("cannot request pagetable");
+		REPORT_ERROR("cannot request objecttable");
 		return NULL;
 	}
 	
-	if (id >= PAGE_TABLE_SIZE)
+	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
+		REPORT_ERROR("requested ID exeeds OBJECT_TABLE_SIZE");
 		return NULL;
 	}
 	
@@ -634,7 +634,7 @@ void threadRelease(void* data)
 		//Extract the pointer, and release the mutex fast
 		pthread_mutex_unlock(&ppu_pointer_mutex);
 		
-		if (pe->id == PAGE_TABLE_ID)
+		if (pe->id == OBJECT_TABLE_ID)
 		{
 			REPORT_ERROR("cannot request pagetable");
 			return;

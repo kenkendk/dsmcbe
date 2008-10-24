@@ -23,7 +23,10 @@
 
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
-unsigned int dsmcbe_host_number = INT_MAX;
+OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number = OBJECT_TABLE_RESERVED;
+static int dsmcbe_display_network_startup_value = 0;
+
+void dsmcbe_display_network_startup(int value) { dsmcbe_display_network_startup_value = value; }
 
 void* ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
@@ -77,7 +80,8 @@ void updateNetworkFile(char* path, unsigned int networkcount)
 	char str[5];
 	char ip[15];
 	
-	printf(WHERESTR "Starting network setup\n", WHEREARG);
+	if (dsmcbe_display_network_startup_value)
+		printf(WHERESTR "Starting network setup\n", WHEREARG);
 	
 	filesource = fopen(path , "r");
 	filetarget = fopen("networkbackup.txt", "w");
@@ -138,7 +142,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	char ip[256];
 	unsigned int networkcount, j, k;
 		
-	printf(WHERESTR "Starting network setup\n", WHEREARG);
+	if (dsmcbe_display_network_startup_value)
+		printf(WHERESTR "Starting network setup\n", WHEREARG);
 	
 	filesource = fopen (path , "r");
 	
@@ -190,10 +195,13 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		REPORT_ERROR("malloc error");
 	
 	if (id == 0 && id < networkcount) {
-		printf(WHERESTR "This machine is coordinator\n", WHEREARG);
+		if (dsmcbe_display_network_startup_value)
+			printf(WHERESTR "This machine is coordinator\n", WHEREARG);
 
 		for(j = networkcount - 1; j > id; j--) {		
-			printf(WHERESTR "This machine needs to connect to machine with id:  %i\n", WHEREARG, j);
+			if (dsmcbe_display_network_startup_value)
+				printf(WHERESTR "This machine needs to connect to machine with id:  %i\n", WHEREARG, j);
+				
 			if((sockfd[j] = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 			{
 				REPORT_ERROR("socket()");
@@ -224,9 +232,11 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		updateNetworkFile(path, networkcount);
 
 	} else if (id < networkcount){
-		printf(WHERESTR "This machine is not coordinator\n", WHEREARG);
+		if (dsmcbe_display_network_startup_value)
+			printf(WHERESTR "This machine is not coordinator\n", WHEREARG);
 
-		printf(WHERESTR "This machine needs to wait for connection from id: %i\n", WHEREARG, 0);
+		if (dsmcbe_display_network_startup_value)
+			printf(WHERESTR "This machine needs to wait for connection from id: %i\n", WHEREARG, 0);
 		
 		sockfd[id] = socket(AF_INET, SOCK_STREAM, 0);
 		if(sockfd[id] == -1) {
@@ -234,7 +244,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 			exit(1);
 		}
 
-		printf(WHERESTR "This machine starts to listen on port: %i\n", WHEREARG, network[id].sin_port);
+		if (dsmcbe_display_network_startup_value)
+			printf(WHERESTR "This machine starts to listen on port: %i\n", WHEREARG, network[id].sin_port);
 		  
 		if(bind(sockfd[id], (struct sockaddr *)&network[id], sizeof(struct sockaddr)) == -1)
 		{
@@ -242,7 +253,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 			exit(1);
 		}
 
-		printf(WHERESTR "This machine listens on port: %i\n", WHEREARG, network[id].sin_port);
+		if (dsmcbe_display_network_startup_value)
+			printf(WHERESTR "This machine listens on port: %i\n", WHEREARG, network[id].sin_port);
 
 		/*printf(WHERESTR "All done, bailing: %i\n", WHEREARG, network[id].sin_port);
 		exit(2);*/
@@ -262,7 +274,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		}
 
 		for(j = networkcount - 1; j > id; j--) {		
-			printf(WHERESTR "This machine needs to connect to machine with id: %i\n", WHEREARG, j);
+			if (dsmcbe_display_network_startup_value)
+				printf(WHERESTR "This machine needs to connect to machine with id: %i\n", WHEREARG, j);
 
 			if((sockfd[j] = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 			{
@@ -278,7 +291,9 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 			
 		//TODO: We can't rely on each machine connecting in order...  	
 		for(j = id - 1; j > 0; j--) {
-			printf(WHERESTR "This machine needs to wait for connection from id: %i\n", WHEREARG, j);			  	
+			if (dsmcbe_display_network_startup_value)
+				printf(WHERESTR "This machine needs to wait for connection from id: %i\n", WHEREARG, j);			  	
+			
 			if ((sockfd[j] = accept(sockfd[id], (struct sockaddr *)&network[id], &sin_size)) == -1)
 			{
 			  	REPORT_ERROR("accept()");
@@ -288,7 +303,9 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	} else
 		REPORT_ERROR("Cannot parse ID with IP/PORT from network file");
 			
-	printf(WHERESTR "Network setup completed\n", WHEREARG);
+	if (dsmcbe_display_network_startup_value)
+		printf(WHERESTR "Network setup completed\n", WHEREARG);
+		
 	FREE(network);
 	network = NULL;
 	*count = networkcount;

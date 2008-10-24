@@ -123,16 +123,16 @@ void spu_dsmcbe_readMailbox() {
 //Initiates a create operation
 unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 {
-	if (id == PAGE_TABLE_ID)
+	if (id == OBJECT_TABLE_ID)
 	{
-		REPORT_ERROR("Cannot request page table");
+		REPORT_ERROR("Cannot request object table");
 		return UINT_MAX;
 	}
 	
-	if (id >= PAGE_TABLE_SIZE)
+	if (id >= OBJECT_TABLE_SIZE)
 	{
 		printf("ID was %u\n", id);
-		REPORT_ERROR("ID was larger than page table size");
+		REPORT_ERROR("ID was larger than object table size");
 		return UINT_MAX;
 	}
 	
@@ -160,15 +160,15 @@ unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 
 unsigned int spu_dsmcbe_acquire_barrier_begin(GUID id)
 {
-	if (id == PAGE_TABLE_ID)
+	if (id == OBJECT_TABLE_ID)
 	{
-		REPORT_ERROR("Cannot request page table");
+		REPORT_ERROR("Cannot request object table");
 		return UINT_MAX;
 	}
 	
-	if (id >= PAGE_TABLE_SIZE)
+	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("ID was larger than page table size");
+		REPORT_ERROR("ID was larger than object table size");
 		return UINT_MAX;
 	}
 	
@@ -197,15 +197,15 @@ unsigned int spu_dsmcbe_acquire_barrier_begin(GUID id)
 //Initiates an acquire operation
 unsigned int spu_dsmcbe_acquire_begin(GUID id, int type)
 {
-	if (id == PAGE_TABLE_ID)
+	if (id == OBJECT_TABLE_ID)
 	{
-		REPORT_ERROR("Cannot request page table");
+		REPORT_ERROR("Cannot request object table");
 		return UINT_MAX;
 	}
 	
-	if (id >= PAGE_TABLE_SIZE)
+	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("ID was larger than page table size");
+		REPORT_ERROR2("ID was larger than object table size: %d", id);
 		return UINT_MAX;
 	}
 	

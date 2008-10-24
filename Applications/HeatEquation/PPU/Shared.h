@@ -10,6 +10,9 @@
 //How often the graphics should update
 #define UPDATE_FREQ 10
 
+//If the blocks should be created on the SPU using them
+#define CREATE_LOCALLY
+
 //Offset calculation
 #define MAPOFFSET(x,y) (((y) * (map_width)) + (x))
 #define MAPVALUE(x,y) (data[MAPOFFSET((x),(y))])
@@ -69,12 +72,14 @@ struct Results
 #define JOB_LOCK 10
 #define ASSIGNMENT_LOCK 1
 #define BARRIER_LOCK 2
+#define BARRIER_LOCK_ALT 3
 
 #define EX_BARRIER_1 4 
 #define EX_BARRIER_2 5 
 #define BARRIER_LOCK_EXTRA 7
 #define EX_BARRIER_X 8 
 
+#define MASTER_START_LOCK 14
 #define MASTER_COMPLETION_LOCK 15
 
 #define WORK_OFFSET 100

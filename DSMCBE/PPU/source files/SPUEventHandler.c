@@ -14,6 +14,9 @@
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU! 
 #define MAX_DMA_GROUPID 16
 
+//Disable keeping data on the SPU after release
+//#define DISABLE_SPU_CACHE
+
 //This is the lowest number a release request can have.
 //Make sure that this is larger than the MAX_PENDING_REQUESTS number defined on the SPU
 #define RELEASE_NUMBER_BASE 2000
@@ -127,26 +130,15 @@ volatile unsigned int spu_terminate;
 //This mutex protects the queue and the event
 pthread_mutex_t spu_rq_mutex;
 
-#ifdef EVENT_BASED
 //This event is signaled when data is comming from the request coordinator
 pthread_cond_t spu_rq_event;
 
-//This thread monitors events from the SPU
-pthread_t spu_event_watcher;
-
-//This is the SPE event handler
-spe_event_handler_ptr_t spu_event_handler;
-	
-//This is the registered SPE events
-spe_event_unit_t* registered_events;
-
-#endif
-
-
-//#define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
-
+//This first macro tries to bypass the queue, if possible
 unsigned int spuhandler_temp_mbox_value;
-#define PUSH_TO_SPU(state, value) spuhandler_temp_mbox_value = (unsigned int)value; if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &spuhandler_temp_mbox_value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)spuhandler_temp_mbox_value); } 
+#define PUSH_TO_SPU(state, value) spuhandler_temp_mbox_value = (unsigned int)value; if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &spuhandler_temp_mbox_value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)spuhandler_temp_mbox_value); }
+
+//This second macro always uses the queue 
+//#define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
 
 //Declarations for functions that have interdependencies
 void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObject* obj);
@@ -184,7 +176,7 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Disposing item %d\n", WHEREARG, obj->id);
 #endif
-	
+
 	g_hash_table_remove(state->itemsById, (void*)obj->id);
 	g_hash_table_remove(state->itemsByPointer, (void*)obj->LS);
 	g_queue_remove(state->agedObjectMap, (void*)obj->id);
@@ -210,13 +202,9 @@ void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req
 	if ((qi = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 		REPORT_ERROR("malloc error");
 	
-	qi->callback = NULL;
-	qi->dataRequest = req;
-#ifdef EVENT_BASED		
-		qi->event = &spu_rq_event;
-#else
+		qi->callback = NULL;
+		qi->dataRequest = req;
 		qi->event = NULL;
-#endif
 		qi->mutex = &spu_rq_mutex;
 		qi->Gqueue = &state->queue;
 		qi->machineId = dsmcbe_host_number;
@@ -651,8 +639,7 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 				return;
 			}
 		}
-		printf(WHERESTR "Broken WRITEBUFFERREADY for object: %d\n", WHEREARG, id);
-		REPORT_ERROR("Recieved a writebuffer ready request, but the object did not exist");
+		REPORT_ERROR2("Recieved a writebuffer ready request, but object %d did not exist", id);
 		return;
 	}
 	
@@ -762,14 +749,8 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 			
 			if (pendingSize == 0)
 			{
-				printf("Warning, no pending releaseRequests\n");
-				//sleep(1);
+				REPORT_ERROR2("No more space, denying acquire request for %d", data->dataItem);
 
-				
-#ifdef DEBUG_COMMUNICATION	
-				printf(WHERESTR "No more space, denying acquire request\n", WHEREARG);	
-#endif
-				
 				/*fprintf(stderr, "* ERROR * " WHERESTR ": Failed to allocate %d bytes on the SPU, allocated objects: %d, free memory: %d, allocated blocks: %d\n", WHEREARG, (int)data->dataSize, g_hash_table_size(state->itemsById), state->map->free_mem, g_hash_table_size(state->map->allocated));
 			
 				GHashTableIter iter;
@@ -792,9 +773,9 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 				{
 					struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
 					fprintf(stderr, "* ERROR * " WHERESTR ": Item %d is in DMATransfer\n", WHEREARG, v->objId);
-				}
+				}*/
 				
-				sleep(5);*/
+				sleep(5);
 				
 				PUSH_TO_SPU(state, preq->requestId;);
 				PUSH_TO_SPU(state, NULL);
@@ -808,7 +789,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 #ifdef DEBUG_COMMUNICATION	
 			printf(WHERESTR "No more space, delaying acquire until space becomes avalible, free mem: %d, pendingSize: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, pendingSize, data->dataSize);
 #endif
-			if (!g_queue_find(state->releaseWaiters, data) == NULL)
+			if (g_queue_find(state->releaseWaiters, data) == NULL)
 				g_queue_push_tail(state->releaseWaiters, data);
 			return FALSE;
 
@@ -918,7 +899,11 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 #endif
 			//If this was the last release, check for invalidates, and otherwise register in the age map
 			
+#ifdef DISABLE_SPU_CACHE
+			if (TRUE)
+#else
 			if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)
+#endif
 			{
 #ifdef DEBUG_COMMUNICATION	
 				if (state->terminated != UINT_MAX)
@@ -1086,9 +1071,12 @@ void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int re
 	printf(WHERESTR "Handling invalidate request for id: %d, request id: %d\n", WHEREARG, id, requestId);
 #endif
 
+
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)id);
-	if (obj == NULL)
+	if (obj == NULL) 
+	{
 		EnqueInvalidateResponse(requestId);
+	}
 	else
 	{
 		if (obj->count == 1 && obj->mode == ACQUIRE_MODE_WRITE)
@@ -1099,13 +1087,17 @@ void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int re
 			EnqueInvalidateResponse(requestId);
 		}
 #ifdef DEBUG_COMMUNICATION
-		else	
-			printf(WHERESTR "The Invalidate was for an object in READ mode\n", WHEREARG);	
+		else
+		{	
+			printf(WHERESTR "The Invalidate was for an object in READ mode\n", WHEREARG);
+		}	
 #endif
 		
 		
 		if (obj->count == 0 || obj->mode == ACQUIRE_MODE_READ)
 		{
+			if (obj->id != id)
+				REPORT_ERROR("Corrupted memory detected");
 			obj->invalidateId = requestId;
 			if (obj->count == 0)
 				spuhandler_DisposeObject(state, obj);
@@ -1287,20 +1279,11 @@ void* SPU_MainThread(void* dummy)
 	unsigned int pending_out_data;
 	
 	//Event base, keeps the mutex locked, until we wait for events
-#ifdef EVENT_BASED
-	struct timespec waittime;
-	//printf(WHERESTR "locking mutex\n", WHEREARG);
-	pthread_mutex_lock(&spu_rq_mutex);
-	//printf(WHERESTR "locked mutex\n", WHEREARG);
-#endif
-
 	while(!spu_terminate)
 	{
 
 		pending_out_data = 0;
 
-//Non-event based just needs the lock for accessing the queue	
-#ifndef EVENT_BASED
 		//Lock the mutex once, and read all the data
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&spu_rq_mutex);
@@ -1310,65 +1293,18 @@ void* SPU_MainThread(void* dummy)
 			spuhandler_HandleRequestCoordinatorMessages(&spu_states[i]);
 
 		pthread_mutex_unlock(&spu_rq_mutex);
-#endif
 
 		for(i = 0; i < spe_thread_count; i++)
 		{
 			//For each SPU, just repeat this
-#ifdef EVENT_BASED
-			spuhandler_HandleRequestCoordinatorMessages(&spu_states[i]);
-#endif
 			spuhandler_SPUMailboxReader(&spu_states[i]);
 			spuhandler_HandleDMAEvent(&spu_states[i]);
 			pending_out_data |= spuhandler_SPUMailboxWriter(&spu_states[i]);
 		}
-		
-#ifdef EVENT_BASED
-		if (pending_out_data)
-		{
-			clock_gettime(CLOCK_REALTIME, &waittime);
-			waittime.tv_nsec += 10000000;
-			pthread_cond_timedwait(&spu_rq_event, &spu_rq_mutex, &waittime);
-		}
-		else
-			pthread_cond_wait(&spu_rq_event, &spu_rq_mutex);
-#endif
 	}
 
-#ifdef EVENT_BASED
-		pthread_mutex_unlock(&spu_rq_mutex);
-#endif
 	return dummy;
 }
-
-#ifdef EVENT_BASED
-void* SPU_EventWatcher(void* dummy)
-{
-	int event_count;
-	spe_event_unit_t event;
-	
-	while(!spu_terminate)
-	{
-		event_count = spe_event_wait(spu_event_handler, &event, SPE_MAX_EVENT_COUNT, 5000);
-		if (event_count == -1)
-			REPORT_ERROR("spe_event_wait failed");
-		
-		//After each event, trigger this
-		//printf(WHERESTR "locking mutex\n", WHEREARG); 
-		pthread_mutex_lock(&spu_rq_mutex);
-		//printf(WHERESTR "locked mutex\n", WHEREARG);
-		pthread_cond_signal(&spu_rq_event);
-		pthread_mutex_unlock(&spu_rq_mutex);
-		
-		//This code is used to troubleshoot jiggy event handling code
-		if (event_count == 0 && !spu_terminate)
-			printf(WHERESTR "Jiggy! Jiggy! Jiggy!\n", WHEREARG);
-		
-	}
-	
-	return dummy;
-}
-#endif
 
 //This function sets up the SPU event handler
 void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
@@ -1389,17 +1325,6 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		
 	if (pthread_mutex_init(&spu_rq_mutex, NULL) != 0) REPORT_ERROR("Mutex initialization failed");
 
-#ifdef EVENT_BASED
-	if (pthread_cond_init(&spu_rq_event, NULL) != 0) REPORT_ERROR("Cond initialization failed");
-
-	spu_event_handler = spe_event_handler_create();
-	if (spu_event_handler == NULL)
-		REPORT_ERROR("Broken event handler");
-		
-	if ((registered_events = MALLOC(sizeof(spe_event_unit_t) * spe_thread_count)) == NULL)
-		REPORT_ERROR("malloc error");
-#endif
-
 	for(i = 0; i < thread_count; i++)
 	{
 		spu_states[i].activeDMATransfers = g_hash_table_new(NULL, NULL);
@@ -1416,29 +1341,13 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].terminated = UINT_MAX;
 		spu_states[i].releaseSeqNo = 0;
 		
-#ifdef EVENT_BASED
-		RegisterInvalidateSubscriber(&spu_rq_mutex, &spu_rq_event, &spu_states[i].queue);
-
-		//The SPE_EVENT_IN_MBOX is enabled whenever there is data in the queue
-		registered_events[i].spe = spu_states[i].context;
-		registered_events[i].events = SPE_EVENT_OUT_INTR_MBOX | SPE_EVENT_TAG_GROUP;
-		registered_events[i].data.ptr = (void*)i;
-
-		if (spe_event_handler_register(spu_event_handler, &registered_events[i]) != 0)
-			REPORT_ERROR("Register failed");
-#else
 		RegisterInvalidateSubscriber(&spu_rq_mutex, NULL, &spu_states[i].queue);
-#endif		
 	}
 
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
-#ifdef EVENT_BASED
-	pthread_create(&spu_event_watcher, &attr, SPU_EventWatcher, NULL);
-#endif
-	
 	pthread_create(&spu_mainthread, &attr, SPU_MainThread, NULL);
 }
 
@@ -1450,15 +1359,6 @@ void TerminateSPUHandler(int force)
 	//Remove warning
 	spu_terminate = force | TRUE;
 	
-#ifdef EVENT_BASED
-	//printf(WHERESTR "locking mutex\n", WHEREARG);
-	pthread_mutex_lock(&spu_rq_mutex);
-	//printf(WHERESTR "locked mutex\n", WHEREARG);
-	pthread_cond_signal(&spu_rq_event);
-	pthread_mutex_unlock(&spu_rq_mutex);
-	
-	pthread_join(spu_event_watcher, NULL);
-#endif 
 	pthread_join(spu_mainthread, NULL); 
 	
 	pthread_mutex_destroy(&spu_rq_mutex);
@@ -1481,38 +1381,9 @@ void TerminateSPUHandler(int force)
 		spu_memory_destroy(spu_states[i].map);
 
 		UnregisterInvalidateSubscriber(&spu_states[i].queue);
-		
-#ifdef EVENT_BASED
-		if (spe_event_handler_deregister(spu_event_handler, &registered_events[i]) != 0)
-			REPORT_ERROR("Unregister failed");
-#endif		
 	}
 	
-#ifdef EVENT_BASED
-	pthread_cond_destroy(&spu_rq_event);
-	spe_event_handler_destroy(&spu_event_handler);
-#endif
 	FREE(spu_states);
 	spu_states = NULL;
 	
 }
-
-/*
-//This function tries to determine if there is no possibility that the given object is using the EA buffer
-//WARNING: The mutex MUST be locked before calling this method
-int spuhandler_IsWriteBufferInUse(GQueue** queue, GUID id)
-{
-	size_t i;
-	
-	for(i = 0; i < spe_thread_count; i++)
-		if (&spu_states[i].queue == queue)
-		{
-			//TODO: This is a dirty read in the hashtable, if we are not using events
-			struct spu_dataObject* obj = g_hash_table_lookup(spu_states[i].itemsById, (void*)id);
-			return !(obj == NULL || obj->DMAId == UINT_MAX || obj->mode == ACQUIRE_MODE_WRITE);
-		}
-		
-	//The queue was now for an SPE, so just to be safe, we say it's in use
-	return TRUE;
-}
-*/

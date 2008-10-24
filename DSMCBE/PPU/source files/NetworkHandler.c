@@ -7,7 +7,7 @@
 #include <poll.h>
 #include <stropts.h>
 
-//#define TRACE_NETWORK_PACKAGES
+#define TRACE_NETWORK_PACKAGES
 
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"
@@ -60,7 +60,7 @@ void* net_Writer(void* data);
 void net_sendPackage(void* package, unsigned int machineId);
 void* net_readPackage(int fd);
 void net_processPackage(void* data, unsigned int machineId);
-unsigned int GetMachineID(GUID id);
+OBJECT_TABLE_ENTRY_TYPE GetMachineID(GUID id);
 
 //These tables are used to translate requestIDs from internal seqences to network
 // sequence and back again
@@ -566,7 +566,7 @@ void* net_Writer(void* data)
 				
 			//printf(WHERESTR "Processing invalidate package to: %d\n", WHEREARG, hostno);
 			
-			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno) != NULL)
+			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(hostno + 1)) != NULL)
 			{
 				initiatorNo = (int)g_hash_table_lookup(Gnet_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem) - 1;
 				
@@ -575,7 +575,7 @@ void* net_Writer(void* data)
 					//Regular invalidate, register as cleared
 					//printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, itemid);
 					((struct invalidateRequest*)package)->requestID = NET_MAX_SEQUENCE + 1;
-					g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno);
+					g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(hostno + 1));
 				}
 				else
 				{
@@ -607,10 +607,10 @@ void* net_Writer(void* data)
 			if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
 				g_hash_table_insert(Gnet_leaseTable, (void*)itemid, g_hash_table_new(NULL, NULL));
 				
-			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno) == NULL)
+			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(hostno + 1)) == NULL)
 			{
 				//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
-				g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)hostno, (void*)1);
+				g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(hostno + 1), (void*)1);
 			}
 			else
 			{
@@ -625,9 +625,6 @@ void* net_Writer(void* data)
 				if (g_hash_table_lookup(Gnet_writeInitiator, (void*)itemid) != NULL) {
 					REPORT_ERROR("Same Host was registered twice for write");
 				} else {
-					if (hostno == 0)
-						printf(WHERESTR "Inserting NULL into hashtable Gnet_leaseTable\n", WHEREARG);
-						
 					g_hash_table_insert(Gnet_writeInitiator, (void*)itemid, (void*)hostno+1);
 				}
 			}
@@ -728,9 +725,9 @@ void net_processPackage(void* data, unsigned int machineId)
 				if (((struct releaseRequest*)data)->mode == ACQUIRE_MODE_READ)
 				{
 					//printf(WHERESTR "Processing READ release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
-					if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)machineId) != NULL)
-						g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)machineId);
-					//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, machineId);
+					if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(machineId + 1)) != NULL)
+						g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(machineId + 1));
+					//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, machineId + 1);
 					FREE(data);
 					data = NULL;
 					return;

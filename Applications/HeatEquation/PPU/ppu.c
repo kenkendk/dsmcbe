@@ -130,6 +130,49 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	unsigned int remainingLines = map_height;
 	unsigned int lineOffset = 0;
 	unsigned int workUnits = 0;
+	unsigned int barrier_alternation = 0;
+	
+	if (DSMCBE_MachineCount() != 0)
+		spu_count *= DSMCBE_MachineCount(); 
+		
+	sharedCount = workUnits = map_height / (slice_height + 2);
+	if ((map_height % (slice_height + 2)) > 0)
+		workUnits++;
+	
+	if ((map_height % (slice_height + 2)) > slice_height)
+		sharedCount++; 
+	
+
+	//Let all SPU's compete for a number
+	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
+	boot->map_width = map_width;
+	boot->map_height = map_height;
+	boot->spu_no = 0;
+	boot->spu_count = spu_count;
+	boot->epsilon = epsilon;
+	boot->next_job_no = 0;
+	//TODO: This is may not be the best division possible
+	boot->job_count = (workUnits + (spu_count - 1)) / spu_count;
+	boot->maxjobs = workUnits;
+	boot->sharedCount = sharedCount;
+
+	//printf(WHERESTR "Created %d jobs, and each of the %d SPU's get %d items\n", WHEREARG, boot->maxjobs, spu_count, boot->job_count); 
+
+	release(boot);
+	
+	sharedCount = 0;
+	workUnits = 0;
+	
+	//Set up the barrier
+	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
+	barrier->delta = 0;
+	barrier->lock_count = 0;
+	barrier->print_count = 0;
+	release(barrier);
+	
+	createBarrier(EX_BARRIER_1, spu_count);
+	createBarrier(EX_BARRIER_2, spu_count);
+	
 	
 	while(remainingLines > 0)
 	{
@@ -138,7 +181,15 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		
 		remainingLines -= thisHeight;
 
-		send_buffer = create(WORK_OFFSET + rows, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * thisHeight);
+#ifdef CREATE_LOCALLY
+		send_buffer = acquire(WORK_OFFSET + rows, &size, ACQUIRE_MODE_WRITE);
+		if (size != (sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height))
+			printf(WHERESTR "Invalid size %ld vs %d, width: %d, slice: %d\n", WHEREARG, size, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height, map_width, slice_height);
+#else
+		//We do not use the real height, but rather the map_height.
+		//This causes unwanted data transfer, but reduces fragmentation
+		send_buffer = create(WORK_OFFSET + rows, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height);
+#endif
 		send_buffer->block_no = rows;
 		send_buffer->buffer_size = map_width * thisHeight;
 		send_buffer->heigth = thisHeight;
@@ -154,7 +205,11 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		if (remainingLines > 0)
 		{
 			//printf(WHERESTR "Creating shared row %d\n", WHEREARG, SHARED_ROW_OFFSET + rows);
+#ifdef CREATE_LOCALLY
+			temp = acquire(SHARED_ROW_OFFSET + rows, &size, ACQUIRE_MODE_WRITE);
+#else
 			temp = create(SHARED_ROW_OFFSET + rows, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+#endif
 			memcpy(temp, &data[lineOffset * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 			release(temp);
 			
@@ -166,35 +221,10 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		rows++;
 	}
 	
-	if (DSMCBE_MachineCount() != 0)
-		spu_count *= DSMCBE_MachineCount(); 
+#ifdef CREATE_LOCALLY
+	release(create(MASTER_START_LOCK, 1));
+#endif
 
-	//Let all SPU's compete for a number
-	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
-	boot->map_width = map_width;
-	boot->map_height = map_height;
-	boot->sharedCount = sharedCount;
-	boot->spu_no = 0;
-	boot->spu_count = spu_count;
-	boot->epsilon = epsilon;
-	boot->next_job_no = 0;
-	boot->job_count = (workUnits + (spu_count - 1)) / spu_count;
-	boot->maxjobs = workUnits;
-
-	//printf(WHERESTR "Created %d jobs, and each of the %d SPU's get %d items\n", WHEREARG, boot->maxjobs, spu_count, boot->job_count); 
-
-	release(boot);
-	
-	
-	//Set up the barrier
-	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
-	barrier->delta = 0;
-	barrier->lock_count = 0;
-	barrier->print_count = 0;
-	release(barrier);
-	
-	createBarrier(EX_BARRIER_1, spu_count);
-	createBarrier(EX_BARRIER_2, spu_count);
 
 //Periodically update window?
 #ifdef GRAPHICS
@@ -206,11 +236,11 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	while(delta > epsilon)
 	{
 		//printf(WHERESTR "Waiting for manual barrier\n", WHEREARG);
-		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
+		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		while(barrier->lock_count != spu_count)
 		{
 			release(barrier);
-			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
+			barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 			zprint++;
 			if (zprint == 1000000)
 			{
@@ -239,11 +269,12 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
     	if (delta <= epsilon)
     		release(create(DELTA_THRESHOLD_EXCEEDED));
        
-        barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
+        barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_WRITE);
 		//printf(WHERESTR "manual barrier done, setting lock count to 0\n", WHEREARG);
 		barrier->lock_count = 0;
         delta = barrier->delta;
         release(barrier);
+        //barrier_alternation = (barrier_alternation + 1) % 1;
 	}
 	
 	
@@ -288,6 +319,8 @@ int main(int argc, char* argv[])
 	char* filename;
 	int machineid;
 	pthread_t* pthreads;
+	
+	dsmcbe_display_network_startup(1);
 	
 	/*printf("Size: %d\n", sizeof(struct Assignment_Unit));
 	
