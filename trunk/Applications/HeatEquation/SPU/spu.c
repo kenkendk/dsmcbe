@@ -23,6 +23,22 @@ double epsilon;
 unsigned int spu_count;
 unsigned int spu_no;
 
+void* acquire_debug(GUID id, unsigned long* size, unsigned int type, int lineno)
+{
+	if (id > 25000) 
+		printf("Acquire of bad ID %d, lineno: %d\n", id, lineno);
+	return acquire(id, size, type);
+}
+
+unsigned int beginAcquire_debug(GUID id, unsigned int type, int lineno)
+{
+	if (id > 25000) 
+		printf("BeginAcquire of bad ID %d, lineno: %d\n", id, lineno);
+	return beginAcquire(id, type);
+}
+
+#define ACQUIRE(x, y, z) acquire_debug(x, y, z, __LINE__) 
+#define BEGINACQUIRE(x, y) beginAcquire_debug(x, y, __LINE__); 
 
 //#define GET_MAP_VALUE(x,y) (((y) < adjustTop && firstRows != NULL) ? &firstRows[((y) * width) + x] : (((y) > height - 3 && lastRows != NULL) ? &lastRows[(((y) - 1 - height) * width) + x] : &data[(((y) - adjustTop) * width) + x]))  
 #define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data)
@@ -46,7 +62,7 @@ PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirs
 
 void solve(struct Work_Unit* work_item)
 {
-	//printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
+	printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
 	unsigned int x, y;
 	unsigned int height, width;
 	unsigned long firstSize;
@@ -72,7 +88,7 @@ void solve(struct Work_Unit* work_item)
 	if (!isFirst)
 	{
 	    //printf(WHERESTR "SPU %d is fetching top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
-		firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &firstSize, ACQUIRE_MODE_WRITE);
+		firstRows = ACQUIRE(SHARED_ROW_OFFSET + work_item->block_no - 1, &firstSize, ACQUIRE_MODE_WRITE);
 	}
 	
 	if (!isFirst)
@@ -94,7 +110,7 @@ void solve(struct Work_Unit* work_item)
 			if (!isLast && y == height - 3)
 			{
 				//printf(WHERESTR "SPU %d fetching lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
-				lastRows = acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
+				lastRows = ACQUIRE(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
 			}
 			
 			if (firstRows != NULL && y == 3)
@@ -129,7 +145,7 @@ void solve(struct Work_Unit* work_item)
 			if (!isLast && y == height - 3)
 			{
 				//printf(WHERESTR "SPU %d reading lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
-				lastRows = acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
+				lastRows = ACQUIRE(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
 			}
 			
 			if (firstRows != NULL && y == 3)
@@ -173,6 +189,8 @@ void solve(struct Work_Unit* work_item)
 	//printf(WHERESTR "Delta for %s workblock %d was %lf\n", WHEREARG, red_round ? "red" : "black", work_item->block_no, itemDelta);
 	
 	delta += itemDelta;
+
+	printf(WHERESTR "SPU %d has solved %d\n", WHEREARG, spu_no, work_item->block_no);
 }
 
 int main(long long id)
@@ -182,21 +200,24 @@ int main(long long id)
     unsigned long size;
     size_t i;
     unsigned int prefetch, prefetch_temp;
+    unsigned int barrier_alternation = 0;
     
     initialize();
     
     rc = 0;
     delta = 0.0;
     deltasum = 0.0;
-    
 
-	struct Assignment_Unit* boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_WRITE);
+	struct Assignment_Unit* boot = ACQUIRE(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_WRITE);
 	spu_no = boot->spu_no;
 	spu_count = boot->spu_count;
 	map_width = boot->map_width;
 	map_height = boot->map_height;
 	epsilon = boot->epsilon;
 	sharedCount = boot->sharedCount;
+	
+	//Make sure all items are same size to prevent fragmentation
+	unsigned int slice_height = BLOCK_SIZE / (map_width * sizeof(PROBLEM_DATA_TYPE));
 
 	unsigned int firstJob = boot->next_job_no;
 	unsigned int jobCount = boot->job_count;
@@ -206,9 +227,21 @@ int main(long long id)
 	boot->spu_no++;
 	boot->next_job_no += jobCount;
 	
-	//printf(WHERESTR "SPU %d has %d jobs, starting at %d\n", WHEREARG, spu_no, jobCount, firstJob); 
+	printf(WHERESTR "SPU %d has %d jobs, starting at %d, map is: (%d x %d), slice is: %d\n", WHEREARG, spu_no, jobCount, firstJob, map_width, map_height, slice_height); 
 	
 	release(boot);
+	
+#ifdef CREATE_LOCALLY
+	for(i = 0; i < jobCount; i++)
+	{
+		//printf(WHERESTR "Creating %d with items %d and %d\n", WHEREARG, i, WORK_OFFSET + i + firstJob, SHARED_ROW_OFFSET + i + firstJob);		
+		release(create(WORK_OFFSET + i + firstJob, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height));
+		release(create(SHARED_ROW_OFFSET + i + firstJob, sizeof(PROBLEM_DATA_TYPE) * map_width * 2));
+	}
+	release(acquire(MASTER_START_LOCK, &size, ACQUIRE_MODE_READ));
+#endif
+
+	//printf(WHERESTR "Done creating\n", WHEREARG); 
 
 	delta = epsilon + 1;
 
@@ -220,13 +253,14 @@ int main(long long id)
 		//Red round
 		red_round = 1;
 		
-		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
+		prefetch = BEGINACQUIRE(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 		
 		for(i = 0; i < jobCount; i++)
 		{
 		    if (i + 1 < jobCount)
-		    	prefetch_temp = beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
+		    	prefetch_temp = BEGINACQUIRE(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
 		    work_item = endAsync(prefetch, &size);
+			//printf(WHERESTR "SPU %d fetched %d (%d)\n", WHEREARG, spu_no, i, WORK_OFFSET + firstJob + i);
 		    prefetch = prefetch_temp;
 	    	solve(work_item);
 			release(work_item);
@@ -240,13 +274,14 @@ int main(long long id)
 		//Black round
 		red_round = 0;
 
-		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
+		prefetch = BEGINACQUIRE(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 
 		for(i = 0; i < jobCount; i++)
 		{
 		    if (i + 1 < jobCount)
-		    	prefetch_temp = beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
+		    	prefetch_temp = BEGINACQUIRE(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
 		    work_item = endAsync(prefetch, &size);
+			//printf(WHERESTR "SPU %d fetched %d (%d)\n", WHEREARG, spu_no, i, WORK_OFFSET + firstJob + i);
 		    prefetch = prefetch_temp;
 	    	solve(work_item);
 			release(work_item);
@@ -254,7 +289,7 @@ int main(long long id)
 		
 		//printf(WHERESTR "SPU %d is at black lock\n", WHEREARG, spu_no);
 		//Gather delta sum
-		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_WRITE);
+		barrier = ACQUIRE(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_WRITE);
 	
 		if (barrier->lock_count == 0)
 			barrier->delta = delta;
@@ -286,18 +321,20 @@ int main(long long id)
 		//printf(WHERESTR "SPU %d is at black barrier\n", WHEREARG, spu_no);
 		acquireBarrier(EX_BARRIER_2);	
 		
-		barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
+		barrier = ACQUIRE(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		while(barrier->lock_count != 0)
 		{
 #ifndef GRAPHICS
 			printf(WHERESTR "SPU %d reported bad timings\n", WHEREARG, spu_no);
+			sleep(1);
 #endif
 			//We should not get here unless were are displaying graphics
 			release(barrier);
-			barrier = acquire(BARRIER_LOCK, &size, ACQUIRE_MODE_READ);
+			barrier = ACQUIRE(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		}
 		delta = barrier->delta;
 		release(barrier);
+		//barrier_alternation = (barrier_alternation + 1) % 1;
 	}
 	
 	struct Results* res = create(RESULT_OFFSET + spu_no, sizeof(struct Results));

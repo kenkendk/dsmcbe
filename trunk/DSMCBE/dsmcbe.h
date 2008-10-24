@@ -6,9 +6,11 @@ typedef unsigned int GUID;
 #define ACQUIRE_MODE_READ 1
 #define ACQUIRE_MODE_WRITE 2
 
-#define PAGE_TABLE_ID 0
-#define PAGE_TABLE_OWNER 0
-#define PAGE_TABLE_SIZE 25000
+#define OBJECT_TABLE_ID 0
+#define OBJECT_TABLE_OWNER 0
+#define OBJECT_TABLE_SIZE 25000
+#define OBJECT_TABLE_ENTRY_TYPE unsigned char
+#define OBJECT_TABLE_RESERVED 255
  
 extern void* create(GUID id, unsigned long size);
 extern void* acquire(GUID id, unsigned long* size, int type);
