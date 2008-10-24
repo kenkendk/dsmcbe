@@ -1,5 +1,5 @@
-#include "../../DSMCBE/dsmcbe_spu.h"
-#include "../../DSMCBE/common/debug.h"
+#include "dsmcbe_spu.h"
+#include "common/debug.h"
 #include "../PPU/Shared.h"
 #include <malloc.h>
 #include <stdio.h>

@@ -8,7 +8,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.1179720334" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.862891622" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.1616920683" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="&quot;/root/dsmcbe/Stage5/HeatEquation/SPU/spu-gnu-debug/SPU&quot;"/>
+<listOptionValue builtIn="false" value="&quot;/root/dsmcbe/Applications/HeatEquation/SPU/spu-gnu-debug/SPU&quot;"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1946481309" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
@@ -31,8 +31,8 @@
 <listOptionValue builtIn="false" value="gthread-2.0"/>
 </option>
 <option id="gnu.c.link.option.paths.31975948" superClass="gnu.c.link.option.paths" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/PPU/ppu-gnu32-debug"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/HeatEquation/TinyPTC"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/PPU/ppu-gnu32-debug"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/HeatEquation/TinyPTC"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.1509433855" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
@@ -43,7 +43,8 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug.1792380400" name="PPU GNU 32 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.preprocessor.def.symbols.749899604" superClass="gnu.c.compiler.option.preprocessor.def.symbols"/>
 <option id="gnu.c.compiler.option.include.paths.53978546" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/HeatEquation/TinyPTC"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/HeatEquation/TinyPTC"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.debug.1147719073" name="PPU GNU 32 bit C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.debug"/>
@@ -55,7 +56,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.2137129957" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.1746824586" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.1666780291" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/HeatEquation/SPU/spu-gnu-release/SPU"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/HeatEquation/SPU/spu-gnu-release/SPU"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1744252671" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
@@ -79,8 +80,8 @@
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.1106758536" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1319664881" superClass="gnu.c.link.option.paths" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/PPU/ppu-gnu32-release"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/HeatEquation/TinyPTC"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/PPU/ppu-gnu32-release"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/HeatEquation/TinyPTC"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1105637046" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
@@ -89,7 +90,8 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.1669386748" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1700081222" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release">
 <option id="gnu.c.compiler.option.include.paths.2068652079" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/HeatEquation/TinyPTC"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/HeatEquation/TinyPTC"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release.13040186" name="PPU GNU 32 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release"/>

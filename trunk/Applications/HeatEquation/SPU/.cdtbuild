@@ -11,11 +11,15 @@
 <listOptionValue builtIn="false" value="dsmcbe_spu"/>
 </option>
 <option id="gnu.c.link.option.paths.942914065" superClass="gnu.c.link.option.paths" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/SPU/spu-gnu-debug"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/SPU/spu-gnu-debug"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.901157168" name="SPU GNU C++ Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe"/>
-<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.942388237" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.942388237" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
+<option id="gnu.c.compiler.option.include.paths.1172253294" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
+</option>
+</tool>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.debug.68289816" name="SPU GNU C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.debug"/>
 <macros/>
 </toolChain>
@@ -28,11 +32,15 @@
 <listOptionValue builtIn="false" value="dsmcbe_spu"/>
 </option>
 <option id="gnu.c.link.option.paths.456215488" superClass="gnu.c.link.option.paths" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/SPU/spu-gnu-release"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/SPU/spu-gnu-release"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.1780922680" name="SPU GNU C++ Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe"/>
-<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.1682294384" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.1682294384" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release">
+<option id="gnu.c.compiler.option.include.paths.462083680" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
+</option>
+</tool>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.release.116157348" name="SPU GNU C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.release"/>
 <macros/>
 </toolChain>
