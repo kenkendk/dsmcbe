@@ -131,6 +131,7 @@ unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 	
 	if (id >= PAGE_TABLE_SIZE)
 	{
+		printf("ID was %u\n", id);
 		REPORT_ERROR("ID was larger than page table size");
 		return UINT_MAX;
 	}

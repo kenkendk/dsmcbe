@@ -483,8 +483,6 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 		spuhandler_HandleDMATransferCompleted(state, groupId);
 			
 	}
-		
-	
 }
 
 
@@ -920,8 +918,7 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 #endif
 			//If this was the last release, check for invalidates, and otherwise register in the age map
 			
-			//if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)			
-			if (TRUE)
+			if (obj->invalidateId != UINT_MAX || !g_queue_is_empty(state->releaseWaiters) || state->terminated != UINT_MAX)
 			{
 #ifdef DEBUG_COMMUNICATION	
 				if (state->terminated != UINT_MAX)

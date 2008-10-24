@@ -21,12 +21,11 @@ extern spe_program_handle_t SPU;
 #define DEAD 2
 #define RANDOM(max) ((((float)rand() / (float)RAND_MAX) * (float)(max)))
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
 
-#define SHOTS_SPU 2048
-//#define SHOTS (SHOTS_SPU * 60)
-#define SHOTS (SHOTS_SPU * 480)
-//#define SHOTS (SHOTS_SPU * 960)
-
+#define SHOTS_SPU 4096
+#define ROUNDS 7200
+#define SHOTS (SHOTS_SPU * ROUNDS)
 
 int WIDTH;
 int HEIGTH;
@@ -67,6 +66,7 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	package->heigth = HEIGTH;
 	package->width = WIDTH;
 	package->shots_spu = shotsspu;
+	package->tot_shots_spu =  ceil((SHOTS / SHOTS_SPU) / (double)(SPU_THREADS * MAX(DSMCBE_MachineCount(), 1)));
 	package->canonX = canonX;
 	package->canonY = canonY;
 	package->canonAX = canonAX;
@@ -74,22 +74,20 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	release(package);
 		
 	unsigned long size;
-	unsigned int* count = acquire(COUNT, &size, ACQUIRE_MODE_READ);
 	
-	//printf("SPU_THREADS is %i and COUNT is %i\n", SPU_THREADS, *count);
-	for(i = 0; i < *count; i++)
+	//printf("SPU_THREADS is %i and COUNT is %i\n", SPU_THREADS, DSMCBE_MachineCount());
+	for(i = 0; i < SPU_THREADS * MAX(DSMCBE_MachineCount(), 1); i++)
 	{
 		//printf("Reading FINISH package with id %i\n", FINISHED + (id * 1000) + i);
-		release(acquire(FINISHED+(id*1000)+i, &size, ACQUIRE_MODE_READ));
-		//printf("Read FINISH package with id %i\n", FINISHED + (id * 1000) + i);
-		
+		release(acquire(FINISHED+(id*100)+i, &size, ACQUIRE_MODE_READ));
+		//printf("Read FINISH package with id %i\n", FINISHED + (id * 1000) + i);		
 	}
-	release(count);
 		 				
 	//printf("\n\nStart working on results\n\n");
 	
-	for(i = 0; i < (shots / shots_spu); i++) {
+	for(i = 0; i < ROUNDS; i++) {
 		unsigned long size;
+		//printf("Acquire Result with id %i\n", RESULT+i);
 		struct POINTS* points = acquire(RESULT + i, &size, ACQUIRE_MODE_READ);	
 			
 		// Save results to energy
@@ -99,6 +97,8 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 		}
 		release(points);
 	}
+	
+	//printf("\n\nEnd working on results\n\n");
 }
 
 void calc(int id, struct IMAGE_FORMAT_GREY* grid) {
@@ -296,12 +296,8 @@ int main(int argc, char* argv[])
 		loadImageNormal();
 		//loadImageSmall();
 		//printf("Finished loading images!\n");
-	
-		unsigned int* count = create(COUNT, sizeof(unsigned int));
-		*count = 0;
-		release(count);
-		
-		for(i = 0; i < (SHOTS / SHOTS_SPU); i++)
+			
+		for(i = 0; i < ROUNDS; i++)
 		{
 			struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * SHOTS_SPU);
 			memset(points, 0, sizeof(struct POINTS) * SHOTS_SPU);
@@ -350,7 +346,7 @@ int main(int argc, char* argv[])
 		printf("Start firering canon #4\n");
 		canon(3, SHOTS, SHOTS_SPU, 475, 90, -1.0, 0.75, energy);
 		printf("Stopped firering canon #4\n");
-	
+		
 		printf("Start firering canon #5\n");
 		canon(4, SHOTS, SHOTS_SPU, 280, 0, 0.0, 1.0, energy);
 		printf("Stopped firering canon #5\n");
@@ -387,6 +383,6 @@ int main(int argc, char* argv[])
 			pthread_join(threads[i], NULL);
 	}
 	printf("Going to sleep before we die\n");
-	sleep(1);
+	sleep(10);
 	return 0;
 }
