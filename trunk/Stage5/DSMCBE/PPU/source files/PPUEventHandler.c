@@ -44,7 +44,6 @@ pthread_cond_t ppu_queue_cond;
 GQueue* Gppu_work_queue;
 pthread_t ppu_dispatchthread;
 
-GQueue* Gppu_dummy;
 GQueue* Gppu_temp;
 pthread_mutex_t ppu_dummy_mutex;
 pthread_cond_t ppu_dummy_cond;
@@ -90,7 +89,6 @@ void InitializePPUHandler()
 
 	Gppu_temp = g_queue_new();
 
-	Gppu_dummy = g_queue_new();
 	pthread_mutex_init(&ppu_dummy_mutex, NULL);
 	pthread_cond_init(&ppu_dummy_cond, NULL);
 
@@ -165,7 +163,6 @@ void ppu_terminatePPUHandler()
 	g_queue_free(Gppu_work_queue);
 	
 	g_queue_free(Gppu_temp);	
-	g_queue_free(Gppu_dummy);
 	pthread_mutex_destroy(&ppu_dummy_mutex);
 	pthread_cond_destroy(&ppu_dummy_cond);
 }
@@ -200,7 +197,7 @@ void RelayEnqueItem(QueueableItem q)
 void* forwardRequest(void* data)
 {	
 	//TODO: Bad for performance to declare GQueue inside function!!	
-	//GQueue* dummy;
+	GQueue* dummy;
 
 	QueueableItem q;
 	
@@ -209,11 +206,11 @@ void* forwardRequest(void* data)
 	if ((q = (QueueableItem)MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
 		REPORT_ERROR("PPUEventHandler.c: malloc error");
 	
-	//Gppu_dummy = g_queue_new();
+	dummy = g_queue_new();
 	q->dataRequest = data;
 	q->event = &ppu_dummy_cond;
 	q->mutex = &ppu_dummy_mutex;
-	q->Gqueue = &Gppu_dummy;
+	q->Gqueue = &dummy;
 	q->callback = NULL;
 	q->machineId = dsmcbe_host_number;
 	
@@ -227,13 +224,13 @@ void* forwardRequest(void* data)
 	//printf(WHERESTR "locked %i\n", WHEREARG, (int)&m);
 
 
-	while (g_queue_is_empty(Gppu_dummy)) {
+	while (g_queue_is_empty(dummy)) {
 		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
 		pthread_cond_wait(&ppu_dummy_cond, &ppu_dummy_mutex);
 		//printf(WHERESTR "queue filled\n", WHEREARG);
 	}
 	
-	data = g_queue_pop_head(Gppu_dummy);
+	data = g_queue_pop_head(dummy);
 	pthread_mutex_unlock(&ppu_dummy_mutex);
 	
 	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE) {
@@ -241,13 +238,13 @@ void* forwardRequest(void* data)
 		//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
 		
 		pthread_mutex_lock(&ppu_dummy_mutex);
-		while (g_queue_is_empty(Gppu_dummy)) {
+		while (g_queue_is_empty(dummy)) {
 			//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
 			pthread_cond_wait(&ppu_dummy_cond, &ppu_dummy_mutex);
 			//printf(WHERESTR "got for writebuffer signal\n", WHEREARG);
 		}
 		
-		struct writebufferReady* data2 = g_queue_pop_head(Gppu_dummy);
+		struct writebufferReady* data2 = g_queue_pop_head(dummy);
 		pthread_mutex_unlock(&ppu_dummy_mutex);
 		if (data2->packageCode != PACKAGE_WRITEBUFFER_READY)
 			REPORT_ERROR("Expected PACKAGE_WRITEBUFFER_READY");
@@ -262,10 +259,7 @@ void* forwardRequest(void* data)
 			((struct acquireResponse*)data)->mode = ACQUIRE_MODE_WRITE;
 
 	//printf(WHERESTR "returning response (%d)\n", WHEREARG, (int)data);
-	
-	//g_queue_free(dummy);
-	if (g_queue_get_length(Gppu_dummy) > 0)
-		g_queue_clear(Gppu_dummy);	
+	g_queue_free(dummy);
 	
 	return data;
 }
@@ -580,7 +574,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
 	}
 	else
-		REPORT_ERROR("Starting acquiring in unknown mode");
+		REPORT_ERROR("Cannot start acquiring. Mode is unknown");
 		
 	cr->requestID = 0;
 	cr->dataItem = id;
@@ -768,7 +762,7 @@ void* ppu_requestDispatcher(void* dummy)
 					REPORT_ERROR("queue was NULL");
 				}
 				if (ui->event != NULL)
-					pthread_cond_signal(ui->event);
+					pthread_cond_broadcast(ui->event);
 				if (ui->mutex != NULL)
 					pthread_mutex_unlock(ui->mutex);
 				

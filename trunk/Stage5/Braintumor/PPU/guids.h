@@ -67,12 +67,12 @@
 #define GRID54 1540
 #define GRID54IMAGE 1541
 
+#define JOB 2000
+
 #define RESULT 5000
 
-#define JOB 10000
+#define FINISHED 15000
 
-#define COUNT 15000
 
-#define FINISHED 20000
 
 #endif /*GUIDS_H_*/

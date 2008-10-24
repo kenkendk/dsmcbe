@@ -763,12 +763,6 @@ void net_processPackage(void* data, unsigned int machineId)
 			pthread_mutex_lock(&net_work_mutex);
 			//printf(WHERESTR "locked mutex\n", WHEREARG);
 			
-			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
-			{
-				//printf(WHERESTR "Processing Acquire Response package from %d, with type: %d, for id: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->packageCode, ((struct acquireResponse*)data)->dataItem);
-			}
-			
-
 			if ((w = g_hash_table_lookup(Gnet_idlookups[machineId], (void*)((struct createRequest*)data)->requestID)) == NULL)
 			{
 				REPORT_ERROR("Incoming response did not match an outgoing request");
