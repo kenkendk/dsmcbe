@@ -62,7 +62,7 @@ PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirs
 
 void solve(struct Work_Unit* work_item)
 {
-	printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
+	//printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
 	unsigned int x, y;
 	unsigned int height, width;
 	unsigned long firstSize;
@@ -190,7 +190,7 @@ void solve(struct Work_Unit* work_item)
 	
 	delta += itemDelta;
 
-	printf(WHERESTR "SPU %d has solved %d\n", WHEREARG, spu_no, work_item->block_no);
+	//printf(WHERESTR "SPU %d has solved %d\n", WHEREARG, spu_no, work_item->block_no);
 }
 
 int main(long long id)
@@ -227,7 +227,7 @@ int main(long long id)
 	boot->spu_no++;
 	boot->next_job_no += jobCount;
 	
-	printf(WHERESTR "SPU %d has %d jobs, starting at %d, map is: (%d x %d), slice is: %d\n", WHEREARG, spu_no, jobCount, firstJob, map_width, map_height, slice_height); 
+	//printf(WHERESTR "SPU %d has %d jobs, starting at %d, map is: (%d x %d), slice is: %d\n", WHEREARG, spu_no, jobCount, firstJob, map_width, map_height, slice_height); 
 	
 	release(boot);
 	
@@ -316,6 +316,7 @@ int main(long long id)
 		else
 			barrier->lock_count++;
 			
+		//printf(WHERESTR "SPU %d is releasing black lock\n", WHEREARG, spu_no);
 		release(barrier);
 		
 		//printf(WHERESTR "SPU %d is at black barrier\n", WHEREARG, spu_no);
@@ -325,8 +326,8 @@ int main(long long id)
 		while(barrier->lock_count != 0)
 		{
 #ifndef GRAPHICS
-			printf(WHERESTR "SPU %d reported bad timings\n", WHEREARG, spu_no);
-			sleep(1);
+			//This should not happen, but it does occasionally
+			//printf(WHERESTR "SPU %d reported bad timings\n", WHEREARG, spu_no);
 #endif
 			//We should not get here unless were are displaying graphics
 			release(barrier);
@@ -342,7 +343,7 @@ int main(long long id)
 	res->rc = rc;
 	release(res);
 	
-	printf(WHERESTR "SPU %d is terminating, delta was: %lf, epsilon was: %lf\n", WHEREARG, spu_no, delta, epsilon);
+	//printf(WHERESTR "SPU %d is terminating, delta was: %lf, epsilon was: %lf\n", WHEREARG, spu_no, delta, epsilon);
 	terminate();	
 	//printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
 	  

@@ -7,7 +7,7 @@
 #include <poll.h>
 #include <stropts.h>
 
-#define TRACE_NETWORK_PACKAGES
+//#define TRACE_NETWORK_PACKAGES
 
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"

@@ -405,19 +405,15 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	resp->data = obj->EA;
 	resp->dataItem = obj->id;
 	if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
-	{
-		if (dsmcbe_host_number != GetMachineID(obj->id))
-			resp->mode = ACQUIRE_MODE_WRITE_OK;
-		else
-			resp->mode = ACQUIRE_MODE_WRITE;
-	}
+		resp->mode = ACQUIRE_MODE_WRITE;
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
 		resp->mode = ACQUIRE_MODE_READ;
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
 		resp->mode = ACQUIRE_MODE_CREATE;
 	else
 		REPORT_ERROR("Responding to unknown acquire type"); 
-	//printf(WHERESTR "Performing Acquire, mode: %d (code: %d)\n", WHEREARG, resp->mode, ((struct acquireRequest*)item->dataRequest)->packageCode);
+
+	//printf(WHERESTR "Responding to acquire for item for %d, mode: %d, isNotOwner: %d\n", WHEREARG, obj->id, resp->mode, dsmcbe_host_number != GetMachineID(obj->id));
 
 	RespondAny(item, resp);	
 }
@@ -623,7 +619,7 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 	g_list_free(toplist);
 	kl = NULL;
 
-	//if (TRUE || invalidateNet)
+	//Invalidate the network?
 	if (DSMCBE_MachineCount() > 1 && !onlySubscribers)
 	{
 		struct invalidateRequest* requ;
@@ -1077,7 +1073,7 @@ void HandleReleaseRequest(QueueableItem item)
 	if (machineId != dsmcbe_host_number)
 	{
 		//printf(WHERESTR "processing release event, not owner\n", WHEREARG);
-		//TODO: Is it legal to not discard the local copy?
+		//Keep the local copy, as it is the updated version
 		/*if (req->mode == ACQUIRE_MODE_WRITE)
 			DoInvalidate(req->dataItem);*/
 
@@ -1092,11 +1088,14 @@ void HandleReleaseRequest(QueueableItem item)
 			dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)req->dataItem);
 			if (g_hash_table_lookup(rc_GallocatedItemsDirty, obj) != NULL || g_hash_table_lookup(rc_GwritebufferReady, obj) != NULL)
 			{
-				//printf(WHERESTR "processing release event, object is in use, re-registering\n", WHEREARG);
+				//printf(WHERESTR "processing release event, object %d is in use, re-registering\n", WHEREARG, obj->id);
 				//The object is still in use, re-register, the last invalidate response will free it
 				
 				GQueue* tmp = obj->Gwaitqueue;
+				GQueue* tmp2 = obj->GrequestCount;
 				obj->Gwaitqueue = NULL;
+				obj->GrequestCount = NULL;
+				
 				if (req->data == NULL)
 					req->data = obj->EA;
 					
@@ -1109,7 +1108,7 @@ void HandleReleaseRequest(QueueableItem item)
 				obj->id = req->dataItem;
 				obj->size = req->dataSize;
 				obj->Gwaitqueue = tmp;
-				obj->GrequestCount = g_queue_new();
+				obj->GrequestCount = tmp2;
 				
 				if (g_hash_table_lookup(rc_GallocatedItems, (void*)obj->id) == NULL)
 					g_hash_table_insert(rc_GallocatedItems, (void*)obj->id, obj);
@@ -1122,7 +1121,7 @@ void HandleReleaseRequest(QueueableItem item)
 				//The object is not in use, just copy in the new version
 				if (obj->EA != req->data && req->data != NULL)
 				{
-					//printf(WHERESTR "Req: %i, Size(req) %i, Size(obj): %i, Data(req) %i, Data(obj) %i\n", WHEREARG, (int)req, (int)req->dataSize, (int)obj->size, (int)req->data, (int)obj->EA);
+					//printf(WHERESTR "Req: %i, Size(req) %i, Size(obj): %i, Data(req) %i, Data(obj) %i, id: %d\n", WHEREARG, (int)req, (int)req->dataSize, (int)obj->size, (int)req->data, (int)obj->EA, obj->id);
 					memcpy(obj->EA, req->data, obj->size);
 					FREE_ALIGN(req->data);
 					req->data = NULL;				
@@ -1195,7 +1194,6 @@ void HandleInvalidateResponse(QueueableItem item)
 	unsigned int* count = g_hash_table_lookup(rc_GallocatedItemsDirty, object);
 	*count = *count - 1;
 	if (*count <= 0) {
-		//printf(WHERESTR "The last response is in for: %d\n", WHEREARG, object->id);
 		g_hash_table_remove(rc_GallocatedItemsDirty, (void*)object);
 	
 		FREE(count);
@@ -1221,7 +1219,8 @@ void HandleInvalidateResponse(QueueableItem item)
 		}
 		else
 		{
-			//printf(WHERESTR "Not member: %d, %d\n", WHEREARG, object->id, (int)object);
+			//This happens when the invalidate comes from the network, or the acquireResponse has new data
+			//printf(WHERESTR "Last invalidate was in for: %d, EA: %d, but there was not a recipient?\n", WHEREARG, object->id, (int)object);
 		}
 
 		dataObject temp = g_hash_table_lookup(rc_GallocatedItems, (void*)object->id);
@@ -1231,9 +1230,11 @@ void HandleInvalidateResponse(QueueableItem item)
 			//printf(WHERESTR "Special case: Why is object not in allocatedItemsDirty or allocedItems?\n", WHEREARG);
 			//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d)\n", WHEREARG, object->id, (int)object, (int)object->EA);
 			
+			//Make sure we are not still using the actual memory
 			if (temp == NULL || temp->EA != object->EA)
 				FREE_ALIGN(object->EA);
 			object->EA = NULL;
+			//Release all control structures on the object
 			if (object->Gwaitqueue != NULL)
 				g_queue_free(object->Gwaitqueue);
 			if (object->Gwaitqueue != NULL)
@@ -1303,6 +1304,10 @@ void HandleAcquireResponse(QueueableItem item)
 			
 		req->dataSize = object->size;
 		req->data = object->EA;
+		
+		//If data is not changed, there is no need to invalidate locally
+		/*if (req->mode != ACQUIRE_MODE_READ && (dsmcbe_host_number != OBJECT_TABLE_OWNER || req->dataItem != OBJECT_TABLE_ID))
+			DoInvalidate(object->id, TRUE); */
 	}
 	else
 	{
@@ -1368,6 +1373,7 @@ void HandleAcquireResponse(QueueableItem item)
 					pthread_mutex_unlock(&rc_queue_mutex);
 					isLocked = 0;
 					//printf(WHERESTR "unlocked mutex\n", WHEREARG);
+					RecordBufferRequest(q, object);
 					RespondAcquire(q, g_hash_table_lookup(rc_GallocatedItems, (void*)object->id));
 					DoInvalidate(object->id, TRUE);
 					//SingleInvalidate(q, object->id);
