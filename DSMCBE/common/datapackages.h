@@ -38,6 +38,8 @@
 #define PACKAGE_INITIATE_MIGRATION 18
 #define PACKAGE_RETRY 19 
 
+#define PACKAGE_DEBUG_PRINT_STATUS 30
+
 struct createRequest
 {
 	unsigned int packageCode; // = 1
