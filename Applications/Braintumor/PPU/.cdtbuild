@@ -8,7 +8,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.363331131" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.634980164" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.1986853557" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/Braintumor/SPU/spu-gnu-debug/SPU"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/Braintumor/SPU/spu-gnu-debug/SPU"/>
 </option>
 <option id="cell.ppu.gnu32.embedspu.option.arch.1791218323" superClass="cell.ppu.gnu32.embedspu.option.arch" value="cell.ppu.gnu.option.arch.32bit" valueType="enumerated"/>
 </tool>
@@ -26,14 +26,14 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1317756541" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.2071516845" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/PPU/ppu-gnu32-debug"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/PPU/ppu-gnu32-debug"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.1812158381" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug.407508165" name="PPU GNU 32 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.include.paths.88936553" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.debug.1334113848" name="PPU GNU 32 bit C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.debug"/>
@@ -45,7 +45,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.618263900" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.979425647" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.1133721544" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/Braintumor/SPU/spu-gnu-release/SPU"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/Braintumor/SPU/spu-gnu-release/SPU"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1946987624" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
@@ -61,7 +61,7 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.660468974" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1153033757" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.317410328" superClass="gnu.c.link.option.paths" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/PPU/ppu-gnu32-release"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/PPU/ppu-gnu32-release"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib"/>
 </option>
 </tool>
@@ -72,12 +72,15 @@
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/glib-2.0/include"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0/glib"/>
 <listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/glib-2.0/glib"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release.516316836" name="PPU GNU 32 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release"/>
 <macros/>
 </toolChain>
+<resourceConfiguration exclude="true" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.986922933./PPU/Copy of ppu.c" name="Copy of ppu.c" rcbsApplicability="disable" resourcePath="/PPU/Copy of ppu.c" toolsToInvoke="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128./PPU/Copy of ppu.c">
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128./PPU/Copy of ppu.c" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128"/>
+</resourceConfiguration>
 </configuration>
 <configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.73868959" name="ppu-gnu64-debug" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug">
 <toolChain id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.toolchain.2139030232" name="PPU GNU 64 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.toolchain">

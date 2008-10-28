@@ -67,11 +67,16 @@
 #define GRID54 1540
 #define GRID54IMAGE 1541
 
+#define SPEID 1600
+
 #define JOB 2000
 
-#define RESULT 5000
+#define FINISHJOB 3000
+#define ENERGY 3500
 
-#define FINISHED 15000
+#define RESULT 4000
+
+#define FINISHED 19000
 
 
 
