@@ -34,7 +34,7 @@ void* ppu_pthread_function(void* arg) {
 	ctx = *((spe_context_ptr_t *)arg);
 	
 	//printf(WHERESTR "Starting SPU\n", WHEREARG);
-	if (spe_context_run(ctx, &entry, 0, NULL, NULL, NULL) < 0)
+	if (spe_context_run(ctx, &entry, 0, dsmcbe_host_number, NULL, NULL) < 0)
 	{
 		REPORT_ERROR("Failed running context");
 		return NULL;

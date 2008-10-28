@@ -7,6 +7,8 @@
 #include "../Common/Common.h"
 #include "../DSMCBE/common/debug.h"
 
+//define PRINT
+
 #define Y 3
 #define X 3
 
@@ -160,21 +162,12 @@ void calc(int id, unsigned char* buffer) {
 int main(unsigned long long id)
 {
 	srand(1);
-	unsigned int i;
+	unsigned int i,j;
 	speID = id;
 	
 	initialize();
 
-	printf("SPU %i: Ready to start\n", speID);
 	unsigned long size;
-	unsigned int* ptr;
-	//printf(WHERESTR "Starting acquire count with id %i\n", WHEREARG, COUNT);
-	ptr = acquire(COUNT, &size, ACQUIRE_MODE_WRITE);
-	//printf(WHERESTR "Acquire for count returned pointer id %i\n", WHEREARG, ptr);
-	speID = *ptr;
-	*ptr = speID + 1;
-	release(ptr);
-	//printf(WHERESTR "Released count with pointer %i\n", WHEREARG, ptr);
 	
 	if (SPU_FIBERS > 1)
 		threadNo = CreateThreads(SPU_FIBERS);
@@ -185,23 +178,23 @@ int main(unsigned long long id)
 	{				
 		int jobID = 0;
 		
+		struct PACKAGE* package;
+	
 		while(1) 
 		{
-			// Make points buffer
-			struct POINTS* points;
-			struct PACKAGE* package;
 	
-			unsigned int pid = 0;
-			//printf(WHERESTR "Starting acquire package with id %i\n", WHEREARG, JOB+jobID);
+			//printf(WHERESTR "SPU %i: Starting acquire package with id %i\n", WHEREARG, speID, JOB+jobID);
 			package = acquire(JOB+jobID, &size, ACQUIRE_MODE_WRITE);
-			//printf(WHERESTR "Acquire for package returned pointer id %i\n", WHEREARG, package);
-			
-			pid = package->id;
-
+			//printf(WHERESTR "SPU %i: Acquire for package returned pointer id %i\n", WHEREARG, speID, package);
+	
+			unsigned int speID = package->id;
+			//printf("SPU %i: Ready to start\n", speID);
+				
 			// Get canon information
 			// Position(x,y) Angel(ax,ay), Shots(S)	
 			unsigned int maxpid = package->maxid;
 			unsigned int canonS = package->shots_spu;
+			unsigned int rounds = package->tot_shots_spu;
 			unsigned int canonX = package->canonX;
 			unsigned int canonY = package->canonY;
 			
@@ -210,132 +203,151 @@ int main(unsigned long long id)
 				
 			CTWIDTH = package->width;
 			CTHEIGTH = package->heigth;			
-		
-			//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
-			printf("spu %i: pid: %i, maxpid %i\n", speID, pid, maxpid);
-				
-			//if ((pid % (maxpid / 10)) == 0 && pid != maxpid)
-				//printf("-\n");
-					
-			if(pid >= maxpid) {
-				release(package);
-				//printf(WHERESTR "Released package with pointer %i\n", WHEREARG, package);
-				//if(jobID == 4)
-					//getStats();
-
-				printf("spu %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);									 
-				release(create(FINISHED + (jobID * 1000) + speID, 1));
-				printf("spu %i: Created FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);
-				jobID++;
-				continue;
-			}
-				
-			package->id = pid + 1;
-			release(package);
-			//printf(WHERESTR "Released package with pointer %i\n", WHEREARG, package);
-			
-			//printf(WHERESTR "Starting acquire points with id %i\n", WHEREARG, RESULT + pid);
-			points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
-			//printf(WHERESTR "Acquire for points returned pointer id %i\n", WHEREARG, points);
 	
-			// Set current_grid
-			struct CURRENT_GRID current_grid;
-			current_grid.x = 0;
-			current_grid.y = 0;
+			package->id = speID + 1;
+			release(package);
 			
-			struct CURRENT_GRID next_grid;
-			next_grid.x = 0;
-			next_grid.y = 0;
-					
-			for(i = 0; i < canonS; i++)
+			unsigned int pid = 0;
+			
+			//printf("SPU %i: rounds %i\n", speID, rounds);
+							
+			for(j = 0; j < rounds; j++)
 			{
-				points[i].alive = TRUE;
-				points[i].x = canonX;
-				points[i].y = canonY;
-			}
-			
-			int more_to_do = TRUE;
-
-			unsigned char* buffer;
-			unsigned int id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10)); 
-			unsigned int bufferID1 = 0;
-			unsigned int bufferID2 = 0;
-    		unsigned int currentID = 0;			
-
-			//printf(WHERESTR "Starting acquire buffer with id %i\n", WHEREARG, id);
-			bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);
-			currentID = bufferID1;
-			
-			while(more_to_do)
-			{											
-				next_grid.x = current_grid.x + 1;
-				if(next_grid.x == X)
-				{
-					next_grid.y = (current_grid.y + 1);
-					next_grid.x = 0;
-					i = 0;
-					if(next_grid.y == Y)
-					{
-						next_grid.x = 0;
-						next_grid.y = 0;
-
-						id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));
-						//printf(WHERESTR "Starting acquire buffer with id %i\n", WHEREARG, id);
-						if (currentID == bufferID1)
-							bufferID2 = beginAcquire(id, ACQUIRE_MODE_READ);
-						else
-							bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);														
-
-						buffer = endAsync(currentID, &size);
-						//printf(WHERESTR "Acquire for buffer returned pointer id %i\n", WHEREARG, buffer);
-						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
-						release(buffer);
-						//printf(WHERESTR "Released buffer with pointer %i\n", WHEREARG, buffer);
-
-						if(!more_to_do)
-						{
-							buffer = endAsync(currentID == bufferID1 ? bufferID2 : bufferID1, &size);
-							//printf(WHERESTR "Acquire for buffer returned pointer id %i\n", WHEREARG, buffer);
-							release(buffer);
-							//printf(WHERESTR "Released buffer with pointer %i\n", WHEREARG, buffer);
-							//printf(WHERESTR "No more to do - Last\n", WHEREARG);
-							break;
-						}
-						current_grid.x = next_grid.x;
-						current_grid.y = next_grid.y;
-						currentID = currentID == bufferID1 ? bufferID2 : bufferID1;
-						//printf(WHERESTR "Starting all over!\n", WHEREARG);						
-						continue;
-					}				
-				}
+				// Make points buffer
+				pid = (speID * rounds) + j;
 				
-				id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));
-				//printf(WHERESTR "Starting acquire buffer with id %i\n", WHEREARG, id);
-				if (currentID == bufferID1)
-					bufferID2 = beginAcquire(id, ACQUIRE_MODE_READ);
+				if (pid >= maxpid)
+				{
+					printf("pid %i, rounds %i, act. round %i\n", pid, rounds, j);			
+					break;
+				}
+				//printf("pid %i\n", pid);
+						
+				//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
+				//printf("spu %i: pid: %i, maxpid %i\n", speID, pid, maxpid);
+					
+				//if ((pid % (maxpid / 10)) == 0 && pid != maxpid)
+					//printf("-\n");
+											
+				//printf(WHERESTR "SPU %i: Released package with pointer %i\n", WHEREARG, speID, package);
+				
+				//printf(WHERESTR "SPU %i: Starting acquire points with id %i\n", WHEREARG, speID, RESULT + pid);
+				
+				struct POINTS* points; 
+				
+				if (jobID == 0)
+					points = create(RESULT + pid, sizeof(struct POINTS) * canonS);
 				else
-					bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);			
-								
-				buffer = endAsync(currentID, &size);
-				//printf(WHERESTR "Acquire for buffer returned pointer id %i\n", WHEREARG, buffer);
-				more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
-				release(buffer);
-				//printf(WHERESTR "Released buffer with pointer %i\n", WHEREARG, buffer);
+					points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
+					
+				//printf(WHERESTR "SPU %i: Acquire for points returned pointer id %i\n", WHEREARG, speID, points);
+		
+				// Set current_grid
+				struct CURRENT_GRID current_grid;
+				current_grid.x = 0;
+				current_grid.y = 0;
 				
-				if(!more_to_do)
+				struct CURRENT_GRID next_grid;
+				next_grid.x = 0;
+				next_grid.y = 0;
+						
+				for(i = 0; i < canonS; i++)
 				{
-					buffer = endAsync(currentID == bufferID1 ? bufferID2 : bufferID1, &size);
-					//printf(WHERESTR "Acquire for buffer returned pointer id %i\n", WHEREARG, buffer);
-					release(buffer);
-					//printf(WHERESTR "Released buffer with pointer %i\n", WHEREARG, buffer);
-					//printf(WHERESTR "No more to do - Middel\n", WHEREARG);
+					points[i].alive = TRUE;
+					points[i].x = canonX;
+					points[i].y = canonY;
 				}
-				current_grid.x = next_grid.x;
-				current_grid.y = next_grid.y;		
-				currentID = currentID == bufferID1 ? bufferID2 : bufferID1;
+				
+				int more_to_do = TRUE;
+	
+				unsigned char* buffer;
+				unsigned int id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10)); 
+				unsigned int bufferID1 = 0;
+				unsigned int bufferID2 = 0;
+	    		unsigned int currentID = 0;			
+	
+				//printf(WHERESTR "SPU %i: Starting acquire buffer with id %i\n", WHEREARG, speID, id);
+				bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);
+				currentID = bufferID1;
+			
+				while(more_to_do)
+				{											
+					next_grid.x = current_grid.x + 1;
+					if(next_grid.x == X)
+					{
+						next_grid.y = (current_grid.y + 1);
+						next_grid.x = 0;
+						i = 0;
+						if(next_grid.y == Y)
+						{
+							next_grid.x = 0;
+							next_grid.y = 0;
+	
+							id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));
+							//printf(WHERESTR "SPU %i: Starting acquire buffer with id %i\n", WHEREARG, speID, id);
+							if (currentID == bufferID1)
+								bufferID2 = beginAcquire(id, ACQUIRE_MODE_READ);
+							else
+								bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);														
+	
+							buffer = endAsync(currentID, &size);
+							//printf(WHERESTR "SPU %i: Acquire for buffer returned pointer id %i\n", WHEREARG, speID, buffer);
+							more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
+							release(buffer);
+							//printf(WHERESTR "SPU %i: Released buffer with pointer %i\n", WHEREARG, speID, buffer);
+	
+							if(!more_to_do)
+							{
+								buffer = endAsync(currentID == bufferID1 ? bufferID2 : bufferID1, &size);
+								//printf(WHERESTR "SPU %i: Acquire for buffer returned pointer id %i\n", WHEREARG, speID, buffer);
+								release(buffer);
+								//printf(WHERESTR "SPU %i: Released buffer with pointer %i\n", WHEREARG, speID, buffer);
+								//printf(WHERESTR "No more to do - Last\n", WHEREARG);
+								break;
+							}
+							current_grid.x = next_grid.x;
+							current_grid.y = next_grid.y;
+							currentID = currentID == bufferID1 ? bufferID2 : bufferID1;
+							//printf(WHERESTR "Starting all over!\n", WHEREARG);						
+							continue;
+						}				
+					}
+					
+					id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));
+					//printf(WHERESTR "SPU %i: Starting acquire buffer with id %i\n", WHEREARG, speID, id);
+					if (currentID == bufferID1)
+						bufferID2 = beginAcquire(id, ACQUIRE_MODE_READ);
+					else
+						bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);			
+									
+					buffer = endAsync(currentID, &size);
+					//printf(WHERESTR "SPU %i: Acquire for buffer returned pointer id %i\n", WHEREARG, speID, buffer);
+					more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
+					release(buffer);
+					//printf(WHERESTR "SPU %i: Released buffer with pointer %i\n", WHEREARG, speID, buffer);
+					
+					if(!more_to_do)
+					{
+						buffer = endAsync(currentID == bufferID1 ? bufferID2 : bufferID1, &size);
+						//printf(WHERESTR "SPU %i: Acquire for buffer returned pointer id %i\n", WHEREARG, speID, buffer);
+						release(buffer);
+						//printf(WHERESTR "SPU %i: Released buffer with pointer %i\n", WHEREARG, speID, buffer);
+						//printf(WHERESTR "No more to do - Middel\n", WHEREARG);
+					}
+					current_grid.x = next_grid.x;
+					current_grid.y = next_grid.y;		
+					currentID = currentID == bufferID1 ? bufferID2 : bufferID1;
+				}
+				release(points);
+				//printf(WHERESTR "SPU %i: Released points with pointer %i\n", WHEREARG, speID,  points);
 			}
-			release(points);
-			//printf(WHERESTR "Released points with pointer %i\n", WHEREARG, points);
+
+			//printf("SPU %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 100) + speID);
+			unsigned int* ptr = create(FINISHED + (jobID * 100) + speID, sizeof(unsigned int));
+			*ptr = speID; 									 
+			release(ptr);
+			//printf("SPU %i: Created FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);
+			jobID++;
 		}
 		if (SPU_FIBERS > 1)
 			TerminateThread();

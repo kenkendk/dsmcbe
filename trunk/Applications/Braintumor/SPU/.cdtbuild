@@ -14,7 +14,7 @@
 </option>
 <option id="cell.gnu.c.linker.option.libs.lm.1967304198" superClass="cell.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.2119140806" superClass="gnu.c.link.option.paths" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/SPU/spu-gnu-debug"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/SPU/spu-gnu-debug"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/prototype/usr/spu/lib"/>
 </option>
 </tool>
@@ -22,7 +22,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.839587457" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.include.paths.1686786037" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
 <listOptionValue builtIn="false" value="/usr/lib"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
 </option>
@@ -48,7 +48,7 @@
 </option>
 <option id="cell.gnu.c.linker.option.libs.lm.253716906" superClass="cell.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1119930162" superClass="gnu.c.link.option.paths" valueType="stringList">
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE/SPU/spu-gnu-release"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/SPU/spu-gnu-release"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/prototype/usr/spu/lib"/>
 </option>
 </tool>
@@ -56,7 +56,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.587558103" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release">
 <option id="gnu.c.compiler.option.include.paths.1384075237" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
-<listOptionValue builtIn="false" value="/root/dsmcbe/Stage5/DSMCBE"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
 <listOptionValue builtIn="false" value="/usr/lib"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
 </option>

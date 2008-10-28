@@ -159,16 +159,21 @@ void calc(int id, unsigned char* buffer) {
 	//printf("SPU: Buffer with id: %i value is: %i\n", id, sum);
 }
 
-int main(unsigned long long id)
+int main(unsigned long long speid, unsigned long long argp, unsigned long long envp)
 {
 	srand(1);
 	unsigned int i,j;
-	speID = id;
+	
 	
 	initialize();
 
 	unsigned long size;
-	
+	unsigned int speID;	
+	unsigned int* speIDs = acquire(SPEID + argp, &size, ACQUIRE_MODE_WRITE);
+	speID = *speIDs;
+	*speIDs = *speIDs + 1;
+	release(speIDs); 
+
 	if (SPU_FIBERS > 1)
 		threadNo = CreateThreads(SPU_FIBERS);
 	else
@@ -184,10 +189,9 @@ int main(unsigned long long id)
 		{
 	
 			//printf(WHERESTR "SPU %i: Starting acquire package with id %i\n", WHEREARG, speID, JOB+jobID);
-			package = acquire(JOB+jobID, &size, ACQUIRE_MODE_WRITE);
+			package = acquire(JOB+jobID, &size, ACQUIRE_MODE_READ);
 			//printf(WHERESTR "SPU %i: Acquire for package returned pointer id %i\n", WHEREARG, speID, package);
 	
-			unsigned int speID = package->id;
 			//printf("SPU %i: Ready to start\n", speID);
 				
 			// Get canon information
@@ -204,17 +208,15 @@ int main(unsigned long long id)
 			CTWIDTH = package->width;
 			CTHEIGTH = package->heigth;			
 	
-			package->id = speID + 1;
 			release(package);
 			
 			unsigned int pid = 0;
 			
-			//printf("rounds %i\n", rounds);
+			//printf("SPU %i: rounds %i\n", speID, rounds);
 							
-			for(j = 0; j < rounds - 1; j++)
+			for(j = 0; j < rounds; j++)
 			{
 				// Make points buffer
-				struct POINTS* points;
 				pid = (speID * rounds) + j;
 				
 				if (pid >= maxpid)
@@ -222,6 +224,7 @@ int main(unsigned long long id)
 					printf("pid %i, rounds %i, act. round %i\n", pid, rounds, j);			
 					break;
 				}
+				
 				//printf("pid %i\n", pid);
 						
 				//printf("spu.c: pid: %i, maxpid %i, canonS: %i, canonX: %i, canonY: %i, canonAX: %f, canonAY: %f, width: %i, heigth: %i\n", pid, maxpid, canonS, canonX, canonY, canonAX, canonAY, CTWIDTH, CTHEIGTH);
@@ -232,8 +235,15 @@ int main(unsigned long long id)
 											
 				//printf(WHERESTR "SPU %i: Released package with pointer %i\n", WHEREARG, speID, package);
 				
-				printf(WHERESTR "SPU %i: Starting acquire points with id %i\n", WHEREARG, speID, RESULT + pid);
-				points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
+				//printf(WHERESTR "SPU %i: Starting acquire points with id %i\n", WHEREARG, speID, RESULT + pid);
+				
+				struct POINTS* points; 
+				
+				if (jobID == 0)
+					points = create(RESULT + pid, sizeof(struct POINTS) * canonS);
+				else
+					points = acquire(RESULT + pid, &size, ACQUIRE_MODE_WRITE);
+					
 				//printf(WHERESTR "SPU %i: Acquire for points returned pointer id %i\n", WHEREARG, speID, points);
 		
 				// Set current_grid
@@ -336,7 +346,7 @@ int main(unsigned long long id)
 				//printf(WHERESTR "SPU %i: Released points with pointer %i\n", WHEREARG, speID,  points);
 			}
 
-			printf("SPU %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 100) + speID);
+			//printf("SPU %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 100) + speID);
 			unsigned int* ptr = create(FINISHED + (jobID * 100) + speID, sizeof(unsigned int));
 			*ptr = speID; 									 
 			release(ptr);

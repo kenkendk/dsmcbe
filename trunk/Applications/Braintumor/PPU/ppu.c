@@ -23,14 +23,14 @@ extern spe_program_handle_t SPU;
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
-#define SHOTS_SPU 4096
+#define SHOTS_SPU 2048
 #define ROUNDS 7200
 #define SHOTS (SHOTS_SPU * ROUNDS)
 
 int WIDTH;
 int HEIGTH;
 int SPU_THREADS;
-unsigned int id;
+unsigned int PPEid;
 char* file;
 
 int MAPOFFSET(int x, int y)
@@ -53,11 +53,42 @@ void* malloc_align7(unsigned int size)
 	return _malloc_align(size, 7);
 }
 
+void collectResults(int id, int shots, int shots_spu, unsigned char* energy)
+{
+	size_t i, j;
+	unsigned long size;
+	
+	//printf("SPU_THREADS is %i - COUNT is %i - ROUNDS is %i\n", SPU_THREADS, MAX(DSMCBE_MachineCount(),1), ROUNDS);
+	for(i = 0; i < SPU_THREADS; i++)
+	{
+		//printf("Reading FINISH package with id %i\n", FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)));
+		release(acquire(FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)), &size, ACQUIRE_MODE_READ));
+		//printf("Read FINISH package with id %i\n", FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)));		
+	}
+		 				
+	//printf("\n\nStart working on results\n\n");
+	
+	for(i = 0; i < ROUNDS / MAX(DSMCBE_MachineCount(), 1); i++) {
+		unsigned long size;
+		//printf("Acquire Result with id %i\n", RESULT+i + (PPEid * ROUNDS / MAX(DSMCBE_MachineCount(), 1)));
+		struct POINTS* points = acquire(RESULT + i + (PPEid * ROUNDS / MAX(DSMCBE_MachineCount(), 1)), &size, ACQUIRE_MODE_READ);
+			
+		// Save results to energy
+		for(j = 0; j < shots_spu; j++) {
+			if(points[j].alive == FALSE)
+				energy[MAPOFFSET((int)(points[j].x), (int)(points[j].y))] =  MIN(energy[MAPOFFSET((int)(points[j].x),(int)(points[j].y))] + 1, 255);
+		}
+		release(points);
+	}
+	//printf("PPEid %i\n", PPEid);
+	//printf("\n\nEnd working on results\n\n");	
+}
+
 void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canonAX, float canonAY, unsigned char* energy)
 {
-	int i, j;
-	
 	int shotsspu = SHOTS_SPU;
+	unsigned int i;
+	unsigned long size;
 
 	struct PACKAGE* package;
 	package = create(JOB+id, sizeof(struct PACKAGE));
@@ -72,33 +103,16 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	package->canonAX = canonAX;
 	package->canonAY = canonAY;
 	release(package);
-		
-	unsigned long size;
 	
-	//printf("SPU_THREADS is %i and COUNT is %i\n", SPU_THREADS, DSMCBE_MachineCount());
+	collectResults(id, shots, shots_spu, energy);	
+
 	for(i = 0; i < SPU_THREADS * MAX(DSMCBE_MachineCount(), 1); i++)
 	{
-		//printf("Reading FINISH package with id %i\n", FINISHED + (id * 1000) + i);
+		//printf("Reading FINISH package with id %i\n", FINISHED + (id * 100) + i);
 		release(acquire(FINISHED+(id*100)+i, &size, ACQUIRE_MODE_READ));
-		//printf("Read FINISH package with id %i\n", FINISHED + (id * 1000) + i);		
+		//printf("Read FINISH package with id %i\n", FINISHED + (id * 100) + i);		
 	}
-		 				
-	//printf("\n\nStart working on results\n\n");
-	
-	for(i = 0; i < ROUNDS; i++) {
-		unsigned long size;
-		//printf("Acquire Result with id %i\n", RESULT+i);
-		struct POINTS* points = acquire(RESULT + i, &size, ACQUIRE_MODE_READ);	
-			
-		// Save results to energy
-		for(j = 0; j < shots_spu; j++) {
-			if(points[j].alive == FALSE)
-				energy[MAPOFFSET((int)(points[j].x), (int)(points[j].y))] =  MIN(energy[MAPOFFSET((int)(points[j].x),(int)(points[j].y))] + 1, 255);
-		}
-		release(points);
-	}
-	
-	//printf("\n\nEnd working on results\n\n");
+
 }
 
 void calc(int id, struct IMAGE_FORMAT_GREY* grid) {
@@ -256,16 +270,16 @@ int main(int argc, char* argv[])
 		input = argv[1];
 		output = argv[2];
 		SPU_THREADS = atoi(argv[3]);
-		id = atoi(argv[4]);
+		PPEid = atoi(argv[4]);
 		file = argv[5]; 	
 	} else if (argc == 4) {
-		id = 0;
+		PPEid = 0;
 		file = NULL; 		 		
 		input = argv[1];
 		output = argv[2]; 	
 		SPU_THREADS = atoi(argv[3]);
 	} else if (argc == 5) {
-		id = 0;
+		PPEid = 0;
 		file = NULL; 		 		
 		input = argv[1];
 		output = argv[2]; 	
@@ -288,23 +302,29 @@ int main(int argc, char* argv[])
 	WIDTH = 576;
 	HEIGTH = 708;
 	
-	threads = simpleInitialize(id, file, SPU_THREADS);
+	threads = simpleInitialize(PPEid, file, SPU_THREADS);
 
-	if (id == 0)
+	unsigned int* speIDs = create(SPEID + PPEid, 4);
+	*speIDs = PPEid * SPU_THREADS;
+	release(speIDs); 
+
+	if (PPEid == 0)
 	{
 		//printf("Starting loading images!\n");	
 		loadImageNormal();
 		//loadImageSmall();
 		//printf("Finished loading images!\n");
+		
 			
-		for(i = 0; i < ROUNDS; i++)
-		{
-			struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * SHOTS_SPU);
-			memset(points, 0, sizeof(struct POINTS) * SHOTS_SPU);
-			release(points);	
-		}	
+		//for(i = 0; i < ROUNDS; i++)
+		//{
+			//struct POINTS* points = create(RESULT + i, sizeof(struct POINTS) * SHOTS_SPU);
+			//memset(points, 0, sizeof(struct POINTS) * SHOTS_SPU);
+			//release(points);	
+		//}
 	
-		energy = (unsigned char*)malloc(sizeof(unsigned char) * (HEIGTH * WIDTH));
+			
+		energy = create(ENERGY+PPEid, (sizeof(unsigned char) * (HEIGTH * WIDTH)));
 		memset(energy, 0, sizeof(unsigned char) * (HEIGTH * WIDTH));
 	
 		cmap = (unsigned char*)malloc(sizeof(unsigned char)*(9*3));
@@ -350,17 +370,42 @@ int main(int argc, char* argv[])
 		printf("Start firering canon #5\n");
 		canon(4, SHOTS, SHOTS_SPU, 280, 0, 0.0, 1.0, energy);
 		printf("Stopped firering canon #5\n");
-	
+			
 		// Stop timer!
 		sw_stop();
 		sw_timeString(timer_buffer);
 		printf("Time used: %s\n", timer_buffer);
 	
 		readimage_rgb(input, malloc, &result);
-			
+		unsigned long size;
+
+		//printf("Starting harvest\n");		
+		for(i=1; i<MAX(DSMCBE_MachineCount(), 1); i++)
+		{
+			//printf("START - FINISHJOB %i\n", FINISHJOB+i);
+			release(acquire(FINISHJOB+i, &size, ACQUIRE_MODE_READ));		
+			//printf("END - FINISHJOB %i\n", FINISHJOB+i);
+			//printf("START - ENERGY %i\n", ENERGY+i);
+			unsigned char* temp = acquire(ENERGY+i,&size, ACQUIRE_MODE_READ);
+
+			for(y=0; y<HEIGTH; y++)
+			{
+				for(x=0; x<WIDTH; x++)
+				{
+					energy[MAPOFFSET(x,y)] = temp[MAPOFFSET(x,y)];
+				}
+			}
+			release(temp);
+			//printf("END - ENERGY %i\n", ENERGY+i);
+		}
+		
+		//printf("Harvest done\n");
+
 		// Save energy map to image
 		for(y=0; y<HEIGTH; y++)
+		{
 			for(x=0; x<WIDTH; x++)
+			{
 				if(energy[MAPOFFSET(x,y)] > 0)
 				{
 					int offset = 3 * fpos(scale, scale_size, energy[MAPOFFSET(x,y)]);
@@ -368,21 +413,41 @@ int main(int argc, char* argv[])
 					result.image[MAPOFFSET(x,y)].g = cmap[offset+1];
 					result.image[MAPOFFSET(x,y)].b = cmap[offset+2];
 				}
-	
+			}			
+		}
+		
+		//printf("Done\n");
+
+		release(energy);
 		writeimage_rgb(output, &result);
 	
-		free(energy);
 		free(cmap);
 		free(scale);
 		free(result.image);
 	}
 
-	if (id != 0)
+	if (PPEid != 0)
 	{	
+		energy = create(ENERGY+PPEid, sizeof(unsigned char) * (708 * 576));
+		memset(energy, 0, sizeof(unsigned char) * (708 * 576));
+		
+		collectResults(0, SHOTS, SHOTS_SPU, energy);
+		collectResults(1, SHOTS, SHOTS_SPU, energy);
+		collectResults(2, SHOTS, SHOTS_SPU, energy);
+		collectResults(3, SHOTS, SHOTS_SPU, energy);
+		collectResults(4, SHOTS, SHOTS_SPU, energy);
+		
+		release(energy);
+		
+		//printf("CREATING - FINISHJOB %i\n", FINISHJOB+PPEid);
+		release(create(FINISHJOB+PPEid, sizeof(unsigned int)));
+		//printf("CREATED\n");
+		
 		for(i = 0; i < SPU_THREADS; i++)
 			pthread_join(threads[i], NULL);
 	}
+	
 	printf("Going to sleep before we die\n");
-	sleep(10);
+	//sleep(10);
 	return 0;
 }
