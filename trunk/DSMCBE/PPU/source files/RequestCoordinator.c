@@ -256,7 +256,7 @@ void ProcessWaiters(OBJECT_TABLE_ENTRY_TYPE* objectTable)
 			GQueue* dq = g_hash_table_lookup(rc_Gwaiters, key);
 			while(!g_queue_is_empty(dq))
 			{
-				//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
+				//printf(WHERESTR "processed a waiter for %d (%d)\n", WHEREARG, (GUID)key, (unsigned int)g_queue_peek_head(dq));
 				g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
 			}
 			
@@ -508,7 +508,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem);
 		while(dq != NULL && !g_queue_is_empty(dq))
 		{
-			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, request->dataItem);
+			//printf(WHERESTR "processed a waiter for %d, (%d)\n", WHEREARG, request->dataItem, (unsigned int)g_queue_peek_head(dq));
 			g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
 		}		
 	}
@@ -587,7 +587,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem);
 		while(dq != NULL && !g_queue_is_empty(dq))
 		{
-			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
+			//printf(WHERESTR "processed a waiter for %d (%d)\n", WHEREARG, object->id, (unsigned int)g_queue_peek_head(dq));
 			g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
 		}
 	}
@@ -786,14 +786,20 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 {
 	GQueue* q;
 	dataObject obj;
-	
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Acquire barrier on id %i\n", WHEREARG, request->dataItem);
+#endif	
 	OBJECT_TABLE_ENTRY_TYPE machineId = GetMachineID(request->dataItem);		
 	
 	if (machineId == OBJECT_TABLE_RESERVED)
 	{
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Acquire barrier on id %i is waiting\n", WHEREARG, request->dataItem);
+#endif	
 		if (g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem) == NULL)
 			g_hash_table_insert(rc_Gwaiters, (void*)request->dataItem, g_queue_new());
-		g_queue_push_tail(g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem), request);
+		g_queue_push_tail(g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem), item);
 	}
 	else if (machineId != dsmcbe_host_number)
 	{
@@ -801,7 +807,9 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 	}
 	else
 	{ // && machineId != OBJECT_TABLE_RESERVED)
-		//printf(WHERESTR "Start acquire barrier on id %i\n", WHEREARG, request->dataItem);
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Acquire barrier is local id %i\n", WHEREARG, request->dataItem);
+#endif	
 		
 		//Check that the item exists
 		if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
@@ -816,7 +824,9 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 			//We have the last acquire in, free them all!
 			if (((unsigned int*)obj->EA)[1] == ((unsigned int*)obj->EA)[0])
 			{
-				//printf(WHERESTR "Releasing barrier on id %i\n", WHEREARG, request->dataItem);
+#ifdef DEBUG_COMMUNICATION
+				printf(WHERESTR "Releasing barrier on id %i\n", WHEREARG, request->dataItem);
+#endif	
 				
 				((unsigned int*)obj->EA)[1] = 0;
 				while(!g_queue_is_empty(q))
@@ -900,7 +910,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				}
 				else
 				{
-					printf(WHERESTR "Sending NetUpdate with ID %u, Offset %u, Size %u, Data %u\n", WHEREARG, obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);					
+					//printf(WHERESTR "Sending NetUpdate with ID %u, Offset %u, Size %u, Data %u\n", WHEREARG, obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);					
 					NetUpdate(obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);
 				}
 					
@@ -987,7 +997,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				if (obj->id == OBJECT_TABLE_ID && dsmcbe_host_number == OBJECT_TABLE_OWNER)
 				{	
 					//ProcessWaiters(obj->EA == NULL ? g_hash_table_lookup(rc_GallocatedItems, OBJECT_TABLE_ID) : obj->EA);
-					printf(WHERESTR "Sending NetUpdate with ID %u, Offset %u, Size %u, Data %u\n", WHEREARG, obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);
+					//printf(WHERESTR "Sending NetUpdate with ID %u, Offset %u, Size %u, Data %u\n", WHEREARG, obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);
 					NetUpdate(OBJECT_TABLE_ID, 0, request->dataSize, obj->EA);
 				}
 				
@@ -1228,7 +1238,7 @@ void HandleUpdateRequest(QueueableItem item)
 			GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)id);
 			while(dq != NULL && !g_queue_is_empty(dq))
 			{
-				//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
+				//printf(WHERESTR "processed a waiter for %d (%d)\n", WHEREARG, object->id, (unsigned int)g_queue_peek_head(dq));
 				g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
 			}
 			
@@ -1256,7 +1266,7 @@ void HandleUpdateRequest(QueueableItem item)
 		GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)id);
 		while(dq != NULL && !g_queue_is_empty(dq))
 		{
-			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
+			//printf(WHERESTR "processed a waiter for %d (%d)\n", WHEREARG, id, (unsigned int)g_queue_peek_head(dq));
 			g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
 		}
 #endif			
@@ -1500,7 +1510,10 @@ void HandleAcquireResponse(QueueableItem item)
 				break;
 			}
 			else
+			{
+				//printf(WHERESTR "Inserting: %d\n", WHEREARG, (unsigned int)q);
 				g_queue_push_tail(rc_GbagOfTasks, q);
+			}
 		}
 		if (isLocked)
 		{
@@ -1572,9 +1585,18 @@ void* rc_ProccessWork(void* data)
 			//printf(WHERESTR "fetching actual job\n", WHEREARG);
 			item = (QueueableItem)g_queue_pop_head(rc_GbagOfTasks);
 			if (item == NULL)
+			{
+				pthread_mutex_unlock(&rc_queue_mutex);
 				REPORT_ERROR("Empty entry in request queue");
+				continue;
+			}
 			if (item->dataRequest == NULL)
-				REPORT_ERROR("Empty request in queued item")
+			{
+				pthread_mutex_unlock(&rc_queue_mutex);
+				REPORT_ERROR2("Empty request in queued item (%d)", (unsigned int)item)
+				free(item);
+				continue;
+			}
 		}
 			
 		//printf(WHERESTR "unlocking mutex\n", WHEREARG);

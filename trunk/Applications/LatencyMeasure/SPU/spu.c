@@ -8,6 +8,10 @@
 #include <string.h>
 #include <malloc_align.h>
 
+#ifdef DSM_MODE_SINGLE
+#define DSM_MODE
+#endif
+
 int main(long long id)
 {
 #ifdef MBOX_MODE
@@ -17,12 +21,34 @@ int main(long long id)
 		x++;
 		spu_write_out_mbox(x);
 	}
-#else
+#else /*MBOX_MODE*/
+#ifdef DSM_MODE
+
+		initialize();
+		
+		unsigned int prev = UINT_MAX - 1;
+		
+		while(prev != UINT_MAX)
+		{
+			unsigned int* data = acquire(OBJ_1, NULL, ACQUIRE_MODE_WRITE);
+			if (*data != prev)
+			{
+				(*data)++;
+				//printf("%d\n", *data);
+			}
+			release(data);
+		}
+		
+		acquireBarrier(OBJ_BARRIER);
+		terminate();		
+
+#else /*DSM_MODE*/
 	unsigned int* value = _malloc_align(DATA_SIZE, 7);
 
 	while(1)
-	{		
+	{	
 		unsigned int ea = spu_read_in_mbox();
+		//printf("Spu has EA: %d, and LS: %d\n", ea, (unsigned int)value);
 		mfc_get(value, ea, DATA_SIZE, 0, 0, 0);
 	
 		unsigned int tag_mask = (1 << 0);
@@ -37,8 +63,8 @@ int main(long long id)
 		
 		spu_write_out_mbox(1);
 	}
-		
-#endif
+#endif /*DSM_MODE*/		
+#endif /*MBOX_MODE*/
 	
 	
 	 

@@ -799,7 +799,8 @@ void net_processPackage(void* data, unsigned int machineId)
 			ui->event = &net_work_ready;
 			ui->callback = &NetEnqueueCallback;
 			ui->machineId = machineId;
-			//printf(WHERESTR "Enqued with callback %d\n", WHEREARG, (int)ui->callback);
+			
+			//printf(WHERESTR "Enqued %d with callback %d\n", WHEREARG, (unsigned int)ui ,(int)ui->callback);
 			EnqueItem(ui);
 			break;
 		
@@ -845,6 +846,7 @@ void net_processPackage(void* data, unsigned int machineId)
 				ui->machineId = machineId;				
 
 				//Forward this to the request coordinator, so it may record the data and propagate it
+				//printf(WHERESTR "Enque item :%d\n", WHEREARG, (unsigned int)ui);
 				EnqueItem(ui);
 			}
 			else

@@ -289,7 +289,6 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 			}
 		}
 			
-		//TODO: We can't rely on each machine connecting in order...  	
 		for(j = id - 1; j > 0; j--) {
 			if (dsmcbe_display_network_startup_value)
 				printf(WHERESTR "This machine needs to wait for connection from id: %i\n", WHEREARG, j);			  	
