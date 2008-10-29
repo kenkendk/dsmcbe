@@ -2,7 +2,7 @@
 DIKU
 
 ::EXECUTE::
-./brain CT.ppm CTResult.ppm 3
+./go.sh 1 brain 3
 
 ::RUNTIMEENVIRONMENT::
 
@@ -21,18 +21,22 @@ CT12.ppm
 CT20.ppm
 CT21.ppm
 CT22.ppm
+network.txt
 
 ::JOBTYPE::
 batch
 
 ::EXECUTABLES::
 brain
+startjob.sh
+setup.sh
+go.sh
 
 ::DISK::
 1
 
 ::CPUTIME::
-480
+4500
 
 ::PLATFORM::
 
