@@ -1,4 +1,4 @@
-#Wed Oct 29 11:35:59 EDT 2008
+#Wed Oct 29 17:31:38 EDT 2008
 celldt.managedbuild.config.cell.spu.gnu.exe.debug.1788190115/internalBuilder/enabled=false
 celldt.managedbuild.config.cell.spu.gnu.exe.debug.1788190115/internalBuilder/ignoreErr=true
 celldt.managedbuild.config.cell.spu.gnu.exe.release.1767384164/internalBuilder/enabled=false
@@ -9,6 +9,9 @@ celldt.managedbuild.config.cell.spu.xl.exe.release.1189064591/internalBuilder/en
 celldt.managedbuild.config.cell.spu.xl.exe.release.1189064591/internalBuilder/ignoreErr=true
 eclipse.preferences.version=1
 environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.spu.gnu.exe.debug.1788190115=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.spu.gnu.exe.release.1767384164=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
 environment/buildEnvironmentLibrary/celldt.managedbuild.config.cell.spu.gnu.exe.debug.1788190115=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<environment>\n<variable name\="LIBRARY_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentLibrary/celldt.managedbuild.config.cell.spu.gnu.exe.release.1767384164=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<environment>\n<variable name\="LIBRARY_PATH" operation\="remove"/>\n</environment>\n
 environment/project=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<environment/>\n
 environment/project/celldt.managedbuild.config.cell.spu.gnu.exe.debug.1788190115=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<environment/>\n
+environment/project/celldt.managedbuild.config.cell.spu.gnu.exe.release.1767384164=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<environment/>\n

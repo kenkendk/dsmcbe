@@ -20,6 +20,10 @@
 
 extern spe_program_handle_t SPU;
 
+#ifdef DSM_MODE_SINGLE
+#define DSM_MODE
+#endif
+
 #ifdef NET_MODE
 	int* sockfd;
 	void* net_listen(void*);
@@ -44,6 +48,7 @@ void* ppu_pf(void* arg) {
 
 int main(int argc, char* argv[])
 {
+#ifndef DSM_MODE
 	size_t i, thread_count;
 	thread_count = 2;
 
@@ -78,12 +83,12 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	#define SWAP_SPE (spe_no = (spe_no == 0 ? 1 : 0));
+	volatile unsigned int* f = _malloc_align(DATA_SIZE, 7);
+	size_t spe_no = 0;
+#endif
 
 	char buf[256];
-	unsigned int data_size = DATA_SIZE;
-	#define SWAP_SPE (spe_no = (spe_no == 0 ? 1 : 0));
-	volatile unsigned int* f = _malloc_align(data_size, 7);
-	size_t spe_no = 0;
 
 	sw_init();
 	sw_start();
@@ -91,14 +96,18 @@ int main(int argc, char* argv[])
 #ifdef MBOX_MODE
 	char* mode = "MBOX";
 
-	spe_in_mbox_write(spe_ids[spe_no], f, 1, 0);
-	spe_out_mbox_read(spe_ids[spe_no], f, 1);
+	spe_in_mbox_write(spe_ids[spe_no], f, 1, SPE_MBOX_ALL_BLOCKING);
+	while(spe_out_mbox_read(spe_ids[spe_no], f, 1) == 0)
+		;
+		
 	while(*f != UINT_MAX)
 	{
-		printf("%i\n", *f);
+		/*if (*f % 10000 == 0)
+			printf("%i\n", *f);*/	
 		SWAP_SPE;
-		spe_in_mbox_write(spe_ids[spe_no], f, 1, 0);
-		spe_out_mbox_read(spe_ids[spe_no], f, 1);
+		spe_in_mbox_write(spe_ids[spe_no], f, 1, SPE_MBOX_ALL_BLOCKING);
+		while(spe_out_mbox_read(spe_ids[spe_no], f, 1) == 0)
+			;
 	}	
 
 #endif
@@ -108,16 +117,16 @@ int main(int argc, char* argv[])
 	char* mode = "DMA";
 	
 	unsigned int x;
-	spe_in_mbox_write(spe_ids[spe_no], &data_size, 1, 0);
-	spe_in_mbox_write(spe_ids[spe_no], &f, 1, 0);
-	spe_out_mbox_read(spe_ids[spe_no], &x, 1);
+	spe_in_mbox_write(spe_ids[spe_no], &f, 1, SPE_MBOX_ALL_BLOCKING);
+	while (spe_out_mbox_read(spe_ids[spe_no], &x, 1) == 0)
+		;
 	while(*f != UINT_MAX)
 	{
-		printf("%i\n", *f);
+		//printf("%i\n", *f);
 		SWAP_SPE;
-		spe_in_mbox_write(spe_ids[spe_no], &data_size, 1, 0);
-		spe_in_mbox_write(spe_ids[spe_no], &f, 1, 0);
-		spe_out_mbox_read(spe_ids[spe_no], &x, 1);
+		spe_in_mbox_write(spe_ids[spe_no], &f, 1, SPE_MBOX_ALL_BLOCKING);
+		while (spe_out_mbox_read(spe_ids[spe_no], &x, 1) == 0)
+			; 
 	}	
 #endif
 
@@ -130,31 +139,59 @@ int main(int argc, char* argv[])
 	
 	pthread_t p1, p2;
 	pthread_create(&p1, NULL, net_listen, NULL);
-	pthread_create(&p1, NULL, net_connect, NULL);
+	pthread_create(&p2, NULL, net_connect, NULL);
 	
 	pthread_join(p1, NULL);
 	pthread_join(p2, NULL);
 	
 	unsigned int x;
-	spe_in_mbox_write(spe_ids[spe_no], &data_size, 1, 0);
-	spe_in_mbox_write(spe_ids[spe_no], &f, 1, 0);
-	spe_out_mbox_read(spe_ids[spe_no], &x, 1);
+	spe_in_mbox_write(spe_ids[spe_no], &f, 1, SPE_MBOX_ALL_BLOCKING);
+	while (spe_out_mbox_read(spe_ids[spe_no], &x, 1) == 0)
+		;
+		
 	while(*f != UINT_MAX)
 	{
-		send(sockfd[spe_no], f, data_size, 0);
-		printf("%i\n", *f);
+		send(sockfd[spe_no], f, DATA_SIZE, 0);
+		//printf("%i\n", *f);
 		SWAP_SPE;
-		recv(sockfd[spe_no], f, data_size, 0);
-		spe_in_mbox_write(spe_ids[spe_no], &data_size, 1, 0);
-		spe_in_mbox_write(spe_ids[spe_no], &f, 1, 0);
-		spe_out_mbox_read(spe_ids[spe_no], &x, 1);
+		recv(sockfd[spe_no], f, DATA_SIZE, 0);
+		spe_in_mbox_write(spe_ids[spe_no], &f, 1, SPE_MBOX_ALL_BLOCKING);
+		while (spe_out_mbox_read(spe_ids[spe_no], &x, 1) == 0)
+			;
 	}	
+	
+#endif
+
+#ifdef DSM_MODE
+
+#ifdef DSM_MODE_SINGLE	
+	char* mode = "DSM Single";
+
+	simpleInitialize(0, NULL, 2);
+	
+	release(create(OBJ_1, DATA_SIZE));
+	createBarrier(OBJ_BARRIER, 3);
+#else
+	char* mode = "DSM";
+
+	int id = atoi(argv[1]);
+	simpleInitialize(id, "network.txt", 1);
+
+	if (id == 0)
+	{
+		release(create(OBJ_1, DATA_SIZE));
+		createBarrier(OBJ_BARRIER, 4);
+	}
+#endif
+
+	
+	acquireBarrier(OBJ_BARRIER);
 	
 #endif
 
 	sw_stop();
 	sw_timeString(buf);
-	printf("Time taken for %s with size %i: %s\n", mode, data_size, buf);
+	printf("Time taken for %s with size %i: %s\n", mode, DATA_SIZE, buf);
 	
 	return 0;
 }
@@ -166,10 +203,12 @@ void* net_listen(void* dummy)
 	struct sockaddr_in unused;
 	
 	struct sockaddr_in addr;
+	addr.sin_family = AF_INET;
 	memset(&(addr.sin_zero),'\0',8);
-	inet_aton("127.0.0.1",&(addr.sin_addr));
-	addr.sin_port = 6008;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = htons(6031);
 
+	printf("Creating socket \n");
 	socketfd = socket(AF_INET, SOCK_STREAM, 0);
 	if(bind(socketfd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1)
 	{
@@ -177,12 +216,14 @@ void* net_listen(void* dummy)
 		exit(1);
 	}
 	
+	printf("Listen on socket \n");
 	if(listen(socketfd, 1) == -1)
 	{
 	  	REPORT_ERROR("listen()");
 	  	exit(1);
 	}
 		  	
+	printf("Accept socket \n");
 	unsigned int sin_size = sizeof(struct sockaddr_in);
 	if ((sockfd[0] = accept(socketfd, (struct sockaddr *)&unused, &sin_size)) == -1)
 	{
@@ -190,18 +231,20 @@ void* net_listen(void* dummy)
 	  	exit(1);
 	}
 
+	printf("Done socket \n");
 	return dummy;
 }
 
 void* net_connect(void* dummy)
 {
 	struct sockaddr_in addr;
+	addr.sin_family = AF_INET;
 	memset(&(addr.sin_zero),'\0',8);
 	inet_aton("127.0.0.1",&(addr.sin_addr));
-	addr.sin_port = 6008;
+	addr.sin_port = htons(6031);
 	
-	REPORT_ERROR("Sleeping 5 secs to settle network");
-	sleep(5);
+	REPORT_ERROR("Sleeping 1 sec to settle network");
+	sleep(1);
 	
 	sockfd[1] = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -209,6 +252,7 @@ void* net_connect(void* dummy)
 		REPORT_ERROR("connect()");
 		exit(1);
 	}
+	printf("Done connect \n");
 	return dummy;
 }
 #endif

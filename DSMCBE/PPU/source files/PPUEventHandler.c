@@ -190,6 +190,7 @@ void RelayEnqueItem(QueueableItem q)
 	//printf(WHERESTR "Sending request with type %d, and reqId: %d\n", WHEREARG, ((struct createRequest*)relay->dataRequest)->packageCode, ((struct createRequest*)relay->dataRequest)->requestID);	
 	pthread_mutex_unlock(relay->mutex);
 	
+	//printf(WHERESTR "Sending item %d\n", WHEREARG, (unsigned int)relay);
 	EnqueItem(relay);
 }
 
@@ -507,11 +508,19 @@ void threadAcquireBarrier(GUID id)
 	if ((cr = (struct acquireBarrierRequest*)MALLOC(sizeof(struct acquireBarrierRequest))) == NULL)
 		REPORT_ERROR("malloc error");
 
+	cr->packageCode = PACKAGE_ACQUIRE_BARRIER_REQUEST;
 	cr->requestID = 0;
 	cr->dataItem = id;
 
 	//Perform the request and await the response
+	//printf(WHERESTR "Acquire barrier on id %i\n", WHEREARG, id);
 	ar = (struct acquireBarrierResponse*)forwardRequest(cr);
+	if (ar->packageCode != PACKAGE_ACQUIRE_BARRIER_RESPONSE)
+	{
+		REPORT_ERROR("Unexcepted response for an Acquire Barrier request");
+	}
+	
+	//printf(WHERESTR "Acquired barrier on id %i\n", WHEREARG, id);
 	FREE(ar);
 	ar = NULL;
 	return;

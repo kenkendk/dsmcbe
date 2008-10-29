@@ -17,6 +17,8 @@
 <listOptionValue builtIn="false" value="spe2"/>
 <listOptionValue builtIn="false" value="pthread"/>
 <listOptionValue builtIn="false" value="m"/>
+<listOptionValue builtIn="false" value="glib-2.0"/>
+<listOptionValue builtIn="false" value="gthread-2.0"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.1003814368" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1023703879" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
@@ -40,11 +42,37 @@
 <configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1257953644" name="ppu-gnu32-release" parent="celldt.managedbuild.config.cell.ppu.gnu32.exe.release">
 <toolChain id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.toolchain.1455394093" name="PPU GNU 32 bit Release Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.toolchain">
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.1869362608" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
-<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.1595844128" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu"/>
-<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1564396694" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.1595844128" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
+<option id="cell.ppu.gnu.embedspu.option.inputs.196945694" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/LatencyMeasure/SPU/spu-gnu-release/SPU"/>
+</option>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1564396694" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
+<option id="gnu.c.link.option.paths.1031589801" superClass="gnu.c.link.option.paths" valueType="stringList">
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/PPU/ppu-gnu32-release"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib"/>
+</option>
+<option id="cell.ppu.gnu.c.linker.option.libs.1306811209" superClass="cell.ppu.gnu.c.linker.option.libs" valueType="libs">
+<listOptionValue builtIn="false" value="dsmcbe_ppu"/>
+<listOptionValue builtIn="false" value="m"/>
+<listOptionValue builtIn="false" value="pthread"/>
+<listOptionValue builtIn="false" value="spe2"/>
+<listOptionValue builtIn="false" value="glib-2.0"/>
+<listOptionValue builtIn="false" value="gthread-2.0"/>
+</option>
+<option id="cell.ppu.gnu.c.linker.option.libs.lm.1189876932" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
+<option id="cell.ppu.gnu.c.linker.option.libs.lpthread.911460789" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
+<option id="cell.ppu.gnu.c.linker.option.libs.lspe2.294250387" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
+</tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.272370211" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>
-<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.429862049" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.429862049" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release">
+<option id="gnu.c.compiler.option.include.paths.1182797243" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
+</option>
+</tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release.62618036" name="PPU GNU 32 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release"/>
+<macros/>
 </toolChain>
 </configuration>
 <configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.371294144" name="ppu-gnu64-debug" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug">
