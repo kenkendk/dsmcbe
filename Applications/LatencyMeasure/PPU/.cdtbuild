@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 3.1.0?>
+
+<ManagedProjectBuildInfo>
+<project id="PPU.celldt.managedbuild.target.cell.ppu.exe.931237282" name="Cell PPU Executable" projectType="celldt.managedbuild.target.cell.ppu.exe">
+<configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.820715981" name="ppu-gnu32-debug" parent="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug">
+<toolChain id="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.toolchain.764242778" name="PPU GNU 32 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.toolchain">
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.151893120" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.642469651" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
+<option id="cell.ppu.gnu.embedspu.option.inputs.147490165" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
+<listOptionValue builtIn="false" value="/root/dsmcbe/Applications/LatencyMeasure/SPU/spu-gnu-debug/SPU"/>
+</option>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.533343938" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
+<option id="cell.ppu.gnu.c.linker.option.libs.1673965074" superClass="cell.ppu.gnu.c.linker.option.libs" valueType="libs">
+<listOptionValue builtIn="false" value="dsmcbe_ppu"/>
+<listOptionValue builtIn="false" value="spe2"/>
+<listOptionValue builtIn="false" value="pthread"/>
+<listOptionValue builtIn="false" value="m"/>
+</option>
+<option id="cell.ppu.gnu.c.linker.option.libs.lm.1003814368" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
+<option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1023703879" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
+<option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1083359668" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
+<option id="gnu.c.link.option.paths.1415122963" superClass="gnu.c.link.option.paths" valueType="stringList">
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE/PPU/ppu-gnu32-debug"/>
+<listOptionValue builtIn="false" value="/root/dsmcbe/glib-ppc32/usr/lib/"/>
+</option>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.2129083453" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug.102281801" name="PPU GNU 32 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug">
+<option id="gnu.c.compiler.option.include.paths.346430631" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/root/dsmcbe/DSMCBE"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
+</option>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.debug.1154083142" name="PPU GNU 32 bit C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.debug"/>
+<macros/>
+</toolChain>
+</configuration>
+<configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1257953644" name="ppu-gnu32-release" parent="celldt.managedbuild.config.cell.ppu.gnu32.exe.release">
+<toolChain id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.toolchain.1455394093" name="PPU GNU 32 bit Release Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.toolchain">
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.assembler.1869362608" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.assembler"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.1595844128" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1564396694" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.272370211" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.429862049" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release.62618036" name="PPU GNU 32 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.compiler.exe.release"/>
+</toolChain>
+</configuration>
+<configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.371294144" name="ppu-gnu64-debug" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug">
+<toolChain id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.toolchain.1689351567" name="PPU GNU 64 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.toolchain">
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.assembler.2098519424" name="PPU GNU 64 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.assembler"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.embedspu.343611402" name="PPU GNU 64 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.embedspu"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.c.linker.exe.15176197" name="PPU GNU 64 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.c.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.cpp.linker.exe.88379898" name="PPU GNU 64 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.c.compiler.exe.debug.1869075061" name="PPU GNU 64 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.c.compiler.exe.debug"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.cpp.compiler.exe.debug.1860543705" name="PPU GNU 64 bit C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.cpp.compiler.exe.debug"/>
+</toolChain>
+</configuration>
+<configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.442303195" name="ppu-gnu64-release" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.release">
+<toolChain id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.toolchain.971633720" name="PPU GNU 64 bit Release Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.toolchain">
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.assembler.133150367" name="PPU GNU 64 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.assembler"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.embedspu.204381253" name="PPU GNU 64 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.embedspu"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.c.linker.exe.2027426136" name="PPU GNU 64 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.c.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.cpp.linker.exe.1489610620" name="PPU GNU 64 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.c.compiler.exe.release.658141083" name="PPU GNU 64 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.c.compiler.exe.release"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu64.cpp.compiler.exe.release.2062547338" name="PPU GNU 64 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.cpp.compiler.exe.release"/>
+</toolChain>
+</configuration>
+<configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;com.ibm.celldt.core.XLCErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.xl32.exe.debug.1120422797" name="ppu-xl32-debug" parent="celldt.managedbuild.config.cell.ppu.xl32.exe.debug">
+<toolChain id="celldt.managedbuild.config.cell.ppu.xl32.exe.debug.toolchain.1301636832" name="PPU XL 32 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.xl32.exe.debug.toolchain">
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.assembler.942090146" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.xl32.assembler"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.embedspu.445703600" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.xl32.embedspu"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.c.linker.exe.1257140265" name="PPU XL 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.xl32.c.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.cpp.linker.exe.1812460296" name="PPU XL 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.xl32.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.c.compiler.exe.debug.708510008" name="PPU XL 32 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.xl32.c.compiler.exe.debug"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.cpp.compiler.exe.debug.420000663" name="PPU XL 32 bit C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.xl32.cpp.compiler.exe.debug"/>
+</toolChain>
+</configuration>
+<configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;com.ibm.celldt.core.XLCErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.xl32.exe.release.1375244707" name="ppu-xl32-release" parent="celldt.managedbuild.config.cell.ppu.xl32.exe.release">
+<toolChain id="celldt.managedbuild.config.cell.ppu.xl32.exe.release.toolchain.1138179906" name="PPU XL 32 bit Release Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.xl32.exe.release.toolchain">
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.assembler.1330984261" name="PPU GNU 32 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.xl32.assembler"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.embedspu.310924028" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.xl32.embedspu"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.c.linker.exe.1536158999" name="PPU XL 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.xl32.c.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.cpp.linker.exe.1676595307" name="PPU XL 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.xl32.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.c.compiler.exe.release.1166703484" name="PPU XL 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.xl32.c.compiler.exe.release"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl32.cpp.compiler.exe.release.890210390" name="PPU XL 32 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.xl32.cpp.compiler.exe.release"/>
+</toolChain>
+</configuration>
+<configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;com.ibm.celldt.core.XLCErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.xl64.exe.debug.1719800333" name="ppu-xl64-debug" parent="celldt.managedbuild.config.cell.ppu.xl64.exe.debug">
+<toolChain id="celldt.managedbuild.config.cell.ppu.xl64.exe.debug.toolchain.1661366362" name="PPU XL 64 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.xl64.exe.debug.toolchain">
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.assembler.397380257" name="PPU GNU 64 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.xl64.assembler"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.embedspu.1680944431" name="PPU GNU 64 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.xl64.embedspu"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.c.linker.exe.476922342" name="PPU XL 64 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.xl64.c.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.cpp.linker.exe.206601282" name="PPU XL 64 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.xl64.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.c.compiler.exe.debug.2109525281" name="PPU XL 64 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.xl64.c.compiler.exe.debug"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.cpp.compiler.exe.debug.208760004" name="PPU XL 64 bit C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.xl64.cpp.compiler.exe.debug"/>
+</toolChain>
+</configuration>
+<configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;com.ibm.celldt.core.XLCErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.xl64.exe.release.1140991311" name="ppu-xl64-release" parent="celldt.managedbuild.config.cell.ppu.xl64.exe.release">
+<toolChain id="celldt.managedbuild.config.cell.ppu.xl64.exe.release.toolchain.2092127501" name="PPU XL 64 bit Release Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.xl64.exe.release.toolchain">
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.assembler.1515963674" name="PPU GNU 64 bit Assembler" superClass="celldt.managedbuild.tool.cell.ppu.xl64.assembler"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.embedspu.737876844" name="PPU GNU 64 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.xl64.embedspu"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.c.linker.exe.1427511750" name="PPU XL 64 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.xl64.c.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.cpp.linker.exe.61181673" name="PPU XL 64 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.xl64.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.c.compiler.exe.release.1142170934" name="PPU XL 64 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.xl64.c.compiler.exe.release"/>
+<tool id="celldt.managedbuild.tool.cell.ppu.xl64.cpp.compiler.exe.release.1665586739" name="PPU XL 64 bit C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.xl64.cpp.compiler.exe.release"/>
+</toolChain>
+</configuration>
+</project>
+</ManagedProjectBuildInfo>
