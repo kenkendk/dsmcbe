@@ -1,6 +1,6 @@
 ﻿Single:
-1: 
-2: 
+1: 5 hours 6 min. 59 seconds 950 ms *
+2: 2 hours 33 min. 30 seconds 788 ms *
 3: 1 hours 42 min. 24 seconds 534 ms
 4: 1 hours 16 min. 51 seconds 496 ms
 5: 1 hours 1 min. 28 seconds 42 ms
@@ -22,8 +22,8 @@
 96: 3 min. 22 seconds 550 ms
 
 Double:
-1: 
-2: 
+1: 5 hours 7 min. 63 ms *
+2: 2 hours 33 min. 30 seconds 635 ms *
 3: 1 hours 42 min. 24 seconds 614 ms
 4: 1 hours 16 min. 52 seconds 110 ms
 5: 1 hours 1 min. 27 seconds 685 ms
@@ -43,3 +43,15 @@ Double:
 84: 3 min. 50 seconds 649 ms
 90: 3 min. 35 seconds 360 ms
 96: 3 min. 24 seconds 58 ms
+
+Reference (not on MiG):
+1: 5 hours 7 min. 48 seconds 984 ms
+2: 2 hours 33 min. 54 seconds 685 ms
+3: 1 hours 42 min. 40 seconds 240 ms
+4: 1 hours 17 min. 3 seconds 906 ms
+5: 1 hours 1 min. 36 seconds 982 ms
+6: 51 min. 24 seconds 928 ms
+
+ * = Not measured on MiG due to time restrictions imposed by MiG
+ 
+ 
