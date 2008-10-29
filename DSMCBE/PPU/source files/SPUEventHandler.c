@@ -425,6 +425,9 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	req->packageCode = packageCode;
 	req->requestID = requestId;
 	req->dataItem = id;
+	req->originator = dsmcbe_host_number;
+	req->originalRecipient = UINT_MAX;
+	req->originalRequestID = UINT_MAX;
 
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
@@ -522,6 +525,9 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	req->requestID = requestId;
 	req->dataItem = id;
 	req->dataSize = size;
+	req->originator = dsmcbe_host_number;
+	req->originalRecipient = UINT_MAX;
+	req->originalRequestID = UINT_MAX;
 
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }

@@ -328,6 +328,9 @@ void* threadCreate(GUID id, unsigned long size)
 	cr->requestID = 0;
 	cr->dataItem = id;
 	cr->dataSize = size == 0 ? 1 : size;
+	cr->originator = dsmcbe_host_number;
+	cr->originalRecipient = UINT_MAX;
+	cr->originalRequestID = UINT_MAX;
 	
 	retval = NULL;
 	
@@ -578,6 +581,9 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		
 	cr->requestID = 0;
 	cr->dataItem = id;
+	cr->originator = dsmcbe_host_number;
+	cr->originalRecipient = UINT_MAX;
+	cr->originalRequestID = UINT_MAX;
 
 	retval = NULL;
 		
