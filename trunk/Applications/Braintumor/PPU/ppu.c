@@ -80,7 +80,6 @@ void collectResults(int id, int shots, int shots_spu, unsigned char* energy)
 		}
 		release(points);
 	}
-	//printf("PPEid %i\n", PPEid);
 	//printf("\n\nEnd working on results\n\n");	
 }
 

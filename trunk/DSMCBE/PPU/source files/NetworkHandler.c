@@ -352,6 +352,11 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	
 	pthread_mutex_init(&net_leaseLock, NULL); 
 	Gnet_leaseTable = g_hash_table_new(NULL, NULL);
+	g_hash_table_insert(Gnet_leaseTable, (void*)OBJECT_TABLE_ID, g_hash_table_new(NULL, NULL));
+	
+	for(i = 0; i < net_remote_hosts; i++)
+		g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable,(void*) OBJECT_TABLE_ID), (void*)i+1, (void*)1);
+		
 	Gnet_writeInitiator = g_hash_table_new(NULL, NULL);
 	Gnet_activeTransfers = g_hash_table_new(NULL, NULL);
 	Gnet_pendingInvalidates = g_hash_table_new(NULL, NULL);
@@ -366,8 +371,48 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	pthread_attr_destroy(&attr);
 }
 
-void NetInvalidate(GUID id)
+void NetUpdate(GUID id, unsigned int offset, unsigned int dataSize, void* data)
 {
+	//printf(WHERESTR "NetUpdating GUID %i\n", WHEREARG, id);
+	
+	struct updateRequest* req;
+	size_t i;
+	
+	if (net_remote_hosts == 0)
+		return;
+	
+	//printf(WHERESTR "locking mutex\n", WHEREARG);
+	pthread_mutex_lock(&net_work_mutex);
+	//printf(WHERESTR "locked mutex\n", WHEREARG);
+	//printf(WHERESTR "Taking lock: %d\n", WHEREARG, (int)&net_work_mutex);
+	for(i = 0; i < net_remote_hosts; i++)
+	{
+		if (i != dsmcbe_host_number)
+		{
+			//printf(WHERESTR "Processing update, target machine: %d, GUID: %d\n", WHEREARG, i, id);
+			if((req = (struct updateRequest*)MALLOC(sizeof(struct updateRequest))) == NULL)
+				REPORT_ERROR("MALLOC error");
+								
+			req->dataItem = id;
+			req->packageCode = PACKAGE_UPDATE;
+			req->requestID = 0;
+			req->offset = offset;
+			req->dataSize = dataSize;
+			req->data = data;
+			g_queue_push_tail(Gnet_requestQueues[i], req);
+		}
+	}
+	
+	pthread_cond_signal(&net_work_ready);
+
+	//printf(WHERESTR "Releasing lock: %d\n", WHEREARG, (int)&net_work_mutex);
+	pthread_mutex_unlock(&net_work_mutex);
+	//printf(WHERESTR "Processed udpates\n", WHEREARG);
+}
+
+void NetInvalidate(GUID id)
+{	
+	//printf(WHERESTR "NetInvalidating GUID %i\n", WHEREARG, id);
 	
 	struct invalidateRequest* req;
 	size_t i;
@@ -697,6 +742,14 @@ void net_processPackage(void* data, unsigned int machineId)
 #ifdef TRACE_NETWORK_PACKAGES
 		printf(WHERESTR "Recieved a package from machine: %d, type: %s (%d), reqId: %d, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode), ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID, ((struct createRequest*)data)->dataItem);
 #endif
+
+	//Here we re-map the request to make it look like it came from the original recipient
+	if(((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
+	{
+		machineId = ((struct acquireResponse*)data)->originalRecipient;
+		((struct acquireResponse*)data)->requestID = ((struct acquireResponse*)data)->originalRequestID;
+	}
+	//TODO: Handle re-mapped NACK as well 
 	
 	
 	switch(((struct createRequest*)data)->packageCode)
@@ -706,6 +759,7 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 		case PACKAGE_RELEASE_REQUEST:
 		case PACKAGE_INVALIDATE_REQUEST:
+		case PACKAGE_UPDATE:		
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 
 			//printf(WHERESTR "Processing network package from %d, with type: %s, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode), ((struct acquireRequest*)data)->dataItem);
@@ -777,7 +831,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			FREE(w);
 			w = NULL;
 
-			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE)
+			if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_MIGRATION_RESPONSE || ((struct createRequest*)data)->packageCode == PACKAGE_UPDATE)
 			{
 				//printf(WHERESTR "Acquire response package from %d, for guid: %d, reqId: %d\n", WHEREARG, machineId, ((struct acquireResponse*)data)->dataItem, ((struct acquireResponse*)data)->requestID);
 				if ((ui = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
@@ -881,8 +935,7 @@ void* net_readPackage(int fd)
 					REPORT_ERROR("Failed to read package data from acquire response");
 			}
 			else 
-				((struct acquireResponse*)data)->data = NULL;
-			
+				((struct acquireResponse*)data)->data = NULL;			
 			break;
 		case PACKAGE_RELEASE_REQUEST:
 			blocksize = sizeof(struct releaseRequest);
@@ -925,6 +978,26 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire invalidate response package"); 
+			break;
+		case PACKAGE_UPDATE:
+			blocksize = sizeof(struct updateRequest);
+			if ((data = MALLOC(blocksize)) == NULL)
+				REPORT_ERROR("MALLOC error");
+			blocksize -= sizeof(unsigned long);
+			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
+				REPORT_ERROR("Failed to read entire release request package"); 
+
+			blocksize = ((struct updateRequest*)data)->dataSize;
+			if (blocksize != 0)
+			{
+				transfersize = ALIGNED_SIZE(blocksize);
+				if ((((struct updateRequest*)data)->data = MALLOC_ALIGN(transfersize, 7)) == NULL)
+					REPORT_ERROR("Failed to allocate space for release request data");					
+				if (recv(fd, ((struct updateRequest*)data)->data, blocksize, MSG_WAITALL) != blocksize)
+					REPORT_ERROR("Failed to read package data from release request");
+			} else {
+				((struct updateRequest*)data)->data = NULL;
+			}
 			break;
 		case PACKAGE_NACK:
 			blocksize = sizeof(struct NACK);
@@ -1010,32 +1083,59 @@ void net_sendPackage(void* package, unsigned int machineId)
 #ifdef TRACE_NETWORK_PACKAGES
 		printf(WHERESTR "Sending a package to machine: %d, type: %s (%d), reqId: %d, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)package)->packageCode), ((struct createRequest*)package)->packageCode, ((struct createRequest*)package)->requestID, ((struct createRequest*)package)->dataItem);
 #endif
-		
+
 	switch(((struct createRequest*)package)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+			
+			if (((struct createRequest*)package)->originalRecipient == UINT_MAX)
+			{
+				((struct createRequest*)package)->originalRecipient = machineId;
+				((struct createRequest*)package)->originalRequestID = ((struct createRequest*)package)->requestID;
+			}
+			
 			if (send(fd, package, sizeof(struct createRequest), 0) != sizeof(struct createRequest))
 				REPORT_ERROR("Failed to send entire create request read package");			 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+
+			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
+			{
+				((struct acquireRequest*)package)->originalRecipient = machineId;
+				((struct acquireRequest*)package)->originalRequestID = ((struct acquireRequest*)package)->requestID;
+			}
+
 			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
 				REPORT_ERROR("Failed to send entire acquire request read package");
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+
+			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
+			{
+				((struct acquireRequest*)package)->originalRecipient = machineId;
+				((struct acquireRequest*)package)->originalRequestID = ((struct acquireRequest*)package)->requestID;
+			}
+
 			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
 				REPORT_ERROR("Failed to send entire acquire request write package");			 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+			
+			if (((struct acquireResponse*)package)->originator == UINT_MAX)
+				REPORT_ERROR("Originator is invalid!");
+			
+			//We re-map the recipient
+			fd = net_remote_handles[((struct acquireResponse*)package)->originator];
+			
 			if (send(fd, package, sizeof(struct acquireResponse) - sizeof(void*), MSG_MORE) != sizeof(struct acquireResponse) - sizeof(void*))
 				REPORT_ERROR("Failed to send entire acquire response package");
 			if (((struct acquireResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
 			if (send(fd, ((struct acquireResponse*)package)->data, ((struct acquireResponse*)package)->dataSize, 0) != ((struct acquireResponse*)package)->dataSize)
 				REPORT_ERROR("Failed to send entire acquire response data package");
-
 			break;
 		case PACKAGE_RELEASE_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
@@ -1050,16 +1150,26 @@ void net_sendPackage(void* package, unsigned int machineId)
 			if (send(fd, package, sizeof(struct releaseResponse), 0) != sizeof(struct releaseResponse))
 				REPORT_ERROR("Failed to send entire release response package"); 
 			break;
-		case PACKAGE_INVALIDATE_REQUEST:
+		case PACKAGE_INVALIDATE_REQUEST:			
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+			//printf(WHERESTR "NetInvalidating GUID %i\n", WHEREARG, ((struct invalidateRequest*)package)->dataItem);			
 			if (send(fd, package, sizeof(struct invalidateRequest), 0) != sizeof(struct invalidateRequest))
 				REPORT_ERROR("Failed to send entire invalidate request package");
 			break;
-		case PACKAGE_INVALIDATE_RESPONSE:
+		case PACKAGE_INVALIDATE_RESPONSE:		
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			if (send(fd, package, sizeof(struct invalidateResponse), 0) != sizeof(struct invalidateResponse))
 				REPORT_ERROR("Failed to send entire invalidate response package");
 			break;
+		case PACKAGE_UPDATE:
+			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+			//printf(WHERESTR "NetUpdating GUID %i\n", WHEREARG, ((struct updateRequest*)package)->dataItem);
+			if (send(fd, package, sizeof(struct updateRequest) - sizeof(void*), MSG_MORE) != sizeof(struct updateRequest) - sizeof(void*))
+				REPORT_ERROR("Failed to send entire update request package");
+			if (((struct updateRequest*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
+			if (send(fd, ((struct updateRequest*)package)->data, ((struct updateRequest*)package)->dataSize, 0) != ((struct updateRequest*)package)->dataSize)
+				REPORT_ERROR("Failed to send entire update request data package");
+			break;		
 		case PACKAGE_NACK:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			if (send(fd, package, sizeof(struct NACK), 0) != sizeof(struct NACK))

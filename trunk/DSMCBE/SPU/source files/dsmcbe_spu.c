@@ -12,7 +12,7 @@
 //Activating this makes the code use polling rather than just waiting for a mailbox message.
 //The current Cell BE implementation seems to use busy waiting in either case though.
 //Disable this if there are long wait periods in the program.
-//#define TIMEOUT_DETECTION
+#define TIMEOUT_DETECTION
 
 #include "../../dsmcbe_spu.h"
 #include "../../common/datapackages.h"
@@ -371,7 +371,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
 	{
 		//Should get response happen before we can count to this
-		if (i++ == 100000000) 
+		if (i++ == 1000000000) 
 		{
 			REPORT_ERROR2("Detected timeout for request id %d", requestNo);
 			SPU_WRITE_OUT_MBOX(PACKAGE_DEBUG_PRINT_STATUS);

@@ -29,6 +29,8 @@
 #define PACKAGE_INVALIDATE_REQUEST 10
 #define PACKAGE_INVALIDATE_RESPONSE 11
 
+#define PACKAGE_UPDATE 12
+
 #define PACKAGE_TERMINATE_REQUEST 14
 #define PACKAGE_TERMINATE_RESPONSE 15
 
@@ -46,6 +48,10 @@ struct createRequest
 	unsigned int requestID;
 	GUID dataItem;
 	unsigned long dataSize;
+
+	unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
 };
 
 struct acquireRequest
@@ -54,6 +60,9 @@ struct acquireRequest
     unsigned int packageCode; // = 2
     unsigned int requestID;
     GUID dataItem;
+	unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
 };
 
 struct acquireResponse
@@ -62,6 +71,9 @@ struct acquireResponse
     unsigned int requestID;
     GUID dataItem; 
     int mode;
+	unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
     unsigned long dataSize;
     void* data;
 };
@@ -122,6 +134,16 @@ struct invalidateResponse
     unsigned int requestID;
 };
 
+struct updateRequest
+{
+	unsigned int packageCode;
+	unsigned int requestID;
+	GUID dataItem;
+	unsigned int offset;
+    unsigned long dataSize;
+    void* data;		
+};
+
 struct acquireBarrierRequest
 {
 	unsigned int packageCode;
@@ -163,7 +185,7 @@ struct packageBuffer
 	unsigned char buffer[MAX_PACKAGE_SIZE - sizeof(unsigned int)];
 };
 
-#define PACKAGE_SIZE(x) (x == 0 ? 0 : (x == 1 ? sizeof(struct createRequest) : ( x == 2 ? sizeof(struct acquireRequest) : ( x == 3 ? sizeof(struct acquireRequest) : ( x == 4 ? sizeof(struct acquireResponse) : ( x == 5  ? sizeof(struct writebufferReady) : ( x == 6 ? sizeof(struct migrationResponse) : ( x == 7 ? sizeof(struct releaseRequest) : ( x == 8 ? sizeof(struct releaseResponse) : ( x == 9 ? sizeof(struct NACK) : ( x == 10 ? sizeof(struct invalidateRequest) : ( x == 11 ? sizeof(struct invalidateResponse) : ( x == 16 ? sizeof(struct acquireBarrierRequest) : ( x == 17 ? sizeof(struct acquireBarrierResponse) : ( x == 18 ? sizeof(struct migrationRequest) : ( x == 19 ? sizeof(struct retryResponse) : 0))))))))))))))))
+#define PACKAGE_SIZE(x) (x == 0 ? 0 : (x == 1 ? sizeof(struct createRequest) : ( x == 2 ? sizeof(struct acquireRequest) : ( x == 3 ? sizeof(struct acquireRequest) : ( x == 4 ? sizeof(struct acquireResponse) : ( x == 5  ? sizeof(struct writebufferReady) : ( x == 6 ? sizeof(struct migrationResponse) : ( x == 7 ? sizeof(struct releaseRequest) : ( x == 8 ? sizeof(struct releaseResponse) : ( x == 9 ? sizeof(struct NACK) : ( x == 10 ? sizeof(struct invalidateRequest) : ( x == 11 ? sizeof(struct invalidateResponse) : ( x == 16 ? sizeof(struct acquireBarrierRequest) : ( x == 17 ? sizeof(struct acquireBarrierResponse) : ( x == 18 ? sizeof(struct migrationRequest) : ( x == 19 ? sizeof(struct retryResponse) : (x = 12 ? sizeof(struct updateRequest) : 0)))))))))))))))))
 
 #define ALIGNED_SIZE(x) ((x) + ((16 - ((x) % 16)) % 16))
 

@@ -17,7 +17,7 @@ extern spe_program_handle_t SPU;
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 #define SHOTS_SPU 2048
-#define SHOTS (SHOTS_SPU * 480)
+#define SHOTS (SHOTS_SPU * 7200)
 
 int WIDTH;
 int HEIGTH;
