@@ -26,14 +26,15 @@ int main(long long id)
 
 		initialize();
 		
-		unsigned int prev = UINT_MAX - 1;
+		unsigned int prev = PROBLEM_SIZE - 1;
 		
-		while(prev != UINT_MAX)
+		while(prev < PROBLEM_SIZE)
 		{
 			unsigned int* data = acquire(OBJ_1, NULL, ACQUIRE_MODE_WRITE);
 			if (*data != prev)
 			{
 				(*data)++;
+				prev = *data;
 				//printf("%d\n", *data);
 			}
 			release(data);
