@@ -558,6 +558,9 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 	req->packageCode = PACKAGE_ACQUIRE_BARRIER_REQUEST;
 	req->requestID = requestId;
 	req->dataItem = id;
+	req->originator = dsmcbe_host_number;
+	req->originalRecipient = UINT_MAX;
+	req->originalRequestID = UINT_MAX;
 
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }

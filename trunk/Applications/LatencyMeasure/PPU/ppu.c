@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
 	while(spe_out_mbox_read(spe_ids[spe_no], f, 1) == 0)
 		;
 		
-	while(*f != UINT_MAX)
+	while(*f != PROBLEM_SIZE)
 	{
 		/*if (*f % 10000 == 0)
 			printf("%i\n", *f);*/	
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 	spe_in_mbox_write(spe_ids[spe_no], &f, 1, SPE_MBOX_ALL_BLOCKING);
 	while (spe_out_mbox_read(spe_ids[spe_no], &x, 1) == 0)
 		;
-	while(*f != UINT_MAX)
+	while(*f != PROBLEM_SIZE)
 	{
 		//printf("%i\n", *f);
 		SWAP_SPE;
@@ -149,7 +149,7 @@ int main(int argc, char* argv[])
 	while (spe_out_mbox_read(spe_ids[spe_no], &x, 1) == 0)
 		;
 		
-	while(*f != UINT_MAX)
+	while(*f != PROBLEM_SIZE)
 	{
 		send(sockfd[spe_no], f, DATA_SIZE, 0);
 		//printf("%i\n", *f);
@@ -171,6 +171,7 @@ int main(int argc, char* argv[])
 	
 	release(create(OBJ_1, DATA_SIZE));
 	createBarrier(OBJ_BARRIER, 3);
+	int id = 0;
 #else
 	char* mode = "DSM";
 
@@ -187,11 +188,16 @@ int main(int argc, char* argv[])
 	
 	acquireBarrier(OBJ_BARRIER);
 	
+	//This ensures that the output is on machine 0
+	if (id != 0)
+	{
+		sleep(5);
+	}
 #endif
 
 	sw_stop();
 	sw_timeString(buf);
-	printf("Time taken for %s with size %i: %s\n", mode, DATA_SIZE, buf);
+	printf("Time taken for %s with size %i and count %d: %s\n", mode, DATA_SIZE, PROBLEM_SIZE, buf);
 	
 	return 0;
 }

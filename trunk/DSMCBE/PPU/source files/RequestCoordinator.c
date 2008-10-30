@@ -322,6 +322,67 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
 //It sets the requestID on the response, and frees the data structures
 void RespondAny(QueueableItem item, void* resp)
 {
+	unsigned int originator = UINT_MAX;
+	unsigned int originalRecipient = UINT_MAX;
+	unsigned int originalRequestID = UINT_MAX;
+
+	switch(((struct createRequest*)item->dataRequest)->packageCode)
+	{
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+			originator = ((struct acquireBarrierRequest*)item->dataRequest)->originator;
+			originalRecipient = ((struct acquireBarrierRequest*)item->dataRequest)->originalRecipient;
+			originalRequestID = ((struct acquireBarrierRequest*)item->dataRequest)->originalRequestID;
+			break;
+		case PACKAGE_ACQUIRE_REQUEST_READ:
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			originator = ((struct acquireRequest*)item->dataRequest)->originator;
+			originalRecipient = ((struct acquireRequest*)item->dataRequest)->originalRecipient;
+			originalRequestID = ((struct acquireRequest*)item->dataRequest)->originalRequestID;
+			break;
+		case PACKAGE_CREATE_REQUEST:
+			originator = ((struct createRequest*)item->dataRequest)->originator;
+			originalRecipient = ((struct createRequest*)item->dataRequest)->originalRecipient;
+			originalRequestID = ((struct createRequest*)item->dataRequest)->originalRequestID;
+			break;
+		case PACKAGE_MIGRATION_REQUEST:
+			originator = ((struct migrationRequest*)item->dataRequest)->originator;
+			originalRecipient = ((struct migrationRequest*)item->dataRequest)->originalRecipient;
+			originalRequestID = ((struct migrationRequest*)item->dataRequest)->originalRequestID;
+			break;
+		/*case PACKAGE_RELEASE_REQUEST:
+			originator = ((struct releaseRequest*)item->dataRequest)->originator;
+			originalRecipient = ((struct releaseRequest*)item->dataRequest)->originalRecipient;
+			originalRequestID = ((struct releaseRequest*)item->dataRequest)->originalRequestID;
+			break;*/
+	}
+
+
+	if (originator != UINT_MAX && originalRecipient != UINT_MAX && originalRequestID != UINT_MAX)
+		switch(((struct createRequest*)resp)->packageCode)
+		{
+			case PACKAGE_ACQUIRE_RESPONSE:
+				((struct acquireResponse*)resp)->originator = originator;
+				((struct acquireResponse*)resp)->originalRecipient = originalRecipient;
+				((struct acquireResponse*)resp)->originalRequestID = originalRequestID;
+				break;
+			case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+				((struct acquireBarrierResponse*)resp)->originator = originator;
+				((struct acquireBarrierResponse*)resp)->originalRecipient = originalRecipient;
+				((struct acquireBarrierResponse*)resp)->originalRequestID = originalRequestID;
+				break;
+			case PACKAGE_MIGRATION_RESPONSE:
+				((struct migrationResponse*)resp)->originator = originator;
+				((struct migrationResponse*)resp)->originalRecipient = originalRecipient;
+				((struct migrationResponse*)resp)->originalRequestID = originalRequestID;
+				break;
+			case PACKAGE_NACK:
+				((struct NACK*)resp)->originator = originator;
+				((struct NACK*)resp)->originalRecipient = originalRecipient;
+				((struct NACK*)resp)->originalRequestID = originalRequestID;
+				break;
+			/*case PACKAGE_RELEASE_RESPONSE:
+				break;*/
+		}
 	
 	//printf(WHERESTR "responding to %i\n", WHEREARG, (int)item);
 	//The actual type is not important, since the first two fields are 
@@ -378,7 +439,7 @@ void RespondNACK(QueueableItem item)
 			
 	resp->packageCode = PACKAGE_NACK;
 	resp->hint = 0;
-	
+		
 	RespondAny(item, resp);
 }
 
@@ -412,26 +473,11 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	resp->dataItem = obj->id;
 	
 	if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
-	{
 		resp->mode = ACQUIRE_MODE_WRITE;
-		resp->originator = ((struct acquireRequest*)item->dataRequest)->originator;
-		resp->originalRecipient = ((struct acquireRequest*)item->dataRequest)->originalRecipient;
-		resp->originalRequestID = ((struct acquireRequest*)item->dataRequest)->originalRequestID;
-	}
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
-	{
 		resp->mode = ACQUIRE_MODE_READ;
-		resp->originator = ((struct acquireRequest*)item->dataRequest)->originator;
-		resp->originalRecipient = ((struct acquireRequest*)item->dataRequest)->originalRecipient;
-		resp->originalRequestID = ((struct acquireRequest*)item->dataRequest)->originalRequestID;
-	}
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
-	{
 		resp->mode = ACQUIRE_MODE_CREATE;
-		resp->originator = ((struct createRequest*)item->dataRequest)->originator;
-		resp->originalRecipient = ((struct createRequest*)item->dataRequest)->originalRecipient;
-		resp->originalRequestID = ((struct createRequest*)item->dataRequest)->originalRequestID;
-	}
 	else
 		REPORT_ERROR("Responding to unknown acquire type"); 
 

@@ -511,6 +511,9 @@ void threadAcquireBarrier(GUID id)
 	cr->packageCode = PACKAGE_ACQUIRE_BARRIER_REQUEST;
 	cr->requestID = 0;
 	cr->dataItem = id;
+	cr->originator = dsmcbe_host_number;
+	cr->originalRecipient = UINT_MAX;
+	cr->originalRequestID = UINT_MAX;
 
 	//Perform the request and await the response
 	//printf(WHERESTR "Acquire barrier on id %i\n", WHEREARG, id);

@@ -744,10 +744,29 @@ void net_processPackage(void* data, unsigned int machineId)
 #endif
 
 	//Here we re-map the request to make it look like it came from the original recipient
-	if(((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
+	switch(((struct createRequest*)data)->packageCode)
 	{
-		machineId = ((struct acquireResponse*)data)->originalRecipient;
-		((struct acquireResponse*)data)->requestID = ((struct acquireResponse*)data)->originalRequestID;
+		case PACKAGE_ACQUIRE_RESPONSE:
+			machineId = ((struct acquireResponse*)data)->originalRecipient;
+			((struct acquireResponse*)data)->requestID = ((struct acquireResponse*)data)->originalRequestID;
+			break;
+		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+			machineId = ((struct acquireBarrierResponse*)data)->originalRecipient;
+			((struct acquireBarrierResponse*)data)->requestID = ((struct acquireBarrierResponse*)data)->originalRequestID;
+			break;
+		case PACKAGE_NACK:
+			machineId = ((struct NACK*)data)->originalRecipient;
+			((struct NACK*)data)->requestID = ((struct NACK*)data)->originalRequestID;
+			break;
+		case PACKAGE_MIGRATION_RESPONSE:
+			machineId = ((struct migrationResponse*)data)->originalRecipient;
+			((struct migrationResponse*)data)->requestID = ((struct migrationResponse*)data)->originalRequestID;
+			break;
+		/*case PACKAGE_RELEASE_RESPONSE:		
+			machineId = ((struct releaseResponse*)data)->originalRecipient;
+			((struct releaseResponse*)data)->requestID = ((struct releaseResponse*)data)->originalRequestID;
+			break;*/
+		
 	}
 	//TODO: Handle re-mapped NACK as well 
 	
@@ -1098,7 +1117,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 			}
 			
 			if (send(fd, package, sizeof(struct createRequest), 0) != sizeof(struct createRequest))
-				REPORT_ERROR("Failed to send entire create request read package");			 
+				REPORT_ERROR("Failed to send entire create request package");			 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
@@ -1110,7 +1129,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 			}
 
 			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
-				REPORT_ERROR("Failed to send entire acquire request read package");
+				REPORT_ERROR("Failed to send entire acquire request package");
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
@@ -1174,6 +1193,13 @@ void net_sendPackage(void* package, unsigned int machineId)
 			break;		
 		case PACKAGE_NACK:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+
+			if (((struct acquireBarrierResponse*)package)->originator == UINT_MAX)
+				REPORT_ERROR("Originator is invalid!");
+			
+			//We re-map the recipient
+			fd = net_remote_handles[((struct acquireBarrierResponse*)package)->originator];
+
 			if (send(fd, package, sizeof(struct NACK), 0) != sizeof(struct NACK))
 				REPORT_ERROR("Failed to send entire nack package");				
 			break;
@@ -1188,11 +1214,25 @@ void net_sendPackage(void* package, unsigned int machineId)
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+
+			if (((struct acquireBarrierRequest*)package)->originalRecipient == UINT_MAX)
+			{
+				((struct acquireBarrierRequest*)package)->originalRecipient = machineId;
+				((struct acquireBarrierRequest*)package)->originalRequestID = ((struct acquireBarrierRequest*)package)->requestID;
+			}
+
 			if (send(fd, package, sizeof(struct acquireBarrierRequest), 0) != sizeof(struct acquireBarrierRequest))
 				REPORT_ERROR("Failed to send entire acquire barrier request package");				
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+
+			if (((struct acquireBarrierResponse*)package)->originator == UINT_MAX)
+				REPORT_ERROR("Originator is invalid!");
+			
+			//We re-map the recipient
+			fd = net_remote_handles[((struct acquireBarrierResponse*)package)->originator];
+
 			if (send(fd, package, sizeof(struct acquireBarrierResponse), 0) != sizeof(struct acquireBarrierResponse))
 				REPORT_ERROR("Failed to send entire acquire barrier response package");				
 			break;
