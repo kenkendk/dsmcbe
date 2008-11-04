@@ -57,6 +57,9 @@ GQueue* rc_GpriorityResponses;
 
 typedef struct dataObjectStruct *dataObject;
 
+//This buffer is used in TestForMigration, but created here to avoid the overhead of creating it multiple times
+unsigned int* rc_request_count_buffer;
+
 //This structure contains information about the registered objects
 struct dataObjectStruct{
 	
@@ -172,6 +175,9 @@ void TerminateCoordinator(int force)
 	
 	pthread_join(rc_workthread, NULL);
 	
+	if (rc_request_count_buffer != NULL)
+		free(rc_request_count_buffer);
+		
 	pthread_mutex_destroy(&rc_queue_mutex);
 	pthread_cond_destroy(&rc_queue_ready);
 }
@@ -187,6 +193,13 @@ void InitializeCoordinator()
 	if (rc_GbagOfTasks == NULL)
 	{
 		rc_GbagOfTasks = g_queue_new();
+		if (DSMCBE_MachineCount() > 1) {
+			if ((rc_request_count_buffer = malloc(sizeof(unsigned int) * DSMCBE_MachineCount())) == NULL)
+				REPORT_ERROR("malloc error");
+		} else {
+			rc_request_count_buffer = NULL;
+		}
+			
 		terminate = 0;
 	
 		/* Initialize mutex and condition variable objects */
@@ -792,7 +805,6 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 		ui->Gqueue = &rc_GbagOfTasks;
 		ui->callback = NULL;
 		ui->dataRequest = requ;
-		ui->machineId = dsmcbe_host_number;
 		
 		NetRequest(ui, OBJECT_TABLE_RESERVED);
 	}
@@ -890,20 +902,68 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 
 int TestForMigration(QueueableItem next, dataObject obj)
 {
-	/*if (DSMCBE_MachineCount() > 1)
+	unsigned int machine_count = DSMCBE_MachineCount();
+	if (machine_count > 1)
 	{
-		g_queue_push_tail(obj->GrequestCount, (void*)next->machineId);
+		if (obj->GrequestCount == NULL)
+			REPORT_ERROR("object had no requestCount queue");
+		
+		if (next->dataRequest == NULL)
+			REPORT_ERROR("No request on item");
+		if (((struct acquireRequest*)next->dataRequest)->packageCode != PACKAGE_ACQUIRE_REQUEST_WRITE)
+			REPORT_ERROR("TestForMigration called with unwanted package");
+		
+		unsigned int* m = &((struct acquireRequest*)next->dataRequest)->originator;
+		
+		if ((*m) == UINT_MAX)
+		{
+			printf(WHERESTR "Setting originator on package\n", WHEREARG); 
+			(*m) = dsmcbe_host_number;
+		}
+			
+		if (*m >= machine_count) {
+			REPORT_ERROR2("Machine was %d", *m);
+		} else {
+			//printf(WHERESTR "Queued %d\n", WHEREARG, *m);
+			g_queue_push_tail(obj->GrequestCount, (void*)((struct acquireRequest*)next->dataRequest)->originator);
+		}
+		
 		if (g_queue_get_length(obj->GrequestCount) > MAX_RECORDED_WRITE_REQUESTS)
 		{
 			g_queue_pop_head(obj->GrequestCount);
-			size_t i, xxx;
-			for(i = 0; i < g_queue_get_length(obj->GrequestCount); i++)
-				g_queue_peek_nth_link(obj->GrequestCount, i);
+			size_t i;
+			
+			if (rc_request_count_buffer == NULL)
+				REPORT_ERROR("Broken buffer");
 				
-			if (xxx > MIGRATION_THRESHOLD && xxx != dsmcbe_host_number) 
-				return TRUE;
+			memset(rc_request_count_buffer, 0, sizeof(unsigned int) * machine_count);
+
+			//TODO: It should be faster to avoid g_queue_peek_nth and use g_queue_foreach instead
+			 
+			//Step 1 count number of occurences
+			for(i = 0; i < g_queue_get_length(obj->GrequestCount); i++)
+			{
+				unsigned int machine = (unsigned int)g_queue_peek_nth(obj->GrequestCount, i);
+				//printf(WHERESTR "Queue i: %d, machine: %d, list: %d\n", WHEREARG, i, machine, (unsigned int)rc_request_count_buffer);
+				if (machine >= machine_count) {
+					REPORT_ERROR2("Machine was %d", machine);
+				} else
+					rc_request_count_buffer[machine]++;
+			}
+			
+			//Step 2, examine hits
+			for(i = 0; i < machine_count; i++)
+				if (i != dsmcbe_host_number && rc_request_count_buffer[i] > MIGRATION_THRESHOLD)
+				{
+//#ifdef DEBUG_COMMUNICATION
+					printf(WHERESTR "Migration threshold exeeced for object %d by machine %d, initiating migration\n", WHEREARG, obj->id, i);
+//#endif
+					rc_PerformMigration(next, (struct acquireRequest*)next->dataRequest, obj, i);
+					DoInvalidate(obj->id, FALSE);
+					return TRUE;
+				}
 		}
-	}*/
+	}
 	
 	return FALSE;
 }
@@ -939,7 +999,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 
 
 				if (TestForMigration(item, obj))
-					; //TODO: What?
+					return;
 							
 				g_queue_push_head(q, NULL);
 				
@@ -1058,8 +1118,8 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 							//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 
 						if (TestForMigration(next, obj))
-							; //TODO: What?
-							
+							return;
+													
 						g_queue_push_head(q, NULL);
 
 						GUID id = obj->id;
@@ -1584,6 +1644,84 @@ void HandleAcquireResponse(QueueableItem item)
 	//printf(WHERESTR "Handled acquire response\n", WHEREARG);
 }
 
+//Handles an incoming migrationResponse
+void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* resp)
+{
+	printf(WHERESTR "Recieving migration for object %d from %d\n", WHEREARG, resp->dataItem, resp->originator);
+
+	DoInvalidate(resp->dataItem, TRUE);
+
+	GetObjectTable()[resp->dataItem] = dsmcbe_host_number;
+
+	//Make sure we are the new owner (the update is delayed)
+	struct acquireResponse* aresp;
+	if ((aresp = malloc(sizeof(struct acquireResponse))) == NULL)
+		REPORT_ERROR("malloc error");
+	
+	//Copy all fields into the new structure	
+	aresp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
+	aresp->data = resp->data;
+	aresp->dataItem = resp->dataItem;
+	aresp->dataSize = resp->dataSize;
+	aresp->mode = resp->mode;
+	aresp->originalRecipient = resp->originalRecipient;
+	aresp->originalRequestID = resp->originalRequestID;
+	aresp->originator = resp->originator;
+	aresp->requestID = resp->requestID;
+	item->dataRequest = aresp;
+	HandleAcquireResponse(item);
+
+
+	//HandleAcquireResponse assumes that the object is owned by another machine
+	dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)resp->dataItem);
+	if (obj == NULL)
+		REPORT_ERROR("Recieved item, but it did not exist?")
+	
+	if (obj->Gwaitqueue == NULL)
+		obj->Gwaitqueue = g_queue_new();
+	if (obj->GrequestCount == NULL)
+		obj->GrequestCount = g_queue_new();
+	free(resp);
+
+}
+
+void rc_PerformMigration(QueueableItem item, struct acquireRequest* req, dataObject obj, OBJECT_TABLE_ENTRY_TYPE owner)
+{
+	printf(WHERESTR "Performing actual migration on object %d to %d\n", WHEREARG, obj->id, owner);
+	
+	//Update local table
+	GetObjectTable()[obj->id] = owner;
+	
+	struct migrationResponse* resp;
+	if ((resp = malloc(sizeof(struct migrationResponse))) == NULL)
+		REPORT_ERROR("malloc error");
+	
+	resp->packageCode = PACKAGE_MIGRATION_RESPONSE;
+	resp->data = obj->EA;
+	resp->dataItem = obj->id;
+	resp->dataSize = obj->size;
+	resp->mode = req->packageCode == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
+	
+	resp->originalRecipient = req->originalRecipient;
+	resp->originalRequestID = req->originalRequestID;
+	resp->originator = req->originator;
+	
+	RespondAny(item, resp);
+	
+	//Forward all requests to the new owner
+	while(!g_queue_is_empty(obj->Gwaitqueue))
+	{
+		QueueableItem tmp = g_queue_pop_head(obj->Gwaitqueue);
+		NetRequest(item, owner);
+		free(item->dataRequest);
+		free(item);
+	}
+	
+	//Notify others about the new owner, 
+	//any package in-transit will be forwarded by this machine to the new owner
+	NetUpdate(OBJECT_TABLE_ID, sizeof(OBJECT_TABLE_ENTRY_TYPE) * obj->id, sizeof(OBJECT_TABLE_ENTRY_TYPE), &(GetObjectTable()[obj->id]));
+}
+
 //This is the main thread function
 void* rc_ProccessWork(void* data)
 {
@@ -1624,7 +1762,6 @@ void* rc_ProccessWork(void* data)
 			item->mutex = &rc_queue_mutex;
 			item->Gqueue = &rc_GpriorityResponses;
 			item->callback = NULL;
-			item->machineId = dsmcbe_host_number;
 		}
 		else
 		{
@@ -1685,7 +1822,9 @@ void* rc_ProccessWork(void* data)
 			case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 				DoAcquireBarrier(item, (struct acquireBarrierRequest*)item->dataRequest);
 				break;
-			
+			case PACKAGE_MIGRATION_RESPONSE:
+				rc_HandleMigrationResponse(item, (struct migrationResponse*)item->dataRequest);
+				break;
 			default:
 				printf(WHERESTR "Unknown package code: %i\n", WHEREARG, datatype);
 				REPORT_ERROR("Unknown package recieved");

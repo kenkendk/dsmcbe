@@ -94,9 +94,7 @@ struct migrationResponse
 	unsigned int originalRecipient;
 	unsigned int originalRequestID;
     unsigned long dataSize;
-    unsigned long waitListSize;
     void* data;
-    void* waitList;
 };
 
 struct releaseRequest

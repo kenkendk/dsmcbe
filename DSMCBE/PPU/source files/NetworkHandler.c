@@ -51,7 +51,7 @@ GHashTable* Gnet_activeTransfers;
 GHashTable* Gnet_pendingInvalidates;
 
 //The number of hosts
-static unsigned int net_remote_hosts;
+unsigned int net_remote_hosts;
 //An array of file descriptors for the remote hosts
 int* net_remote_handles;
 
@@ -817,7 +817,6 @@ void net_processPackage(void* data, unsigned int machineId)
 			ui->mutex = &net_work_mutex;
 			ui->event = &net_work_ready;
 			ui->callback = &NetEnqueueCallback;
-			ui->machineId = machineId;
 			
 			//printf(WHERESTR "Enqued %d with callback %d\n", WHEREARG, (unsigned int)ui ,(int)ui->callback);
 			EnqueItem(ui);
@@ -862,7 +861,6 @@ void net_processPackage(void* data, unsigned int machineId)
 				ui->Gqueue = NULL;
 				ui->callback = NULL;
 				ui->dataRequest = data;
-				ui->machineId = machineId;				
 
 				//Forward this to the request coordinator, so it may record the data and propagate it
 				//printf(WHERESTR "Enque item :%d\n", WHEREARG, (unsigned int)ui);
@@ -1032,7 +1030,7 @@ void* net_readPackage(int fd)
 			if ((data = MALLOC(blocksize)) == NULL)
 				REPORT_ERROR("MALLOC error");
 			
-			blocksize -= (sizeof(unsigned long) * 2);
+			blocksize -= (sizeof(unsigned long));
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire migration package"); 
 
@@ -1048,16 +1046,6 @@ void* net_readPackage(int fd)
 			else
 				((struct migrationResponse*)data)->data = NULL;
 				
-			blocksize = ((struct migrationResponse*)data)->waitListSize;
-			if (blocksize != 0)
-			{
-				if ((((struct migrationResponse*)data)->waitList = MALLOC(blocksize)) == NULL)
-					REPORT_ERROR("Failed to allocate space for migration response waitlist");
-				if (recv(fd, ((struct migrationResponse*)data)->waitList, blocksize, MSG_WAITALL) != blocksize)
-					REPORT_ERROR("Failed to read waitlist from migration response");
-			}
-			else
-				((struct migrationResponse*)data)->waitList = NULL;
 		
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
@@ -1205,12 +1193,9 @@ void net_sendPackage(void* package, unsigned int machineId)
 			break;
 		case PACKAGE_MIGRATION_RESPONSE:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, package, sizeof(struct migrationResponse) - (2 * sizeof(unsigned long)), MSG_MORE);
+			send(fd, package, sizeof(struct migrationResponse) - (sizeof(unsigned long)), MSG_MORE);
 			if (((struct migrationResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, ((struct migrationResponse*)package)->data, ((struct migrationResponse*)package)->dataSize, MSG_MORE); 
-			if (((struct migrationResponse*)package)->waitList == NULL) { REPORT_ERROR("NULL pointer"); }
-			send(fd, ((struct migrationResponse*)package)->waitList, ((struct migrationResponse*)package)->waitListSize, 0); 
-
+			send(fd, ((struct migrationResponse*)package)->data, ((struct migrationResponse*)package)->dataSize, 0); 
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
