@@ -1,0 +1,16 @@
+﻿Size (128x46080:10):
+4: 1 hours 23 min. 56 seconds 129 ms 
+5: 1 hours 21 min. 35 seconds 658 ms 
+6: 1 hours 21 min. 25 seconds 763 ms
+
+Size (128x11520:10):
+1: 1 hours 9 min. 25 seconds 437 ms
+2: 35 min. 53 seconds 626 ms
+3: 25 min. 39 seconds 754 ms
+4: 22 min. 38 seconds 472 ms
+5: 21 min. 35 seconds 28 ms 
+6: 21 min. 211 ms
+12: 59 min. 47 seconds 66 ms
+
+2x3:  1 hours 18 min. 11 seconds 280 ms (same machine)
+2x3:  56 min. 15 seconds 631 ms
