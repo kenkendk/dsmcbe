@@ -84,6 +84,9 @@
 <resourceConfiguration exclude="true" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.986922933./PPU/Copy of ppu.c" name="Copy of ppu.c" rcbsApplicability="disable" resourcePath="/PPU/Copy of ppu.c" toolsToInvoke="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128./PPU/Copy of ppu.c">
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128./PPU/Copy of ppu.c" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128"/>
 </resourceConfiguration>
+<resourceConfiguration exclude="true" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.986922933./PPU/(Static optimized) ppu.c" name="(Static optimized) ppu.c" rcbsApplicability="disable" resourcePath="/PPU/(Static optimized) ppu.c" toolsToInvoke="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128./PPU/(Static optimized) ppu.c">
+<tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128./PPU/(Static optimized) ppu.c" name="PPU GNU 32 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.release.1209526128"/>
+</resourceConfiguration>
 </configuration>
 <configuration artifactName="PPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.73868959" name="ppu-gnu64-debug" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug">
 <toolChain id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.toolchain.2139030232" name="PPU GNU 64 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.toolchain">

@@ -152,7 +152,7 @@ int canon(struct POINTS* points, float ax, float ay, int pcnt, unsigned char* bu
 	int more = FALSE;
 	int skip;
 							
-	printf("Canon firering %i shots in grid(%i,%i)\n", pcnt, current_grid.x, current_grid.y);
+	//printf("Canon firering %i shots in grid(%i,%i)\n", pcnt, current_grid.x, current_grid.y);
 		
 	int width = MIN(GRIDWIDTH, CTWIDTH-(current_grid.x * GRIDWIDTH));
 	int heigth = MIN(GRIDHEIGTH, CTHEIGTH-(current_grid.y * GRIDHEIGTH));
