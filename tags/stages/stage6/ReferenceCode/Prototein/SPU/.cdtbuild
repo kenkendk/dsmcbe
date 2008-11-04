@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 3.1.0?>
+
+<ManagedProjectBuildInfo>
+<project id="SPU.celldt.managedbuild.target.cell.spu.exe.576413615" name="Cell SPU Executable" projectType="celldt.managedbuild.target.cell.spu.exe">
+<configuration artifactName="SPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.spu.gnu.exe.debug.1005259821" name="spu-gnu-debug" parent="celldt.managedbuild.config.cell.spu.gnu.exe.debug">
+<toolChain id="celldt.managedbuild.config.cell.spu.gnu.exe.debug.toolchain.1000551041" name="SPU GNU Debug Tool Chain" superClass="celldt.managedbuild.config.cell.spu.gnu.exe.debug.toolchain">
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic.1672193367" name="SPU GNU Assembler" superClass="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.143695563" name="SPU GNU C Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe">
+<option id="cell.gnu.c.linker.option.libs.313888460" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
+<listOptionValue builtIn="false" value="misc"/>
+</option>
+<option id="gnu.c.link.option.paths.250112543" superClass="gnu.c.link.option.paths" valueType="stringList">
+<listOptionValue builtIn="false" value="/opt/ibm/cell-sdk/prototype/src/lib/misc/spu"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/lib"/>
+</option>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.2022446573" name="SPU GNU C++ Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.895911675" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
+<option id="gnu.c.compiler.option.include.paths.216498329" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/opt/ibm/cell-sdk/prototype/src/include/spu"/>
+<listOptionValue builtIn="false" value="/opt/ibm/cell-sdk/prototype/src/lib/misc"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
+</option>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.debug.1697466259" name="SPU GNU C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.debug"/>
+<macros/>
+</toolChain>
+</configuration>
+<configuration artifactName="SPU" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.spu.gnu.exe.release.253190576" name="spu-gnu-release" parent="celldt.managedbuild.config.cell.spu.gnu.exe.release">
+<toolChain id="celldt.managedbuild.config.cell.spu.gnu.exe.release.toolchain.1751745836" name="SPU GNU Release Tool Chain" superClass="celldt.managedbuild.config.cell.spu.gnu.exe.release.toolchain">
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic.1738181942" name="SPU GNU Assembler" superClass="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.1263966433" name="SPU GNU C Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe">
+<option id="cell.gnu.c.linker.option.libs.983905672" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
+<listOptionValue builtIn="false" value="misc"/>
+</option>
+<option id="gnu.c.link.option.paths.433846548" superClass="gnu.c.link.option.paths" valueType="stringList">
+<listOptionValue builtIn="false" value="/opt/ibm/cell-sdk/prototype/src/lib/misc/spu"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/lib"/>
+</option>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.1792608767" name="SPU GNU C++ Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.1396232735" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release">
+<option id="gnu.c.compiler.option.include.paths.1891346419" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/opt/ibm/cell-sdk/prototype/src/include/spu"/>
+<listOptionValue builtIn="false" value="/opt/ibm/cell-sdk/prototype/src/lib/misc"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
+</option>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.release.831431763" name="SPU GNU C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.release"/>
+<macros/>
+</toolChain>
+</configuration>
+</project>
+</ManagedProjectBuildInfo>
