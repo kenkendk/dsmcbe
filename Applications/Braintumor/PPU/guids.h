@@ -75,6 +75,7 @@
 #define ENERGY 3500
 
 #define RESULT 4000
+#define RESULTEND 18999
 
 #define FINISHED 19000
 

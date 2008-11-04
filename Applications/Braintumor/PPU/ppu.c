@@ -25,7 +25,10 @@ extern spe_program_handle_t SPU;
 
 #define SHOTS_SPU 2048
 #define ROUNDS 7200
+//#define ROUNDS 480
 #define SHOTS (SHOTS_SPU * ROUNDS)
+
+//#define STATIC
 
 int WIDTH;
 int HEIGTH;
@@ -55,10 +58,11 @@ void* malloc_align7(unsigned int size)
 
 void collectResults(int id, int shots, int shots_spu, unsigned char* energy)
 {
-	size_t i, j;
+	size_t i, j, k;
 	unsigned long size;
 	
 	//printf("SPU_THREADS is %i - COUNT is %i - ROUNDS is %i\n", SPU_THREADS, MAX(DSMCBE_MachineCount(),1), ROUNDS);
+#ifdef STATIC	
 	for(i = 0; i < SPU_THREADS; i++)
 	{
 		//printf("Reading FINISH package with id %i\n", FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)));
@@ -74,12 +78,31 @@ void collectResults(int id, int shots, int shots_spu, unsigned char* energy)
 		struct POINTS* points = acquire(RESULT + i + (PPEid * ROUNDS / MAX(DSMCBE_MachineCount(), 1)), &size, ACQUIRE_MODE_READ);
 			
 		// Save results to energy
-		for(j = 0; j < shots_spu; j++) {
+		for(j = 0; j < shots_spu; j++) 
+		{
 			if(points[j].alive == FALSE)
 				energy[MAPOFFSET((int)(points[j].x), (int)(points[j].y))] =  MIN(energy[MAPOFFSET((int)(points[j].x),(int)(points[j].y))] + 1, 255);
 		}
 		release(points);
 	}
+#else
+	for(i = 0; i < SPU_THREADS; i++)
+	{
+		unsigned int* ptr = acquire(FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)), &size, ACQUIRE_MODE_READ);
+		//printf("PPE: First %u, last %u\n", ptr[0], ptr[1]);
+		for(j = ptr[0]; j < ptr[1]; j++) {
+			struct POINTS* points = acquire(j, &size, ACQUIRE_MODE_READ);
+
+			for(k = 0; k < shots_spu; k++) 
+			{
+				if(points[k].alive == FALSE)
+					energy[MAPOFFSET((int)(points[k].x), (int)(points[k].y))] =  MIN(energy[MAPOFFSET((int)(points[k].x),(int)(points[k].y))] + 1, 255);
+			}
+			release(points);			
+		}
+		release(ptr);
+	}
+#endif	
 	//printf("\n\nEnd working on results\n\n");	
 }
 
@@ -96,7 +119,13 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	package->heigth = HEIGTH;
 	package->width = WIDTH;
 	package->shots_spu = shotsspu;
+
+#ifdef STATIC	
 	package->tot_shots_spu =  ceil((SHOTS / SHOTS_SPU) / (double)(SPU_THREADS * MAX(DSMCBE_MachineCount(), 1)));
+#else
+	package->tot_shots_spu =  SPU_THREADS * MAX(DSMCBE_MachineCount(), 1);
+#endif	
+
 	package->canonX = canonX;
 	package->canonY = canonY;
 	package->canonAX = canonAX;
@@ -302,6 +331,7 @@ int main(int argc, char* argv[])
 	HEIGTH = 708;
 	
 	threads = simpleInitialize(PPEid, file, SPU_THREADS);
+
 
 	unsigned int* speIDs = create(SPEID + PPEid, 4);
 	*speIDs = PPEid * SPU_THREADS;
