@@ -212,7 +212,6 @@ void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req
 		qi->event = NULL;
 		qi->mutex = &spu_rq_mutex;
 		qi->Gqueue = &state->queue;
-		qi->machineId = dsmcbe_host_number;
 		
 		//printf(WHERESTR "Inserting item into request coordinator queue (%d)\n", WHEREARG, (unsigned int)qi);
 		EnqueItem(qi);

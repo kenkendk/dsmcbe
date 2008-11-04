@@ -180,7 +180,6 @@ void RelayEnqueItem(QueueableItem q)
 	relay->mutex= &ppu_queue_mutex;
 	relay->Gqueue = &Gppu_work_queue;
 	relay->callback = NULL;
-	relay->machineId = dsmcbe_host_number;
 	
 	q->dataRequest = NULL;
 	
@@ -213,7 +212,6 @@ void* forwardRequest(void* data)
 	q->mutex = &ppu_dummy_mutex;
 	q->Gqueue = &dummy;
 	q->callback = NULL;
-	q->machineId = dsmcbe_host_number;
 	
 	//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);	
 	

@@ -21,6 +21,7 @@
 
 #include "../../common/debug.h"
 
+extern unsigned int net_remote_hosts;
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
 OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number = OBJECT_TABLE_RESERVED;
@@ -404,6 +405,9 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 
 void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sockets, unsigned int socketsCount)
 {
+	//The coordinator needs this
+	net_remote_hosts = socketsCount;
+	
 	//printf(WHERESTR "Calling Initialize Coordinator\n", WHEREARG);
 	InitializeCoordinator();
 	//printf(WHERESTR "Calling Initialize Network\n", WHEREARG);
