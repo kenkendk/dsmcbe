@@ -17,6 +17,8 @@
 
 //#define DEBUG_PACKAGES
 
+#define ENABLE_MIGRATION
+
 //The number of write requests to record
 #define MAX_RECORDED_WRITE_REQUESTS 5
 //The number of request required from a single machine 
@@ -902,6 +904,7 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 
 int TestForMigration(QueueableItem next, dataObject obj)
 {
+#ifdef ENABLE_MIGRATION
 	unsigned int machine_count = DSMCBE_MachineCount();
 	if (machine_count > 1)
 	{
@@ -917,7 +920,8 @@ int TestForMigration(QueueableItem next, dataObject obj)
 		
 		if ((*m) == UINT_MAX)
 		{
-			printf(WHERESTR "Setting originator on package\n", WHEREARG); 
+			//This should not happen
+			REPORT_ERROR("Setting originator on package"); 
 			(*m) = dsmcbe_host_number;
 		}
 			
@@ -946,7 +950,7 @@ int TestForMigration(QueueableItem next, dataObject obj)
 				unsigned int machine = (unsigned int)g_queue_peek_nth(obj->GrequestCount, i);
 				//printf(WHERESTR "Queue i: %d, machine: %d, list: %d\n", WHEREARG, i, machine, (unsigned int)rc_request_count_buffer);
 				if (machine >= machine_count) {
-					REPORT_ERROR2("Machine was %d", machine);
+					REPORT_ERROR2("Machine id was too large, id: %d", machine);
 				} else
 					rc_request_count_buffer[machine]++;
 			}
@@ -955,16 +959,16 @@ int TestForMigration(QueueableItem next, dataObject obj)
 			for(i = 0; i < machine_count; i++)
 				if (i != dsmcbe_host_number && rc_request_count_buffer[i] > MIGRATION_THRESHOLD)
 				{
-//#ifdef DEBUG_COMMUNICATION
+#ifdef DEBUG_COMMUNICATION
 					printf(WHERESTR "Migration threshold exeeced for object %d by machine %d, initiating migration\n", WHEREARG, obj->id, i);
-//#endif
+#endif
 					rc_PerformMigration(next, (struct acquireRequest*)next->dataRequest, obj, i);
 					DoInvalidate(obj->id, FALSE);
 					return TRUE;
 				}
 		}
 	}
-	
+#endif	
 	return FALSE;
 }
 
@@ -1647,13 +1651,17 @@ void HandleAcquireResponse(QueueableItem item)
 //Handles an incoming migrationResponse
 void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* resp)
 {
+#ifdef DEBUG_COMMUNICATION
 	printf(WHERESTR "Recieving migration for object %d from %d\n", WHEREARG, resp->dataItem, resp->originator);
-
-	DoInvalidate(resp->dataItem, TRUE);
-
-	GetObjectTable()[resp->dataItem] = dsmcbe_host_number;
+#endif
+	
+	//Clear any local copies first
+	DoInvalidate(resp->dataItem, FALSE);
 
 	//Make sure we are the new owner (the update is delayed)
+	GetObjectTable()[resp->dataItem] = dsmcbe_host_number;
+
+	//Pretend the package was an acquire response
 	struct acquireResponse* aresp;
 	if ((aresp = malloc(sizeof(struct acquireResponse))) == NULL)
 		REPORT_ERROR("malloc error");
@@ -1669,8 +1677,11 @@ void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* re
 	aresp->originator = resp->originator;
 	aresp->requestID = resp->requestID;
 	item->dataRequest = aresp;
+
+	//printf(WHERESTR "Mapping Acquire Response object %d from %d\n", WHEREARG, resp->dataItem, resp->originator);
 	HandleAcquireResponse(item);
 
+	//printf(WHERESTR "Migration complete %d from %d\n", WHEREARG, resp->dataItem, resp->originator);
 
 	//HandleAcquireResponse assumes that the object is owned by another machine
 	dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)resp->dataItem);
@@ -1681,14 +1692,19 @@ void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* re
 		obj->Gwaitqueue = g_queue_new();
 	if (obj->GrequestCount == NULL)
 		obj->GrequestCount = g_queue_new();
+		
+	//Since the request is not registered, the object does not appear locked but it is
+	g_queue_push_head(obj->Gwaitqueue, NULL); 
 	free(resp);
 
 }
 
 void rc_PerformMigration(QueueableItem item, struct acquireRequest* req, dataObject obj, OBJECT_TABLE_ENTRY_TYPE owner)
 {
+#ifdef DEBUG_COMMUNICATION
 	printf(WHERESTR "Performing actual migration on object %d to %d\n", WHEREARG, obj->id, owner);
-	
+#endif
+
 	//Update local table
 	GetObjectTable()[obj->id] = owner;
 	
