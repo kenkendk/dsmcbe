@@ -371,7 +371,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
 	{
 		//Should get response happen before we can count to this
-		if (i++ == 1000000000) 
+		if (i++ == 4000000000) 
 		{
 			REPORT_ERROR2("Detected timeout for request id %d", requestNo);
 			SPU_WRITE_OUT_MBOX(PACKAGE_DEBUG_PRINT_STATUS);
@@ -412,6 +412,82 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	
 	spu_dsmcbe_pendingRequests[requestNo].requestCode = 0;
 	return spu_dsmcbe_pendingRequests[requestNo].pointer;
+}
+
+void spu_dsmcbe_enqueueStreamAcquire(GUID id, int type)
+{
+	if (id == OBJECT_TABLE_ID)
+	{
+		REPORT_ERROR("Cannot request object table");
+		return UINT_MAX;
+	}
+	
+	if (id >= OBJECT_TABLE_SIZE)
+	{
+		REPORT_ERROR2("ID was larger than object table size: %d", id);
+		return UINT_MAX;
+	}
+	
+	if (!spu_dsmcbe_initialized)
+	{
+		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
+		return UINT_MAX;
+	}
+
+	SPU_WRITE_OUT_MBOX(PACKAGE_ENQUEUE_STREAM_JOB);
+	SPU_WRITE_OUT_MBOX(id);
+	SPU_WRITE_OUT_MBOX(type);
+
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "Enqueue ACQUIRE stream package sent, id: %d\n", WHEREARG, id);
+#endif
+}
+
+void* spu_dsmcbe_dequeueStreamAcquire(GUID* id, unsigned long* size)
+{
+	if (id == OBJECT_TABLE_ID)
+	{
+		REPORT_ERROR("Cannot request object table");
+		return UINT_MAX;
+	}
+	
+	if (id >= OBJECT_TABLE_SIZE)
+	{
+		REPORT_ERROR2("ID was larger than object table size: %d", id);
+		return UINT_MAX;
+	}
+	
+	if (!spu_dsmcbe_initialized)
+	{
+		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
+		return UINT_MAX;
+	}
+
+	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_DEQUEUE_STREAM_JOB);
+	if (nextId == UINT_MAX)
+		return UINT_MAX;
+
+	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
+	SPU_WRITE_OUT_MBOX(nextId);
+	SPU_WRITE_OUT_MBOX((unsigned int)&id);
+
+#ifdef DEBUG_COMMUNICATION	
+	printf(WHERESTR "DEQUEUE stream package sent, id: %d\n", WHEREARG, nextId);
+#endif
+
+	return spu_dsmcbe_endAsync(nextId, size);
+}
+
+
+
+void enqueueStreamAcquire(GUID id, int type)
+{
+	spu_dsmcbe_enqueueStreamAcquire(id, type);
+}
+
+void* dequeueStreamAcquire(GUID* id, unsigned long* size)
+{
+	return spu_dsmcbe_dequeueStreamAcquire(id, size);
 }
 
 void acquireBarrier(GUID id) {

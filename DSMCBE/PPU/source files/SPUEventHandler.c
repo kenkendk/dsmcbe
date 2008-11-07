@@ -118,6 +118,9 @@ struct SPU_State
 	
 	//This is the list of responses from the request coordinator
 	GQueue* queue;
+
+	//This is the stream queue
+	GQueue* streamItems;
 };
 
 //This is an array of SPU states
@@ -1414,6 +1417,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].queue = g_queue_new();
 		spu_states[i].terminated = UINT_MAX;
 		spu_states[i].releaseSeqNo = 0;
+		spu_states[i].streamItems = g_queue_new();
 		
 		RegisterInvalidateSubscriber(&spu_rq_mutex, NULL, &spu_states[i].queue);
 	}
@@ -1451,6 +1455,8 @@ void TerminateSPUHandler(int force)
 		spu_states[i].releaseWaiters = NULL;
 		g_queue_free(spu_states[i].queue);
 		spu_states[i].queue = NULL;
+		g_queue_free(spu_states[i].streamItems);
+		spu_states[i].streamItems = NULL;
 
 		spu_memory_destroy(spu_states[i].map);
 

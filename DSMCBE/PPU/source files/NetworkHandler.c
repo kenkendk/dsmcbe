@@ -7,7 +7,7 @@
 #include <poll.h>
 #include <stropts.h>
 
-//#define TRACE_NETWORK_PACKAGES
+#define TRACE_NETWORK_PACKAGES
 
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"
@@ -768,8 +768,6 @@ void net_processPackage(void* data, unsigned int machineId)
 			break;*/
 		
 	}
-	//TODO: Handle re-mapped NACK as well 
-	
 	
 	switch(((struct createRequest*)data)->packageCode)
 	{
@@ -1085,61 +1083,108 @@ void net_sendPackage(void* package, unsigned int machineId)
 		return;
 	}
 	
-	fd = net_remote_handles[machineId];
-	
-	if (package == NULL) { REPORT_ERROR("NULL pointer"); }
+	if (package == NULL) 
+	{ 
+		REPORT_ERROR("NULL pointer");
+		return; 
+	}
 
 #ifdef TRACE_NETWORK_PACKAGES
 		printf(WHERESTR "Sending a package to machine: %d, type: %s (%d), reqId: %d, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)package)->packageCode), ((struct createRequest*)package)->packageCode, ((struct createRequest*)package)->requestID, ((struct createRequest*)package)->dataItem);
 #endif
 
+
+	//Preprocessing: re-route any migrated packages
 	switch(((struct createRequest*)package)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			
 			if (((struct createRequest*)package)->originalRecipient == UINT_MAX)
 			{
 				((struct createRequest*)package)->originalRecipient = machineId;
 				((struct createRequest*)package)->originalRequestID = ((struct createRequest*)package)->requestID;
 			}
+			break;
+		case PACKAGE_ACQUIRE_REQUEST_READ:
+			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
+			{
+				((struct acquireRequest*)package)->originalRecipient = machineId;
+				((struct acquireRequest*)package)->originalRequestID = ((struct acquireRequest*)package)->requestID;
+			}
+			break;
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
+			{
+				((struct acquireRequest*)package)->originalRecipient = machineId;
+				((struct acquireRequest*)package)->originalRequestID = ((struct acquireRequest*)package)->requestID;
+			}
+			break;
+		case PACKAGE_ACQUIRE_RESPONSE:
+			if (((struct acquireResponse*)package)->originator == UINT_MAX)
+				REPORT_ERROR("Originator is invalid!");
+
+			machineId = ((struct acquireResponse*)package)->originator;
+			break;
+		case PACKAGE_RELEASE_REQUEST:
+			break;
+		case PACKAGE_RELEASE_RESPONSE:
+			break;
+		case PACKAGE_INVALIDATE_REQUEST:			
+			break;
+		case PACKAGE_INVALIDATE_RESPONSE:		
+			break;
+		case PACKAGE_UPDATE:
+			break;		
+		case PACKAGE_NACK:
+			if (((struct NACK*)package)->originator == UINT_MAX)
+				REPORT_ERROR("Originator is invalid!");
 			
+			machineId = ((struct acquireBarrierResponse*)package)->originator;
+			break;
+		case PACKAGE_MIGRATION_RESPONSE:
+			break;
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+			if (((struct acquireBarrierRequest*)package)->originalRecipient == UINT_MAX)
+			{
+				((struct acquireBarrierRequest*)package)->originalRecipient = machineId;
+				((struct acquireBarrierRequest*)package)->originalRequestID = ((struct acquireBarrierRequest*)package)->requestID;
+			}
+			break;
+		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+			if (((struct acquireBarrierResponse*)package)->originator == UINT_MAX)
+				REPORT_ERROR("Originator is invalid!");
+
+			machineId =((struct acquireBarrierResponse*)package)->originator;
+			break;
+		case PACKAGE_WRITEBUFFER_READY:
+			break;
+		default:
+			fprintf(stderr, WHERESTR "Invalid package type (%u) detected\n", WHEREARG, ((struct createRequest*)package)->packageCode);
+	}	
+
+	//We have mapped it back to ourselves :)
+	if (machineId == dsmcbe_host_number)
+	{
+		net_processPackage(package, dsmcbe_host_number);
+		return;
+	}
+	
+	fd = net_remote_handles[machineId];
+
+	switch(((struct createRequest*)package)->packageCode)
+	{
+		case PACKAGE_CREATE_REQUEST:
 			if (send(fd, package, sizeof(struct createRequest), 0) != sizeof(struct createRequest))
 				REPORT_ERROR("Failed to send entire create request package");			 
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-
-			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
-			{
-				((struct acquireRequest*)package)->originalRecipient = machineId;
-				((struct acquireRequest*)package)->originalRequestID = ((struct acquireRequest*)package)->requestID;
-			}
-
 			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
 				REPORT_ERROR("Failed to send entire acquire request package");
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-
-			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
-			{
-				((struct acquireRequest*)package)->originalRecipient = machineId;
-				((struct acquireRequest*)package)->originalRequestID = ((struct acquireRequest*)package)->requestID;
-			}
-
 			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
 				REPORT_ERROR("Failed to send entire acquire request write package");			 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-			
-			if (((struct acquireResponse*)package)->originator == UINT_MAX)
-				REPORT_ERROR("Originator is invalid!");
-			
-			//We re-map the recipient
-			fd = net_remote_handles[((struct acquireResponse*)package)->originator];
-			
 			if (send(fd, package, sizeof(struct acquireResponse) - sizeof(void*), MSG_MORE) != sizeof(struct acquireResponse) - sizeof(void*))
 				REPORT_ERROR("Failed to send entire acquire response package");
 			if (((struct acquireResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
@@ -1147,7 +1192,6 @@ void net_sendPackage(void* package, unsigned int machineId)
 				REPORT_ERROR("Failed to send entire acquire response data package");
 			break;
 		case PACKAGE_RELEASE_REQUEST:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			if (send(fd, package, sizeof(struct releaseRequest) - sizeof(void*), MSG_MORE) != sizeof(struct releaseRequest) - sizeof(void*))
 				REPORT_ERROR("Failed to send entire release request package");
 			if (((struct releaseRequest*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
@@ -1155,23 +1199,19 @@ void net_sendPackage(void* package, unsigned int machineId)
 				REPORT_ERROR("Failed to send entire release request data package");				  
 			break;
 		case PACKAGE_RELEASE_RESPONSE:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			if (send(fd, package, sizeof(struct releaseResponse), 0) != sizeof(struct releaseResponse))
 				REPORT_ERROR("Failed to send entire release response package"); 
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:			
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			//printf(WHERESTR "NetInvalidating GUID %i\n", WHEREARG, ((struct invalidateRequest*)package)->dataItem);			
 			if (send(fd, package, sizeof(struct invalidateRequest), 0) != sizeof(struct invalidateRequest))
 				REPORT_ERROR("Failed to send entire invalidate request package");
 			break;
 		case PACKAGE_INVALIDATE_RESPONSE:		
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			if (send(fd, package, sizeof(struct invalidateResponse), 0) != sizeof(struct invalidateResponse))
 				REPORT_ERROR("Failed to send entire invalidate response package");
 			break;
 		case PACKAGE_UPDATE:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			//printf(WHERESTR "NetUpdating GUID %i\n", WHEREARG, ((struct updateRequest*)package)->dataItem);
 			if (send(fd, package, sizeof(struct updateRequest) - sizeof(void*), MSG_MORE) != sizeof(struct updateRequest) - sizeof(void*))
 				REPORT_ERROR("Failed to send entire update request package");
@@ -1180,44 +1220,19 @@ void net_sendPackage(void* package, unsigned int machineId)
 				REPORT_ERROR("Failed to send entire update request data package");
 			break;		
 		case PACKAGE_NACK:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-
-			if (((struct acquireBarrierResponse*)package)->originator == UINT_MAX)
-				REPORT_ERROR("Originator is invalid!");
-			
-			//We re-map the recipient
-			fd = net_remote_handles[((struct acquireBarrierResponse*)package)->originator];
-
 			if (send(fd, package, sizeof(struct NACK), 0) != sizeof(struct NACK))
 				REPORT_ERROR("Failed to send entire nack package");				
 			break;
 		case PACKAGE_MIGRATION_RESPONSE:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, package, sizeof(struct migrationResponse) - (sizeof(unsigned long)), MSG_MORE);
 			if (((struct migrationResponse*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
 			send(fd, ((struct migrationResponse*)package)->data, ((struct migrationResponse*)package)->dataSize, 0); 
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-
-			if (((struct acquireBarrierRequest*)package)->originalRecipient == UINT_MAX)
-			{
-				((struct acquireBarrierRequest*)package)->originalRecipient = machineId;
-				((struct acquireBarrierRequest*)package)->originalRequestID = ((struct acquireBarrierRequest*)package)->requestID;
-			}
-
 			if (send(fd, package, sizeof(struct acquireBarrierRequest), 0) != sizeof(struct acquireBarrierRequest))
 				REPORT_ERROR("Failed to send entire acquire barrier request package");				
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
-
-			if (((struct acquireBarrierResponse*)package)->originator == UINT_MAX)
-				REPORT_ERROR("Originator is invalid!");
-			
-			//We re-map the recipient
-			fd = net_remote_handles[((struct acquireBarrierResponse*)package)->originator];
-
 			if (send(fd, package, sizeof(struct acquireBarrierResponse), 0) != sizeof(struct acquireBarrierResponse))
 				REPORT_ERROR("Failed to send entire acquire barrier response package");				
 			break;

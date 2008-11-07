@@ -15,9 +15,10 @@
 
 #include "../../common/debug.h"
 
-//#define DEBUG_PACKAGES
+#define DEBUG_PACKAGES
+#define DEBUG_COMMUNICATION
 
-#define ENABLE_MIGRATION
+//#define ENABLE_MIGRATION
 
 //The number of write requests to record
 #define MAX_RECORDED_WRITE_REQUESTS 5
