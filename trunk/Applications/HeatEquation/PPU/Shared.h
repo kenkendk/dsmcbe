@@ -11,7 +11,7 @@
 #define UPDATE_FREQ 10
 
 //If the blocks should be created on the SPU using them
-//#define CREATE_LOCALLY
+#define CREATE_LOCALLY
 
 //Offset calculation
 #define MAPOFFSET(x,y) (((y) * (map_width)) + (x))
