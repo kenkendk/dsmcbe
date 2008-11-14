@@ -1,4 +1,6 @@
-﻿Debug:
+﻿MiG:
+
+Debug:
 Time taken for MBOX with size 4 and count 10000000: 1 min. 9 seconds 760 ms
 Time taken for DMA with size 4 and count 10000000: 1 min. 12 seconds 292 ms
 Time taken for NET with size 4 and count 10000000: 4 min. 4 seconds 629 ms
@@ -13,6 +15,24 @@ Time taken for DSM Single with size 4 and count 10000000: 34 min. 59 seconds 185
 Release:
 Time taken for DMA with size 10240 and count 10000000: 1 min. 11 seconds 480 ms
 Time taken for NET with size 10240 and count 10000000: 7 min. 26 seconds 743 ms
+
+
+Cellbuzz:
+Debug:
+Time taken for DMA with size 4 and count 10000000: 1 min. 35 seconds 857 ms
+Time taken for MBOX with size 4 and count 10000000: 1 min. 37 seconds 456 ms
+Time taken for NET with size 4 and count 10000000: 4 min. 47 seconds 753 ms
+
+Release:
+Time taken for DMA with size 4 and count 10000000: 1 min. 38 seconds 824 ms
+Time taken for MBOX with size 4 and count 10000000: 1 min. 36 seconds 915 ms
+Time taken for NET with size 4 and count 10000000: 4 min. 50 seconds 987 ms
+Time taken for DSM Single with size 4 and count 10000000: 36 min. 21 seconds 386 ms
+
+Release:
+Time taken for DMA with size 10240 and count 10000000: 1 min. 40 seconds 186 ms
+Time taken for NET with size 10240 and count 10000000: 11 min. 4 seconds 227 ms
+
 
 NET must have 1 sec substracted due to a startup issue.
 DSM may not be accurate, because it is not possible to control the sequence rigidly.
