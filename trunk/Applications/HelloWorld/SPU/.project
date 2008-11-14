@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>PPU</name>
+	<name>SPU</name>
 	<comment></comment>
 	<projects>
-		<project>dsmcbe_ppu</project>
 		<project>dsmcbe_spu</project>
-		<project>SPU</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

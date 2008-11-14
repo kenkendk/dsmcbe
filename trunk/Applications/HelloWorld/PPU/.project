@@ -3,8 +3,6 @@
 	<name>PPU</name>
 	<comment></comment>
 	<projects>
-		<project>dsmcbe_ppu</project>
-		<project>dsmcbe_spu</project>
 		<project>SPU</project>
 	</projects>
 	<buildSpec>
