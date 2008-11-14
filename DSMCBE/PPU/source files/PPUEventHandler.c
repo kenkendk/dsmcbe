@@ -254,9 +254,6 @@ void* forwardRequest(void* data)
 		pthread_mutex_unlock(&ppu_dummy_mutex);
 	}
 	
-	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE_OK)
-			((struct acquireResponse*)data)->mode = ACQUIRE_MODE_WRITE;
-
 	//printf(WHERESTR "returning response (%d)\n", WHEREARG, (int)data);
 	g_queue_free(dummy);
 	

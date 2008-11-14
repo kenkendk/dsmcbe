@@ -15,8 +15,8 @@
 
 #include "../../common/debug.h"
 
-#define DEBUG_PACKAGES
-#define DEBUG_COMMUNICATION
+//#define DEBUG_PACKAGES
+//#define DEBUG_COMMUNICATION
 
 //#define ENABLE_MIGRATION
 
@@ -548,7 +548,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	
 	if (request->dataItem > OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("Create request for already existing item");
+		REPORT_ERROR("GUID was larger than object table size");
 		RespondNACK(item);
 		return;
 	}
@@ -1609,6 +1609,7 @@ void HandleAcquireResponse(QueueableItem item)
 					isLocked = 0;
 					//printf(WHERESTR "unlocked mutex\n", WHEREARG);
 					RecordBufferRequest(q, object);
+						
 					RespondAcquire(q, g_hash_table_lookup(rc_GallocatedItems, (void*)object->id));
 					DoInvalidate(object->id, TRUE);
 					//SingleInvalidate(q, object->id);
