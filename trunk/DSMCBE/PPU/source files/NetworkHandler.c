@@ -7,7 +7,7 @@
 #include <poll.h>
 #include <stropts.h>
 
-#define TRACE_NETWORK_PACKAGES
+//#define TRACE_NETWORK_PACKAGES
 
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"
@@ -1052,6 +1052,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire barrier package"); 
+			//printf(WHERESTR "Read barrier request GUID %i\n", WHEREARG, ((struct acquireBarrierRequest*)data)->dataItem);
 			break;
 
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
@@ -1060,6 +1061,7 @@ void* net_readPackage(int fd)
 				REPORT_ERROR("MALLOC error");	
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire acquire barrier package"); 
+			//printf(WHERESTR "Read barrier response req %i\n", WHEREARG, ((struct acquireBarrierResponse*)data)->requestID);
 			break;
 			
 		default:
@@ -1164,6 +1166,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 	//We have mapped it back to ourselves :)
 	if (machineId == dsmcbe_host_number)
 	{
+		printf(WHERESTR "Internal re-map to self\n", WHEREARG);
 		net_processPackage(package, dsmcbe_host_number);
 		return;
 	}
@@ -1229,15 +1232,16 @@ void net_sendPackage(void* package, unsigned int machineId)
 			send(fd, ((struct migrationResponse*)package)->data, ((struct migrationResponse*)package)->dataSize, 0); 
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+			//printf(WHERESTR "Sending Barrier Request GUID %i\n", WHEREARG, ((struct acquireBarrierRequest*)package)->dataItem);
 			if (send(fd, package, sizeof(struct acquireBarrierRequest), 0) != sizeof(struct acquireBarrierRequest))
 				REPORT_ERROR("Failed to send entire acquire barrier request package");				
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+			//printf(WHERESTR "Sending Barrier response req: %i\n", WHEREARG, ((struct acquireBarrierResponse*)package)->requestID);
 			if (send(fd, package, sizeof(struct acquireBarrierResponse), 0) != sizeof(struct acquireBarrierResponse))
 				REPORT_ERROR("Failed to send entire acquire barrier response package");				
 			break;
 		case PACKAGE_WRITEBUFFER_READY:
-			if (package == NULL) { REPORT_ERROR("NULL pointer"); }
 			break;
 		default:
 			fprintf(stderr, WHERESTR "Invalid package type (%u) detected\n", WHEREARG, ((struct createRequest*)package)->packageCode);

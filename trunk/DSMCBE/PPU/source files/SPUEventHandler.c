@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <glib/ghash.h>
 #include <glib/gqueue.h>
+#include <unistd.h>
 
 #include "../header files/SPU_MemoryAllocator.h"
 #include "../header files/SPU_MemoryAllocator_Shared.h"
@@ -9,6 +10,7 @@
 #include "../../common/debug.h"
 #include "../../common/datapackages.h"
 #include "../header files/NetworkHandler.h"
+
 
 //The number of avalible DMA group ID's
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU! 
@@ -613,7 +615,6 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Releasing object @: %d\n", WHEREARG, (unsigned int)data);
 #endif
-	unsigned int i;
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsByPointer, data);
 	if (obj == NULL || obj->count == 0)
 	{
@@ -688,23 +689,15 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Handling WriteBufferReady for itemId: %d\n", WHEREARG, id);
 #endif
-	unsigned int i;
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)id);
 	if (obj == NULL)
 	{
-		for(i = 0; i < g_queue_get_length(state->releaseWaiters); i++)
-		{
-			struct acquireResponse* data = g_queue_peek_nth(state->releaseWaiters, i);
-			if (data->dataItem == id)
-			{
-				data->mode = ACQUIRE_MODE_WRITE_OK;
-				return;
-			}
-		}
 		REPORT_ERROR2("Recieved a writebuffer ready request, but object %d did not exist", id);
 		return;
 	}
 	
+	if (obj->writebuffer_ready == TRUE)
+		REPORT_ERROR("Writebuffer ready already set?");
 	obj->writebuffer_ready = TRUE;
 
 	//If we are just waiting for the signal, then start the DMA transfer
@@ -725,6 +718,56 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 		
 		spuhandler_TransferObject(state, preq, obj);
 	}
+}
+
+//This function calculates the amount of space that is in the process of being released,
+// and thus will be avalible for use
+unsigned int spuhandler_EstimatePendingReleaseSize(struct SPU_State* state)
+{
+	GHashTableIter iter;
+	g_hash_table_iter_init(&iter, state->pendingRequests);
+	void* key;
+	void* value;
+	unsigned int pendingSize = 0;
+	struct spu_dataObject* obj;
+	
+	while(g_hash_table_iter_next(&iter, &key, (void**)&value))
+	{
+		struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
+		if (v->operation == PACKAGE_RELEASE_REQUEST)
+		{
+			obj = g_hash_table_lookup(state->itemsById, (void*)v->objId);
+			if (obj != NULL)
+			{
+#ifdef DEBUG_COMMUNICATION	
+				printf(WHERESTR "Found obj %d with size %d in pending\n", WHEREARG, obj->id, obj->size);
+#endif
+				pendingSize += obj->size;
+			}
+		}
+	}
+	
+	g_hash_table_iter_init(&iter, state->activeDMATransfers);
+	while(g_hash_table_iter_next(&iter, &key, (void**)&value))
+	{
+		//TODO: This gives a misleading count if there are large blocks,
+		//because each entry indicates the same object, and thus the full
+		//object size, and not the block size
+		struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
+		if (v->operation == PACKAGE_RELEASE_REQUEST)
+		{
+			obj = g_hash_table_lookup(state->itemsById, (void*)v->objId);
+			if (obj != NULL)
+			{
+#ifdef DEBUG_COMMUNICATION	
+				printf(WHERESTR "Found obj %d with size %d in pending\n", WHEREARG, obj->id, obj->size);
+#endif
+				pendingSize += obj->size;
+			}
+		}
+	}
+
+	return pendingSize;
 }
 
 //This function handles an acquireResponse package from the request coordinator
@@ -758,54 +801,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		if (ls == NULL)
 		{
 			//We have no space on the SPU, so wait until we get some
-			
-#ifdef DEBUG_COMMUNICATION	
-			printf(WHERESTR "No more space, attempting delay, free mem: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, data->dataSize);
-#endif
-			GHashTableIter iter;
-			g_hash_table_iter_init(&iter, state->pendingRequests);
-			void* key;
-			void* value;
-			unsigned int pendingSize = 0;
-			
-			while(g_hash_table_iter_next(&iter, &key, (void**)&value))
-			{
-				struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
-				if (v->operation == PACKAGE_RELEASE_REQUEST)
-				{
-					obj = g_hash_table_lookup(state->itemsById, (void*)v->objId);
-					if (obj != NULL)
-					{
-#ifdef DEBUG_COMMUNICATION	
-						printf(WHERESTR "Found obj %d with size %d in pending\n", WHEREARG, obj->id, obj->size);
-#endif
-						pendingSize += obj->size;
-					}
-				}
-			}
-			
-			g_hash_table_iter_init(&iter, state->activeDMATransfers);
-			while(g_hash_table_iter_next(&iter, &key, (void**)&value))
-			{
-				//TODO: This gives a misleading count if there are large blocks,
-				//because each entry indicates the same object, and thus the full
-				//object size, and not the block size
-				struct spu_pendingRequest* v = (struct spu_pendingRequest*)value;
-				if (v->operation == PACKAGE_RELEASE_REQUEST)
-				{
-					obj = g_hash_table_lookup(state->itemsById, (void*)v->objId);
-					if (obj != NULL)
-					{
-#ifdef DEBUG_COMMUNICATION	
-						printf(WHERESTR "Found obj %d with size %d in pending\n", WHEREARG, obj->id, obj->size);
-#endif
-						pendingSize += obj->size;
-					}
-				}
-			}
-						
-			
-			if (pendingSize == 0)
+			if (spuhandler_EstimatePendingReleaseSize(state) == 0)
 			{
 				REPORT_ERROR2("No more space, denying acquire request for %d", data->dataItem);
 
@@ -843,14 +839,6 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 				return TRUE;
 				
 			}
-			
-#ifdef DEBUG_COMMUNICATION	
-			printf(WHERESTR "No more space, delaying acquire until space becomes avalible, free mem: %d, pendingSize: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, pendingSize, data->dataSize);
-#endif
-			if (g_queue_find(state->releaseWaiters, data) == NULL)
-				g_queue_push_tail(state->releaseWaiters, data);
-			return FALSE;
-
 		} 
 			
 
@@ -868,7 +856,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
 		obj->size = data->dataSize;
 		obj->LS = ls;
-		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST || data->mode == ACQUIRE_MODE_WRITE_OK;
+		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST;
 		obj->isDMAToSPU = TRUE;
 	
 		g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
@@ -876,8 +864,19 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		
 		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
 
-		//Send it!
-		spuhandler_TransferObject(state, preq, obj);		
+		if (ls == NULL)
+		{
+#ifdef DEBUG_COMMUNICATION	
+				printf(WHERESTR "No more space, delaying acquire until space becomes avalible, free mem: %d, pendingSize: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, pendingSize, data->dataSize);
+#endif
+				if (g_queue_find(state->releaseWaiters, preq) == NULL)
+					g_queue_push_tail(state->releaseWaiters, preq);
+		}
+		else
+		{
+			//Send it!
+			spuhandler_TransferObject(state, preq, obj);
+		}		
 	}
 	else
 	{
@@ -888,7 +887,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		obj->count++;	
 		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
 		obj->EA = data->data;
-		obj->writebuffer_ready = (preq->operation == PACKAGE_CREATE_REQUEST) || (data->mode = ACQUIRE_MODE_WRITE_OK);
+		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST;
 		
 		PUSH_TO_SPU(state, preq->requestId);
 		PUSH_TO_SPU(state, obj->LS);
@@ -902,7 +901,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		}	
 	}
 	
-	if (obj->count == 1)
+	if (obj->count == 1 || obj->LS == NULL)
 		g_queue_remove(state->agedObjectMap, (void*)obj->id);
 
 	return TRUE;
@@ -917,11 +916,29 @@ void spuhandler_ManageDelayedAcquireResponses(struct SPU_State* state)
 #ifdef DEBUG_COMMUNICATION	
 		printf(WHERESTR "Attempting to process a new delayed acquire\n", WHEREARG);	
 #endif
-		struct acquireResponse* resp = g_queue_peek_head(state->releaseWaiters);
-		if (!spuhandler_HandleAcquireResponse(state, resp))
+		struct spu_pendingRequest* preq = g_queue_peek_head(state->releaseWaiters);
+		
+		if (preq == NULL)
+			REPORT_ERROR("Pending request was missing?");
+	
+		struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
+		if (obj == NULL)
+			REPORT_ERROR("Object was missing in delayed acquire");		
+		
+		if (obj->LS != NULL)
+			REPORT_ERROR("Waiter was allocated?");
+		obj->LS = spuhandler_AllocateSpaceForObject(state, obj->size);
+		if (obj->LS == NULL)
+		{
+			if (spuhandler_EstimatePendingReleaseSize(state) == 0)
+				REPORT_ERROR("Out of memory on SPU");
 			return;
+		}
 		else
+		{
 			g_queue_pop_head(state->releaseWaiters);
+			spuhandler_TransferObject(state, preq, obj);
+		}
 	}
 }
 
@@ -1135,6 +1152,8 @@ void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int re
 		{
 			if (obj->id != id)
 				REPORT_ERROR("Corrupted memory detected");
+			if (requestId == UINT_MAX)
+				REPORT_ERROR("Bad requestId");
 			obj->invalidateId = requestId;
 			if (obj->count == 0)
 				spuhandler_DisposeObject(state, obj);
@@ -1166,9 +1185,9 @@ void spuhandler_PrintDebugStatus(struct SPU_State* state, unsigned int requestId
 		}
 		else
 		{
-			printf(WHERESTR "Obj stats, count: %d, DMAId: %d, EA: %d, Id: %d, invalidateId: %d, isDmaToSpu: %d, LS: %d, mode: %d, size: %d, wbr: %d\n", WHEREARG,
+			printf(WHERESTR "Obj stats, count: %d, DMAId: %d, EA: %d, Id: %d, invalidateId: %d, isDmaToSpu: %d, LS: %u, mode: %d, size: %lu, wbr: %d\n", WHEREARG,
 			obj->count, obj->DMAId, (unsigned int)obj->EA, obj->id, obj->invalidateId, obj->isDMAToSPU, 
-			obj->LS, obj->mode, obj->size, obj->writebuffer_ready);
+			(unsigned int)obj->LS, obj->mode, obj->size, obj->writebuffer_ready);
 		}
 		
 		sleep(1);

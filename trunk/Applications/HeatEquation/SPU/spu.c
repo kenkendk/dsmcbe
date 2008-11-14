@@ -23,22 +23,7 @@ double epsilon;
 unsigned int spu_count;
 unsigned int spu_no;
 
-void* acquire_debug(GUID id, unsigned long* size, unsigned int type, int lineno)
-{
-	if (id > 25000) 
-		printf("Acquire of bad ID %d, lineno: %d\n", id, lineno);
-	return acquire(id, size, type);
-}
-
-unsigned int beginAcquire_debug(GUID id, unsigned int type, int lineno)
-{
-	if (id > 25000) 
-		printf("BeginAcquire of bad ID %d, lineno: %d\n", id, lineno);
-	return beginAcquire(id, type);
-}
-
-#define ACQUIRE(x, y, z) acquire_debug(x, y, z, __LINE__) 
-#define BEGINACQUIRE(x, y) beginAcquire_debug(x, y, __LINE__); 
+#define PROGRESS(x1, y1, y2) //printf(x1, y1, y2)
 
 //#define GET_MAP_VALUE(x,y) (((y) < adjustTop && firstRows != NULL) ? &firstRows[((y) * width) + x] : (((y) > height - 3 && lastRows != NULL) ? &lastRows[(((y) - 1 - height) * width) + x] : &data[(((y) - adjustTop) * width) + x]))  
 #define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data)
@@ -88,7 +73,7 @@ void solve(struct Work_Unit* work_item)
 	if (!isFirst)
 	{
 	    //printf(WHERESTR "SPU %d is fetching top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
-		firstRows = ACQUIRE(SHARED_ROW_OFFSET + work_item->block_no - 1, &firstSize, ACQUIRE_MODE_WRITE);
+		firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &firstSize, ACQUIRE_MODE_WRITE);
 	}
 	
 	if (!isFirst)
@@ -110,7 +95,7 @@ void solve(struct Work_Unit* work_item)
 			if (!isLast && y == height - 3)
 			{
 				//printf(WHERESTR "SPU %d fetching lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
-				lastRows = ACQUIRE(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
+				lastRows = acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
 			}
 			
 			if (firstRows != NULL && y == 3)
@@ -145,7 +130,7 @@ void solve(struct Work_Unit* work_item)
 			if (!isLast && y == height - 3)
 			{
 				//printf(WHERESTR "SPU %d reading lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
-				lastRows = ACQUIRE(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
+				lastRows = acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
 			}
 			
 			if (firstRows != NULL && y == 3)
@@ -208,7 +193,7 @@ int main(long long id)
     delta = 0.0;
     deltasum = 0.0;
 
-	struct Assignment_Unit* boot = ACQUIRE(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_WRITE);
+	struct Assignment_Unit* boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_WRITE);
 	spu_no = boot->spu_no;
 	spu_count = boot->spu_count;
 	map_width = boot->map_width;
@@ -249,16 +234,16 @@ int main(long long id)
 	{
 		delta = 0.0;
 
-		//printf(WHERESTR "SPU %d is at red\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at red\n", WHEREARG, spu_no);
 		//Red round
 		red_round = 1;
 		
-		prefetch = BEGINACQUIRE(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
+		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 		
 		for(i = 0; i < jobCount; i++)
 		{
 		    if (i + 1 < jobCount)
-		    	prefetch_temp = BEGINACQUIRE(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
+		    	prefetch_temp = beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
 		    work_item = endAsync(prefetch, &size);
 			//printf(WHERESTR "SPU %d fetched %d (%d)\n", WHEREARG, spu_no, i, WORK_OFFSET + firstJob + i);
 		    prefetch = prefetch_temp;
@@ -266,20 +251,20 @@ int main(long long id)
 			release(work_item);
 		}
 		
-		//printf(WHERESTR "SPU %d is at red barrier\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at red barrier\n", WHEREARG, spu_no);
 		//Wait
 		acquireBarrier(EX_BARRIER_1);
 		
-		//printf(WHERESTR "SPU %d is at black\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at black\n", WHEREARG, spu_no);
 		//Black round
 		red_round = 0;
 
-		prefetch = BEGINACQUIRE(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
+		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 
 		for(i = 0; i < jobCount; i++)
 		{
 		    if (i + 1 < jobCount)
-		    	prefetch_temp = BEGINACQUIRE(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
+		    	prefetch_temp = beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
 		    work_item = endAsync(prefetch, &size);
 			//printf(WHERESTR "SPU %d fetched %d (%d)\n", WHEREARG, spu_no, i, WORK_OFFSET + firstJob + i);
 		    prefetch = prefetch_temp;
@@ -287,9 +272,9 @@ int main(long long id)
 			release(work_item);
 		}
 		
-		//printf(WHERESTR "SPU %d is at black lock\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at black lock\n", WHEREARG, spu_no);
 		//Gather delta sum
-		barrier = ACQUIRE(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_WRITE);
+		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_WRITE);
 	
 		if (barrier->lock_count == 0)
 			barrier->delta = delta;
@@ -304,7 +289,7 @@ int main(long long id)
 		if (barrier->lock_count == spu_count - 1)
 		{
 			barrier->print_count++;
-			if (barrier->print_count == 100)
+			if (barrier->print_count == 10)
 			{
 				barrier->print_count = 0;
 				printf(WHERESTR "SPU %d is reporting delta: %lf\n", WHEREARG, spu_no, barrier->delta);
@@ -316,13 +301,14 @@ int main(long long id)
 		else
 			barrier->lock_count++;
 			
-		//printf(WHERESTR "SPU %d is releasing black lock\n", WHEREARG, spu_no);
+		//printf(WHERESTR "SPU %d is releasing black lock: %d\n", WHEREARG, spu_no, barrier->lock_count);
 		release(barrier);
 		
-		//printf(WHERESTR "SPU %d is at black barrier\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at black barrier\n", WHEREARG, spu_no);
 		acquireBarrier(EX_BARRIER_2);	
 		
-		barrier = ACQUIRE(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
+		PROGRESS(WHERESTR "SPU %d is spinning\n", WHEREARG, spu_no);
+		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		while(barrier->lock_count != 0)
 		{
 #ifndef GRAPHICS
@@ -331,7 +317,7 @@ int main(long long id)
 #endif
 			//We should not get here unless were are displaying graphics
 			release(barrier);
-			barrier = ACQUIRE(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
+			barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		}
 		delta = barrier->delta;
 		release(barrier);
