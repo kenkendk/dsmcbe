@@ -26,7 +26,7 @@ go.sh
 1
 
 ::CPUTIME::
-256
+3600
 
 ::PLATFORM::
 

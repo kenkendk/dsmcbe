@@ -25,7 +25,7 @@ heat
 1
 
 ::CPUTIME::
-4608
+5000
 
 ::PLATFORM::
 
