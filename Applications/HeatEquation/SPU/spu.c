@@ -5,10 +5,15 @@
 #include <stdio.h>
 #include <string.h>
 
+//#define UPDATE_DELTA
+
 #ifdef GRAPHICS
-#define EXTRA_WAIT 1
+	#define EXTRA_WAIT 1
+	#ifndef UPDATE_DELTA 
+		#define UPDATE_DELTA
+	#endif
 #else
-#define EXTRA_WAIT 0
+	#define EXTRA_WAIT 0
 #endif
 
 unsigned int rc;
@@ -23,7 +28,7 @@ double epsilon;
 unsigned int spu_count;
 unsigned int spu_no;
 
-#define PROGRESS(x1, y1, y2) //printf(x1, y1, y2)
+#define PROGRESS(x1, y1, y2, y3) //printf(x1, y1, y2, y3)
 
 //#define GET_MAP_VALUE(x,y) (((y) < adjustTop && firstRows != NULL) ? &firstRows[((y) * width) + x] : (((y) > height - 3 && lastRows != NULL) ? &lastRows[(((y) - 1 - height) * width) + x] : &data[(((y) - adjustTop) * width) + x]))  
 #define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data)
@@ -181,11 +186,16 @@ void solve(struct Work_Unit* work_item)
 int main(long long id)
 {
     struct Work_Unit* work_item;
-    struct Barrier_Unit* barrier;
     unsigned long size;
-    size_t i;
+    size_t i, j;
     unsigned int prefetch, prefetch_temp;
+    PROBLEM_DATA_TYPE* shared_row;
+    unsigned int maxJobs;
+    
+#ifdef UPDATE_DELTA	
+    struct Barrier_Unit* barrier;
     unsigned int barrier_alternation = 0;
+#endif
     
     initialize();
     
@@ -200,6 +210,7 @@ int main(long long id)
 	map_height = boot->map_height;
 	epsilon = boot->epsilon;
 	sharedCount = boot->sharedCount;
+	maxJobs = boot->maxjobs;
 	
 	//Make sure all items are same size to prevent fragmentation
 	unsigned int slice_height = BLOCK_SIZE / (map_width * sizeof(PROBLEM_DATA_TYPE));
@@ -216,25 +227,83 @@ int main(long long id)
 	
 	release(boot);
 	
-#ifdef CREATE_LOCALLY
 	for(i = 0; i < jobCount; i++)
 	{
-		//printf(WHERESTR "Creating %d with items %d and %d\n", WHEREARG, i, WORK_OFFSET + i + firstJob, SHARED_ROW_OFFSET + i + firstJob);		
-		release(create(WORK_OFFSET + i + firstJob, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height));
-		release(create(SHARED_ROW_OFFSET + i + firstJob, sizeof(PROBLEM_DATA_TYPE) * map_width * 2));
+		//printf(WHERESTR "Creating %d with items %d and %d\n", WHEREARG, i, WORK_OFFSET + i + firstJob, SHARED_ROW_OFFSET + i + firstJob);
+		work_item = create(WORK_OFFSET + i + firstJob, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height);
+		
+		unsigned int thisHeight;
+		
+		if (i + firstJob == maxJobs - 1)
+			thisHeight = map_height - ((slice_height + 2) * (maxJobs - 1));
+		else
+			thisHeight = slice_height;
+		
+		//printf(WHERESTR "Height: %d (%d vs %d)\n", WHEREARG, thisHeight, i + firstJob, maxJobs);
+		
+		work_item->block_no = i + firstJob;
+		work_item->buffer_size = map_width * thisHeight;
+		work_item->heigth = thisHeight;
+		work_item->line_start = ((slice_height + 2) * (i + firstJob));
+		shared_row = &work_item->problem;
+
+		memset(shared_row, 0, work_item->buffer_size * sizeof(PROBLEM_DATA_TYPE));
+		
+		if (i + firstJob == 0)
+		{
+			//Top row is 40.0 degrees
+			for(j = 0; j < map_width; j++)
+				shared_row[j] = 40.0;
+		}
+
+		if (i + firstJob == maxJobs - 1)
+		{
+			//Bottom row is -273.15
+			for(j = 0; j < map_width; j++)
+				shared_row[j + (map_width * (thisHeight - 1))] = -273.15;
+		}
+		
+		for(j = 0; j < thisHeight; j++)
+		{
+			//Left side is -273.15, right side is 40.0
+			shared_row[0 + (j * map_width)] = -273.15; 
+			shared_row[map_width - 1 + (j * map_width)] = 40.0;
+		}
+		
+		release(work_item);
+		
+		shared_row = create(SHARED_ROW_OFFSET + i + firstJob, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+		memset(shared_row, 0,  sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+
+		if (i + firstJob == sharedCount)
+		{
+			shared_row[0] = -273.15; 
+			shared_row[map_width - 1] = 40.0;
+			 
+			//Bottom row is -273.15
+			for(j = 0; j < map_width; j++)
+				shared_row[j + map_width] = -273.15;
+		}
+		else
+		{
+			shared_row[0] = shared_row[map_width] = -273.15; 
+			shared_row[map_width - 1] = shared_row[(map_width * 2) - 1] = 40.0;
+		}
+		release(shared_row);
+
 	}
 	release(acquire(MASTER_START_LOCK, &size, ACQUIRE_MODE_READ));
-#endif
 
 	//printf(WHERESTR "Done creating\n", WHEREARG); 
 
 	delta = epsilon + 1;
+	unsigned int itterations = ITTERATIONS;
 
-	while(delta > epsilon)
+	while(itterations-- > 0)
 	{
 		delta = 0.0;
 
-		PROGRESS(WHERESTR "SPU %d is at red\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at red %d\n", WHEREARG, spu_no, itterations);
 		//Red round
 		red_round = 1;
 		
@@ -251,11 +320,11 @@ int main(long long id)
 			release(work_item);
 		}
 		
-		PROGRESS(WHERESTR "SPU %d is at red barrier\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at red barrier %d\n", WHEREARG, spu_no, itterations);
 		//Wait
 		acquireBarrier(EX_BARRIER_1);
 		
-		PROGRESS(WHERESTR "SPU %d is at black\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at black %d\n", WHEREARG, spu_no, itterations);
 		//Black round
 		red_round = 0;
 
@@ -272,7 +341,8 @@ int main(long long id)
 			release(work_item);
 		}
 		
-		PROGRESS(WHERESTR "SPU %d is at black lock\n", WHEREARG, spu_no);
+#ifdef UPDATE_DELTA		
+		PROGRESS(WHERESTR "SPU %d is at black lock %d\n", WHEREARG, spu_no, itterations);
 		//Gather delta sum
 		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_WRITE);
 	
@@ -288,13 +358,7 @@ int main(long long id)
 #else
 		if (barrier->lock_count == spu_count - 1)
 		{
-			barrier->print_count++;
-			if (barrier->print_count == 10)
-			{
-				barrier->print_count = 0;
-				printf(WHERESTR "SPU %d is reporting delta: %lf\n", WHEREARG, spu_no, barrier->delta);
-			}
-#endif		
+#endif /*GRAPHICS*/	
 			//Reset lock for next round
 			barrier->lock_count = 0;
 		}
@@ -303,25 +367,37 @@ int main(long long id)
 			
 		//printf(WHERESTR "SPU %d is releasing black lock: %d\n", WHEREARG, spu_no, barrier->lock_count);
 		release(barrier);
+#endif /*UPDATE_DELTA*/
 		
-		PROGRESS(WHERESTR "SPU %d is at black barrier\n", WHEREARG, spu_no);
+		PROGRESS(WHERESTR "SPU %d is at black barrier %d\n", WHEREARG, spu_no, itterations);
 		acquireBarrier(EX_BARRIER_2);	
-		
-		PROGRESS(WHERESTR "SPU %d is spinning\n", WHEREARG, spu_no);
+
+#ifdef UPDATE_DELTA		
+		PROGRESS(WHERESTR "SPU %d is spinning %d\n", WHEREARG, spu_no, itterations);
 		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		while(barrier->lock_count != 0)
 		{
 #ifndef GRAPHICS
-			//This should not happen, but it does occasionally
-			//printf(WHERESTR "SPU %d reported bad timings\n", WHEREARG, spu_no);
-#endif
+			//This should not happen...
+			printf(WHERESTR "SPU %d reported bad timings\n", WHEREARG, spu_no);
+#endif /*GRAPHICS*/
 			//We should not get here unless were are displaying graphics
 			release(barrier);
 			barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		}
 		delta = barrier->delta;
+
+		if (spu_no == 0 && itterations % 100 == 0)
+			printf(WHERESTR "SPU %d is reporting delta: %lf, round: %d\n", WHEREARG, spu_no, barrier->delta, itterations);
+
 		release(barrier);
+		
 		//barrier_alternation = (barrier_alternation + 1) % 1;
+#else /*UPDATE_DELTA*/
+		if (spu_no == 0 && itterations % 100 == 0)
+			printf(WHERESTR "SPU %d is reporting progress: %d\n", WHEREARG, spu_no, itterations);
+		
+#endif /*UPDATE_DELTA*/
 	}
 	
 	struct Results* res = create(RESULT_OFFSET + spu_no, sizeof(struct Results));
