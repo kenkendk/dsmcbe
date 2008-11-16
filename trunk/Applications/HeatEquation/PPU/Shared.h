@@ -1,8 +1,21 @@
 #ifndef SHARED_H_
 #define SHARED_H_
 
+
 //Toggle graphic display on or off
 //#define GRAPHICS
+
+//Turning graphics on will result in large memory consumption on machine 0
+//The size of the memory grows linearly with the number of machines
+
+//Set the map width
+#define FIXED_MAP_WIDTH 128
+
+//The total size of memory to use on each machine
+#define MEMORY_SIZE (1024 * 1024 * 150)
+
+//The number of itterations to perform
+#define ITTERATIONS 1000
 
 //Defines the size of each work block (approximate value)
 #define BLOCK_SIZE (100 * 1024)
@@ -83,9 +96,7 @@ struct Results
 #define MASTER_COMPLETION_LOCK 15
 
 #define WORK_OFFSET 100
-#define FIRST_ROW_OFFSET 500
-#define LAST_ROW_OFFSET 1000
-#define SHARED_ROW_OFFSET 1500
-#define RESULT_OFFSET 2000
+#define SHARED_ROW_OFFSET 7000
+#define RESULT_OFFSET 15000
 
 #endif /*SHARED_H_*/

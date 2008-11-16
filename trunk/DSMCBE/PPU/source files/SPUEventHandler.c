@@ -901,7 +901,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		}	
 	}
 	
-	if (obj->count == 1 || obj->LS == NULL)
+	if (obj->count == 1)
 		g_queue_remove(state->agedObjectMap, (void*)obj->id);
 
 	return TRUE;
@@ -1267,7 +1267,7 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				spuhandler_PrintDebugStatus(state, requestId);
 				break;
 			default:
-				REPORT_ERROR("Unknown package code recieved");			
+				REPORT_ERROR2("Unknown package code recieved: %d", packageCode);			
 				break;	
 		}
 	}

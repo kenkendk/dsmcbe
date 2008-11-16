@@ -38,27 +38,14 @@ void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned i
 	unsigned long size;
 	struct Work_Unit* item;
 	PROBLEM_DATA_TYPE* temp;
+
+	//printf(WHERESTR "Fetching %d blocks and %d rows\n", WHEREARG, rows, sharedCount);
 	
 	for(i =0; i < rows; i++)
 	{
 		//printf(WHERESTR "Fetching work row: %d\n", WHEREARG, WORK_OFFSET + i);
 		item = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
-		
         memcpy(&data[item->line_start * map_width], &item->problem, item->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
-
-		//printf(WHERESTR "Updated from: %d, height: %d, width: %d\n", WHEREARG, item->line_start, item->heigth, map_width);
-		
-		/*if (item->line_start + item->heigth > 485)
-		{
-			size_t j;
-			unsigned int y = 485 - item->line_start;
-			for(j = 123; j <= 127; j++)
-				printf(WHERESTR "Pixel at (%d,%d) is: %lf\n", WHEREARG, j, 485, (&item->problem)[y * map_width + j]);
-			y++; 
-			for(j = 123; j <= 127; j++)
-				printf(WHERESTR "Pixel at (%d,%d) is: %lf\n", WHEREARG, j, 486, (&item->problem)[y * map_width + j]);
-		}*/
-
 		if (i < sharedCount)
 		{
 			//printf(WHERESTR "Fetching shared row: %d\n", WHEREARG, SHARED_ROW_OFFSET + i);
@@ -77,26 +64,38 @@ void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned i
 
 
 //The coordinator calls this process
-void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int spu_count)
+void Coordinator(unsigned int spu_count)
 {
 	size_t i, j;
 	unsigned int rc;
-	PROBLEM_DATA_TYPE* data;
 	PROBLEM_DATA_TYPE* temp;
 	char buf[256];
 	struct Work_Unit* send_buffer = NULL;
 	unsigned long size;
 	double deltasum;
-#ifdef GRAPHICS
-	unsigned int cnt = 0;
-	double delta;
-#endif
-   
+	
+	unsigned int map_width = FIXED_MAP_WIDTH;
+	unsigned int map_height;	
+	unsigned long datasize = MEMORY_SIZE;
+
+	if (DSMCBE_MachineCount() != 0)
+	{
+		spu_count *= DSMCBE_MachineCount();
+		datasize *= DSMCBE_MachineCount();
+	}
+	
+	map_height = datasize / (map_width * sizeof(PROBLEM_DATA_TYPE));
+
    	unsigned int map_size = map_width * map_height;
 	double epsilon = 0.001 * (map_width - 1) * (map_height - 1);
-
+	unsigned int slice_height = BLOCK_SIZE / (map_width * sizeof(PROBLEM_DATA_TYPE));
 	//printf(WHERESTR "Boot and barrier done\n", WHEREARG);
-
+	
+#ifdef GRAPHICS
+	PROBLEM_DATA_TYPE* data;
+	unsigned int cnt = 0;
+	double delta;
+   
 	data = (PROBLEM_DATA_TYPE*)malloc(sizeof(PROBLEM_DATA_TYPE) * map_size);
     memset(data, 0, map_size * sizeof(PROBLEM_DATA_TYPE));
 
@@ -112,9 +111,6 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		MAPVALUE(map_width - 1, j) = 40.0;
 	}
 
-	unsigned int slice_height = BLOCK_SIZE / (map_width * sizeof(PROBLEM_DATA_TYPE));
-
-#ifdef GRAPHICS
 	printf(WHERESTR "Displaying map (%d x %d)\n", WHEREARG, map_width, map_height);
 	gs_init(map_width, map_height);	
 	show(data, map_width, map_height);
@@ -125,15 +121,9 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	sw_init();
 	sw_start();
 	
-	unsigned int rows = 0;
 	unsigned int sharedCount = 0;
-	unsigned int remainingLines = map_height;
-	unsigned int lineOffset = 0;
 	unsigned int workUnits = 0;
-	unsigned int barrier_alternation = 0;
 	
-	if (DSMCBE_MachineCount() != 0)
-		spu_count *= DSMCBE_MachineCount(); 
 		
 	sharedCount = workUnits = map_height / (slice_height + 2);
 	if ((map_height % (slice_height + 2)) > 0)
@@ -156,12 +146,27 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	boot->maxjobs = workUnits;
 	boot->sharedCount = sharedCount;
 
+	if (WORK_OFFSET + workUnits > SHARED_ROW_OFFSET)
+	{
+		REPORT_ERROR("Too many jobs");
+		exit(-5);
+	}
+
+	if (WORK_OFFSET + workUnits > RESULT_OFFSET)
+	{
+		REPORT_ERROR("Too many jobs");
+		exit(-5);
+	}
+	
+	if (SHARED_ROW_OFFSET + workUnits > RESULT_OFFSET)
+	{
+		REPORT_ERROR("Too many jobs");
+		exit(-5);
+	}
+
 	//printf(WHERESTR "Created %d jobs, and each of the %d SPU's get %d items\n", WHEREARG, boot->maxjobs, spu_count, boot->job_count); 
 
 	release(boot);
-	
-	sharedCount = 0;
-	workUnits = 0;
 	
 	//Set up the barrier
 	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
@@ -173,7 +178,14 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	createBarrier(EX_BARRIER_1, spu_count);
 	createBarrier(EX_BARRIER_2, spu_count);
 	
-	
+	/*
+	unsigned int rows = 0;
+	unsigned int remainingLines = map_height;
+	unsigned int lineOffset = 0;
+
+	sharedCount = 0;
+	workUnits = 0;
+
 	while(remainingLines > 0)
 	{
 		unsigned int thisHeight = MIN(slice_height, remainingLines);
@@ -181,22 +193,22 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		
 		remainingLines -= thisHeight;
 
-#ifdef CREATE_LOCALLY
 		send_buffer = acquire(WORK_OFFSET + rows, &size, ACQUIRE_MODE_WRITE);
 		if (size != (sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height))
 			printf(WHERESTR "Invalid size %ld vs %d, width: %d, slice: %d\n", WHEREARG, size, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height, map_width, slice_height);
-#else
-		//We do not use the real height, but rather the map_height.
-		//This causes unwanted data transfer, but reduces fragmentation
-		send_buffer = create(WORK_OFFSET + rows, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height);
-#endif
-		send_buffer->block_no = rows;
-		send_buffer->buffer_size = map_width * thisHeight;
-		send_buffer->heigth = thisHeight;
-		send_buffer->line_start = lineOffset;
+
+		if (send_buffer->block_no != rows)
+			REPORT_ERROR("Bad init");
+		if (send_buffer->buffer_size != map_width * thisHeight)
+			REPORT_ERROR("Bad init");
+		if (send_buffer->heigth != thisHeight)
+			REPORT_ERROR("Bad init");
+		if (send_buffer->line_start != lineOffset)
+			REPORT_ERROR("Bad init");
 		workUnits++;
 
-		memcpy(&send_buffer->problem, &data[send_buffer->line_start * map_width], send_buffer->buffer_size * sizeof(PROBLEM_DATA_TYPE));
+		if (memcmp(&send_buffer->problem, &data[send_buffer->line_start * map_width], send_buffer->buffer_size * sizeof(PROBLEM_DATA_TYPE)) != 0)
+			REPORT_ERROR("Bad init");
 		
 		release(send_buffer);
 		
@@ -205,12 +217,17 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 		if (remainingLines > 0)
 		{
 			//printf(WHERESTR "Creating shared row %d\n", WHEREARG, SHARED_ROW_OFFSET + rows);
-#ifdef CREATE_LOCALLY
 			temp = acquire(SHARED_ROW_OFFSET + rows, &size, ACQUIRE_MODE_WRITE);
-#else
-			temp = create(SHARED_ROW_OFFSET + rows, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
-#endif
-			memcpy(temp, &data[lineOffset * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+			
+			if (memcmp(temp, &data[lineOffset * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2) != 0)
+			{
+				//for(i = 0; i < map_width * 2; i++)
+				//	if (temp[i] != data[(lineOffset * map_width) + i])
+				//		printf("Index %d differs, %lf vs %lf\n", i, temp[i], data[(lineOffset * map_width) + i]);
+						
+				REPORT_ERROR("Bad init");
+			}
+			
 			release(temp);
 			
 			lineOffset += 2;
@@ -220,10 +237,8 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
 		rows++;
 	}
-	
-#ifdef CREATE_LOCALLY
+	*/
 	release(create(MASTER_START_LOCK, 1));
-#endif
 
 
 //Periodically update window?
@@ -232,8 +247,9 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 	delta = epsilon + 1;
 	
 	unsigned int zprint = 0;
+	unsigned int itterations = ITTERATIONS:
 	
-	while(delta > epsilon)
+	while(itterations-- > 0)
 	{
 		//printf(WHERESTR "Waiting for manual barrier\n", WHEREARG);
 		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
@@ -253,21 +269,21 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
 
         if((cnt + 1) == UPDATE_FREQ)
 			printf(WHERESTR "Updating graphics, delta: %lf\n", WHEREARG, barrier->delta);
-		else
-			printf(WHERESTR "manual barrier done, delta: %lf\n", WHEREARG, barrier->delta);
+		/*else
+			printf(WHERESTR "manual barrier done, delta: %lf\n", WHEREARG, barrier->delta);*/
 		
 		release(barrier);
 		
         cnt++;
         if(cnt == UPDATE_FREQ)
         {
-        	UpdateMasterMap(data, map_width, rows, sharedCount);
+        	UpdateMasterMap(data, map_width, workUnits, sharedCount);
             show(data, map_width, map_height);
             cnt = 0;    
         }
     
-    	if (delta <= epsilon)
-    		release(create(DELTA_THRESHOLD_EXCEEDED));
+    	//if (delta <= epsilon)
+    	//	release(create(DELTA_THRESHOLD_EXCEEDED));
        
         barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_WRITE);
 		//printf(WHERESTR "manual barrier done, setting lock count to 0\n", WHEREARG);
@@ -285,25 +301,26 @@ void Coordinator(unsigned int map_width, unsigned int map_height, unsigned int s
     rc = 0;
     for(i = 0; i< spu_count; i++)
     {
+		//printf(WHERESTR "Reading results: %d\n", WHEREARG, RESULT_OFFSET + i);
     	struct Results* results = acquire(RESULT_OFFSET + i, &size, ACQUIRE_MODE_READ);
         deltasum += results->deltaSum;
         rc += results->rc;
-        release(send_buffer);
+        release(results);
     }
 
          
 #ifdef GRAPHICS
 	show(data, map_width, map_height);
+    free(data);    
 #endif	
 
-    free(data);    
 
     printf("Sum of delta: %lf (%lf)\n", deltasum, epsilon);
     printf("Rc: %i\n", rc);
 
 	sw_stop();
 	sw_timeString(buf);
-	printf("Time taken on %i processors with type %s (%ix%i:%i): %s\n", spu_count, (sizeof(PROBLEM_DATA_TYPE) == sizeof(float) ? "float" : "double") , map_width, map_height, UPDATE_FREQ, buf);
+	printf("Time taken on %i processors with type %s (%ix%i:%i): %s\n", spu_count, (sizeof(PROBLEM_DATA_TYPE) == sizeof(float) ? "float" : "double") , map_width, map_height, ITTERATIONS, buf);
 
 
 #ifdef GRAPHICS
@@ -364,7 +381,7 @@ int main(int argc, char* argv[])
 	
 	if (machineid == 0)
 	{
-		Coordinator(128, 96 * 120, spu_count);
+		Coordinator(spu_count);
 		release(create(MASTER_COMPLETION_LOCK, 1));
 	}
 	else
