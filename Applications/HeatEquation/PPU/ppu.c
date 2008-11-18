@@ -163,8 +163,14 @@ void Coordinator(unsigned int spu_count)
 		REPORT_ERROR("Too many jobs");
 		exit(-5);
 	}
+	
+	if (RESULT_OFFSET + spu_count > OBJECT_TABLE_SIZE)
+	{
+		REPORT_ERROR("Too many jobs");
+		exit(-5);
+	}
 
-	//printf(WHERESTR "Created %d jobs, and each of the %d SPU's get %d items\n", WHEREARG, boot->maxjobs, spu_count, boot->job_count); 
+	printf(WHERESTR "Created %d jobs, and each of the %d SPU's get %d items\n", WHEREARG, boot->maxjobs, spu_count, boot->job_count); 
 
 	release(boot);
 	

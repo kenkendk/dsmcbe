@@ -3,9 +3,9 @@
 
 //Keep exactly one mode active
 //#define MBOX_MODE
-#define DMA_MODE
+//#define DMA_MODE
 //#define NET_MODE
-//#define DSM_MODE
+#define DSM_MODE
 //#define DSM_MODE_SINGLE
 
 //The size of the data object

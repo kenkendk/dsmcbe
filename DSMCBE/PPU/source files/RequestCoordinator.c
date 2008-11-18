@@ -1650,6 +1650,25 @@ void HandleAcquireResponse(QueueableItem item)
 	//printf(WHERESTR "Handled acquire response\n", WHEREARG);
 }
 
+void HandleAcquireBarrierResponse(QueueableItem item)
+{
+	//printf(WHERESTR "Handling barrier response\n", WHEREARG);
+	
+	struct acquireBarrierResponse* resp;
+	
+	if((resp = MALLOC(sizeof(struct acquireBarrierResponse))) == NULL)
+		REPORT_ERROR("malloc error");
+		
+	resp->packageCode = ((struct acquireBarrierResponse*)item->dataRequest)->packageCode;
+	resp->requestID = ((struct acquireBarrierResponse*)item->dataRequest)->requestID;
+	resp->originator = ((struct acquireBarrierResponse*)item->dataRequest)->originator;
+	resp->originalRequestID = ((struct acquireBarrierResponse*)item->dataRequest)->originalRequestID;
+	resp->originalRecipient = ((struct acquireBarrierResponse*)item->dataRequest)->originalRecipient;
+	
+	
+	RespondAny(item, resp);
+}
+
 //Handles an incoming migrationResponse
 void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* resp)
 {
@@ -1839,6 +1858,9 @@ void* rc_ProccessWork(void* data)
 				break;
 			case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 				DoAcquireBarrier(item, (struct acquireBarrierRequest*)item->dataRequest);
+				break;
+			case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+				HandleAcquireBarrierResponse(item);
 				break;
 			case PACKAGE_MIGRATION_RESPONSE:
 				rc_HandleMigrationResponse(item, (struct migrationResponse*)item->dataRequest);

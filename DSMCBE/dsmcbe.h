@@ -8,7 +8,7 @@ typedef unsigned int GUID;
 
 #define OBJECT_TABLE_ID 0
 #define OBJECT_TABLE_OWNER 0
-#define OBJECT_TABLE_SIZE 25000
+#define OBJECT_TABLE_SIZE 50000
 #define OBJECT_TABLE_ENTRY_TYPE unsigned char
 #define OBJECT_TABLE_RESERVED 255
  
