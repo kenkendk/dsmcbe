@@ -1,5 +1,5 @@
 #include "spu.h"
-#include <common/datastructures.h>
+#include <common/debug.h>
 #include <unistd.h>
 #include <malloc.h>
 #include <malloc_align.h>
@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
 			for(j = 0; j < 10; j++)			
 				printf("DMA Transfer status value: %i\n", mfc_read_tag_status_immediate());
 				
-			mfc_stat_tag_status()
+			mfc_stat_tag_status();
 				
 		}
 

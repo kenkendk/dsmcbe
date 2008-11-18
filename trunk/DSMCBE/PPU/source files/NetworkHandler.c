@@ -864,6 +864,15 @@ void net_processPackage(void* data, unsigned int machineId)
 				//printf(WHERESTR "Enque item :%d\n", WHEREARG, (unsigned int)ui);
 				EnqueItem(ui);
 			}
+			else if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_BARRIER_RESPONSE)
+			{
+				//printf(WHERESTR "Inserting barrier response\n", WHEREARG);
+				//We send the barrier response over the RequestCoordinator to avoid races
+				if (ui->dataRequest != NULL)
+					FREE(ui->dataRequest);
+				ui->dataRequest = data;
+				EnqueItem(ui);
+			}
 			else
 			{
 				//printf(WHERESTR "Forwarding response directly\n", WHEREARG);
