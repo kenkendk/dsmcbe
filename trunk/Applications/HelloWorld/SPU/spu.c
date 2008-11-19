@@ -1,8 +1,4 @@
-#include <stdlib.h>
-#include <spu_mfcio.h>
 #include <stdio.h>
-#include <math.h>
-#include <libmisc.h>
 #include <dsmcbe_spu.h>
 
 #include "../PPU/guids.h"

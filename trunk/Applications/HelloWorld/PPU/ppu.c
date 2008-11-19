@@ -1,9 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
-#include <libspe2.h>
 #include <dsmcbe_ppu.h>
-#include <unistd.h>
 
 #include "guids.h"
 
