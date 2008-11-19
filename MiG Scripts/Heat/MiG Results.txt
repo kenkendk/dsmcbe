@@ -12,3 +12,12 @@ Size (128x614400:1000):
 
 Size: (128x1228800:1000):
 24: 1 hours 37 min. 26 seconds 831 ms
+
+
+Individually scaled (250 jobs pr. SPU) (Not from MiG):
+Time taken on 1 processors with type float (128x50400:1000): 21 min. 26 seconds 550 ms
+Time taken on 2 processors with type float (128x101000:1000): 21 min. 56 seconds 922 ms
+Time taken on 3 processors with type float (128x151400:1000): 22 min. 22 seconds 34 ms
+Time taken on 4 processors with type float (128x201800:1000): 24 min. 12 seconds 394 ms
+Time taken on 5 processors with type float (128x252400:1000): 28 min. 57 seconds 202 ms
+Time taken on 6 processors with type float (128x302800:1000): 34 min. 35 seconds 339 ms
