@@ -25,6 +25,7 @@ Time taken on 7 processors with type float (128x14139:1000): 1 min. 51 seconds 5
 Time taken on 8 processors with type float (128x16159:1000): 2 min. 11 seconds 493 ms
 
 Cellbuzz:
+Time taken on 1 processors with type float (128x51200:1000): 22 min. 35 seconds 140 ms
 Time taken on 6 processors with type float (128x307200:1000): 39 min. 21 seconds 816 ms
 Time taken on 12 processors with type float (128x614400:1000): 41 min. 16 seconds 474 ms
 Time taken on 18 processors with type float (128x921600:1000): 42 min. 546 ms
