@@ -208,18 +208,16 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 //This function creates and forwards a message to the request coordinator
 void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req)
 {
-	QueueableItem qi;
-	if ((qi = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
-		REPORT_ERROR("malloc error");
+	QueueableItem qi = MALLOC(sizeof(struct QueueableItemStruct));
 	
-		qi->callback = NULL;
-		qi->dataRequest = req;
-		qi->event = NULL;
-		qi->mutex = &spu_rq_mutex;
-		qi->Gqueue = &state->queue;
-		
-		//printf(WHERESTR "Inserting item into request coordinator queue (%d)\n", WHEREARG, (unsigned int)qi);
-		EnqueItem(qi);
+	qi->callback = NULL;
+	qi->dataRequest = req;
+	qi->event = NULL;
+	qi->mutex = &spu_rq_mutex;
+	qi->Gqueue = &state->queue;
+	
+	//printf(WHERESTR "Inserting item into request coordinator queue (%d)\n", WHEREARG, (unsigned int)qi);
+	EnqueItem(qi);
 }
 
 
@@ -404,9 +402,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 		}
 	}
 	
-	struct spu_pendingRequest* preq;
-	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
 
 	// Setting DMAcount to UINT_MAX to initialize the struct.
 	preq->DMAcount = UINT_MAX;		
@@ -420,9 +416,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
-	struct acquireRequest* req;
-	if ((req = MALLOC(sizeof(struct acquireRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct acquireRequest* req = MALLOC(sizeof(struct acquireRequest));
 	
 	req->packageCode = packageCode;
 	req->requestID = requestId;
@@ -505,10 +499,8 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 		return;
 	}
 	
-	struct spu_pendingRequest* preq;
-	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
-		REPORT_ERROR("malloc error");
-		
+	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
+			
 	// Setting DMAcount to UINT_MAX to initialize the struct.
 	preq->DMAcount = UINT_MAX;
 	preq->objId = id;
@@ -519,9 +511,7 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
-	struct createRequest* req;
-	if ((req = MALLOC(sizeof(struct createRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct createRequest* req = MALLOC(sizeof(struct createRequest));
 	
 	req->packageCode = PACKAGE_CREATE_REQUEST;
 	req->requestID = requestId;
@@ -541,9 +531,7 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 	printf(WHERESTR "Handling barrier request for %d, with requestId: %d\n", WHEREARG, id, requestId);
 #endif
 
-	struct spu_pendingRequest* preq;
-	if ((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
 
 	// Setting DMAcount to UINT_MAX to initialize the struct.
 	preq->DMAcount = UINT_MAX;		
@@ -555,9 +543,7 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 		
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
-	struct acquireBarrierRequest* req;
-	if ((req = MALLOC(sizeof(struct acquireBarrierRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct acquireBarrierRequest* req = MALLOC(sizeof(struct acquireBarrierRequest));
 	
 	req->packageCode = PACKAGE_ACQUIRE_BARRIER_REQUEST;
 	req->requestID = requestId;
@@ -635,9 +621,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	{
 		//printf(WHERESTR "Handling write release\n", WHEREARG);
 		//Get a group id, and register the active transfer
-		struct spu_pendingRequest* preq;
-		if((preq = MALLOC(sizeof(struct spu_pendingRequest))) == NULL)
-			REPORT_ERROR("malloc error");
+		struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
 		
 		preq->objId = obj->id;
 		preq->requestId = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
@@ -829,13 +813,14 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 					fprintf(stderr, "* ERROR * " WHERESTR ": Item %d is in DMATransfer\n", WHEREARG, v->objId);
 				}*/
 				
-				sleep(5);
+				//sleep(5);
 				
 				PUSH_TO_SPU(state, preq->requestId;);
 				PUSH_TO_SPU(state, NULL);
 				PUSH_TO_SPU(state, 0);
 				g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
 				FREE(preq);
+				//exit(-5);
 				return TRUE;
 				
 			}
@@ -846,8 +831,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		printf(WHERESTR "Handling acquire response for id: %d, requestId: %d, object did not exist, creating\n", WHEREARG, preq->objId, data->requestID);
 #endif
 
-		if ((obj = MALLOC(sizeof(struct spu_dataObject))) == NULL)
-			REPORT_ERROR("malloc error");
+		obj = MALLOC(sizeof(struct spu_dataObject));
 			
 		obj->count = 1;
 		obj->EA = data->data;
@@ -931,7 +915,10 @@ void spuhandler_ManageDelayedAcquireResponses(struct SPU_State* state)
 		if (obj->LS == NULL)
 		{
 			if (spuhandler_EstimatePendingReleaseSize(state) == 0)
+			{
 				REPORT_ERROR("Out of memory on SPU");
+				exit(-3);
+			}
 			return;
 		}
 		else
@@ -1030,9 +1017,7 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 #endif
 		//__asm__ __volatile__("lwsync" : : : "memory");
 		
-		struct releaseRequest* req;
-		if ((req = MALLOC(sizeof(struct releaseRequest))) == NULL)
-			REPORT_ERROR("malloc error");
+		struct releaseRequest* req = MALLOC(sizeof(struct releaseRequest));
 			
 		/*if (obj->id == 103)
 		{
@@ -1414,9 +1399,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	
 	spu_terminate = FALSE;
 	
-	if ((spu_states = MALLOC(sizeof(struct SPU_State) * thread_count)) == NULL)
-		REPORT_ERROR("malloc error");
-		
+	spu_states = MALLOC(sizeof(struct SPU_State) * thread_count);
 	if (pthread_mutex_init(&spu_rq_mutex, NULL) != 0) REPORT_ERROR("Mutex initialization failed");
 
 	//DMA_SEQ_NO = 0;

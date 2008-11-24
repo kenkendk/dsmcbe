@@ -10,6 +10,20 @@
 #include <free_align.h>
 #include <string.h>
 
+//** If you are using this file in another project (other than DSMCBE),
+//** be aware that the threads cannot call malloc.
+//** You can either supply your own MALLOC call, 
+//** or your threads have to call thread_malloc
+//** You can map MALLOC to thread_malloc in a header file
+
+//** DO NOT map MALLOC to thread_malloc in this module! **/
+
+//Allow non-DSMCBE programs to call malloc as well
+#ifndef MALLOC
+#define THREAD_MALLOC_REQUIRED
+#define MALLOC(x) malloc(x)
+#endif
+
 
 static thread_struct* threads = NULL; //The threads
 static thread_struct* current_thread = NULL; //The currently executing thread
@@ -178,7 +192,7 @@ int CreateThreads(int threadCount)
 			return -2;
 	}
 
-	main_env = (jmp_buf*)malloc(sizeof(jmp_buf));
+	main_env = (jmp_buf*)MALLOC(sizeof(jmp_buf));
 	if (main_env == NULL)
 	{
 			printf("Out of memory\n");
@@ -221,7 +235,7 @@ int CreateThreads(int threadCount)
 	//printf(WHERESTR "After setjmp NOT main\n", WHEREARG);
 
 	//Create the treads
-	threads = (thread_struct*) malloc(sizeof(thread_struct) * no_of_threads);
+	threads = (thread_struct*) MALLOC(sizeof(thread_struct) * no_of_threads);
 	if (threads == NULL)
 		perror("SPU malloc failed for thread storage");
 

@@ -253,10 +253,18 @@ struct packageBuffer
   #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : _malloc_align((x)+1024, y))
   #define FREE_ALIGN(x) _free_align(x)
 */
-  #define MALLOC(x) (((x) == 0) ? NULL : malloc(x))
+
+#ifndef MALLOC
+
+  void* __malloc_w_check(unsigned int size, char* file, int line);
+  void* __malloc_align_w_check(unsigned int size, unsigned int power, char* file, int line);
+
+  #define MALLOC(size) __malloc_w_check(size, __FILE__,__LINE__);
   #define FREE(x) free(x)
-  #define MALLOC_ALIGN(x,y) (((x) == 0) ? NULL : _malloc_align(x,y))
+  #define MALLOC_ALIGN(size, power)  __malloc_align_w_check(size, power, __FILE__,__LINE__);
   #define FREE_ALIGN(x) _free_align(x)
+
+#endif
 
 #endif /* DSMCBE_SPU */
 

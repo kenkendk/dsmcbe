@@ -12,7 +12,9 @@
 #define FIXED_MAP_WIDTH 128
 
 //The total size of memory to use on each machine
+//Unfortunately PS3's do not have a lot of memory...
 #define MEMORY_SIZE (1024 * 1024 * 150)
+//#define MEMORY_SIZE ((((1024 * 100) + (sizeof(PROBLEM_DATA_TYPE) * (FIXED_MAP_WIDTH * 2))) * 800) - (sizeof(PROBLEM_DATA_TYPE) * FIXED_MAP_WIDTH))
 
 //The number of itterations to perform
 #define ITTERATIONS 1000
