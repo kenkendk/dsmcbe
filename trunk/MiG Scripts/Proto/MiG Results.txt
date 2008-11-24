@@ -52,6 +52,14 @@ Reference (not on MiG):
 5: 1 hours 1 min. 36 seconds 982 ms
 6: 51 min. 24 seconds 928 ms
 
+Threaded (Cellbuzz)
+1: The program executed successfully in 5 hours 6 min. 14 seconds 206 ms .
+2: The program executed successfully in 2 hours 33 min. 19 seconds 989 ms .
+3: The program executed successfully in 1 hours 42 min. 29 seconds 581 ms .
+4: The program executed successfully in 1 hours 16 min. 53 seconds 797 ms .
+5: The program executed successfully in 1 hours 1 min. 46 seconds 699 ms .
+6: The program executed successfully in 51 min. 27 seconds 450 ms .
+
  * = Not measured on MiG due to time restrictions imposed by MiG
  
  
