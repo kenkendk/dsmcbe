@@ -218,10 +218,7 @@ void* SPU_Memory_find_chunk(SPU_Memory_Map* map, unsigned int size)
 
 
 SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size) {
-	SPU_Memory_Map* map;
-	
-	if ((map = MALLOC(sizeof(SPU_Memory_Map))) == NULL)
-		REPORT_ERROR("malloc error");
+	SPU_Memory_Map* map = MALLOC(sizeof(SPU_Memory_Map));
 
 	//Always adjust to start at 16 byte boundary
 	if (offset % ALIGN_SIZE_COUNT != 0)

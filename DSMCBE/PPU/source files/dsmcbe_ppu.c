@@ -135,8 +135,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	FILE* filesource;
 	struct sockaddr_in* network;
 	//TODO: Do not hardcode a limit of 20 machines :)	
-	if ((network = MALLOC(sizeof(struct sockaddr_in) * 20)) == NULL)
-		REPORT_ERROR("malloc error");
+	network = MALLOC(sizeof(struct sockaddr_in) * 20);
 	
 	struct sockaddr_in addr;
 	unsigned int port;
@@ -191,9 +190,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 
 	fclose(filesource);
 		
-	int* sockfd;
-	if ((sockfd = (int*)MALLOC(sizeof(int) * networkcount)) == NULL)
-		REPORT_ERROR("malloc error");
+	int* sockfd = MALLOC(sizeof(int) * networkcount);
 	
 	if (id == 0 && id < networkcount) {
 		if (dsmcbe_display_network_startup_value)
@@ -338,11 +335,8 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 		
 	if (thread_count > 0)
 	{
-		if ((spe_ids = (spe_context_ptr_t*)MALLOC(thread_count * sizeof(spe_context_ptr_t))) == NULL)
-			REPORT_ERROR("dsmcbe.c: malloc error");
-		
-		if ((spu_threads = (pthread_t*)MALLOC(thread_count * sizeof(pthread_t))) == NULL)
-			REPORT_ERROR("dsmcbe.c: malloc error");
+		spe_ids = MALLOC(thread_count * sizeof(spe_context_ptr_t));
+		spu_threads = MALLOC(thread_count * sizeof(pthread_t));
 	
 		mustrelease_spe_id = 1;
 

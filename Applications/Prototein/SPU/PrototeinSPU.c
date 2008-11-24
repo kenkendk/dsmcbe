@@ -9,7 +9,7 @@
 #include <dsmcbe_spu.h>
 #include <common/debug.h>
 
-#define DOUBLE_BUFFER
+//#define DOUBLE_BUFFER
 
 #define MAP_WIDTH (prototein_length * 2 + 1) 
 #define MAP_HEIGTH (prototein_length * 2 + 1)

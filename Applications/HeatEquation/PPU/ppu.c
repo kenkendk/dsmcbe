@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <malloc.h>
+#include <sys/mman.h>
 #include "dsmcbe_ppu.h"
 #include "common/debug.h"
 #include "Shared.h"
@@ -379,6 +380,13 @@ int main(int argc, char* argv[])
 	{
 		fprintf(stderr, "Wrong number of parameters, please use either:\n\"./PPU <spu_count>\"\n or \n\"./PPU <machineid> <filename> <spu_count>\"\n\n");
 		exit(-1);
+	}
+
+	//Make sure we dont EVER swap!
+	if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0)
+	{
+		REPORT_ERROR("Unable to prevent swapping!");
+		//exit(-1);
 	}
 
 	pthreads = simpleInitialize(machineid, filename, spu_count);

@@ -103,8 +103,7 @@ void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event,
 	pthread_mutex_lock(&rc_invalidate_queue_mutex);
 	//printf(WHERESTR "locked mutex\n", WHEREARG);
 	
-	if ((sub = MALLOC(sizeof(struct invalidateSubscriber))) == NULL)
-		REPORT_ERROR("malloc error");	
+	sub = MALLOC(sizeof(struct invalidateSubscriber));
 	
 	sub->mutex = mutex;
 	sub->event = event;
@@ -183,6 +182,7 @@ void TerminateCoordinator(int force)
 		
 	pthread_mutex_destroy(&rc_queue_mutex);
 	pthread_cond_destroy(&rc_queue_ready);
+	
 }
 
 //This method initializes all items related to the coordinator and starts the handler thread
@@ -197,8 +197,7 @@ void InitializeCoordinator()
 	{
 		rc_GbagOfTasks = g_queue_new();
 		if (DSMCBE_MachineCount() > 1) {
-			if ((rc_request_count_buffer = malloc(sizeof(unsigned int) * DSMCBE_MachineCount())) == NULL)
-				REPORT_ERROR("malloc error");
+			rc_request_count_buffer = MALLOC(sizeof(unsigned int) * DSMCBE_MachineCount());
 		} else {
 			rc_request_count_buffer = NULL;
 		}
@@ -224,8 +223,7 @@ void InitializeCoordinator()
 		
 		//if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
 		//{
-			if ((obj = MALLOC(sizeof(struct dataObjectStruct))) == NULL)
-				REPORT_ERROR("MALLOC error");
+			obj = MALLOC(sizeof(struct dataObjectStruct));
 				
 			obj->size = sizeof(OBJECT_TABLE_ENTRY_TYPE) * OBJECT_TABLE_SIZE;
 			obj->EA = MALLOC_ALIGN(obj->size, 7);
@@ -315,8 +313,7 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
 	
 	struct invalidateResponse* resp;
 	
-	if((resp = MALLOC(sizeof(struct invalidateResponse))) == NULL)
-		REPORT_ERROR("malloc error");
+	resp = MALLOC(sizeof(struct invalidateResponse));
 	
 	resp->packageCode = PACKAGE_INVALIDATE_RESPONSE;
 	resp->requestID = requestNumber;
@@ -448,10 +445,7 @@ void RespondAny(QueueableItem item, void* resp)
 //Responds with NACK to a request
 void RespondNACK(QueueableItem item)
 {
-	
-	struct NACK* resp;
-	if ((resp = (struct NACK*)MALLOC(sizeof(struct NACK))) == NULL)
-		REPORT_ERROR("MALLOC error");
+	struct NACK* resp = MALLOC(sizeof(struct NACK));
 			
 	resp->packageCode = PACKAGE_NACK;
 	resp->hint = 0;
@@ -464,10 +458,8 @@ void RespondAcquireBarrier(QueueableItem item)
 {
 	//printf(WHERESTR "Responding to acquire barrier\n", WHEREARG);
 
-	struct acquireBarrierResponse* resp;
-	if ((resp = (struct acquireBarrierResponse*)MALLOC(sizeof(struct acquireBarrierResponse))) == NULL)
-		REPORT_ERROR("MALLOC error");
-			
+	struct acquireBarrierResponse* resp = MALLOC(sizeof(struct acquireBarrierResponse));
+
 	resp->packageCode = PACKAGE_ACQUIRE_BARRIER_RESPONSE;
 	
 	RespondAny(item, resp);
@@ -476,9 +468,7 @@ void RespondAcquireBarrier(QueueableItem item)
 //Responds to an acquire request
 void RespondAcquire(QueueableItem item, dataObject obj)
 {
-	struct acquireResponse* resp;
-	if ((resp = (struct acquireResponse*)MALLOC(sizeof(struct acquireResponse))) == NULL)
-		REPORT_ERROR("MALLOC error");
+	struct acquireResponse* resp = MALLOC(sizeof(struct acquireResponse));
 
 	//printf(WHERESTR "Responding to acquire for item for %d\n", WHEREARG, obj->id);
 
@@ -505,12 +495,8 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 //Responds to a release request
 void RespondRelease(QueueableItem item)
 {
-	
-	struct releaseResponse* resp;
-	
 	//TODO: This occasionally leaks memory
-	if ((resp = (struct releaseResponse*)MALLOC(sizeof(struct releaseResponse))) == NULL)
-		REPORT_ERROR("MALLOC error");
+	struct releaseResponse* resp = MALLOC(sizeof(struct releaseResponse));
 	
 	resp->packageCode = PACKAGE_RELEASE_RESPONSE;
 
@@ -612,8 +598,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		//printf(WHERESTR "Create request for %d, size: %d, actual size: %d\n", WHEREARG, request->dataItem, (int)request->dataSize, (int)transfersize);
 		
 		// Make datastructures for later use
-		if ((object = (dataObject)MALLOC(sizeof(struct dataObjectStruct))) == NULL)
-			REPORT_ERROR("MALLOC error");
+		object = MALLOC(sizeof(struct dataObjectStruct));
 		
 		object->id = request->dataItem;
 		object->EA = data;
@@ -690,7 +675,7 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 		if(kl != NULL) {
 			// Mark memory as dirty
 			g_hash_table_remove(rc_GallocatedItems, (void*)dataItem);
-			unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
+			unsigned int* count = MALLOC(sizeof(unsigned int));
 			*count = 0;
 			if(g_hash_table_lookup(rc_GallocatedItemsDirty, obj) == NULL)
 			{
@@ -715,7 +700,7 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 	}
 	else
 	{
-		unsigned int* count = (unsigned int*)MALLOC(sizeof(unsigned int));
+		unsigned int* count = MALLOC(sizeof(unsigned int));
 		*count = 0;
 		if(g_hash_table_lookup(rc_GallocatedItemsDirty, obj) == NULL)
 		{
@@ -727,9 +712,7 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 		
 	while(kl != NULL)
 	{
-		struct invalidateRequest* requ;
-		if ((requ = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
-			REPORT_ERROR("MALLOC error");
+		struct invalidateRequest* requ = MALLOC(sizeof(struct invalidateRequest));
 		
 		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
 		requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
@@ -777,9 +760,7 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 	//Invalidate the network?
 	if (DSMCBE_MachineCount() > 1 && !onlySubscribers)
 	{
-		struct invalidateRequest* requ;
-		if ((requ = (struct invalidateRequest*)MALLOC(sizeof(struct invalidateRequest))) == NULL)
-			REPORT_ERROR("MALLOC error");
+		struct invalidateRequest* requ = MALLOC(sizeof(struct invalidateRequest));
 		
 		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
 		requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
@@ -799,9 +780,7 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 		unsigned int* count = g_hash_table_lookup(rc_GallocatedItemsDirty, obj);
 		(*count)++;		
 		
-		struct QueueableItemStruct* ui;
-		if ((ui = (struct QueueableItemStruct*)MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
-			REPORT_ERROR("MALLOC error");
+		struct QueueableItemStruct* ui = MALLOC(sizeof(struct QueueableItemStruct));
 		
 		ui->mutex = &rc_queue_mutex;
 		ui->event = &rc_queue_ready;
@@ -817,13 +796,10 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 void RecordBufferRequest(QueueableItem item, dataObject obj)
 {
 	
-	QueueableItem temp;
-	if ((temp = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
-		REPORT_ERROR("malloc error");
+	QueueableItem temp = MALLOC(sizeof(struct QueueableItemStruct));
 	memcpy(temp, item, sizeof(struct QueueableItemStruct));				
 
-	if ((temp->dataRequest = MALLOC(sizeof(struct acquireRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	temp->dataRequest = MALLOC(sizeof(struct acquireRequest));
 	memcpy(temp->dataRequest, item->dataRequest, sizeof(struct acquireRequest));
 
 	if (((struct acquireRequest*)item->dataRequest)->packageCode != PACKAGE_ACQUIRE_REQUEST_WRITE)
@@ -1275,8 +1251,7 @@ void HandleReleaseRequest(QueueableItem item)
 					
 				//TODO: Create and use ht_update
 				g_hash_table_remove(rc_GallocatedItems, (void*)req->dataItem);
-				if ((obj = MALLOC(sizeof(struct dataObjectStruct))) == NULL)
-					REPORT_ERROR("malloc error");
+				obj = MALLOC(sizeof(struct dataObjectStruct));
 				
 				obj->EA = req->data;
 				obj->id = req->dataItem;
@@ -1440,9 +1415,6 @@ void HandleInvalidateResponse(QueueableItem item)
 			//printf(WHERESTR "The last response is in for: %d, sending writebuffer signal, %d\n", WHEREARG, object->id, (int)object);
 		
 			struct writebufferReady* invReq = (struct writebufferReady*)MALLOC(sizeof(struct writebufferReady));
-			if (invReq == NULL)
-				REPORT_ERROR("malloc error");
-			
 			g_hash_table_remove(rc_GwritebufferReady, object);
 					
 			invReq->packageCode = PACKAGE_WRITEBUFFER_READY;
@@ -1494,9 +1466,7 @@ void HandleInvalidateResponse(QueueableItem item)
 
 void SingleInvalidate(QueueableItem item, GUID id)
 {
-	struct invalidateRequest* req;
-	if ((req = MALLOC(sizeof(struct invalidateRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct invalidateRequest* req = MALLOC(sizeof(struct invalidateRequest));
 		
 	req->packageCode = PACKAGE_INVALIDATE_REQUEST;
 	req->dataItem = id;
@@ -1548,8 +1518,7 @@ void HandleAcquireResponse(QueueableItem item)
 	{
 		//printf(WHERESTR "registering item locally\n", WHEREARG);
 
-		if ((object = (dataObject)MALLOC(sizeof(struct dataObjectStruct))) == NULL)
-			REPORT_ERROR("MALLOC error");
+		object = MALLOC(sizeof(struct dataObjectStruct));
 		
 		if (req->data == NULL)
 			REPORT_ERROR("Acquire response had empty data");	
@@ -1654,10 +1623,7 @@ void HandleAcquireBarrierResponse(QueueableItem item)
 {
 	//printf(WHERESTR "Handling barrier response\n", WHEREARG);
 	
-	struct acquireBarrierResponse* resp;
-	
-	if((resp = MALLOC(sizeof(struct acquireBarrierResponse))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct acquireBarrierResponse* resp = MALLOC(sizeof(struct acquireBarrierResponse));
 		
 	resp->packageCode = ((struct acquireBarrierResponse*)item->dataRequest)->packageCode;
 	resp->requestID = ((struct acquireBarrierResponse*)item->dataRequest)->requestID;
@@ -1683,9 +1649,7 @@ void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* re
 	GetObjectTable()[resp->dataItem] = dsmcbe_host_number;
 
 	//Pretend the package was an acquire response
-	struct acquireResponse* aresp;
-	if ((aresp = malloc(sizeof(struct acquireResponse))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct acquireResponse* aresp = MALLOC(sizeof(struct acquireResponse));
 	
 	//Copy all fields into the new structure	
 	aresp->packageCode = PACKAGE_ACQUIRE_RESPONSE;
@@ -1729,9 +1693,7 @@ void rc_PerformMigration(QueueableItem item, struct acquireRequest* req, dataObj
 	//Update local table
 	GetObjectTable()[obj->id] = owner;
 	
-	struct migrationResponse* resp;
-	if ((resp = malloc(sizeof(struct migrationResponse))) == NULL)
-		REPORT_ERROR("malloc error");
+	struct migrationResponse* resp = MALLOC(sizeof(struct migrationResponse));
 	
 	resp->packageCode = PACKAGE_MIGRATION_RESPONSE;
 	resp->data = obj->EA;
@@ -1792,8 +1754,7 @@ void* rc_ProccessWork(void* data)
 		if (!g_queue_is_empty(rc_GpriorityResponses))
 		{
 			//printf(WHERESTR "fetching priority response\n", WHEREARG);
-			if ((item = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
-				REPORT_ERROR("MALLOC error");
+			item = MALLOC(sizeof(struct QueueableItemStruct));
 			item->dataRequest = g_queue_pop_head(rc_GpriorityResponses);
 			item->event = &rc_queue_ready;
 			item->mutex = &rc_queue_mutex;
@@ -1878,3 +1839,22 @@ void* rc_ProccessWork(void* data)
 	//Returning the unused argument removes a warning
 	return data;
 }
+
+
+void* __malloc_w_check(unsigned int size, char* file, int line)
+{
+	void* tmp = malloc(size);
+	if (tmp == NULL || size == 0)
+		fprintf(stderr, "* ERROR * [file %s, line %d]: Out of memory: %s, (%i)\n", file, line, strerror(errno), errno);
+		
+	return tmp;
+ }
+
+void* __malloc_align_w_check(unsigned int size, unsigned int power, char* file, int line)
+{
+	void* tmp = _malloc_align(size, power);
+	if (tmp == NULL || size == 0)
+		fprintf(stderr, "* ERROR * [file %s, line %d]: Out of memory: %s, (%i)\n", file, line, strerror(errno), errno);
+		
+	return tmp;
+}  

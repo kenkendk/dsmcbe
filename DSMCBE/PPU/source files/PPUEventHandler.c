@@ -170,10 +170,7 @@ void ppu_terminatePPUHandler()
 void RelayEnqueItem(QueueableItem q)
 {
 	
-	QueueableItem relay;
-	
-	if((relay = MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
-		REPORT_ERROR("malloc error");
+	QueueableItem relay = MALLOC(sizeof(struct QueueableItemStruct));
 		
 	relay->dataRequest = q->dataRequest;
 	relay->event = &ppu_queue_cond;
@@ -199,12 +196,8 @@ void* forwardRequest(void* data)
 	//TODO: Bad for performance to declare GQueue inside function!!	
 	GQueue* dummy;
 
-	QueueableItem q;
-	
-	//printf(WHERESTR "creating item\n", WHEREARG);
 	//Create the entry, this will be released by the coordinator
-	if ((q = (QueueableItem)MALLOC(sizeof(struct QueueableItemStruct))) == NULL)
-		REPORT_ERROR("PPUEventHandler.c: malloc error");
+	QueueableItem q = MALLOC(sizeof(struct QueueableItemStruct));
 	
 	dummy = g_queue_new();
 	q->dataRequest = data;
@@ -281,8 +274,8 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 		else
 		{
 			//printf(WHERESTR "recording entry for %d, EA: %d\n", WHEREARG, id, (int)retval);
-			if ((ent = (PointerEntry)MALLOC(sizeof(struct PointerEntryStruct))) == NULL)
-				REPORT_ERROR("malloc error");
+			ent = MALLOC(sizeof(struct PointerEntryStruct));
+
 			ent->data = retval;
 			ent->id = id;
 			ent->offset = offset;
@@ -318,8 +311,8 @@ void* threadCreate(GUID id, unsigned long size)
 	
 	//printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
-	if ((cr = (struct createRequest*)MALLOC(sizeof(struct createRequest))) == NULL)
-		REPORT_ERROR("PPUEventHandler.c: malloc error");
+	cr = MALLOC(sizeof(struct createRequest));
+	
 	cr->packageCode = PACKAGE_CREATE_REQUEST;
 	cr->requestID = 0;
 	cr->dataItem = id;
@@ -500,8 +493,7 @@ void threadAcquireBarrier(GUID id)
 	}
 	
 	//Create the request, this will be released by the coordinator	
-	if ((cr = (struct acquireBarrierRequest*)MALLOC(sizeof(struct acquireBarrierRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	cr = MALLOC(sizeof(struct acquireBarrierRequest));
 
 	cr->packageCode = PACKAGE_ACQUIRE_BARRIER_REQUEST;
 	cr->requestID = 0;
@@ -572,8 +564,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	pthread_mutex_unlock(&ppu_pointerOld_mutex);
 		
 	//Create the request, this will be released by the coordinator	
-	if ((cr = (struct acquireRequest*)MALLOC(sizeof(struct acquireRequest))) == NULL)
-		REPORT_ERROR("malloc error");
+	cr = MALLOC(sizeof(struct acquireRequest));
 
 	if (type == ACQUIRE_MODE_WRITE) {
 		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
@@ -670,8 +661,8 @@ void threadRelease(void* data)
 		if (pe->mode == ACQUIRE_MODE_WRITE)
 		{
 			//Create a request, this will be released by the coordinator
-			if ((re = (struct releaseRequest*)MALLOC(sizeof(struct releaseRequest))) == NULL)
-				REPORT_ERROR("malloc error");
+			re = MALLOC(sizeof(struct releaseRequest));
+
 			re->packageCode = PACKAGE_RELEASE_REQUEST;
 			re->requestID = 0;
 			re->dataItem = pe->id;
