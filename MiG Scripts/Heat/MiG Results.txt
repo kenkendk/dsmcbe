@@ -14,10 +14,18 @@ Size: (128x1228800:1000):
 24: 1 hours 37 min. 26 seconds 831 ms
 
 
-Individually scaled (250 jobs pr. SPU) (Not from MiG):
-Time taken on 1 processors with type float (128x50400:1000): 21 min. 26 seconds 550 ms
-Time taken on 2 processors with type float (128x101000:1000): 21 min. 56 seconds 922 ms
-Time taken on 3 processors with type float (128x151400:1000): 22 min. 22 seconds 34 ms
-Time taken on 4 processors with type float (128x201800:1000): 24 min. 12 seconds 394 ms
-Time taken on 5 processors with type float (128x252400:1000): 28 min. 57 seconds 202 ms
-Time taken on 6 processors with type float (128x302800:1000): 34 min. 35 seconds 339 ms
+Individually scaled (10 jobs pr. SPU) (From Cellbuzz):
+Time taken on 1 processors with type float (128x2019:1000): 52 seconds 971 ms
+Time taken on 2 processors with type float (128x4039:1000): 55 seconds 937 ms
+Time taken on 3 processors with type float (128x6059:1000): 1 min. 332 ms
+Time taken on 4 processors with type float (128x8079:1000): 1 min. 14 seconds 676 ms
+Time taken on 5 processors with type float (128x10099:1000): 1 min. 26 seconds 618 ms
+Time taken on 6 processors with type float (128x12119:1000): 1 min. 34 seconds 850 ms
+Time taken on 7 processors with type float (128x14139:1000): 1 min. 51 seconds 528 ms
+Time taken on 8 processors with type float (128x16159:1000): 2 min. 11 seconds 493 ms
+
+Cellbuzz:
+Time taken on 6 processors with type float (128x307200:1000): 39 min. 21 seconds 816 ms
+Time taken on 12 processors with type float (128x614400:1000): 41 min. 16 seconds 474 ms
+Time taken on 18 processors with type float (128x921600:1000): 42 min. 546 ms
+Time taken on 24 processors with type float (128x1228800:1000): 44 min. 27 seconds 558 ms

@@ -2,6 +2,7 @@
 
 ./setup.sh $1
 
+
 COUNTER=2
 LIMIT=$1
 let LIMIT=LIMIT+1
@@ -17,6 +18,8 @@ while [  $COUNTER -lt $LIMIT ]; do
 	HOSTNAME=`echo -n PS3-$HOSTID`
 	let MACHINEID=COUNTER-1
 
+	#MiG annoyance
+	ssh $HOSTNAME "killall -9 ssh"
 	ssh $HOSTNAME "cd ${PWD} && ./startjob.sh $2 $MACHINEID $3 2>$HOSTNAME.stderr 1>$HOSTNAME.stdout" &
 
 	echo "Starting $HOSTNAME as machine $MACHINEID"
