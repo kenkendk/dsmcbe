@@ -28,7 +28,7 @@ extern spe_program_handle_t SPU;
 //#define ROUNDS 480
 #define SHOTS (SHOTS_SPU * ROUNDS)
 
-//#define STATIC
+#define STATIC
 
 int WIDTH;
 int HEIGTH;
