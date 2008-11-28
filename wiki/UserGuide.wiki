@@ -26,6 +26,9 @@ A sample SPU compile command would be:
 spu-gcc -ldsmcbe_spu file.c -o"SPU"
 }}}
 
+= Gettings started =
+If you [http://code.google.com/p/dsmcbe/source/checkout check out the source code from the repository], there are a number of applications that are ready to run. For starters you may want to look at the simple [http://code.google.com/p/dsmcbe/source/browse/#svn/trunk/Applications/HelloWorld Hello world application]. If you are using Eclipse for development, you can import the DSMCBE folder and the desired Application folder into your workspace, and it should compile right away.
+
 = DSMCBE function overview =
 DSMCBE works by handling data transfers between PPU units (threads) and SPU units. If required, DSMCBE also transfers data between machines in a cluster, in such a way that the programmer does not have to deal with localization or transfers.
 
@@ -191,6 +194,3 @@ release(barrier);
 This works very well, and optimizations in DSMCBE heavily reduces the amount of data transfered. But each write to the object requires that the changes are distributed to the reading components. Since the content has no use other than for determining if the end criteria has been met, it can be optimized even more. For this reason, DSMCBE has an optimized barrier function where no unnecesary data is transmitted.
 
 A barrier is created by calling the function *createBarrier* with the barrier *GUID*, and the number of processes that are meeting in the barrier. Processes that join in the barrier can call *acquireBarrier* with the barrier *GUID*. The call will block until all processes have arrived. Unlike a traditional *acquire*, no pointer is returned and *release* may not be called. 
-
-= Gettings started =
-If you [http://code.google.com/p/dsmcbe/source/checkout check out the source code from the repository], there are a number of applications that are ready to run. For starters you may want to look at the simple [http://code.google.com/p/dsmcbe/source/browse/#svn/trunk/Applications/HelloWorld Hello world application]. If you are using Eclipse for development, you can import the DSMCBE folder and the desired Application folder into your workspace, and it should compile right away.
