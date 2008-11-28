@@ -1,65 +1,83 @@
-﻿Single:
-1: 5 hours 6 min. 59 seconds 950 ms *
-2: 2 hours 33 min. 30 seconds 788 ms *
-3: 1 hours 42 min. 24 seconds 534 ms
-4: 1 hours 16 min. 51 seconds 496 ms
-5: 1 hours 1 min. 28 seconds 42 ms
-6: 51 min. 16 seconds 458 ms
-12: 25 min. 47 seconds 635 ms
-18: 17 min. 16 seconds 442 ms
-24: 12 min. 56 seconds 541 ms
-30: 10 min. 25 seconds 270 ms
-36: 8 min. 40 seconds 386 ms
-42: 7 min. 29 seconds 261 ms
-48: 6 min. 33 seconds 64 ms
-54: 5 min. 50 seconds 103 ms
-60: 5 min. 17 seconds 812 ms
-66: 4 min. 49 seconds 703 ms
-72: 4 min. 24 seconds 808 ms
-78: 4 min. 6 seconds 974 ms
-84: 3 min. 50 seconds 262 ms
-90: 3 min. 35 seconds 659 ms
-96: 3 min. 22 seconds 550 ms
-
-Double:
-1: 5 hours 7 min. 63 ms *
-2: 2 hours 33 min. 30 seconds 635 ms *
-3: 1 hours 42 min. 24 seconds 614 ms
-4: 1 hours 16 min. 52 seconds 110 ms
-5: 1 hours 1 min. 27 seconds 685 ms
-6: 51 min. 16 seconds 885 ms
-12: 25 min. 48 seconds 380 ms
-18: 17 min. 14 seconds 678 ms
-24: 12 min. 56 seconds 873 ms
-30: 10 min. 24 seconds 731 ms
-36: 8 min. 41 seconds 84 ms
-42: 7 min. 30 seconds 779 ms
-48: 6 min. 34 seconds 388 ms
-54: 5 min. 51 seconds 77 ms
-60: 5 min. 18 seconds 325 ms
-66: 4 min. 50 seconds 570 ms
-72: 4 min. 25 seconds 355 ms
-78: 4 min. 8 seconds 117 ms
-84: 3 min. 50 seconds 649 ms
-90: 3 min. 35 seconds 360 ms
-96: 3 min. 24 seconds 58 ms
-
-Reference (not on MiG):
-1: 5 hours 7 min. 48 seconds 984 ms
-2: 2 hours 33 min. 54 seconds 685 ms
-3: 1 hours 42 min. 40 seconds 240 ms
-4: 1 hours 17 min. 3 seconds 906 ms
-5: 1 hours 1 min. 36 seconds 982 ms
-6: 51 min. 24 seconds 928 ms
-
-Threaded (Cellbuzz)
-1: The program executed successfully in 5 hours 6 min. 14 seconds 206 ms
-2: The program executed successfully in 2 hours 33 min. 19 seconds 989 ms
-3: The program executed successfully in 1 hours 42 min. 29 seconds 581 ms
-4: The program executed successfully in 1 hours 16 min. 53 seconds 797 ms
-5: The program executed successfully in 1 hours 1 min. 46 seconds 699 ms
-6: The program executed successfully in 51 min. 27 seconds 450 ms
-
- * = Not measured on MiG due to time restrictions imposed by MiG
- 
- 
+﻿Single PS3								
+PS3	min	sek	ms	ms	Speedup	Procent	Optimal	
+Ref	307	48	984	18468984				
+1	306	59	950	184199501,003	100,27%	1	
+2	153	30	788	9210788	2,005	100,26%	2	
+3	102	24	534	6144534	3,006	100,19%	3	
+4	76	51	496	4611496	4,005	100,12%	4	
+5	61	28	42	3688042	5,008	100,16%	5	
+6	51	16	458	3076458	6,003	100,06%	6	
+12	25	47	635	1547635	11,934	99,45%	12	
+18	17	16	442	1036442	17,820	99,00%	18	
+24	12	56	541	776541	23,784	99,10%	24	
+30	10	25	270	625270	29,538	98,46%	30	
+36	8	40	386	520386	35,491	98,59%	36	
+42	7	29	261	449261	41,110	97,88%	42	
+48	6	33	64	393064	46,987	97,89%	48	
+54	5	50	103	350103	52,753	97,69%	54	
+60	5	17	812	317812	58,113	96,85%	60	
+66	4	49	703	289703	63,751	96,59%	66	
+72	4	24	808	264808	69,745	96,87%	72	
+78	4	6	974	246974	74,781	95,87%	78	
+84	3	50	262	230262	80,209	95,49%	84	
+90	3	35	659	215659	85,640	95,16%	90	
+96	3	22	550	202550	91,182	94,98%	96	
+								
+								
+Double PS3								
+PS3	min	sek	ms	ms	Speedup	Procent	Optimal	
+Ref	307	48	984	18468984				
+1	307	0	63	184200631,003	100,27%	1	
+2	153	30	635	9210635	2,005	100,26%	2	
+3	102	24	614	6144614	3,006	100,19%	3	
+4	76	52	110	4612110	4,004	100,11%	4	
+5	61	27	685	3687685	5,008	100,17%	5	
+6	51	16	885	3076885	6,002	100,04%	6	
+12	25	48	380	1548380	11,928	99,40%	12	
+18	17	14	678	1034678	17,850	99,17%	18	
+24	12	56	873	776873	23,773	99,06%	24	
+30	10	24	871	624871	29,556	98,52%	30	
+36	8	41	84	521084	35,443	98,45%	36	
+42	7	30	779	450779	40,971	97,55%	42	
+48	6	34	388	394388	46,829	97,56%	48	
+54	5	51	77	351077	52,607	97,42%	54	
+60	5	18	325	318325	58,019	96,70%	60	
+66	4	50	570	290570	63,561	96,30%	66	
+72	4	25	355	265355	69,601	96,67%	72	
+78	4	8	117	248117	74,437	95,43%	78	
+84	3	50	649	230649	80,074	95,33%	84	
+90	3	35	360	215360	85,759	95,29%	90	
+96	3	24	58	204058	90,509	94,28%	96	
+								
+Double Cell Blade								
+PS3	min	sek	ms	ms	Speedup	Procent	Optimal	
+Ref	307	48	984	18468984				
+1	306	48		184080001,003	100,33%	1
+2	153	14	310	9194310	2,009	100,44%	2	
+3	102	9	274	6129274	3,013	100,44%	3	
+4	76	40	532	4600532	4,015	100,36%	4	
+5	61	18	509	3678509	5,021	100,42%	5	
+6	51	9	437	3069437	6,017	100,28%	6	
+7	43	52	68	2632068	7,017	100,24%	7	
+8	38	21	250	2301250	8,026	100,32%	8	
+9	34	7	231	2047231	9,021	100,24%	9	
+10	30	42	952	1842952	10,021	100,21%	10	
+11	27	57	441	1677441	11,010	100,09%	11	
+12	25	38	794	1538794	12,002	100,02%	12	
+13	23	40	996	1420996	12,997	99,98%	13	
+14	21	58	610	1318610	14,006	100,05%	14	
+15	20	30	805	1230805	15,006	100,04%	15	
+16	19	16	136	1156136	15,975	99,84%	16	
+32	9	44	836	584836	31,580	98,69%	32	
+48	6	32	773	392773	47,022	97,96%	48	
+64	4	56	881	296881	62,210	97,20%	64
+								
+Threaded (Cellbuzz)								
+PS3	min	sek	ms	ms	Speedup	Procent	Optimal	
+Ref	307	48	984	18468984				
+1	305	14	206	183142061,008	100,85%	1	
+2	153	19	989	9199989	2,008	100,38%	2	
+3	102	29	581	6149581	3,003	100,11%	3	
+4	76	53	797	4613797	4,003	100,07%	4	
+5	61	46	699	3706699	4,983	99,65%	5	
+6	51	27	450	3087450	5,982	99,70%	6	
