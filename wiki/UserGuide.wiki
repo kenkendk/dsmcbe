@@ -27,9 +27,9 @@ spu-gcc -ldsmcbe_spu file.c -o"SPU"
 }}}
 
 = DSMCBE function overview =
-DSMCBE works by handeling data transfers between PPU units (threads) and SPU units. If required, DSMCBE also transfers data between machines in a cluster, in such a way that the programmer does not have to deal with localizing or transfers.
+DSMCBE works by handling data transfers between PPU units (threads) and SPU units. If required, DSMCBE also transfers data between machines in a cluster, in such a way that the programmer does not have to deal with localization or transfers.
 
-In DSMCBE, each data object has a unique id, named a GUID. A GUID is a 32 bit unsigned integer, and is provided when creating an object. The GUID zero is reserved for internal use by DSMCBE. In the current release, the maximum GUID allowed defined to be 25000.
+In DSMCBE, each data object has a unique id, named a GUID. A GUID is a 32 bit unsigned integer, and is provided when creating an object. The GUID zero is reserved for internal use by DSMCBE. In the current release, the maximum GUID allowed, is defined to be 50000.
 
 In DSMCBE you create a shared object by calling the function *create*:
 {{{
@@ -65,14 +65,14 @@ Since all units must agree on what ID to use, it may be preferable to define ID'
 }}}
 
 = Consistency =
-DSMCBE uses a consistency model known as *entry consistency*. This model assigns a lock to each object and guarantees that data does not change while reading, if the lock is held. At the same time the model guarantees that only one unit may have the lock in write mode at any given time (exclusive access). After the lock is released the data will appear constent at all locations, when the lock is granted.
+DSMCBE uses a consistency model known as *entry consistency*. This model assigns a lock to each object and guarantees that data does not change while reading, if the lock is held. At the same time the model guarantees that only one unit may have the lock in write mode at any given time (exclusive access). After the lock is released the data will appear consistent at all locations, when the lock is granted.
 
 For this model to work, it is required that the *release* function is called when data is no longer being used. The shorter the time a lock is held, the less likely it becomes that another process is being blocked, and this gives the best possible performance.
 Note that *release* takes the pointer to the data, and _NOT_ the GUID. It is not allowed to call *acquire* twice from the same thread on the same GUID, without calling *release*. In other words, the DSMCBE locks are _NOT_ re-entrant. DSMCBE is thread safe, and handles concurrent access to data from multiple threads.
 
 A data object can be acquired in either *READ_ONLY* or *READ_WRITE* mode. An object is acquired in *READ_MODE* by calling *acquire* with the third parameter set to *ACQUIRE_MODE_READ*. It is up to the programmer to ensure that the code does not try to write to an object acquired as *READ_ONLY*. The programmer must also ensure that the program does not try to read or write data after *release* has been called. If those rules are honored, DSMCBE guarantees that data does not change unexpectedly while holding the lock.
 
-To *acquire* an object as *READ_WRITE*, one must call *acquire* with the third agument set to *ACQUIRE_MODE_WRITE*. An object acquired as *READ_WRITE* is automatically granted exclusive access to the data. DSMCBE guarantees that only one process can hold a write lock on the object at any given time. The changes made to an object in with *READ_WRITE* access, will be visible to other processes, shortly after *release* has been called. If all processes acquire the same object in *READ_WRITE* mode, it is guaranteed that the changes from one process will be visible as soon as the next process recieves the data.
+To *acquire* an object as *READ_WRITE*, one must call *acquire* with the third agument set to *ACQUIRE_MODE_WRITE*. An object acquired as *READ_WRITE* is automatically granted exclusive access to the data. DSMCBE guarantees that only one process can hold a write lock on the object at any given time. The changes made to an object with *READ_WRITE* access, will be visible to other processes, shortly after *release* has been called. If all processes acquire the same object in *READ_WRITE* mode, it is guaranteed that the changes from one process will be visible as soon as the next process recieves the data.
 
 = Handling SPU units =
 An SPU can access data the same way a PPU can. All calls are named the same, behave the same, and have the same signatures.
@@ -119,7 +119,7 @@ for(i = 0; i < workcount; i++)
     calculate_on_data(my_data, my_size);
     release(my_data);
 
-    SWAP(handle1, handle2);
+    handle1 = handle2;
 }
 
 terminate();
@@ -163,12 +163,11 @@ int main(int argc,char** argv) {
 }}}
 By supplying the machine number on the commandline, it is possible to use the same compiled program on all participating machines. If NULL is supplied as the file name, it is assumed that the program only runs on the local machine. It is not required that all machines run the same compiled program, and one could also supply the filename on the commandline.
 
-Machine number zero, that is, the first machine on the list, has a special role during startup. It initates communication between all the machines. It is recomended that machine number zero is started as the last on, otherwise there may be error messages during startup while the machines try to connect. If the connection fails, the machine will wait 5 seconds and try again, and retry up to 5 times.
+Machine number zero, that is, the first machine on the list, has a special role during startup. It initates communication between all the machines. It is recomended that machine number zero is started as the last one, otherwise there may be error messages during startup while the machines try to connect. If the connection fails, the machine will wait 5 seconds and try again, and retry up to 5 times.
 
 DSMCBE does not perform package scheduling, and it is therefore recomended to use a switched network with full interconnect.
 
-Machine number zero is also special, because it maintains a table that describes the location of all objects. When a new object is created, machine zero is notified of this action. If the program creates many objects, machine zero can be overloaded, but this does not happen with
-regular use.
+Machine number zero is also special, because it maintains a table that describes the location of all objects. When a new object is created, machine zero is notified of this action. If the program creates many objects, machine zero can be overloaded, but this does not happen with regular usage.
 
 = Using barriers =
 A barrier in DSMCBE can be implemented by creating an object containing an integer, initialized to the value zero. Each component that join the barrier acquires the object in *READ_WRITE* mode. The integer in the object is incremented and is compared to the total number of components expected to join the barrier. If the number is equal to the expected number of components, the number is set to zero. If not, the component repeatedly calls *acquire* for the object in *READ_ONLY* mode until this value is zero. An example of this could be:
@@ -192,3 +191,6 @@ release(barrier);
 This works very well, and optimizations in DSMCBE heavily reduces the amount of data transfered. But each write to the object requires that the changes are distributed to the reading components. Since the content has no use other than for determining if the end criteria has been met, it can be optimized even more. For this reason, DSMCBE has an optimized barrier function where no unnecesary data is transmitted.
 
 A barrier is created by calling the function *createBarrier* with the barrier *GUID*, and the number of processes that are meeting in the barrier. Processes that join in the barrier can call *acquireBarrier* with the barrier *GUID*. The call will block until all processes have arrived. Unlike a traditional *acquire*, no pointer is returned and *release* may not be called. 
+
+= Gettings started =
+If you [http://code.google.com/p/dsmcbe/source/checkout check out the source code from the repository], there are a number of applications that are ready to run. For starters you may want to look at the simple [http://code.google.com/p/dsmcbe/source/browse/#svn/trunk/Applications/HelloWorld Hello world application]. If you are using Eclipse for development, you can import the DSMCBE folder and the desired Application folder into your workspace, and it should compile right away.
