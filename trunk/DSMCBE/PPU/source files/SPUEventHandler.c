@@ -851,10 +851,10 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		if (ls == NULL)
 		{
 #ifdef DEBUG_COMMUNICATION	
-				printf(WHERESTR "No more space, delaying acquire until space becomes avalible, free mem: %d, pendingSize: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, pendingSize, data->dataSize);
+			printf(WHERESTR "No more space, delaying acquire until space becomes avalible, free mem: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, data->dataSize);
 #endif
-				if (g_queue_find(state->releaseWaiters, preq) == NULL)
-					g_queue_push_tail(state->releaseWaiters, preq);
+			if (g_queue_find(state->releaseWaiters, preq) == NULL)
+				g_queue_push_tail(state->releaseWaiters, preq);
 		}
 		else
 		{
