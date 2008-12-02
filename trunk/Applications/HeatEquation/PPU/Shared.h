@@ -14,7 +14,9 @@
 //The total size of memory to use on each machine
 //Unfortunately PS3's do not have a lot of memory...
 #define MEMORY_SIZE (1024 * 1024 * 150)
-//#define MEMORY_SIZE ((((1024 * 100) + (sizeof(PROBLEM_DATA_TYPE) * (FIXED_MAP_WIDTH * 2))) * 800) - (sizeof(PROBLEM_DATA_TYPE) * FIXED_MAP_WIDTH))
+
+//#define SPU_COUNT 16
+//#define MEMORY_SIZE ((((1024 * 100) + (sizeof(PROBLEM_DATA_TYPE) * (FIXED_MAP_WIDTH * 2))) * (SPU_COUNT * 100)) - (sizeof(PROBLEM_DATA_TYPE) * FIXED_MAP_WIDTH))
 
 //The number of itterations to perform
 #define ITTERATIONS 1000
@@ -96,6 +98,8 @@ struct Results
 
 #define MASTER_START_LOCK 14
 #define MASTER_COMPLETION_LOCK 15
+
+#define BARRIER_LOCK_OFFSET 16
 
 #define WORK_OFFSET 100
 #define SHARED_ROW_OFFSET 25000
