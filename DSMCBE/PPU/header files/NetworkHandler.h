@@ -8,7 +8,6 @@ void TerminateNetworkHandler(int force);
 
 OBJECT_TABLE_ENTRY_TYPE GetMachineID(GUID itemId);
 
-void NetInvalidate(GUID id);
 void NetUpdate(GUID id, unsigned int offset, unsigned int dataSize, void* data);
 void NetRequest(QueueableItem item, unsigned int machineId);
 void NetUnsubscribe(GUID dataitem, unsigned int machineId);

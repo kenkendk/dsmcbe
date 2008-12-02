@@ -6,7 +6,7 @@
 #include <string.h>
 
 //#define UPDATE_DELTA
-#define INDIVIDUAL_BARRIERS
+//#define INDIVIDUAL_BARRIERS
 
 #ifdef GRAPHICS
 	#define EXTRA_WAIT 1
@@ -32,7 +32,7 @@ double epsilon;
 unsigned int spu_count;
 unsigned int spu_no;
 
-#define PROGRESS(x1, y1, y2, y3) //printf(x1, y1, y2, y3)
+#define PROGRESS(x1, y1, y2, y3) printf(x1, y1, y2, y3)
 
 //#define GET_MAP_VALUE(x,y) (((y) < adjustTop && firstRows != NULL) ? &firstRows[((y) * width) + x] : (((y) > height - 3 && lastRows != NULL) ? &lastRows[(((y) - 1 - height) * width) + x] : &data[(((y) - adjustTop) * width) + x]))  
 #define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data)
@@ -227,7 +227,7 @@ int main(long long id)
 	boot->spu_no++;
 	boot->next_job_no += jobCount;
 	
-	//printf(WHERESTR "SPU %d has %d jobs, starting at %d, map is: (%d x %d), slice is: %d\n", WHEREARG, spu_no, jobCount, firstJob, map_width, map_height, slice_height); 
+	printf(WHERESTR "SPU %d has %d jobs, starting at %d, map is: (%d x %d), slice is: %d\n", WHEREARG, spu_no, jobCount, firstJob, map_width, map_height, slice_height); 
 	
 	release(boot);
 	
@@ -304,7 +304,9 @@ int main(long long id)
 		createBarrier(BARRIER_LOCK_OFFSET + spu_no, 2);
 #endif
 	
+	PROGRESS(WHERESTR "SPU %d is at master lock (%d)\n", WHEREARG, spu_no, ITTERATIONS);
 	release(acquire(MASTER_START_LOCK, &size, ACQUIRE_MODE_READ));
+	PROGRESS(WHERESTR "SPU %d is ready! (%d)\n", WHEREARG, spu_no, ITTERATIONS);
 
 	//printf(WHERESTR "Done creating\n", WHEREARG); 
 

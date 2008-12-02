@@ -1016,8 +1016,6 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 						SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
 					
 					DoInvalidate(obj->id, FALSE);
-					//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, obj->id);
-					NetInvalidate(obj->id);
 				}
 				else
 				{
@@ -1139,10 +1137,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 							if (g_hash_table_size(obj->GleaseTable) == 0)
 								SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
 
-
 							DoInvalidate(id, FALSE);
-							//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, obj->id);
-							NetInvalidate(id);
 						}
 			
 						g_hash_table_insert(obj->GleaseTable, requestor, g_hash_table_lookup(rc_GinvalidateSubscribers, requestor));
@@ -1619,6 +1614,10 @@ void HandleAcquireResponse(QueueableItem item)
 					RecordBufferRequest(q, object);
 						
 					RespondAcquire(q, g_hash_table_lookup(rc_GallocatedItems, (void*)object->id));
+					
+					if (g_hash_table_size(object->GleaseTable) == 0)
+						SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, object), object);
+					
 					DoInvalidate(object->id, TRUE);
 					//SingleInvalidate(q, object->id);
 				}
