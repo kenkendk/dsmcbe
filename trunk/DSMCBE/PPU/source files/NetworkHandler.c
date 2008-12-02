@@ -807,7 +807,6 @@ void net_processPackage(void* data, unsigned int machineId)
 			break;
 		
 		case PACKAGE_ACQUIRE_RESPONSE:
-		case PACKAGE_RELEASE_RESPONSE:
 		case PACKAGE_INVALIDATE_RESPONSE:
 		case PACKAGE_MIGRATION_RESPONSE:
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
@@ -961,12 +960,6 @@ void* net_readPackage(int fd)
 				((struct releaseRequest*)data)->data = NULL;
 			}
 			break;
-		case PACKAGE_RELEASE_RESPONSE:
-			blocksize = sizeof(struct releaseResponse);
-			data = MALLOC(blocksize);
-			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
-				REPORT_ERROR("Failed to read entire release response package"); 
-			break;
 		case PACKAGE_INVALIDATE_REQUEST:
 			blocksize = sizeof(struct invalidateRequest);
 			data = MALLOC(blocksize);
@@ -1105,8 +1098,6 @@ void net_sendPackage(void* package, unsigned int machineId)
 			break;
 		case PACKAGE_RELEASE_REQUEST:
 			break;
-		case PACKAGE_RELEASE_RESPONSE:
-			break;
 		case PACKAGE_INVALIDATE_REQUEST:			
 			break;
 		case PACKAGE_INVALIDATE_RESPONSE:		
@@ -1177,10 +1168,6 @@ void net_sendPackage(void* package, unsigned int machineId)
 			if (((struct releaseRequest*)package)->data == NULL) { REPORT_ERROR("NULL pointer"); }
 			if ((unsigned int)send(fd, ((struct releaseRequest*)package)->data, ((struct releaseRequest*)package)->dataSize, 0) != ((struct releaseRequest*)package)->dataSize)
 				REPORT_ERROR("Failed to send entire release request data package");				  
-			break;
-		case PACKAGE_RELEASE_RESPONSE:
-			if (send(fd, package, sizeof(struct releaseResponse), 0) != sizeof(struct releaseResponse))
-				REPORT_ERROR("Failed to send entire release response package"); 
 			break;
 		case PACKAGE_INVALIDATE_REQUEST:			
 			//printf(WHERESTR "NetInvalidating GUID %i\n", WHEREARG, ((struct invalidateRequest*)package)->dataItem);			

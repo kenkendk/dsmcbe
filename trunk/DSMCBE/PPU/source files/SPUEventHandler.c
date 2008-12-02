@@ -1019,27 +1019,6 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		
 		struct releaseRequest* req = MALLOC(sizeof(struct releaseRequest));
 			
-		/*if (obj->id == 103)
-		{
-			char* ea = (char*)obj->EA;
-			char* spu_ls = (char*)((unsigned int)spe_ls_area_get(state->context) + (unsigned int)obj->LS);
-			printf(WHERESTR "Testing id %d with %d bytes\n", WHEREARG, obj->id, (int)obj->size);
-			size_t x;
-			for(x = 0; x < obj->size; x++)
-				if (spu_ls[x] != ea[x])
-				{
-					printf(WHERESTR "Found mismatch in byte %d of %d bytes\n", WHEREARG, x, (int)obj->size);
-					sleep(2);
-				}
-			printf(WHERESTR "Done testing %d bytes\n", WHEREARG, (int)obj->size);
-		}*/
-		
-		/*printf(WHERESTR "Operation: %d\n", WHEREARG, preq->operation);
-		printf(WHERESTR "Objid: %d\n", WHEREARG, preq->objId);
-		printf(WHERESTR "DMACount: %d\n", WHEREARG, preq->DMAcount);
-		printf(WHERESTR "requestId: %d\n", WHEREARG, preq->requestId);
-		printf(WHERESTR "Pointer: %d\n", WHEREARG, (unsigned int)preq);*/
-			
 		req->data = obj->EA;
 		req->dataItem = obj->id;
 		req->dataSize = obj->size;
@@ -1048,38 +1027,16 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		req->packageCode = PACKAGE_RELEASE_REQUEST;
 		req->requestID = preq->requestId;
 		
-		g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
-		
 		spuhandler_SendRequestCoordinatorMessage(state, req);
+
+		FREE(preq);
+		if (obj == NULL || obj->count == 0)
+		{
+			REPORT_ERROR("Release was completed, but the object was not acquired?");
+			return;
+		}
+		spuhandler_HandleObjectRelease(state, obj);
 	}
-}
-
-//This function handles incoming release responses from the request coordinator
-void spuhandler_HandleReleaseResponse(struct SPU_State* state, unsigned int requestId)
-{
-#ifdef DEBUG_COMMUNICATION
-	printf(WHERESTR "Handling release respone for requestId: %d\n", WHEREARG, requestId);
-#endif	
-	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)requestId);
-	if (preq == NULL)
-	{
-		REPORT_ERROR("Get release response for non initiated request");
-		return;
-	}
-
-	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
-
-	g_hash_table_remove(state->pendingRequests, (void*)requestId);
-	FREE(preq);
-	preq = NULL;
-
-	if (obj == NULL || obj->count == 0)
-	{
-		REPORT_ERROR("Release was completed, but the object was not acquired?");
-		return;
-	}
-	
-	spuhandler_HandleObjectRelease(state, obj);
 }
 
 //This function handles incoming barrier responses from the request coordinator
@@ -1279,9 +1236,6 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 			case PACKAGE_ACQUIRE_RESPONSE:
 				if (spuhandler_HandleAcquireResponse(state, resp) == FALSE)
 					resp = NULL;
-				break;
-			case PACKAGE_RELEASE_RESPONSE:
-				spuhandler_HandleReleaseResponse(state, ((struct releaseResponse*)resp)->requestID);
 				break;
 			case PACKAGE_INVALIDATE_REQUEST:
 				spuhandler_HandleInvalidateRequest(state, ((struct invalidateRequest*)resp)->requestID, ((struct invalidateRequest*)resp)->dataItem);
