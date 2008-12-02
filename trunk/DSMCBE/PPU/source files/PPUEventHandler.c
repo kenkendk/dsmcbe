@@ -69,11 +69,9 @@ void InitializePPUHandler()
 	
 	pthread_attr_t attr;
 	
-	//TODO Use new_full, so it is easy to destroy!
 	Gppu_pointers = g_hash_table_new(NULL, NULL);
 	pthread_mutex_init(&ppu_pointer_mutex, NULL);
 	
-	//TODO Use new_full, so it is easy to destroy!
 	Gppu_pointersOld = g_hash_table_new(NULL, NULL);
 	pthread_mutex_init(&ppu_pointerOld_mutex, NULL);
 	pthread_cond_init(&ppu_pointerOld_cond, NULL);
@@ -97,7 +95,7 @@ void InitializePPUHandler()
 	pthread_create(&ppu_dispatchthread, &attr, ppu_requestDispatcher, NULL);
 	pthread_attr_destroy(&attr);
 	
-	RegisterInvalidateSubscriber(&ppu_queue_mutex, &ppu_queue_cond, &Gppu_work_queue);
+	RegisterInvalidateSubscriber(&ppu_queue_mutex, &ppu_queue_cond, &Gppu_work_queue, -1);
 }
 
 //ppu_terminate the PPUHandler and release all resources
@@ -227,24 +225,28 @@ void* forwardRequest(void* data)
 	
 	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE) {
 	
-		//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
 		
-		pthread_mutex_lock(&ppu_dummy_mutex);
-		while (g_queue_is_empty(dummy)) {
+		if (((struct acquireResponse*)data)->writeBufferReady != TRUE)
+		{
 			//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
-			pthread_cond_wait(&ppu_dummy_cond, &ppu_dummy_mutex);
-			//printf(WHERESTR "got for writebuffer signal\n", WHEREARG);
-		}
-		
-		struct writebufferReady* data2 = g_queue_pop_head(dummy);
-		pthread_mutex_unlock(&ppu_dummy_mutex);
-		if (data2->packageCode != PACKAGE_WRITEBUFFER_READY)
-			REPORT_ERROR("Expected PACKAGE_WRITEBUFFER_READY");
-		
-		FREE(data2);
-		data2 = NULL;
 	
-		pthread_mutex_unlock(&ppu_dummy_mutex);
+			pthread_mutex_lock(&ppu_dummy_mutex);
+			while (g_queue_is_empty(dummy)) {
+				//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
+				pthread_cond_wait(&ppu_dummy_cond, &ppu_dummy_mutex);
+				//printf(WHERESTR "got for writebuffer signal\n", WHEREARG);
+			}
+			
+			struct writebufferReady* data2 = g_queue_pop_head(dummy);
+			pthread_mutex_unlock(&ppu_dummy_mutex);
+			if (data2->packageCode != PACKAGE_WRITEBUFFER_READY)
+				REPORT_ERROR("Expected PACKAGE_WRITEBUFFER_READY");
+			
+			FREE(data2);
+			data2 = NULL;
+		
+			pthread_mutex_unlock(&ppu_dummy_mutex);
+		}
 	}
 	
 	//printf(WHERESTR "returning response (%d)\n", WHEREARG, (int)data);

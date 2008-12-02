@@ -8,7 +8,6 @@
 #include <stropts.h>
 
 //#define TRACE_NETWORK_PACKAGES
-#define DISABLE_LEASE_TABLE
 
 #include "../header files/RequestCoordinator.h"
 #include "../../dsmcbe.h"
@@ -37,15 +36,6 @@ pthread_cond_t net_work_ready;
 
 //Each remote host has its own requestQueue
 GQueue** Gnet_requestQueues;
-
-#ifndef DISABLE_LEASE_TABLE
-//Keep track of which hosts have what data, this minimizes the amount of invalidate messages
-GHashTable* Gnet_leaseTable;
-GHashTable* Gnet_writeInitiator;
-
-//This mutex protects the lease table and write initiator
-pthread_mutex_t net_leaseLock;
-#endif
 
 //Keep track of which objects are in queue for the network
 GHashTable* Gnet_activeTransfers;
@@ -342,17 +332,6 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 		net_sequenceNumbers[i] = 0;
 	}
 
-#ifndef DISABLE_LEASE_TABLE
-	pthread_mutex_init(&net_leaseLock, NULL); 
-	Gnet_leaseTable = g_hash_table_new(NULL, NULL);
-	g_hash_table_insert(Gnet_leaseTable, (void*)OBJECT_TABLE_ID, g_hash_table_new(NULL, NULL));
-	
-	for(i = 0; i < net_remote_hosts; i++)
-		g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable,(void*) OBJECT_TABLE_ID), (void*)i+1, (void*)1);
-		
-	Gnet_writeInitiator = g_hash_table_new(NULL, NULL);
-#endif
-
 	Gnet_activeTransfers = g_hash_table_new(NULL, NULL);
 	Gnet_pendingInvalidates = g_hash_table_new(NULL, NULL);
 	
@@ -366,7 +345,7 @@ void InitializeNetworkHandler(int* remote_handles, unsigned int remote_hosts)
 	pthread_attr_destroy(&attr);
 	
 	for(i = 0; i < net_remote_hosts; i++)
-		RegisterInvalidateSubscriber(&net_work_mutex, &net_work_ready, &Gnet_requestQueues[i]);
+		RegisterInvalidateSubscriber(&net_work_mutex, &net_work_ready, &Gnet_requestQueues[i], i);
 }
 
 void NetUpdate(GUID id, unsigned int offset, unsigned int dataSize, void* data)
@@ -407,41 +386,6 @@ void NetUpdate(GUID id, unsigned int offset, unsigned int dataSize, void* data)
 	//printf(WHERESTR "Processed udpates\n", WHEREARG);
 }
 
-void __NetInvalidate(GUID id)
-{	
-	//printf(WHERESTR "NetInvalidating GUID %i\n", WHEREARG, id);
-	
-	struct invalidateRequest* req;
-	size_t i;
-	
-	if (net_remote_hosts == 0)
-		return;
-	
-	//printf(WHERESTR "locking mutex\n", WHEREARG);
-	pthread_mutex_lock(&net_work_mutex);
-	//printf(WHERESTR "locked mutex\n", WHEREARG);
-	//printf(WHERESTR "Taking lock: %d\n", WHEREARG, (int)&net_work_mutex);
-	for(i = 0; i < net_remote_hosts; i++)
-	{
-		if (i != dsmcbe_host_number)
-		{
-			//printf(WHERESTR "Processing invalidates, target machine: %d, GUID: %d\n", WHEREARG, i, id);
-			req = MALLOC(sizeof(struct invalidateRequest));
-				
-			req->dataItem = id;
-			req->packageCode = PACKAGE_INVALIDATE_REQUEST;
-			req->requestID = 0;
-			g_queue_push_tail(Gnet_requestQueues[i], req);
-		}
-	}
-	
-	pthread_cond_signal(&net_work_ready);
-
-	//printf(WHERESTR "Releasing lock: %d\n", WHEREARG, (int)&net_work_mutex);
-	pthread_mutex_unlock(&net_work_mutex);
-	//printf(WHERESTR "Processed invalidates\n", WHEREARG);
-}
-
 void TerminateNetworkHandler(int force)
 {
 	
@@ -478,12 +422,6 @@ void TerminateNetworkHandler(int force)
 	Gnet_idlookups = NULL;
 	FREE(net_sequenceNumbers);
 	net_sequenceNumbers = NULL;
-	
-
-	
-#ifndef DISABLE_LEASE_TABLE
-	pthread_mutex_destroy(&net_leaseLock);
-#endif
 	
 	pthread_mutex_destroy(&net_work_mutex);
 	pthread_cond_destroy(&net_work_ready);
@@ -599,95 +537,10 @@ void* net_Writer(void* data)
 		if (net_terminate || package == NULL)
 			continue;
 
-#ifndef DISABLE_LEASE_TABLE
-		//Catch and filter invalidates
-		if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
-		{
-			//printf(WHERESTR "locking mutex\n", WHEREARG);
-			pthread_mutex_lock(&net_leaseLock);
-			//printf(WHERESTR "locked mutex\n", WHEREARG);
-			
-			itemid = ((struct invalidateRequest*)package)->dataItem;
-			
-			if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
-				g_hash_table_insert(Gnet_leaseTable, (void*)itemid, g_hash_table_new(NULL, NULL));
-				
-			//printf(WHERESTR "Processing invalidate package to: %d\n", WHEREARG, hostno);
-			
-			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(hostno + 1)) != NULL)
-			{
-				initiatorNo = (int)g_hash_table_lookup(Gnet_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem) - 1;
-				
-				if ((int)hostno != initiatorNo)
-				{
-					//Regular invalidate, register as cleared
-					//printf(WHERESTR "Invalidate, unregistered machine: %d for package %d\n", WHEREARG, hostno, itemid);
-					((struct invalidateRequest*)package)->requestID = NET_MAX_SEQUENCE + 1;
-					g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(hostno + 1));
-				}
-				else
-				{
-					//This host initiated the invalidate
-					//printf(WHERESTR "Invalidate to %d was discarded because the host initiated the invalidate, id: %d\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
-					g_hash_table_remove(Gnet_writeInitiator, (void*)((struct invalidateRequest*)package)->dataItem);
-					FREE(package);
-					package = NULL;
-				}
-			}
-			else
-			{
-				//printf(WHERESTR "Invalidate to %d was discarded, because the recipient does not have the data, id: %d.\n", WHEREARG, hostno, ((struct invalidateRequest*)package)->dataItem);
-				//The host has newer seen the data, or actively destroyed it
-				FREE(package);
-				package = NULL;
-			}
-			pthread_mutex_unlock(&net_leaseLock);
-		}
-		else if (((struct createRequest*)package)->packageCode == PACKAGE_ACQUIRE_RESPONSE)
-		{
-			//printf(WHERESTR "locking mutex\n", WHEREARG);
-			pthread_mutex_lock(&net_leaseLock);
-			//printf(WHERESTR "locked mutex\n", WHEREARG);
-			itemid = ((struct acquireResponse*)package)->dataItem;
-			
-			//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
-			
-			if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
-				g_hash_table_insert(Gnet_leaseTable, (void*)itemid, g_hash_table_new(NULL, NULL));
-				
-			if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(hostno + 1)) == NULL)
-			{
-				//printf(WHERESTR "Registering %d as holder of %d\n", WHEREARG, hostno, itemid);
-				g_hash_table_insert(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(hostno + 1), (void*)1);
-			}
-			else
-			{
-				//No need to transfer again...
-				//printf(WHERESTR "Saved %d bytes of network traffic!\n", WHEREARG, ((struct acquireResponse*)package)->dataSize); 
-				((struct acquireResponse*)package)->dataSize = 0;
-			}
-				
-			if (((struct acquireResponse*)package)->mode == ACQUIRE_MODE_WRITE)
-			{
-				//printf(WHERESTR "Registering host %d as initiator for package %d\n", WHEREARG, hostno, itemid);
-				if (g_hash_table_lookup(Gnet_writeInitiator, (void*)itemid) != NULL) {
-					REPORT_ERROR("Same Host was registered twice for write");
-				} else {
-					g_hash_table_insert(Gnet_writeInitiator, (void*)itemid, (void*)hostno+1);
-				}
-			}
-
-			//printf(WHERESTR "Registered %d as holder of %d\n", WHEREARG, hostno, ((struct acquireResponse*)package)->dataItem);
-			pthread_mutex_unlock(&net_leaseLock);
-		}
-#endif
-
 		if (package != NULL)
 		{
 			net_sendPackage(package, hostno);
 
-
-			
 			if (
 				((struct createRequest*)package)->packageCode == PACKAGE_ACQUIRE_RESPONSE || 
 				((struct createRequest*)package)->packageCode == PACKAGE_MIGRATION_RESPONSE ||
@@ -719,12 +572,30 @@ void* net_Writer(void* data)
 				if (locked)
 					pthread_mutex_unlock(&net_work_mutex);
 			}
-#ifdef DISABLE_LEASE_TABLE
-			else if (((struct createRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
+			else if (((struct invalidateRequest*)package)->packageCode == PACKAGE_INVALIDATE_REQUEST)
 			{
-				EnqueInvalidateResponse(((struct invalidateRequest*)package)->requestID);	
+				pthread_mutex_lock(&net_work_mutex);
+				
+				unsigned int* v = g_hash_table_lookup(Gnet_activeTransfers, (void*)((struct invalidateRequest*)package)->dataItem);
+				if (v == NULL || *v == 0)
+				{
+					struct QueueableItemStruct* ui = g_hash_table_lookup(Gnet_pendingInvalidates, (void*)((struct invalidateRequest*)(package))->dataItem);
+					if (ui != NULL)
+					{
+						g_hash_table_remove(Gnet_pendingInvalidates, (void*)((struct invalidateRequest*)(package))->dataItem);
+						pthread_mutex_unlock(&net_work_mutex);
+						NetRespondToInvalidate(ui);
+					}
+					else
+					{
+						pthread_mutex_unlock(&net_work_mutex);
+						EnqueInvalidateResponse(((struct invalidateRequest*)package)->requestID);
+					}
+						
+				}
+				else
+					pthread_mutex_unlock(&net_work_mutex);
 			}
-#endif
 
 			FREE(package);
 			package = NULL;
@@ -787,35 +658,6 @@ void net_processPackage(void* data, unsigned int machineId)
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 
 			//printf(WHERESTR "Processing network package from %d, with type: %s, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode), ((struct acquireRequest*)data)->dataItem);
-
-#ifndef DISABLE_LEASE_TABLE			
-			if (((struct createRequest*)data)->packageCode == PACKAGE_RELEASE_REQUEST)
-			{
-				itemid = ((struct releaseRequest*)data)->dataItem;
-				//printf(WHERESTR "Processing release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
-				
-				//printf(WHERESTR "locking mutex\n", WHEREARG);			
-				pthread_mutex_lock(&net_leaseLock);
-				//printf(WHERESTR "locked mutex\n", WHEREARG);
-				//The read release request implies that the sender has destroyed the copy
-				if (g_hash_table_lookup(Gnet_leaseTable, (void*)itemid) == NULL)
-					g_hash_table_insert(Gnet_leaseTable, (void*)itemid, g_hash_table_new(NULL, NULL));
-
-				if (((struct releaseRequest*)data)->mode == ACQUIRE_MODE_READ)
-				{
-					//printf(WHERESTR "Processing READ release request from %d, GUID: %d\n", WHEREARG, machineId, itemid);
-					if (g_hash_table_lookup(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(machineId + 1)) != NULL)
-						g_hash_table_remove(g_hash_table_lookup(Gnet_leaseTable, (void*)itemid), (void*)(machineId + 1));
-					//printf(WHERESTR "Release recieved for READ %d, unregistering requestor %d\n", WHEREARG, itemid, machineId + 1);
-					FREE(data);
-					data = NULL;
-					pthread_mutex_unlock(&net_leaseLock);
-					return;
-				}
-
-				pthread_mutex_unlock(&net_leaseLock);				
-			}
-#endif		
 		
 			ui = MALLOC(sizeof(struct QueueableItemStruct));
 

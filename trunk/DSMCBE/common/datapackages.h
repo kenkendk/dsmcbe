@@ -77,6 +77,7 @@ struct acquireResponse
     unsigned int requestID;
     GUID dataItem; 
     int mode;
+    unsigned int writeBufferReady;
 	unsigned int originator;
 	unsigned int originalRecipient;
 	unsigned int originalRequestID;
