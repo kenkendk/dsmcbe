@@ -6,11 +6,15 @@
 #include <string.h>
 
 //#define UPDATE_DELTA
+#define INDIVIDUAL_BARRIERS
 
 #ifdef GRAPHICS
 	#define EXTRA_WAIT 1
 	#ifndef UPDATE_DELTA 
 		#define UPDATE_DELTA
+	#endif
+	#ifdef INDIVIDUAL_BARRIERS
+		#undef INDIVIDUAL_BARRIERS
 	#endif
 #else
 	#define EXTRA_WAIT 0
@@ -290,8 +294,16 @@ int main(long long id)
 			shared_row[map_width - 1] = shared_row[(map_width * 2) - 1] = 40.0;
 		}
 		release(shared_row);
+		
 
 	}
+	
+#ifdef INDIVIDUAL_BARRIERS	
+	//Special shared barrier
+	if (spu_no != 0)
+		createBarrier(BARRIER_LOCK_OFFSET + spu_no, 2);
+#endif
+	
 	release(acquire(MASTER_START_LOCK, &size, ACQUIRE_MODE_READ));
 
 	//printf(WHERESTR "Done creating\n", WHEREARG); 
@@ -321,8 +333,15 @@ int main(long long id)
 		}
 		
 		PROGRESS(WHERESTR "SPU %d is at red barrier %d\n", WHEREARG, spu_no, itterations);
+#ifdef INDIVIDUAL_BARRIERS	
 		//Wait
+		if (spu_no != 0)
+			acquireBarrier(BARRIER_LOCK_OFFSET + spu_no);
+		if (spu_no != spu_count - 1)
+			acquireBarrier(BARRIER_LOCK_OFFSET + spu_no + 1);
+#else
 		acquireBarrier(EX_BARRIER_1);
+#endif
 		
 		PROGRESS(WHERESTR "SPU %d is at black %d\n", WHEREARG, spu_no, itterations);
 		//Black round
@@ -370,7 +389,14 @@ int main(long long id)
 #endif /*UPDATE_DELTA*/
 		
 		PROGRESS(WHERESTR "SPU %d is at black barrier %d\n", WHEREARG, spu_no, itterations);
-		acquireBarrier(EX_BARRIER_2);	
+#ifdef INDIVIDUAL_BARRIERS	
+		if (spu_no != 0)
+			acquireBarrier(BARRIER_LOCK_OFFSET + spu_no);
+		if (spu_no != spu_count - 1)
+			acquireBarrier(BARRIER_LOCK_OFFSET + spu_no + 1);
+#else
+		acquireBarrier(EX_BARRIER_2);
+#endif
 
 #ifdef UPDATE_DELTA		
 		PROGRESS(WHERESTR "SPU %d is spinning %d\n", WHEREARG, spu_no, itterations);

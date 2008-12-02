@@ -254,7 +254,8 @@ void Coordinator(unsigned int spu_count)
 	delta = epsilon + 1;
 	
 	unsigned int zprint = 0;
-	unsigned int itterations = ITTERATIONS:
+	unsigned int itterations = ITTERATIONS;
+	unsigned int barrier_alternation = 0;
 	
 	while(itterations-- > 0)
 	{
