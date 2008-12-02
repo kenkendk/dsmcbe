@@ -38,7 +38,7 @@ pthread_t rc_workthread;
 #define MAX_SEQUENCE_NR 1000000
 unsigned int rc_sequence_nr;
 
-#define OPTIMISTIC_CREATE
+//#define OPTIMISTIC_CREATE
 #ifndef OPTIMISTIC_CREATE 
 //This is the table of all pending creates
 GHashTable* rc_GpendingCreates;
@@ -551,12 +551,17 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		objTable[request->dataItem] = request->originator;
 		//printf(WHERESTR "Inserting creator %u for ID %u\n", WHEREARG, request->originator, request->dataItem);
 		
-		GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem);
+		//Not needed, should be handled correctly anyway...
+		
+		/*GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem);
 		while(dq != NULL && !g_queue_is_empty(dq))
 		{
 			//printf(WHERESTR "processed a waiter for %d, (%d)\n", WHEREARG, request->dataItem, (unsigned int)g_queue_peek_head(dq));
 			g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
-		}		
+		}
+		
+		g_queue_free(dq);
+		g_hash_table_remove(rc_Gwaiters, (void*)request->dataItem);*/
 	}
 	
 #else
@@ -607,7 +612,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		//If there are pending acquires, add them to the list
 		if ((object->Gwaitqueue = g_hash_table_lookup(rc_Gwaiters, (void*)object->id)) != NULL)
 		{
-			//printf(WHERESTR "Create request for %d, waitqueue was not empty\n", WHEREARG, request->dataItem);
+			//printf(WHERESTR "Create request for %d, waitqueue was not empty (%d : %d)\n", WHEREARG, request->dataItem, (unsigned int)object->Gwaitqueue, g_queue_get_length(object->Gwaitqueue));
 			g_hash_table_remove(rc_Gwaiters, (void*)object->id);
 		}
 		else
@@ -641,7 +646,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 
 //Perform all actions related to an invalidate
 //If onlySubscribers is set, the network handler and local cache is not purged
-void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
+void DoInvalidate(GUID dataItem, unsigned int removeLocalCopy)
 {
 	dataObject obj;
 	invalidateSubscriber sub;
@@ -658,7 +663,7 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 		return;
 	}
 
-	//printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, allocatedItems->fill);
+	//printf(WHERESTR "Invalidating id: %d, known objects: %d\n", WHEREARG, dataItem, g_hash_table_size(rc_GallocatedItems));
 
 	//printf(WHERESTR "locking mutex\n", WHEREARG);
 	pthread_mutex_lock(&rc_invalidate_queue_mutex);
@@ -666,7 +671,7 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 	
 	unsigned int leaseCount = g_hash_table_size(obj->GleaseTable);
 
-	if (dsmcbe_host_number != GetMachineID(dataItem) && !onlySubscribers)
+	if (dsmcbe_host_number != GetMachineID(dataItem) && removeLocalCopy)
 	{
 		if(leaseCount != 0) {
 			// Mark memory as dirty
@@ -766,39 +771,6 @@ void DoInvalidate(GUID dataItem, unsigned int onlySubscribers)
 	
 	g_hash_table_remove_all(obj->GleaseTable);
 
-	//Invalidate the network?
-	if (DSMCBE_MachineCount() > 1 && !onlySubscribers)
-	{
-		struct invalidateRequest* requ = MALLOC(sizeof(struct invalidateRequest));
-		
-		requ->packageCode =  PACKAGE_INVALIDATE_REQUEST;
-		requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
-		
-		if (g_hash_table_size(rc_GpendingSequenceNr) > (MAX_SEQUENCE_NR / 2))
-			REPORT_ERROR("Likely problem with indvalidate requests...");
-
-		while (g_hash_table_lookup(rc_GpendingSequenceNr, (void*)requ->requestID) != NULL && g_hash_table_size(rc_GpendingSequenceNr) < MAX_SEQUENCE_NR)
-			requ->requestID = NEXT_SEQ_NO(rc_sequence_nr, MAX_SEQUENCE_NR);
-
-		requ->dataItem = dataItem;
-		
-		if (g_hash_table_lookup(rc_GpendingSequenceNr, (void*)requ->requestID) == NULL)		
-			g_hash_table_insert(rc_GpendingSequenceNr, (void*)requ->requestID, obj);
-		else
-			REPORT_ERROR("Could not insert into pendingSequenceNr");
-		unsigned int* count = g_hash_table_lookup(rc_GallocatedItemsDirty, obj);
-		(*count)++;		
-		
-		struct QueueableItemStruct* ui = MALLOC(sizeof(struct QueueableItemStruct));
-		
-		ui->mutex = &rc_queue_mutex;
-		ui->event = &rc_queue_ready;
-		ui->Gqueue = &rc_GbagOfTasks;
-		ui->callback = NULL;
-		ui->dataRequest = requ;
-		
-		NetRequest(ui, OBJECT_TABLE_RESERVED);
-	}
 	//printf(WHERESTR "Invalidate request sent\n", WHEREARG);
 }
 
@@ -950,7 +922,7 @@ int TestForMigration(QueueableItem next, dataObject obj)
 					printf(WHERESTR "Migration threshold exeeced for object %d by machine %d, initiating migration\n", WHEREARG, obj->id, i);
 #endif
 					rc_PerformMigration(next, (struct acquireRequest*)next->dataRequest, obj, i);
-					DoInvalidate(obj->id, FALSE);
+					DoInvalidate(obj->id, TRUE);
 					return TRUE;
 				}
 		}
@@ -998,7 +970,6 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 					//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 
-
 				if (TestForMigration(item, obj))
 					return;
 				
@@ -1018,6 +989,8 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 					{
 						if (g_hash_table_size(obj->GleaseTable) == 0)
 							SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
+						else
+							g_hash_table_remove(obj->GleaseTable, requestor);
 						
 						DoInvalidate(obj->id, FALSE);
 					}
@@ -1030,8 +1003,8 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				
 				if (g_hash_table_lookup(obj->GleaseTable, requestor) == NULL)
 					g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
-				if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
-					REPORT_ERROR("Bad insert");
+				//if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
+				//	REPORT_ERROR("Bad insert");
 					
 			}
 
@@ -1040,6 +1013,8 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 			//Otherwise add the request to the wait list			
 			//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 				//printf(WHERESTR "Object locked\n", WHEREARG);
+
+			//printf(WHERESTR "Object locked, count %d, id: %d\n", WHEREARG, g_queue_get_length(q), request->dataItem);
 				
 			g_queue_push_tail(q, item);
 		}
@@ -1077,6 +1052,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 	//printf(WHERESTR "Performing release for %d\n", WHEREARG, request->dataItem);
 	if (request->mode == ACQUIRE_MODE_READ)
 	{
+		//TODO: Possibly remove requester from queue
 		//printf(WHERESTR "Performing read-release for %d\n", WHEREARG, request->dataItem);
 		return;
 	}
@@ -1132,7 +1108,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 							return;
 													
 						void* requestor = next->Gqueue; 
-						unsigned int onlyOwner = IsOnlyOwner(item, obj);
+						unsigned int onlyOwner = IsOnlyOwner(next, obj);
 						
 						g_queue_push_head(q, NULL);
 
@@ -1148,15 +1124,18 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 							{
 								if (g_hash_table_size(obj->GleaseTable) == 0)
 									SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
-	
+								else
+									g_hash_table_remove(obj->GleaseTable, requestor);
+
 								DoInvalidate(id, FALSE);
 							}
 						}
 			
 						if (g_hash_table_lookup(obj->GleaseTable, requestor) == NULL)
 							g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
-						if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
-							REPORT_ERROR("Bad insert");
+
+						//if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
+						//	REPORT_ERROR("Bad insert");
 						
 						break; //Done
 					} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
@@ -1337,7 +1316,7 @@ void HandleInvalidateRequest(QueueableItem item)
 	struct invalidateRequest* req = item->dataRequest;
 	
 	//printf(WHERESTR "processing network invalidate request for: %d\n", WHEREARG, req->dataItem);
-	DoInvalidate(req->dataItem, FALSE);
+	DoInvalidate(req->dataItem, TRUE);
 	
 	FREE(item->dataRequest);
 	item->dataRequest = NULL;
@@ -1585,7 +1564,7 @@ void HandleAcquireResponse(QueueableItem item)
 			g_hash_table_insert(rc_GallocatedItems, (void*)object->id, object);
 		else
 		{
-			DoInvalidate(object->id, FALSE);
+			DoInvalidate(object->id, TRUE);
 			if (g_hash_table_lookup(rc_GallocatedItems, (void*)object->id) == NULL)
 				g_hash_table_insert(rc_GallocatedItems, (void*)object->id, object);
 			else
@@ -1625,7 +1604,7 @@ void HandleAcquireResponse(QueueableItem item)
 					//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 					pthread_mutex_unlock(&rc_queue_mutex);
 					isLocked = 0;
-					unsigned int onlyOwner = IsOnlyOwner(item, object);
+					unsigned int onlyOwner = IsOnlyOwner(q, object);
 					void* requestor = q->Gqueue;
 					
 					//printf(WHERESTR "unlocked mutex\n", WHEREARG);
@@ -1645,8 +1624,8 @@ void HandleAcquireResponse(QueueableItem item)
 					if (g_hash_table_lookup(object->GleaseTable, requestor) == NULL)
 						g_hash_table_insert(object->GleaseTable, requestor, (void*)1);
 						
-					if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
-						REPORT_ERROR("Bad insert");
+					//if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
+					//	REPORT_ERROR("Bad insert");
 				}
 				else
 				{
@@ -1708,7 +1687,7 @@ void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* re
 #endif
 	
 	//Clear any local copies first
-	DoInvalidate(resp->dataItem, FALSE);
+	DoInvalidate(resp->dataItem, TRUE);
 
 	//Make sure we are the new owner (the update is delayed)
 	GetObjectTable()[resp->dataItem] = dsmcbe_host_number;
