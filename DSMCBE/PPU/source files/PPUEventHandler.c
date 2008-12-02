@@ -671,13 +671,16 @@ void threadRelease(void* data)
 			re->data = data;
 			re->mode = pe->mode;
 
-			//Perform the request and await the response
-			rr = (struct releaseResponse*)forwardRequest(re);
-			if(rr->packageCode != PACKAGE_RELEASE_RESPONSE)
-				REPORT_ERROR("Reponse to release had unexpected type");
-			
-			FREE(rr);
-			rr = NULL;
+			QueueableItem q = MALLOC(sizeof(struct QueueableItemStruct));
+	
+			q->dataRequest = re;
+			q->event = NULL;
+			q->mutex = NULL;
+			q->Gqueue = NULL;
+			q->callback = NULL;
+	
+			//printf(WHERESTR "adding item to queue\n", WHEREARG);
+			RelayEnqueItem(q);
 		}
 
 		pthread_mutex_lock(&ppu_pointerOld_mutex);
@@ -687,7 +690,6 @@ void threadRelease(void* data)
 		pthread_mutex_unlock(&ppu_pointerOld_mutex);
 
 		processInvalidates(NULL);
-		
 	}
 	else
 	{

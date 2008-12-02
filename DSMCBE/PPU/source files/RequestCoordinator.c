@@ -500,17 +500,6 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	RespondAny(item, resp);	
 }
 
-//Responds to a release request
-void RespondRelease(QueueableItem item)
-{
-	//TODO: This occasionally leaks memory
-	struct releaseResponse* resp = MALLOC(sizeof(struct releaseResponse));
-	
-	resp->packageCode = PACKAGE_RELEASE_RESPONSE;
-
-	RespondAny(item, resp);	
-}
-
 OBJECT_TABLE_ENTRY_TYPE* GetObjectTable()
 {
 	dataObject otObj = g_hash_table_lookup(rc_GallocatedItems, (void*)OBJECT_TABLE_ID);
@@ -1111,10 +1100,6 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 			}
 			else
 			{
-				//Respond to the releaser
-				//printf(WHERESTR "Respond to the releaser for %d\n", WHEREARG, request->dataItem);
-				RespondRelease(item);
-				
 				//if(g_queue_is_empty(q))
 					//printf(WHERESTR "Queue is empty\n", WHEREARG);
 					
@@ -1125,6 +1110,8 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 					NetUpdate(OBJECT_TABLE_ID, 0, request->dataSize, obj->EA);
 				}
 				
+				FREE(item);
+				FREE(request);
 			
 				while (!g_queue_is_empty(q))
 				{
@@ -1764,7 +1751,7 @@ void rc_PerformMigration(QueueableItem item, struct acquireRequest* req, dataObj
 	//Forward all requests to the new owner
 	while(!g_queue_is_empty(obj->Gwaitqueue))
 	{
-		QueueableItem tmp = g_queue_pop_head(obj->Gwaitqueue);
+		g_queue_pop_head(obj->Gwaitqueue);
 		NetRequest(item, owner);
 		free(item->dataRequest);
 		free(item);
