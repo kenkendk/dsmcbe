@@ -840,7 +840,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
 		obj->size = data->dataSize;
 		obj->LS = ls;
-		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST;
+		obj->writebuffer_ready = (preq->operation == PACKAGE_CREATE_REQUEST || data->writeBufferReady);
 		obj->isDMAToSPU = TRUE;
 	
 		g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
@@ -1375,7 +1375,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].releaseSeqNo = 0;
 		spu_states[i].streamItems = g_queue_new();
 		
-		RegisterInvalidateSubscriber(&spu_rq_mutex, NULL, &spu_states[i].queue);
+		RegisterInvalidateSubscriber(&spu_rq_mutex, NULL, &spu_states[i].queue, -1);
 	}
 
 

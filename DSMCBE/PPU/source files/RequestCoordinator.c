@@ -88,6 +88,7 @@ struct invalidateSubscriber
 	pthread_mutex_t* mutex;
 	pthread_cond_t* event;
 	GQueue** Gqueue;
+	int network;
 };
 
 //This list contains all current invalidate subscribers;
@@ -97,7 +98,7 @@ GHashTable* rc_GinvalidateSubscribers;
 void* rc_ProccessWork(void* data);
 
 //Add another subscriber to the list
-void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, GQueue** q)
+void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, GQueue** q, int network)
 {
 	invalidateSubscriber sub;
 	
@@ -109,7 +110,8 @@ void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event,
 	
 	sub->mutex = mutex;
 	sub->event = event;
-	sub->Gqueue = q; 
+	sub->Gqueue = q;
+	sub->network = network;
 		
 	g_hash_table_insert(rc_GinvalidateSubscribers, q, sub);
 	pthread_mutex_unlock(&rc_invalidate_queue_mutex);
@@ -413,24 +415,13 @@ void RespondAny(QueueableItem item, void* resp)
 	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
 	
 	if (item->mutex != NULL)
-	{
-		//printf(WHERESTR "locking item->mutex\n", WHEREARG);
 		pthread_mutex_lock(item->mutex);
-		//printf(WHERESTR "locked item->mutex\n", WHEREARG);
-	}
-	
-	//printf(WHERESTR "responding, locking %i, packagetype: %d\n", WHEREARG, (int)item->mutex, ((struct acquireRequest*)resp)->packageCode);
-	//printf(WHERESTR "responding, locked %i\n", WHEREARG, (int)item->queue);
 	
 	if (item->Gqueue != NULL)
 		g_queue_push_tail(*(item->Gqueue), resp);
 		
 	if (item->callback != NULL)
-	{
-		//printf(WHERESTR "responding, callback %i\n", WHEREARG, (int)item->callback);
 		(*(item->callback))(item, resp);
-		//printf(WHERESTR "responding, callback %i\n", WHEREARG, (int)item->callback);
-	}
 		
 	if (item->event != NULL)
 		pthread_cond_signal(item->event);
@@ -473,8 +464,17 @@ void RespondAcquireBarrier(QueueableItem item)
 	RespondAny(item, resp);
 }
 
+unsigned int IsOnlyOwner(QueueableItem item, dataObject obj)
+{
+	unsigned int ht_count = g_hash_table_size(obj->GleaseTable);
+	if (ht_count == 0 || (ht_count == 1 && g_hash_table_lookup(obj->GleaseTable, item->Gqueue) != NULL))
+		return TRUE;
+	else
+		return FALSE;
+}
+
 //Responds to an acquire request
-void RespondAcquire(QueueableItem item, dataObject obj)
+void RespondAcquire(QueueableItem item, dataObject obj, unsigned int onlyOwner)
 {
 	struct acquireResponse* resp = MALLOC(sizeof(struct acquireResponse));
 
@@ -485,6 +485,7 @@ void RespondAcquire(QueueableItem item, dataObject obj)
 	resp->dataSize = obj->size;
 	resp->data = obj->EA;
 	resp->dataItem = obj->id;
+	resp->writeBufferReady = onlyOwner;
 	
 	if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 		resp->mode = ACQUIRE_MODE_WRITE;
@@ -625,7 +626,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 			REPORT_ERROR("Could not insert into allocatedItems");
 		
 		//Notify the requestor 
-		RespondAcquire(item, object);	
+		RespondAcquire(item, object, TRUE);	
 	}
 	else if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
 	{
@@ -991,7 +992,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
 				//printf(WHERESTR "Acquiring READ on not locked object\n", WHEREARG);
 				g_hash_table_insert(obj->GleaseTable, item->Gqueue, g_hash_table_lookup(rc_GinvalidateSubscribers, item->Gqueue));
-				RespondAcquire(item, obj);
+				RespondAcquire(item, obj, FALSE);
 			} else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE) {			
 				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
@@ -1002,20 +1003,24 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 					return;
 				
 				void* requestor = item->Gqueue;
+				unsigned int onlyOwner = IsOnlyOwner(item, obj);
 				
 				g_queue_push_head(q, NULL);
 				
-				if (obj->id != OBJECT_TABLE_ID)
+				if (obj->id != OBJECT_TABLE_ID && !onlyOwner)
 					RecordBufferRequest(item, obj);
 				
-				RespondAcquire(item, obj);
+				RespondAcquire(item, obj, onlyOwner);
 					
 				if (obj->id != OBJECT_TABLE_ID)
 				{
-					if (g_hash_table_size(obj->GleaseTable) == 0)
-						SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
-					
-					DoInvalidate(obj->id, FALSE);
+					if (!onlyOwner)
+					{
+						if (g_hash_table_size(obj->GleaseTable) == 0)
+							SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
+						
+						DoInvalidate(obj->id, FALSE);
+					}
 				}
 				else
 				{
@@ -1023,7 +1028,10 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 					NetUpdate(obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);
 				}
 				
-				g_hash_table_insert(obj->GleaseTable, requestor, NULL);
+				if (g_hash_table_lookup(obj->GleaseTable, requestor) == NULL)
+					g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
+				if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
+					REPORT_ERROR("Bad insert");
 					
 			}
 
@@ -1124,29 +1132,36 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 							return;
 													
 						void* requestor = next->Gqueue; 
+						unsigned int onlyOwner = IsOnlyOwner(item, obj);
+						
 						g_queue_push_head(q, NULL);
 
 						GUID id = obj->id;
-						if (id != OBJECT_TABLE_ID)
+						if (id != OBJECT_TABLE_ID && !onlyOwner)
 							RecordBufferRequest(next, obj);
-						RespondAcquire(next, obj);
+						RespondAcquire(next, obj, onlyOwner);
 
 						//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
 						if (id != OBJECT_TABLE_ID)
 						{
-							if (g_hash_table_size(obj->GleaseTable) == 0)
-								SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
-
-							DoInvalidate(id, FALSE);
+							if (!onlyOwner)
+							{
+								if (g_hash_table_size(obj->GleaseTable) == 0)
+									SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
+	
+								DoInvalidate(id, FALSE);
+							}
 						}
 			
-						g_hash_table_insert(obj->GleaseTable, requestor, g_hash_table_lookup(rc_GinvalidateSubscribers, requestor));
-
+						if (g_hash_table_lookup(obj->GleaseTable, requestor) == NULL)
+							g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
+						if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
+							REPORT_ERROR("Bad insert");
 						
 						break; //Done
 					} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
 						g_hash_table_insert(obj->GleaseTable, next->Gqueue, NULL);
-						RespondAcquire(next, obj);						
+						RespondAcquire(next, obj, FALSE);						
 					}
 					else
 						REPORT_ERROR("packageCode was neither WRITE or READ");						 
@@ -1208,7 +1223,7 @@ void HandleAcquireRequest(QueueableItem item)
 		if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)req->dataItem)) != NULL && req->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
 		{
 			//printf(WHERESTR "Read acquire for item %d, machineid: %d, machine id: %d, returned from local cache\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-			RespondAcquire(item, obj);
+			RespondAcquire(item, obj, FALSE);
 		}
 		else
 		{
@@ -1610,16 +1625,28 @@ void HandleAcquireResponse(QueueableItem item)
 					//printf(WHERESTR "unlocking mutex\n", WHEREARG);
 					pthread_mutex_unlock(&rc_queue_mutex);
 					isLocked = 0;
+					unsigned int onlyOwner = IsOnlyOwner(item, object);
+					void* requestor = q->Gqueue;
+					
 					//printf(WHERESTR "unlocked mutex\n", WHEREARG);
-					RecordBufferRequest(q, object);
+					if (!onlyOwner)
+						RecordBufferRequest(q, object);
 						
-					RespondAcquire(q, g_hash_table_lookup(rc_GallocatedItems, (void*)object->id));
+					RespondAcquire(q, g_hash_table_lookup(rc_GallocatedItems, (void*)object->id), onlyOwner);
 					
-					if (g_hash_table_size(object->GleaseTable) == 0)
-						SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, object), object);
+					if (!onlyOwner)
+					{
+						if (g_hash_table_size(object->GleaseTable) == 0)
+							SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, object), object);
+						
+						DoInvalidate(object->id, TRUE);
+					}
 					
-					DoInvalidate(object->id, TRUE);
-					//SingleInvalidate(q, object->id);
+					if (g_hash_table_lookup(object->GleaseTable, requestor) == NULL)
+						g_hash_table_insert(object->GleaseTable, requestor, (void*)1);
+						
+					if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
+						REPORT_ERROR("Bad insert");
 				}
 				else
 				{

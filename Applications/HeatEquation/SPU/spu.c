@@ -408,6 +408,7 @@ int main(long long id)
 #ifndef GRAPHICS
 			//This should not happen...
 			printf(WHERESTR "SPU %d reported bad timings\n", WHEREARG, spu_no);
+			sleep(1);
 #endif /*GRAPHICS*/
 			//We should not get here unless were are displaying graphics
 			release(barrier);
