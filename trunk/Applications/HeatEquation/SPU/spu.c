@@ -5,8 +5,10 @@
 #include <stdio.h>
 #include <string.h>
 
+//UPDATE_DELTA requires a global lock, so it cannot be used with INDIVIDUAL_BARRIERS
+
 //#define UPDATE_DELTA
-//#define INDIVIDUAL_BARRIERS
+#define INDIVIDUAL_BARRIERS
 
 #ifdef GRAPHICS
 	#define EXTRA_WAIT 1
@@ -20,6 +22,14 @@
 	#define EXTRA_WAIT 0
 #endif
 
+#ifdef UPDATE_DELTA
+	#ifdef INDIVIDUAL_BARRIERS
+		#undef INDIVIDUAL_BARRIERS
+	#endif
+#endif
+
+#define PRINT_PROGRESS_COUNT 100
+
 unsigned int rc;
 double deltasum;
 double delta;
@@ -32,7 +42,7 @@ double epsilon;
 unsigned int spu_count;
 unsigned int spu_no;
 
-#define PROGRESS(x1, y1, y2, y3) printf(x1, y1, y2, y3)
+#define PROGRESS(x1, y1, y2, y3) //printf(x1, y1, y2, y3)
 
 //#define GET_MAP_VALUE(x,y) (((y) < adjustTop && firstRows != NULL) ? &firstRows[((y) * width) + x] : (((y) > height - 3 && lastRows != NULL) ? &lastRows[(((y) - 1 - height) * width) + x] : &data[(((y) - adjustTop) * width) + x]))  
 #define GET_MAP_VALUE(x,y) findValue(x, y, isFirst, isLast, width, height, firstRows, lastRows, data)
@@ -227,7 +237,7 @@ int main(long long id)
 	boot->spu_no++;
 	boot->next_job_no += jobCount;
 	
-	printf(WHERESTR "SPU %d has %d jobs, starting at %d, map is: (%d x %d), slice is: %d\n", WHEREARG, spu_no, jobCount, firstJob, map_width, map_height, slice_height); 
+	//printf(WHERESTR "SPU %d has %d jobs, starting at %d, map is: (%d x %d), slice is: %d\n", WHEREARG, spu_no, jobCount, firstJob, map_width, map_height, slice_height); 
 	
 	release(boot);
 	
@@ -401,8 +411,9 @@ int main(long long id)
 #endif
 
 #ifdef UPDATE_DELTA		
-		PROGRESS(WHERESTR "SPU %d is spinning %d\n", WHEREARG, spu_no, itterations);
+		//PROGRESS(WHERESTR "SPU %d is spinning %d\n", WHEREARG, spu_no, itterations);
 		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
+		//PROGRESS(WHERESTR "SPU %d is spinning val: %d\n", WHEREARG, spu_no, barrier->lock_count);
 		while(barrier->lock_count != 0)
 		{
 #ifndef GRAPHICS
@@ -416,14 +427,14 @@ int main(long long id)
 		}
 		delta = barrier->delta;
 
-		if (spu_no == 0 && itterations % 100 == 0)
+		if (spu_no == 0 && itterations % PRINT_PROGRESS_COUNT == 0)
 			printf(WHERESTR "SPU %d is reporting delta: %lf, round: %d\n", WHEREARG, spu_no, barrier->delta, itterations);
 
 		release(barrier);
 		
 		//barrier_alternation = (barrier_alternation + 1) % 1;
 #else /*UPDATE_DELTA*/
-		if (spu_no == 0 && itterations % 100 == 0)
+		if (spu_no == 0 && itterations % PRINT_PROGRESS_COUNT == 0)
 			printf(WHERESTR "SPU %d is reporting progress: %d\n", WHEREARG, spu_no, itterations);
 		
 #endif /*UPDATE_DELTA*/

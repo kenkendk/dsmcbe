@@ -615,11 +615,11 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	//Read releases are handled locally
 	if (obj->mode == ACQUIRE_MODE_READ)
 	{
+		//printf(WHERESTR "Handling read release %d, @%d\n", WHEREARG, obj->id, (unsigned int)data);
 		spuhandler_HandleObjectRelease(state, obj);
 	}
 	else /*if (obj->mode == ACQUIRE_MODE_WRITE)*/
 	{
-		//printf(WHERESTR "Handling write release\n", WHEREARG);
 		//Get a group id, and register the active transfer
 		struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
 		
@@ -871,7 +871,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		obj->count++;	
 		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
 		obj->EA = data->data;
-		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST;
+		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST || data->writeBufferReady;
 		
 		PUSH_TO_SPU(state, preq->requestId);
 		PUSH_TO_SPU(state, obj->LS);
@@ -1077,9 +1077,10 @@ void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int re
 	{
 		if (obj->count == 1 && obj->mode == ACQUIRE_MODE_WRITE)
 		{
-#ifdef DEBUG_COMMUNICATION	
-			printf(WHERESTR "The Invalidate was for an object in WRITE mode\n", WHEREARG);	
-#endif
+			//Should not happen anymore!
+//#ifdef DEBUG_COMMUNICATION	
+			REPORT_ERROR2("The Invalidate was for %d in WRITE mode", obj->id);	
+//#endif
 			EnqueInvalidateResponse(requestId);
 		}
 #ifdef DEBUG_COMMUNICATION

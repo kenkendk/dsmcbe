@@ -384,11 +384,12 @@ int main(int argc, char* argv[])
 	}
 
 	//Make sure we dont EVER swap!
-	if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0)
+	//Doesn't work :( 
+	/*if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0)
 	{
 		REPORT_ERROR("Unable to prevent swapping!");
 		//exit(-1);
-	}
+	}*/
 
 	pthreads = simpleInitialize(machineid, filename, spu_count);
 	

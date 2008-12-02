@@ -370,9 +370,9 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	unsigned int i = 0;
 	while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
 	{
-		//Should get response happen before we can count to this
+		//Should get response before we can count to this
 
-		if (i++ == 4000000000) 
+		if (i++ == 100000000) 
 		{
 			REPORT_ERROR2("Detected timeout for request id %d", requestNo);
 			SPU_WRITE_OUT_MBOX(PACKAGE_DEBUG_PRINT_STATUS);
