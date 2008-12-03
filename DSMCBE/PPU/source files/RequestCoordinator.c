@@ -1150,6 +1150,24 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 						}						 
 					}
 			    }
+			    else if (!g_queue_is_empty(q)) //We have a list of barrierRequest's
+			    {
+					//printf(WHERESTR "Barrier had waiting requests: id %i, waiting: %i\n", WHEREARG, request->dataItem, g_queue_get_length(q));
+					
+					((unsigned int*)obj->EA)[1] = g_queue_get_length(q);
+					
+			    	//Are there enough to signal the barrier?
+			    	if (((unsigned int*)obj->EA)[0] == ((unsigned int*)obj->EA)[1])
+			    	{
+						//printf(WHERESTR "Signaling barrier: id %i, waiting: %i\n", WHEREARG, request->dataItem, g_queue_get_length(q));
+			    		
+			    		//Simulate that it just arrived
+			    		QueueableItem x = g_queue_pop_tail(q);
+			    		((unsigned int*)obj->EA)[1]--;
+			    		
+			    		DoAcquireBarrier(x, (struct acquireBarrierRequest*)x->dataRequest);
+			    	}
+			    }
 			}		
 		}
 	}
