@@ -372,7 +372,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	{
 		//Should get response before we can count to this
 
-		if (i++ == 100000000) 
+		if (i++ == 4000000000U) 
 		{
 			REPORT_ERROR2("Detected timeout for request id %d", requestNo);
 			SPU_WRITE_OUT_MBOX(PACKAGE_DEBUG_PRINT_STATUS);

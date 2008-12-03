@@ -64,7 +64,7 @@ PROBLEM_DATA_TYPE* findValue(unsigned int x, unsigned int y, unsigned int isFirs
 }
 
 
-void solve(struct Work_Unit* work_item)
+void solve(struct Work_Unit* work_item, PROBLEM_DATA_TYPE** fr)
 {
 	//printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
 	unsigned int x, y;
@@ -75,25 +75,25 @@ void solve(struct Work_Unit* work_item)
 	PROBLEM_DATA_TYPE old, new;
 	double itemDelta = 0.0;
 
-	PROBLEM_DATA_TYPE* firstRows = NULL;
 	PROBLEM_DATA_TYPE* lastRows = NULL;
+	PROBLEM_DATA_TYPE* firstRows = *fr;
 
 	height = work_item->heigth;
 	width = map_width;
     
-	unsigned int isFirst = 1;
-	unsigned int isLast = 1;
+	unsigned int isFirst;
+	unsigned int isLast;
 
 	data = (PROBLEM_DATA_TYPE*)&work_item->problem;
 
 	isFirst = work_item->block_no == 0;
 	isLast = work_item->block_no >= sharedCount;
 	
-	if (!isFirst)
+	/*if (!isFirst)
 	{
 	    //printf(WHERESTR "SPU %d is fetching top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
 		firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &firstSize, ACQUIRE_MODE_WRITE);
-	}
+	}*/
 	
 	if (!isFirst)
 		height += 2;
@@ -175,6 +175,9 @@ void solve(struct Work_Unit* work_item)
 			}
 		}	
 	}
+	
+	*fr = lastRows, 
+	lastRows = NULL;
 
     //printf(WHERESTR "Epsilon: %lf\r\n", WHEREARG, epsilon);
 	
@@ -205,6 +208,7 @@ int main(long long id)
     unsigned int prefetch, prefetch_temp;
     PROBLEM_DATA_TYPE* shared_row;
     unsigned int maxJobs;
+	PROBLEM_DATA_TYPE* firstRows;
     
 #ifdef UPDATE_DELTA	
     struct Barrier_Unit* barrier;
@@ -332,7 +336,10 @@ int main(long long id)
 		red_round = 1;
 		
 		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
-		
+
+		if (work_item->block_no != 0)
+			firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &size, ACQUIRE_MODE_WRITE);
+			
 		for(i = 0; i < jobCount; i++)
 		{
 		    if (i + 1 < jobCount)
@@ -340,9 +347,12 @@ int main(long long id)
 		    work_item = endAsync(prefetch, &size);
 			//printf(WHERESTR "SPU %d fetched %d (%d)\n", WHEREARG, spu_no, i, WORK_OFFSET + firstJob + i);
 		    prefetch = prefetch_temp;
-	    	solve(work_item);
+	    	solve(work_item, &firstRows);
 			release(work_item);
 		}
+		
+		if (firstRows != NULL)
+			release(firstRows);
 		
 		PROGRESS(WHERESTR "SPU %d is at red barrier %d\n", WHEREARG, spu_no, itterations);
 #ifdef INDIVIDUAL_BARRIERS	
@@ -361,6 +371,9 @@ int main(long long id)
 
 		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 
+		if (work_item->block_no != 0)
+			firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &size, ACQUIRE_MODE_WRITE);
+
 		for(i = 0; i < jobCount; i++)
 		{
 		    if (i + 1 < jobCount)
@@ -368,9 +381,13 @@ int main(long long id)
 		    work_item = endAsync(prefetch, &size);
 			//printf(WHERESTR "SPU %d fetched %d (%d)\n", WHEREARG, spu_no, i, WORK_OFFSET + firstJob + i);
 		    prefetch = prefetch_temp;
-	    	solve(work_item);
+	    	solve(work_item, &firstRows);
 			release(work_item);
 		}
+		
+		if (firstRows != NULL)
+			release(firstRows);
+		
 		
 #ifdef UPDATE_DELTA		
 		PROGRESS(WHERESTR "SPU %d is at black lock %d\n", WHEREARG, spu_no, itterations);
