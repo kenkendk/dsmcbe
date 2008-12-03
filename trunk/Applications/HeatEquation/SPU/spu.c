@@ -9,6 +9,7 @@
 
 //#define UPDATE_DELTA
 #define INDIVIDUAL_BARRIERS
+#define PRINT_PROGRESS_COUNT 100
 
 #ifdef GRAPHICS
 	#define EXTRA_WAIT 1
@@ -28,7 +29,6 @@
 	#endif
 #endif
 
-#define PRINT_PROGRESS_COUNT 100
 
 unsigned int rc;
 double deltasum;
