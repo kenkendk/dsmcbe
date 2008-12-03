@@ -13,10 +13,10 @@
 
 //The total size of memory to use on each machine
 //Unfortunately PS3's do not have a lot of memory...
-//#define MEMORY_SIZE (1024 * 1024 * 10)
+#define MEMORY_SIZE (1024 * 1024 * 150)
 
-#define SPU_COUNT 6
-#define MEMORY_SIZE ((((1024 * 100) + (sizeof(PROBLEM_DATA_TYPE) * (FIXED_MAP_WIDTH * 2))) * (SPU_COUNT * 100)) - (sizeof(PROBLEM_DATA_TYPE) * FIXED_MAP_WIDTH))
+//#define SPU_COUNT 16
+//#define MEMORY_SIZE ((((1024 * 100) + (sizeof(PROBLEM_DATA_TYPE) * (FIXED_MAP_WIDTH * 2))) * (SPU_COUNT * 100)) - (sizeof(PROBLEM_DATA_TYPE) * FIXED_MAP_WIDTH))
 
 //The number of itterations to perform
 #define ITTERATIONS 1000
@@ -73,7 +73,7 @@ struct Assignment_Unit
 };
 
 struct Barrier_Unit
-{
+{	
 	unsigned int lock_count;
 	double delta;
 	unsigned int print_count;

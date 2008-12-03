@@ -155,10 +155,10 @@ volatile unsigned int spu_terminate;
 
 //This first macro tries to bypass the queue, if possible
 //unsigned int spuhandler_temp_mbox_value;
-//#define PUSH_TO_SPU(state, value) spuhandler_temp_mbox_value = (unsigned int)value; if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &spuhandler_temp_mbox_value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)spuhandler_temp_mbox_value); }
+#define PUSH_TO_SPU(state, value) { unsigned int spuhandler_temp_mbox_value = (unsigned int)value; if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &spuhandler_temp_mbox_value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)spuhandler_temp_mbox_value); } }
 
 //This second macro always uses the queue 
-#define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
+//#define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
 
 //Declarations for functions that have interdependencies
 void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObject* obj);
@@ -397,7 +397,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Handling acquire request for %d, with requestId: %d\n", WHEREARG, id, requestId);
 #endif
-	
+
 	if (packageCode == PACKAGE_ACQUIRE_REQUEST_READ && g_queue_is_empty(state->releaseWaiters))
 	{
 		struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)id);
@@ -789,6 +789,12 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Handling acquire response for id: %d, requestId: %d\n", WHEREARG, preq->objId, data->requestID);
 #endif
+	
+	if (preq->objId != data->dataItem)
+	{
+		REPORT_ERROR2("Found invalid response, reqested Id: %d", preq->objId);
+		REPORT_ERROR2("----------------------, actual   Id: %d", data->dataItem);
+	}
 	
 	//TODO: If two threads acquire the same object, we cannot respond until the DMA is complete
 	
@@ -1234,15 +1240,25 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 	}
 }
 
-//This function reads and handles incomming requests and responses from the request coordinator
-//BEWARE: The queue mutex MUST be locked before calling this method
+//This function reads and handles incoming requests and responses from the request coordinator
 void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 {
 	struct acquireResponse* resp = NULL;
 	
 	while(TRUE)
 	{
+		//BEWARE: Dirty read:
+		//Case 1: The item is zero, but items are in queue
+		//    -> The processing will be defered to next round
+		//Case 2: The item is non-zero, but no items are in queue
+		//    -> The lock below prevents reading an empty queue
+		if (state->queue->length == 0)
+			return;
+		
+		pthread_mutex_lock(&state->rqMutex);
+		//Returns NULL if the queue is empty
 		resp = g_queue_pop_head(state->queue);
+		pthread_mutex_unlock(&state->rqMutex);
 
 		if (resp == NULL)
 			return;
@@ -1340,11 +1356,7 @@ void* SPU_MainThread(void* threadranges)
 		pending_out_data = 0;
 
 		for(i = spu_thread_min; i < spu_thread_max; i++)
-		{
-			pthread_mutex_lock(&spu_states[i].rqMutex);
 			spuhandler_HandleRequestCoordinatorMessages(&spu_states[i]);
-			pthread_mutex_unlock(&spu_states[i].rqMutex);
-		}
 
 		for(i = spu_thread_min; i < spu_thread_max; i++)
 		{
