@@ -521,7 +521,6 @@ void threadAcquireBarrier(GUID id)
 //Perform an acquire in the current thread
 void* threadAcquire(GUID id, unsigned long* size, int type)
 {
-	
 	void* retval;
 	struct acquireRequest* cr;
 	struct acquireResponse* ar;
@@ -631,7 +630,6 @@ void threadRelease(void* data)
 	
 	PointerEntry pe;
 	struct releaseRequest* re;
-	struct releaseResponse* rr;
 	
 	//Verify that the pointer is registered
 	pthread_mutex_lock(&ppu_pointer_mutex);

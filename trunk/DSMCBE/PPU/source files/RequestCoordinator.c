@@ -1094,57 +1094,62 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				
 				FREE(item);
 				FREE(request);
-			
-				while (!g_queue_is_empty(q))
-				{
-					//Acquire for the next in the queue
-					//printf(WHERESTR "Acquire for the next in the queue for %d\n", WHEREARG, request->dataItem);
-					next = g_queue_pop_head(q);
-					if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
-						//if (machineId == 0 && ((struct acquireRequest*)next->dataRequest)->dataItem == 0)
-							//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
-
-						if (TestForMigration(next, obj))
-							return;
-													
-						void* requestor = next->Gqueue; 
-						unsigned int onlyOwner = IsOnlyOwner(next, obj);
-						
-						g_queue_push_head(q, NULL);
-
-						GUID id = obj->id;
-						if (id != OBJECT_TABLE_ID && !onlyOwner)
-							RecordBufferRequest(next, obj);
-						RespondAcquire(next, obj, onlyOwner);
-
-						//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
-						if (id != OBJECT_TABLE_ID)
-						{
-							if (!onlyOwner)
+				
+				if (!g_queue_is_empty(q) && ((struct createRequest*)((QueueableItem)g_queue_peek_head(q))->dataRequest)->packageCode != PACKAGE_ACQUIRE_BARRIER_REQUEST )
+			    {
+					while (!g_queue_is_empty(q))
+					{
+						//Acquire for the next in the queue
+						//printf(WHERESTR "Acquire for the next in the queue for %d\n", WHEREARG, request->dataItem);
+						next = g_queue_pop_head(q);
+						if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
+							//if (machineId == 0 && ((struct acquireRequest*)next->dataRequest)->dataItem == 0)
+								//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
+	
+							if (TestForMigration(next, obj))
+								return;
+														
+							void* requestor = next->Gqueue; 
+							unsigned int onlyOwner = IsOnlyOwner(next, obj);
+							
+							g_queue_push_head(q, NULL);
+	
+							GUID id = obj->id;
+							if (id != OBJECT_TABLE_ID && !onlyOwner)
+								RecordBufferRequest(next, obj);
+							RespondAcquire(next, obj, onlyOwner);
+	
+							//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
+							if (id != OBJECT_TABLE_ID)
 							{
-								if (g_hash_table_size(obj->GleaseTable) == 0)
-									SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
-								else
-									g_hash_table_remove(obj->GleaseTable, requestor);
-
-								DoInvalidate(id, FALSE);
+								if (!onlyOwner)
+								{
+									if (g_hash_table_size(obj->GleaseTable) == 0)
+										SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
+									else
+										g_hash_table_remove(obj->GleaseTable, requestor);
+	
+									DoInvalidate(id, FALSE);
+								}
 							}
-						}
-			
-						if (g_hash_table_lookup(obj->GleaseTable, requestor) == NULL)
-							g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
-
-						//if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
-						//	REPORT_ERROR("Bad insert");
-						
-						break; //Done
-					} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
-						g_hash_table_insert(obj->GleaseTable, next->Gqueue, NULL);
-						RespondAcquire(next, obj, FALSE);						
+				
+							if (g_hash_table_lookup(obj->GleaseTable, requestor) == NULL)
+								g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
+	
+							//if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
+							//	REPORT_ERROR("Bad insert");
+							
+							break; //Done
+						} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
+							g_hash_table_insert(obj->GleaseTable, next->Gqueue, (void*)1);
+							RespondAcquire(next, obj, FALSE);						
+						} else {
+							REPORT_ERROR2("packageCode was neither WRITE nor READ, real ID %d", obj->id);
+							REPORT_ERROR2("packageCode was neither WRITE nor READ, ID %d", ((struct acquireRequest*)next->dataRequest)->dataItem);
+							REPORT_ERROR2("packageCode was neither WRITE nor READ, but %d", ((struct acquireRequest*)next->dataRequest)->packageCode);
+						}						 
 					}
-					else
-						REPORT_ERROR("packageCode was neither WRITE or READ");						 
-				}
+			    }
 			}		
 		}
 	}
