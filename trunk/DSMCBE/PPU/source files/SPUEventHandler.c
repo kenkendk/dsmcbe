@@ -16,6 +16,9 @@
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU! 
 #define MAX_DMA_GROUPID 16
 
+//The default number of hardware threads used for spinning
+#define DEFAULT_PPU_THREAD_COUNT 1
+
 //Disable keeping data on the SPU after release
 //#define DISABLE_SPU_CACHE
 
@@ -114,6 +117,9 @@ struct SPU_State
 	//This is the next release request id
 	unsigned int releaseSeqNo;
 	
+	//The request coordinator mutex
+	pthread_mutex_t rqMutex;
+	
 	//This is a list of acquireRespons packages that cannot be forwarded until a 
 	//releaseResponse arrives and free's memory
 	GQueue* releaseWaiters;
@@ -128,32 +134,44 @@ struct SPU_State
 //This is an array of SPU states
 struct SPU_State* spu_states;
 
-//This is the SPU main thread
-pthread_t spu_mainthread;
+//This is the SPU main threads
+pthread_t* spu_mainthread = NULL;
 
 //This is the number of SPU's allocated 
 unsigned int spe_thread_count;
+
+//This is the number of threads in use for spinning
+unsigned int spe_ppu_threadcount = DEFAULT_PPU_THREAD_COUNT;
+
 
 //This is the flag that is used to terminate the SPU event handler 
 volatile unsigned int spu_terminate;
 
 //This mutex protects the queue and the event
-pthread_mutex_t spu_rq_mutex;
+//pthread_mutex_t spu_rq_mutex;
 
 //This event is signaled when data is comming from the request coordinator
-pthread_cond_t spu_rq_event;
+//pthread_cond_t spu_rq_event;
 
 //This first macro tries to bypass the queue, if possible
-unsigned int spuhandler_temp_mbox_value;
-#define PUSH_TO_SPU(state, value) spuhandler_temp_mbox_value = (unsigned int)value; if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &spuhandler_temp_mbox_value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)spuhandler_temp_mbox_value); }
+//unsigned int spuhandler_temp_mbox_value;
+//#define PUSH_TO_SPU(state, value) spuhandler_temp_mbox_value = (unsigned int)value; if (g_queue_get_length(state->mailboxQueue) != 0 || spe_in_mbox_status(state->context) == 0 || spe_in_mbox_write(state->context, &spuhandler_temp_mbox_value, 1, SPE_MBOX_ALL_BLOCKING) != 1)  { g_queue_push_tail(state->mailboxQueue, (void*)spuhandler_temp_mbox_value); }
 
 //This second macro always uses the queue 
-//#define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
+#define PUSH_TO_SPU(state, value) g_queue_push_tail(state->mailboxQueue, (void* )value);
 
 //Declarations for functions that have interdependencies
 void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObject* obj);
 void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int groupID);
 
+void DSMCBE_SetHardwareThreads(unsigned int count)
+{
+	if (spu_mainthread != NULL) {
+		REPORT_ERROR("Unable to set hardware thread count after initialize is called");
+	} else {
+		spe_ppu_threadcount = count;
+	}
+}
 
 //This function releases all resources reserved for the object, and sends out invalidate responses, if required
 void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* obj)
@@ -213,7 +231,7 @@ void spuhandler_SendRequestCoordinatorMessage(struct SPU_State* state, void* req
 	qi->callback = NULL;
 	qi->dataRequest = req;
 	qi->event = NULL;
-	qi->mutex = &spu_rq_mutex;
+	qi->mutex = &state->rqMutex;
 	qi->Gqueue = &state->queue;
 	
 	//printf(WHERESTR "Inserting item into request coordinator queue (%d)\n", WHEREARG, (unsigned int)qi);
@@ -815,7 +833,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 				
 				//sleep(5);
 				
-				PUSH_TO_SPU(state, preq->requestId;);
+				PUSH_TO_SPU(state, preq->requestId);
 				PUSH_TO_SPU(state, NULL);
 				PUSH_TO_SPU(state, 0);
 				g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
@@ -1307,10 +1325,13 @@ int spuhandler_SPUMailboxWriter(struct SPU_State* state)
 }
 
 //This function repeatedly checks for events relating to the SPU's
-void* SPU_MainThread(void* dummy)
+void* SPU_MainThread(void* threadranges)
 {
 	size_t i;
 	unsigned int pending_out_data;
+	unsigned int spu_thread_min = ((unsigned int*)threadranges)[0];
+	unsigned int spu_thread_max = ((unsigned int*)threadranges)[1];
+	FREE(threadranges);
 	
 	//Event base, keeps the mutex locked, until we wait for events
 	while(!spu_terminate)
@@ -1318,17 +1339,14 @@ void* SPU_MainThread(void* dummy)
 
 		pending_out_data = 0;
 
-		//Lock the mutex once, and read all the data
-		//printf(WHERESTR "locking mutex\n", WHEREARG);
-		pthread_mutex_lock(&spu_rq_mutex);
-		//printf(WHERESTR "locked mutex\n", WHEREARG);
-
-		for(i = 0; i < spe_thread_count; i++)
+		for(i = spu_thread_min; i < spu_thread_max; i++)
+		{
+			pthread_mutex_lock(&spu_states[i].rqMutex);
 			spuhandler_HandleRequestCoordinatorMessages(&spu_states[i]);
+			pthread_mutex_unlock(&spu_states[i].rqMutex);
+		}
 
-		pthread_mutex_unlock(&spu_rq_mutex);
-
-		for(i = 0; i < spe_thread_count; i++)
+		for(i = spu_thread_min; i < spu_thread_max; i++)
 		{
 			//For each SPU, just repeat this
 			spuhandler_SPUMailboxReader(&spu_states[i]);
@@ -1337,7 +1355,7 @@ void* SPU_MainThread(void* dummy)
 		}
 	}
 
-	return dummy;
+	return NULL;
 }
 
 //This function sets up the SPU event handler
@@ -1355,7 +1373,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 	spu_terminate = FALSE;
 	
 	spu_states = MALLOC(sizeof(struct SPU_State) * thread_count);
-	if (pthread_mutex_init(&spu_rq_mutex, NULL) != 0) REPORT_ERROR("Mutex initialization failed");
+	//if (pthread_mutex_init(&spu_rq_mutex, NULL) != 0) REPORT_ERROR("Mutex initialization failed");
 
 	//DMA_SEQ_NO = 0;
 	
@@ -1375,15 +1393,47 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].terminated = UINT_MAX;
 		spu_states[i].releaseSeqNo = 0;
 		spu_states[i].streamItems = g_queue_new();
+		pthread_mutex_init(&spu_states[i].rqMutex, NULL);
 		
-		RegisterInvalidateSubscriber(&spu_rq_mutex, NULL, &spu_states[i].queue, -1);
+		RegisterInvalidateSubscriber(&spu_states[i].rqMutex, NULL, &spu_states[i].queue, -1);
 	}
 
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	
+	unsigned int cur_thread = 0;
+	
+	if (spe_thread_count < spe_ppu_threadcount)
+		spe_ppu_threadcount = spe_thread_count;
 
-	pthread_create(&spu_mainthread, &attr, SPU_MainThread, NULL);
+	spu_mainthread = MALLOC(sizeof(pthread_t) * spe_ppu_threadcount);
+	
+	unsigned int* tmp = MALLOC(sizeof(unsigned int) * spe_ppu_threadcount);
+	memset(tmp, 0, sizeof(unsigned int) * spe_ppu_threadcount);	
+	
+	unsigned int remaining_spu_threads = spe_thread_count;	
+	
+	i = 0;
+	while(remaining_spu_threads > 0)
+	{
+		tmp[i]++;
+		i = (i+1) % spe_ppu_threadcount;
+		remaining_spu_threads--;
+	}
+	
+	for(i = 0; i < spe_ppu_threadcount; i++)
+	{
+		//printf(WHERESTR "Starting thread %d with SPU %d to %d\n", WHEREARG, i, cur_thread, cur_thread + tmp[i]);
+		//sleep(5);
+		unsigned int* ranges = MALLOC(sizeof(unsigned int) * 2);
+		ranges[0] = cur_thread;
+		cur_thread += tmp[i];
+		ranges[1] = cur_thread;
+		pthread_create(&spu_mainthread[i], &attr, SPU_MainThread, ranges);
+	}
+	
+	FREE(tmp);
 }
 
 //This function cleans up used resources 
@@ -1394,9 +1444,12 @@ void TerminateSPUHandler(int force)
 	//Remove warning
 	spu_terminate = force | TRUE;
 	
-	pthread_join(spu_mainthread, NULL); 
+	for(i = 0; i < spe_ppu_threadcount; i++)
+		pthread_join(spu_mainthread[i], NULL); 
 	
-	pthread_mutex_destroy(&spu_rq_mutex);
+	FREE(spu_mainthread);
+	
+	//pthread_mutex_destroy(&spu_rq_mutex);
 
 	for(i = 0; i < spe_thread_count; i++)
 	{
@@ -1414,6 +1467,7 @@ void TerminateSPUHandler(int force)
 		spu_states[i].queue = NULL;
 		g_queue_free(spu_states[i].streamItems);
 		spu_states[i].streamItems = NULL;
+		pthread_mutex_destroy(&spu_states[i].rqMutex);
 
 		spu_memory_destroy(spu_states[i].map);
 

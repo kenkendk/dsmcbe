@@ -365,9 +365,18 @@ int main(int argc, char* argv[])
 	
 	sleep(5);*/
 	
+	unsigned int hardware_threads = 1;
+	
 	if (argc == 2)
 	{
 		spu_count = atoi(argv[1]);
+		machineid = 0;
+		filename = NULL;
+	}
+	else if (argc == 3)
+	{
+		spu_count = atoi(argv[1]);
+		hardware_threads = atoi(argv[2]);
 		machineid = 0;
 		filename = NULL;
 	}
@@ -376,6 +385,13 @@ int main(int argc, char* argv[])
 		machineid = atoi(argv[1]);
 		filename = argv[2];
 		spu_count = atoi(argv[3]);
+	}
+	else if (argc == 5)
+	{
+		machineid = atoi(argv[1]);
+		filename = argv[2];
+		spu_count = atoi(argv[3]);
+		hardware_threads = atoi(argv[4]);
 	}
 	else
 	{
@@ -391,6 +407,9 @@ int main(int argc, char* argv[])
 		//exit(-1);
 	}*/
 
+	//Set before initialize
+	DSMCBE_SetHardwareThreads(hardware_threads);
+	
 	pthreads = simpleInitialize(machineid, filename, spu_count);
 	
 	//printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);

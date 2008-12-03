@@ -9,6 +9,7 @@ extern void initialize(spe_context_ptr_t* threads, unsigned int thread_count, in
 extern pthread_t* simpleInitialize(unsigned int id, char* file, unsigned int thread_count);
 extern unsigned int DSMCBE_MachineCount();
 extern void dsmcbe_display_network_startup(int value);
+extern void DSMCBE_SetHardwareThreads(unsigned int count);
 
 #endif /*DSMCBE_PPU_H_*/
 
