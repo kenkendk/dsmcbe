@@ -1,4 +1,5 @@
 #include <libmisc.h>
+#include <limits.h>
 #include <spu_mfcio.h>
 #include <unistd.h>
 #include <stdio.h>

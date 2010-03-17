@@ -6,7 +6,7 @@
 #include <libspe2.h>
 #include <stdlib.h>
 
-#include "../../DSMCBE/common/datapackages.h"
+#include <common/datapackages.h>
 
 #define REPETITIONS 100000
 
@@ -139,10 +139,10 @@ int main(int argc, char **argv) {
 		int value = 0;
 		
 		
-		while(1){			
+/*		while(1){
 			value = spe_mfcio_tag_status_read(spe_threads[0], 0, SPE_TAG_IMMEDIATE, &result);
 			printf("DMA Transfer status value: %i result: %u errno: %d\n", value, result , errno);
-}
+}*/
 		
 		printf(WHERESTR "Acquiring SPU item\n", WHEREARG);
 		data = acquire(SPUITEM, &size, ACQUIRE_MODE_WRITE);

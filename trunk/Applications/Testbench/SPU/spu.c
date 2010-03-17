@@ -10,7 +10,7 @@ static int counter = 0;
 
 void TEST();
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
 	
 	initialize();
 
@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
 	
 	unsigned long size;
 	unsigned int i;
-	unsigned int items;
+	//unsigned int items;
 	int threadNo;
 	int* allocation;
 	
