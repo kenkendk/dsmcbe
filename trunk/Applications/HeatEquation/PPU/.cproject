@@ -79,6 +79,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1459503273">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1459503273" moduleId="org.eclipse.cdt.core.settings" name="ppu-gnu32-release">
@@ -155,6 +156,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.745572930">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.745572930" moduleId="org.eclipse.cdt.core.settings" name="ppu-gnu64-debug">
@@ -199,6 +201,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.1422402528">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.1422402528" moduleId="org.eclipse.cdt.core.settings" name="ppu-gnu64-release">
@@ -243,6 +246,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.xl32.exe.debug.754108735">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.xl32.exe.debug.754108735" moduleId="org.eclipse.cdt.core.settings" name="ppu-xl32-debug">
@@ -278,6 +282,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.xl32.exe.release.553530719">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.xl32.exe.release.553530719" moduleId="org.eclipse.cdt.core.settings" name="ppu-xl32-release">
@@ -313,6 +318,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.xl64.exe.debug.1623919709">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.xl64.exe.debug.1623919709" moduleId="org.eclipse.cdt.core.settings" name="ppu-xl64-debug">
@@ -348,6 +354,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.xl64.exe.release.184887750">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.xl64.exe.release.184887750" moduleId="org.eclipse.cdt.core.settings" name="ppu-xl64-release">
@@ -383,6 +390,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">
