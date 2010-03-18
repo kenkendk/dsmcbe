@@ -261,7 +261,7 @@ void* forwardRequest(void* data)
 	data = g_queue_pop_head(dummy);
 	pthread_mutex_unlock(&ppu_dummy_mutex);
 	
-	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE) {
+	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && (((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE || ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_DELETE)) {
 	
 		
 		if (((struct acquireResponse*)data)->writeBufferReady != TRUE)
@@ -299,7 +299,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 	
 	PointerEntry ent;
 	
-	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE)
+	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_DELETE)
 		REPORT_ERROR("pointer was neither READ nor WRITE");
 	
 	//If the response was valid, record the item data
@@ -455,7 +455,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 				while (g_hash_table_iter_next (&iter, &key, &value)) 
 				{
 					pe = value;
-					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE)
+					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE && pe->mode != ACQUIRE_MODE_DELETE)
 					{
 						//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
 						g_queue_push_tail(Gppu_temp, req);
@@ -577,6 +577,10 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		return NULL;
 	}
 	
+	if (type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_DELETE) {
+		REPORT_ERROR("Cannot start acquiring. Mode is unknown");
+	}
+
 	// If acquire is of type read and id is in pointerOld, then we
 	// reacquire, without notifying system.
 	
@@ -606,17 +610,8 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	//Create the request, this will be released by the coordinator	
 	cr = MALLOC(sizeof(struct acquireRequest));
 
-	if (type == ACQUIRE_MODE_WRITE) {
-		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
-		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
-	}
-	else if (type == ACQUIRE_MODE_READ) {
-		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
-		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
-	}
-	else
-		REPORT_ERROR("Cannot start acquiring. Mode is unknown");
-		
+	cr->packageCode = PACKAGE_ACQUIRE_REQUEST;
+	cr->mode = type;
 	cr->requestID = 0;
 	cr->dataItem = id;
 	cr->originator = dsmcbe_host_number;
@@ -642,7 +637,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		retval = ar->data;
 		(*size) = ar->dataSize;
 		
-		if (type == ACQUIRE_MODE_WRITE)
+		if (type == ACQUIRE_MODE_WRITE || type == ACQUIRE_MODE_DELETE)
 		{
 			pthread_mutex_lock(&ppu_pointerOld_mutex);
 			if ((pe = g_hash_table_lookup(Gppu_pointersOld, (void*)id)) != NULL)
@@ -697,7 +692,7 @@ void threadRelease(void* data)
 		else
 			pthread_mutex_unlock(&ppu_pointerOld_mutex);
 		
-		if (pe->mode == ACQUIRE_MODE_WRITE)
+		if (pe->mode == ACQUIRE_MODE_WRITE || pe->mode == ACQUIRE_MODE_DELETE)
 		{
 			//Create a request, this will be released by the coordinator
 			re = MALLOC(sizeof(struct releaseRequest));
@@ -797,7 +792,12 @@ void* ppu_requestDispatcher(void* dummy)
 			} else {		
 				//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i \n", WHEREARG, (int)ui->event, (int)ui->mutex, (int)ui->queue);
 				
-				int freeReq = (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE) || ((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE;
+				int freeReq;
+
+				if (((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE)
+					freeReq = TRUE;
+				else if (((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_DELETE)
+					freeReq = TRUE;
 				
 				if (ui->mutex != NULL)
 					pthread_mutex_lock(ui->mutex);

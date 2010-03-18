@@ -114,7 +114,7 @@ void NetRespondToInvalidate(struct QueueableItemStruct* ui)
 	ui = NULL;	
 }
 
-void NetEnqueueCallback(QueueableItem item, void* data)
+void NetEnqueueCallback(void* data)
 {
 	if (net_remote_hosts == 0)
 		return;
@@ -210,54 +210,6 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 
 	packagesize = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
 	
-	/*switch (((struct createRequest*)(item->dataRequest))->packageCode) {
-		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
-			packagesize = sizeof(struct acquireBarrierRequest); 	
-			break;
-		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
-			packagesize = sizeof(struct acquireBarrierResponse); 	
-			break;
-		case PACKAGE_ACQUIRE_REQUEST_READ:
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
-			packagesize = sizeof(struct acquireRequest); 	
-			break;			
-		case PACKAGE_ACQUIRE_RESPONSE:
-			packagesize = sizeof(struct acquireResponse); 	
-			break;			
-		case PACKAGE_CREATE_REQUEST:
-			packagesize = sizeof(struct createRequest); 	
-			break;			
-		case PACKAGE_INVALIDATE_REQUEST:
-			packagesize = sizeof(struct invalidateRequest); 	
-			break;			
-		case PACKAGE_INVALIDATE_RESPONSE:
-			packagesize = sizeof(struct invalidateResponse); 	
-			break;			
-		case PACKAGE_MIGRATION_RESPONSE:
-			packagesize = sizeof(struct migrationResponse); 	
-			break;			
-		case PACKAGE_NACK:
-			packagesize = sizeof(struct NACK); 	
-			break;			
-		case PACKAGE_RELEASE_REQUEST:
-			packagesize = sizeof(struct releaseRequest); 	
-			break;			
-		case PACKAGE_RELEASE_RESPONSE:
-			packagesize = sizeof(struct releaseResponse); 	
-			break;			
-		case PACKAGE_WRITEBUFFER_READY:
-			packagesize = sizeof(struct writebufferReady); 	
-			break;			
-		default:
-			packagesize = 0;
-			break;
-	}*/
-	
-	//if (temp != packagesize)
-	//{
-		//fprintf(stderr, "Packagecode %u temp %i vs. packagesize %i", ((struct createRequest*)(item->dataRequest))->packageCode, temp, packagesize);
-	//}
-
 	datacopy = MALLOC(packagesize);
 	if (datacopy == NULL)
 		return;
@@ -281,7 +233,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	
 	//printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, MALLOC: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
 
-	NetEnqueueCallback(item, datacopy);	
+	NetEnqueueCallback(datacopy);
 	
 	//printf(WHERESTR "Mapping request id %d to %d\n", WHEREARG, w->origId, nextId);
 	if (g_hash_table_lookup(Gnet_idlookups[machineId], (void*)nextId) == NULL)
@@ -490,12 +442,9 @@ void* net_Reader(void* data)
 
 void* net_Writer(void* data)
 {
-	
 	size_t i;
 	unsigned int hostno;
 	void* package;
-	GUID itemid;
-	int initiatorNo;
 	
 	//printf(WHERESTR "Remote hosts %u\n", WHEREARG, net_remote_hosts);
 	
@@ -611,7 +560,6 @@ void net_processPackage(void* data, unsigned int machineId)
 	
 	QueueableItem ui;
 	struct QueueableItemWrapper* w;
-	GUID itemid;
 	
 	if (data == NULL)
 		return;
@@ -650,8 +598,7 @@ void net_processPackage(void* data, unsigned int machineId)
 	switch(((struct createRequest*)data)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
-		case PACKAGE_ACQUIRE_REQUEST_READ:
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+		case PACKAGE_ACQUIRE_REQUEST:
 		case PACKAGE_RELEASE_REQUEST:
 		case PACKAGE_INVALIDATE_REQUEST:
 		case PACKAGE_UPDATE:		
@@ -774,17 +721,11 @@ void* net_readPackage(int fd)
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire create package"); 
 			break;
-		case PACKAGE_ACQUIRE_REQUEST_READ:
+		case PACKAGE_ACQUIRE_REQUEST:
 			blocksize = sizeof(struct acquireRequest);
 			data = MALLOC(blocksize);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
-				REPORT_ERROR("Failed to read entire acquire read package"); 
-			break;
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
-			blocksize = sizeof(struct acquireRequest);
-			data = MALLOC(blocksize);
-			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
-				REPORT_ERROR("Failed to read entire acquire write package"); 
+				REPORT_ERROR("Failed to read entire acquire package");
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			blocksize = sizeof(struct acquireResponse);
@@ -941,14 +882,7 @@ void net_sendPackage(void* package, unsigned int machineId)
 				((struct createRequest*)package)->originalRequestID = ((struct createRequest*)package)->requestID;
 			}
 			break;
-		case PACKAGE_ACQUIRE_REQUEST_READ:
-			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
-			{
-				((struct acquireRequest*)package)->originalRecipient = machineId;
-				((struct acquireRequest*)package)->originalRequestID = ((struct acquireRequest*)package)->requestID;
-			}
-			break;
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+		case PACKAGE_ACQUIRE_REQUEST:
 			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
 			{
 				((struct acquireRequest*)package)->originalRecipient = machineId;
@@ -1012,13 +946,9 @@ void net_sendPackage(void* package, unsigned int machineId)
 			if (send(fd, package, sizeof(struct createRequest), 0) != sizeof(struct createRequest))
 				REPORT_ERROR("Failed to send entire create request package");			 
 			break;
-		case PACKAGE_ACQUIRE_REQUEST_READ:
+		case PACKAGE_ACQUIRE_REQUEST:
 			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
 				REPORT_ERROR("Failed to send entire acquire request package");
-			break;
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
-			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
-				REPORT_ERROR("Failed to send entire acquire request write package");			 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			if (send(fd, package, sizeof(struct acquireResponse) - sizeof(void*), MSG_MORE) != sizeof(struct acquireResponse) - sizeof(void*))

@@ -11,3 +11,5 @@
 //#define DEBUG_COMMUNICATION
 //#define EVENT_BASED
 //#define DEBUG_FRAGMENTATION
+
+#define DEBUG_PRINTF printf
