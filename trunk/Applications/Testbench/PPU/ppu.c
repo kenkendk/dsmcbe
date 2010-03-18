@@ -136,11 +136,11 @@ int main(int argc, char **argv) {
 			release(create(SMALL_SEQUENCE + i, sizeof(unsigned int)));
 		*/
 		
-		unsigned int result = 0;
+/*		unsigned int result = 0;
 		int value = 0;
 		
 		
-/*		while(1){
+		while(1){
 			value = spe_mfcio_tag_status_read(spe_threads[0], 0, SPE_TAG_IMMEDIATE, &result);
 			printf("DMA Transfer status value: %i result: %u errno: %d\n", value, result , errno);
 }*/
@@ -180,11 +180,13 @@ int main(int argc, char **argv) {
 		
 		//Step 1, repeated acquire, owner in write mode, others in read mode
 
-		int previous = REPETITIONS;
-		
+		int previous;
+		previous = REPETITIONS;
+
 		printf(WHERESTR "Starting test\n", WHEREARG);
 		
 #ifdef STEP1
+
 		if (id == PAGE_TABLE_OWNER)
 		{
 			printf(WHERESTR "Reset number\n", WHEREARG);
@@ -380,6 +382,12 @@ int main(int argc, char **argv) {
 		//Step 4, repeated create, owner in read mode, others in write mode
 
 		//Step 5, repeated create, owner in write mode, others in read mode
+
+#ifdef STEP6
+		//Step 6, Delete tests
+
+#endif
+
 	}
 	//printf(WHERESTR "All done, exiting cleanly\n", WHEREARG);
 	return 0;

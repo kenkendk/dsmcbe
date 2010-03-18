@@ -80,14 +80,18 @@ struct spu_pendingRequest
 	unsigned int requestId;
 	//The operation, either:
 	// PACKAGE_CREATE_REQUEST, 
-	// PACKAGE_ACQUIRE_READ_REQUEST, 
-	// PACKAGE_ACQUIRE_WRITE_REQUEST,
-	// PACKAGE_ACQUIRE_RELEASE_REQUEST,
+	// PACKAGE_ACQUIRE_REQUEST,
+	// PACKAGE_RELEASE_REQUEST,
 	unsigned int operation;
 	//The dataobject involved, may be null if the object is not yet created on the SPU
 	GUID objId;
 	//This is the number of DMA requests that must complete before the entire transaction is done
 	unsigned int DMAcount;
+	//The mode, either:
+	// ACQUIRE_MODE_READ
+	// ACQUIRE_MODE_WRITE
+	// ACQUIRE_MODE_DELETE
+	int mode;
 };
 
 struct SPU_State
@@ -392,13 +396,13 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 }
  
 //This function handles incoming acquire requests from an SPU
-void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned int packageCode)
+void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned int mode)
 {
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Handling acquire request for %d, with requestId: %d\n", WHEREARG, id, requestId);
 #endif
 
-	if (packageCode == PACKAGE_ACQUIRE_REQUEST_READ && g_queue_is_empty(state->releaseWaiters))
+	if (mode == ACQUIRE_MODE_READ && g_queue_is_empty(state->releaseWaiters))
 	{
 		struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)id);
 		
@@ -427,7 +431,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	//printf(WHERESTR "New pointer: %d\n", WHEREARG, (unsigned int)preq);
 
 	preq->objId = id;
-	preq->operation = packageCode;
+	preq->operation = PACKAGE_ACQUIRE_REQUEST;
 	preq->requestId = requestId;
 	preq->DMAcount = 0;
 	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
@@ -436,7 +440,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 
 	struct acquireRequest* req = MALLOC(sizeof(struct acquireRequest));
 	
-	req->packageCode = packageCode;
+	req->packageCode = PACKAGE_ACQUIRE_REQUEST;
 	req->requestID = requestId;
 	req->dataItem = id;
 	req->originator = dsmcbe_host_number;
@@ -862,7 +866,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 		obj->EA = data->data;
 		obj->id = preq->objId;
 		obj->invalidateId = UINT_MAX;
-		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
+		obj->mode = preq->mode;
 		obj->size = data->dataSize;
 		obj->LS = ls;
 		obj->writebuffer_ready = (preq->operation == PACKAGE_CREATE_REQUEST || data->writeBufferReady);
@@ -894,7 +898,7 @@ int spuhandler_HandleAcquireResponse(struct SPU_State* state, struct acquireResp
 #endif
 
 		obj->count++;	
-		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
+		obj->mode = preq->operation == PACKAGE_ACQUIRE_REQUEST ? preq->mode : ACQUIRE_MODE_WRITE;
 		obj->EA = data->data;
 		obj->writebuffer_ready = preq->operation == PACKAGE_CREATE_REQUEST || data->writeBufferReady;
 		
@@ -1102,10 +1106,7 @@ void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int re
 	{
 		if (obj->count == 1 && obj->mode == ACQUIRE_MODE_WRITE)
 		{
-			//Should not happen anymore!
-//#ifdef DEBUG_COMMUNICATION	
 			REPORT_ERROR2("The Invalidate was for %d in WRITE mode", obj->id);	
-//#endif
 			EnqueInvalidateResponse(requestId);
 		}
 #ifdef DEBUG_COMMUNICATION
@@ -1173,7 +1174,7 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 		unsigned int requestId = 0;
 		GUID id = 0;
 		unsigned int size = 0;
-		unsigned int mode = 0;
+		int mode = 0;
 		
 		spe_out_intr_mbox_read(state->context, &packageCode, 1, SPE_MBOX_ALL_BLOCKING);
 		switch(packageCode)
@@ -1200,17 +1201,17 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				}
 				break;
 				
-			case PACKAGE_ACQUIRE_REQUEST_READ:
-			case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			case PACKAGE_ACQUIRE_REQUEST:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 				spe_out_intr_mbox_read(state->context, &id, 1, SPE_MBOX_ALL_BLOCKING);
-				spuhandler_HandleAcquireRequest(state, requestId, id, packageCode);
+				spe_out_intr_mbox_read(state->context, (unsigned int*)&mode, 1, SPE_MBOX_ALL_BLOCKING);
+				spuhandler_HandleAcquireRequest(state, requestId, id, mode);
 				break;
 			case PACKAGE_CREATE_REQUEST:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 				spe_out_intr_mbox_read(state->context, &id, 1, SPE_MBOX_ALL_BLOCKING);
 				spe_out_intr_mbox_read(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
-				spe_out_intr_mbox_read(state->context, &mode, 1, SPE_MBOX_ALL_BLOCKING);
+				spe_out_intr_mbox_read(state->context, (unsigned int*)&mode, 1, SPE_MBOX_ALL_BLOCKING);
 				spuhandler_HandleCreateRequest(state, requestId, id, size, mode);
 				break;
 			case PACKAGE_RELEASE_REQUEST:

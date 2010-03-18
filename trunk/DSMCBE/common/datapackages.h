@@ -10,15 +10,14 @@
 
 #include "../dsmcbe.h"
 
-#define ACQUIRE_MODE_CREATE (ACQUIRE_MODE_WRITE + 2)
+#define ACQUIRE_MODE_CREATE (ACQUIRE_MODE_DELETE + 2)
 #define ACQUIRE_MODE_BLOCKED (ACQUIRE_MODE_CREATE + 1)
 
 #define NEXT_SEQ_NO(current, max) ((current) = ((current)+1) % (max)) 
 
 #define PACKAGE_INVALID 0
 #define PACKAGE_CREATE_REQUEST 1
-#define PACKAGE_ACQUIRE_REQUEST_READ 2
-#define PACKAGE_ACQUIRE_REQUEST_WRITE 3
+#define PACKAGE_ACQUIRE_REQUEST 2
 #define PACKAGE_ACQUIRE_RESPONSE 4
 #define PACKAGE_WRITEBUFFER_READY 5
 #define PACKAGE_MIGRATION_RESPONSE 6
@@ -63,9 +62,9 @@ struct createRequest
 
 struct acquireRequest
 {
-    //2 for read, 3 for write
     unsigned int packageCode; // = 2
     unsigned int requestID;
+    unsigned int mode;
     GUID dataItem;
 	unsigned int originator;
 	unsigned int originalRecipient;

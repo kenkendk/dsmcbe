@@ -34,8 +34,10 @@ void* ppu_pthread_function(void* arg) {
 	unsigned int entry = SPE_DEFAULT_ENTRY;
 	ctx = *((spe_context_ptr_t *)arg);
 	
+	int hostno = (int)dsmcbe_host_number;
+
 	//printf(WHERESTR "Starting SPU\n", WHEREARG);
-	if (spe_context_run(ctx, &entry, 0, dsmcbe_host_number, NULL, NULL) < 0)
+	if (spe_context_run(ctx, &entry, 0, (void*)hostno, NULL, NULL) < 0)
 	{
 		REPORT_ERROR("Failed running context");
 		return NULL;
@@ -421,7 +423,7 @@ void* create(GUID id, unsigned long size, int mode){
 		if (tmp == NULL)
 		{
 			REPORT_ERROR("Failed to create barrier");
-			return;
+			return NULL;
 		}
 
 		tmp[0] = size;

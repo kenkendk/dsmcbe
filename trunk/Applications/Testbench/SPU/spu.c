@@ -6,7 +6,7 @@
 #include <free_align.h>
 
 //We need the counter on the heap so the threads share it
-static int counter = 0;
+//static int counter = 0;
 
 void TEST();
 
@@ -254,6 +254,9 @@ int main(int argc, char** argv) {
 	//printf(WHERESTR "Done\n", WHEREARG);
 	
 	
+	//Remove compiler warnings
+	argc = 0;
+	argv = NULL;
 	
 	return 0;
 }

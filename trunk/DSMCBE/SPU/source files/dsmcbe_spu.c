@@ -97,8 +97,7 @@ void spu_dsmcbe_readMailbox() {
 			break;
 			
 		case PACKAGE_CREATE_REQUEST:
-		case PACKAGE_ACQUIRE_REQUEST_READ:
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+		case PACKAGE_ACQUIRE_REQUEST:
 #ifdef DEBUG_COMMUNICATION	
 			printf(WHERESTR "ACQUIRE package recieved\n", WHEREARG);
 #endif
@@ -222,13 +221,20 @@ unsigned int spu_dsmcbe_acquire_begin(GUID id, int type)
 		return UINT_MAX;
 	}
 
-	unsigned int nextId = spu_dsmcbe_getNextReqNo(type == ACQUIRE_MODE_READ ? PACKAGE_ACQUIRE_REQUEST_READ : PACKAGE_ACQUIRE_REQUEST_WRITE);
+	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_DELETE)
+	{
+		REPORT_ERROR("Invalid acquire mode supplied, only ACQUIRE_MODE_READ, ACQUIRE_MODE_WRITE and ACQUIRE_MODE_DELETE is accepted");
+		return UINT_MAX;
+	}
+
+	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_ACQUIRE_REQUEST);
 	if (nextId == UINT_MAX)
 		return UINT_MAX;
 
 	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
 	SPU_WRITE_OUT_MBOX(nextId);
 	SPU_WRITE_OUT_MBOX(id);
+	SPU_WRITE_OUT_MBOX(type);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "ACQUIRE package sent, id: %d\n", WHEREARG, nextId);
@@ -329,8 +335,7 @@ unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 	switch(spu_dsmcbe_pendingRequests[requestNo].requestCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
-		case PACKAGE_ACQUIRE_REQUEST_READ:
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+		case PACKAGE_ACQUIRE_REQUEST:
 		case PACKAGE_SPU_MEMORY_MALLOC_REQUEST:
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 			return SPU_DSMCBE_ASYNC_BUSY;
@@ -422,19 +427,19 @@ void spu_dsmcbe_enqueueStreamAcquire(GUID id, int type)
 	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("Cannot request object table");
-		return UINT_MAX;
+		return;
 	}
 	
 	if (id >= OBJECT_TABLE_SIZE)
 	{
 		REPORT_ERROR2("ID was larger than object table size: %d", id);
-		return UINT_MAX;
+		return;
 	}
 	
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
-		return UINT_MAX;
+		return;
 	}
 
 	SPU_WRITE_OUT_MBOX(PACKAGE_ENQUEUE_STREAM_JOB);
@@ -448,31 +453,25 @@ void spu_dsmcbe_enqueueStreamAcquire(GUID id, int type)
 
 void* spu_dsmcbe_dequeueStreamAcquire(GUID* id, unsigned long* size)
 {
-	if (id == OBJECT_TABLE_ID)
+	if (id == NULL)
 	{
-		REPORT_ERROR("Cannot request object table");
-		return UINT_MAX;
-	}
-	
-	if (id >= OBJECT_TABLE_SIZE)
-	{
-		REPORT_ERROR2("ID was larger than object table size: %d", id);
-		return UINT_MAX;
+		REPORT_ERROR("Invalid id pointer");
+		return NULL;
 	}
 	
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
-		return UINT_MAX;
+		return NULL;
 	}
 
 	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_DEQUEUE_STREAM_JOB);
 	if (nextId == UINT_MAX)
-		return UINT_MAX;
+		return NULL;
 
 	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
 	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX((unsigned int)&id);
+	SPU_WRITE_OUT_MBOX((unsigned int)id);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "DEQUEUE stream package sent, id: %d\n", WHEREARG, nextId);
