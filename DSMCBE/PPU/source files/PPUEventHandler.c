@@ -48,7 +48,6 @@ GQueue* Gppu_temp;
 pthread_mutex_t ppu_dummy_mutex;
 pthread_cond_t ppu_dummy_cond;
 
-
 typedef struct PointerEntryStruct *PointerEntry;
 struct PointerEntryStruct
 {
@@ -108,84 +107,7 @@ void ppu_terminatePPUHandler()
 	g_hash_table_destroy(Gppu_pointers);
 	g_hash_table_destroy(Gppu_pointersOld);
 	
-/*
-	it = ht_iter_create(pointers);
-	keys = queue_create();
-	while(ht_iter_next(it))
-	{
-		pe = ht_iter_get_value(it);
-		queue_enq(keys, ht_iter_get_key(it)); 
-		FREE_ALIGN(pe->data);
-		pe->data = NULL;
-		FREE(pe);
-		pe = NULL;
-	}
-	ht_iter_destroy(it);
-	
-	while(!queue_empty(keys))
-		ht_delete(pointers, queue_deq(keys));
-	
-	ht_destroy(pointers);
-	queue_destroy(keys);
-
-	it = ht_iter_create(pointersOld);
-	keys = queue_create();
-	while(ht_iter_next(it))
-	{
-		pe = ht_iter_get_value(it);
-		queue_enq(keys, ht_iter_get_key(it)); 
-		FREE_ALIGN(pe->data);
-		pe->data = NULL;
-		FREE(pe);
-		pe = NULL;
-	}
-	ht_iter_destroy(it);
-	
-	while(!queue_empty(keys))
-		ht_delete(pointersOld, queue_deq(keys));
-	
-	ht_destroy(pointers);
-	queue_destroy(keys);
-*/	
-	UnregisterInvalidateSubscriber(/*
-	it = ht_iter_create(pointers);
-	keys = queue_create();
-	while(ht_iter_next(it))
-	{
-		pe = ht_iter_get_value(it);
-		queue_enq(keys, ht_iter_get_key(it));
-		FREE_ALIGN(pe->data);
-		pe->data = NULL;
-		FREE(pe);
-		pe = NULL;
-	}
-	ht_iter_destroy(it);
-
-	while(!queue_empty(keys))
-		ht_delete(pointers, queue_deq(keys));
-
-	ht_destroy(pointers);
-	queue_destroy(keys);
-
-	it = ht_iter_create(pointersOld);
-	keys = queue_create();
-	while(ht_iter_next(it))
-	{
-		pe = ht_iter_get_value(it);
-		queue_enq(keys, ht_iter_get_key(it));
-		FREE_ALIGN(pe->data);
-		pe->data = NULL;
-		FREE(pe);
-		pe = NULL;
-	}
-	ht_iter_destroy(it);
-
-	while(!queue_empty(keys))
-		ht_delete(pointersOld, queue_deq(keys));
-
-	ht_destroy(pointers);
-	queue_destroy(keys);
-*/	&Gppu_pendingInvalidate);
+	UnregisterInvalidateSubscriber(&Gppu_pendingInvalidate);
 	
 	pthread_mutex_destroy(&ppu_pointer_mutex);
 	pthread_mutex_destroy(&ppu_pointerOld_mutex);
