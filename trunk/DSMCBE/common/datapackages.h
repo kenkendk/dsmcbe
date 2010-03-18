@@ -58,6 +58,7 @@ struct createRequest
 	unsigned int originator;
 	unsigned int originalRecipient;
 	unsigned int originalRequestID;
+	unsigned int mode;
 };
 
 struct acquireRequest

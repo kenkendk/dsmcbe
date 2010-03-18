@@ -504,7 +504,7 @@ void release(void* data) {
 	spu_dsmcbe_release_begin(data);
 }
 
-void* create(GUID id, unsigned long size) {
+void* create(GUID id, unsigned long size, int mode) {
 	return spu_dsmcbe_endAsync(spu_dsmcbe_create_begin(id, size), NULL);
 }
 
@@ -555,7 +555,7 @@ void initialize()
 //Creates a new barrier
 void createBarrier(GUID id, unsigned int count)
 {
-	unsigned int* tmp = create(id, sizeof(unsigned int) * 2);
+	unsigned int* tmp = create(id, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
 	if (tmp == NULL)
 	{
 		REPORT_ERROR("Failed to create barrier");

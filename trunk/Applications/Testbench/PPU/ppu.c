@@ -6,7 +6,7 @@
 #include <libspe2.h>
 #include <stdlib.h>
 
-#include <common/datapackages.h>
+#include <datapackages.h>
 
 #define REPETITIONS 100000
 
@@ -65,7 +65,8 @@ int main(int argc, char **argv) {
 	{
 		sleep(1);
 		printf(WHERESTR "%d: Creating\n", WHEREARG, id);
-		data = create(ETTAL, sizeof(int));
+		data = create(ETTAL, sizeof(int), CREATE_MODE_NONBLOCKING);
+
 		(*data) = 928;
 		
 		printf(WHERESTR "%d: Data location is %i\n", WHEREARG, id, (unsigned int)data);
@@ -105,12 +106,12 @@ int main(int argc, char **argv) {
 		//printf(WHERESTR "Releasing, this should invalidate SPU\n", WHEREARG);
 		release(data);
 		
-		release(create(LOCK_ITEM_PPU, 0)); 
+		release(create(LOCK_ITEM_PPU, 0, CREATE_MODE_NONBLOCKING));
 		printf(WHERESTR "Released\n", WHEREARG);
 	
 		
 		items = 25 * 1024;
-		unsigned int* largeblock = create(LARGE_ITEM, items * sizeof(unsigned int));
+		unsigned int* largeblock = create(LARGE_ITEM, items * sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
 	
 		printf(WHERESTR "Created large block at %d\n", WHEREARG, (unsigned int)largeblock);
 		for(i = 0; i < items; i++)
@@ -123,7 +124,7 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Creating large sequence, %d blocks of size %d\n", WHEREARG, SEQUENCE_COUNT, items * sizeof(unsigned int));
 		for(i = 0; i < SEQUENCE_COUNT; i++)
 		{
-			void* dataitem = create(LARGE_SEQUENCE + i, items * sizeof(unsigned int));
+			void* dataitem = create(LARGE_SEQUENCE + i, items * sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
 			if (dataitem == NULL)
 				printf(WHERESTR "Failed to create item with ID: %d\n", WHEREARG, LARGE_SEQUENCE + i);
 			else

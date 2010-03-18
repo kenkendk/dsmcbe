@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
 
 		printf(WHERESTR "Thread #%d, released, creating SPU lock.\n", WHEREARG, threadNo);
 
-		release(create(LOCK_ITEM_SPU, 0));
+		release(create(LOCK_ITEM_SPU, 0, CREATE_MODE_NONBLOCKING));
 		//sleep(2);		
 
 		printf(WHERESTR "Thread #%d, waiting for PPU lock.\n", WHEREARG, threadNo);
@@ -232,7 +232,9 @@ int main(int argc, char** argv) {
 		for(i = 0; i < 1000000; i++)
 		{
 			if (i % 10000 == 0)
+			{
 				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
+			}
 			release(acquire(LARGE_ITEM, &size, ACQUIRE_MODE_WRITE));
 		}
 
@@ -241,7 +243,7 @@ int main(int argc, char** argv) {
 	}
 	
 	//printf(WHERESTR "Creating new item\n", WHEREARG);
-	allocation = create(SPUITEM, sizeof(unsigned int));
+	allocation = create(SPUITEM, sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
 	//printf(WHERESTR "Created new item\n", WHEREARG);
 	*allocation = 4;
 	//printf(WHERESTR "Releasing new item\n", WHEREARG);
