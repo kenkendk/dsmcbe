@@ -503,7 +503,7 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 
 
 //This function handles incoming create requests from an SPU
-void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned long size)
+void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned long size, int mode)
 {
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Handling create request for %d, with requestId: %d\n", WHEREARG, id, requestId);
@@ -538,6 +538,7 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	req->originator = dsmcbe_host_number;
 	req->originalRecipient = UINT_MAX;
 	req->originalRequestID = UINT_MAX;
+	req->mode = mode;
 
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
@@ -1172,6 +1173,7 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 		unsigned int requestId = 0;
 		GUID id = 0;
 		unsigned int size = 0;
+		unsigned int mode = 0;
 		
 		spe_out_intr_mbox_read(state->context, &packageCode, 1, SPE_MBOX_ALL_BLOCKING);
 		switch(packageCode)
@@ -1208,7 +1210,8 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 				spe_out_intr_mbox_read(state->context, &id, 1, SPE_MBOX_ALL_BLOCKING);
 				spe_out_intr_mbox_read(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
-				spuhandler_HandleCreateRequest(state, requestId, id, size);
+				spe_out_intr_mbox_read(state->context, &mode, 1, SPE_MBOX_ALL_BLOCKING);
+				spuhandler_HandleCreateRequest(state, requestId, id, size, mode);
 				break;
 			case PACKAGE_RELEASE_REQUEST:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);

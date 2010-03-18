@@ -127,7 +127,7 @@ void spu_dsmcbe_readMailbox() {
 }
 
 //Initiates a create operation
-unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
+unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size, int mode)
 {
 	if (id == OBJECT_TABLE_ID)
 	{
@@ -156,6 +156,7 @@ unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 	SPU_WRITE_OUT_MBOX(nextId);
 	SPU_WRITE_OUT_MBOX(id);
 	SPU_WRITE_OUT_MBOX(size);
+	SPU_WRITE_OUT_MBOX(mode);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "CREATE package sent\n", WHEREARG);
@@ -505,7 +506,7 @@ void release(void* data) {
 }
 
 void* create(GUID id, unsigned long size, int mode) {
-	return spu_dsmcbe_endAsync(spu_dsmcbe_create_begin(id, size), NULL);
+	return spu_dsmcbe_endAsync(spu_dsmcbe_create_begin(id, size, mode), NULL);
 }
 
 void* spu_dsmcbe_memory_malloc(unsigned long size) {
