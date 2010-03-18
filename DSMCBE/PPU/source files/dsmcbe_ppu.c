@@ -413,8 +413,25 @@ void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sock
 	//printf(WHERESTR "Done Initialize\n", WHEREARG);
 }
 
-void* create(GUID id, unsigned long size){
-	return threadCreate(id, size);
+void* create(GUID id, unsigned long size, int mode){
+	unsigned int* tmp = threadCreate(id, size, mode);
+
+	if (mode == CREATE_MODE_BARRIER)
+	{
+		if (tmp == NULL)
+		{
+			REPORT_ERROR("Failed to create barrier");
+			return;
+		}
+
+		tmp[0] = size;
+		tmp[1] = 0;
+		release(tmp);
+
+		return NULL;
+	}
+
+	return tmp;
 }
 
 void* acquire(GUID id, unsigned long* size, int type){
@@ -428,18 +445,4 @@ void release(void* data){
 void acquireBarrier(GUID id)
 {
 	threadAcquireBarrier(id);
-}
-
-void createBarrier(GUID id, unsigned int count)
-{
-	unsigned int* tmp = create(id, sizeof(unsigned int) * 2);
-	if (tmp == NULL)
-	{
-		REPORT_ERROR("Failed to create barrier");
-		return;
-	}
-	
-	tmp[0] = count;
-	tmp[1] = 0;
-	release(tmp);
 }

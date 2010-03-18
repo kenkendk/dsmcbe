@@ -514,7 +514,6 @@ OBJECT_TABLE_ENTRY_TYPE* GetObjectTable()
 //Performs all actions releated to a create request
 void DoCreate(QueueableItem item, struct createRequest* request)
 {
-	
 	unsigned long size;
 	unsigned int transfersize;
 	void* data;
@@ -525,6 +524,15 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	//Check that the item is not already created
 	if (g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem) != NULL)
 	{
+		//If request has mode set to blocking, put request in waitqueue
+		if (request->mode == CREATE_MODE_BLOCKING)
+		{
+			dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem);
+			GQueue* q = obj->Gwaitqueue;
+			g_queue_push_tail(q, item);
+			return;
+		}
+
 		REPORT_ERROR("Create request for already existing item");
 		RespondNACK(item);
 		return;
@@ -1034,7 +1042,6 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 		q = g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem);
 		g_queue_push_tail(q, item);		
 	}
-	
 }
 
 //Performs all actions releated to a release
