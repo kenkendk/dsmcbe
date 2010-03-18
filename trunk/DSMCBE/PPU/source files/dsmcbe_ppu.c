@@ -26,6 +26,7 @@ static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
 OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number = OBJECT_TABLE_RESERVED;
 static int dsmcbe_display_network_startup_value = 0;
+int dsmcbe_initialized = 0;
 
 void dsmcbe_display_network_startup(int value) { dsmcbe_display_network_startup_value = value; }
 
@@ -413,9 +414,18 @@ void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sock
 	//printf(WHERESTR "Calling Initialize SPU\n", WHEREARG);
 	InitializeSPUHandler(threads, thread_count);	
 	//printf(WHERESTR "Done Initialize\n", WHEREARG);
+
+	//We are now ready to accept requests
+	dsmcbe_initialized = 1;
 }
 
 void* create(GUID id, unsigned long size, int mode){
+	if (dsmcbe_initialized == 0)
+	{
+		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
+		return NULL;
+	}
+
 	unsigned int* tmp = threadCreate(id, size, mode);
 
 	if (mode == CREATE_MODE_BARRIER)
@@ -437,14 +447,32 @@ void* create(GUID id, unsigned long size, int mode){
 }
 
 void* acquire(GUID id, unsigned long* size, int type){
+	if (dsmcbe_initialized == 0)
+	{
+		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
+		return NULL;
+	}
+
 	return threadAcquire(id, size, type);	
 }
 
 void release(void* data){
+	if (dsmcbe_initialized == 0)
+	{
+		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
+		return;
+	}
+
 	threadRelease(data);
 }
 
 void acquireBarrier(GUID id)
 {
+	if (dsmcbe_initialized == 0)
+	{
+		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
+		return;
+	}
+
 	threadAcquireBarrier(id);
 }
