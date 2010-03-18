@@ -1307,12 +1307,30 @@ void DoDelete(dataObject obj)
 	if (g_hash_table_lookup(rc_Gwaiters, (void*)obj->id) != NULL)
 		REPORT_ERROR2("Item %d was already in the waiter list", obj->id);
 
-	g_hash_table_insert(rc_Gwaiters, (void*)obj->id, obj->Gwaitqueue);
+	GQueue* q = obj->Gwaitqueue;
+
+	g_hash_table_insert(rc_Gwaiters, (void*)obj->id, q);
 	g_hash_table_remove(rc_GallocatedItems, (void*)obj->id);
 
 	OBJECT_TABLE_ENTRY_TYPE* objecttable = GetObjectTable();
 	objecttable[obj->id] = OBJECT_TABLE_RESERVED;
 	NetUpdate(OBJECT_TABLE_ID, sizeof(OBJECT_TABLE_ENTRY_TYPE) * obj->id, sizeof(OBJECT_TABLE_ENTRY_TYPE), &(objecttable[obj->id]));
+
+	size_t i;
+	size_t len = g_queue_get_length(q);
+
+	//TODO: Faster to use g_queue_foreach
+
+	//If the waiters contain a create request, extract it and put it in the incoming request queue
+	for(i = 0; i < len; i++)
+	{
+		QueueableItem item = g_queue_peek_nth(q, i);
+		if (item != NULL && ((struct createRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
+		{
+			g_queue_pop_nth(q, i);
+			EnqueItem(item);
+		}
+	}
 }
 
 void HandleReleaseRequest(QueueableItem item)
