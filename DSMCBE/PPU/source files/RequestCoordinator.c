@@ -620,7 +620,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		//If there are pending acquires, add them to the list
 		if ((object->Gwaitqueue = g_hash_table_lookup(rc_Gwaiters, (void*)object->id)) != NULL)
 		{
-			//printf(WHERESTR "Create request for %d, waitqueue was not empty (%d : %d)\n", WHEREARG, request->dataItem, (unsigned int)object->Gwaitqueue, g_queue_get_length(object->Gwaitqueue));
+			//printf(WHERESTR "Create request for %d, waitqueue existed (%d : %d : %s)\n", WHEREARG, request->dataItem, (unsigned int)object->Gwaitqueue, g_queue_get_length(object->Gwaitqueue), g_queue_is_empty(object->Gwaitqueue) ? "true" : "false");
 			g_hash_table_remove(rc_Gwaiters, (void*)object->id);
 		}
 		else
@@ -628,7 +628,8 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 			//printf(WHERESTR "Create request for %d, waitqueue was empty\n", WHEREARG, request->dataItem);
 			object->Gwaitqueue = g_queue_new();
 		}
-			
+
+
 		//Acquire the item for the creator
 		g_queue_push_head(object->Gwaitqueue, NULL);
 		
@@ -964,7 +965,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	GQueue* q;
 	dataObject obj;
 
-	printf(WHERESTR "Start acquire on id %i\n", WHEREARG, request->dataItem);
+	//printf(WHERESTR "Start acquire on id %i\n", WHEREARG, request->dataItem);
 
 	//Check that the item exists
 	if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
@@ -974,13 +975,13 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 		//If the object is not locked, register as locked and respond
 		if (g_queue_is_empty(q))
 		{
-			printf(WHERESTR "Object not locked\n", WHEREARG);
+			//printf(WHERESTR "Object not locked\n", WHEREARG);
 			if (request->mode == ACQUIRE_MODE_READ) {
-				printf(WHERESTR "Acquiring READ on not locked object\n", WHEREARG);
+				//printf(WHERESTR "Acquiring READ on not locked object\n", WHEREARG);
 				g_hash_table_insert(obj->GleaseTable, item->Gqueue, g_hash_table_lookup(rc_GinvalidateSubscribers, item->Gqueue));
 				RespondAcquire(item, obj, FALSE);
 			} else if (request->mode == ACQUIRE_MODE_WRITE || request->mode == ACQUIRE_MODE_DELETE) {
-				printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
+				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 					//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 
@@ -1011,7 +1012,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				}
 				else
 				{
-					printf(WHERESTR "Sending NetUpdate with ID %u, Offset %u, Size %u, Data %u\n", WHEREARG, obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);
+					//printf(WHERESTR "Sending NetUpdate with ID %u, Offset %u, Size %u, Data %u\n", WHEREARG, obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);
 					NetUpdate(obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);
 				}
 				
@@ -1028,7 +1029,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 			//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 				//printf(WHERESTR "Object locked\n", WHEREARG);
 
-			printf(WHERESTR "Object locked, count %d, id: %d\n", WHEREARG, g_queue_get_length(q), request->dataItem);
+			//printf(WHERESTR "Object locked, count %d, id: %d\n", WHEREARG, g_queue_get_length(q), request->dataItem);
 				
 			g_queue_push_tail(q, item);
 		}
@@ -1069,9 +1070,17 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		//printf(WHERESTR "Performing read-release for %d\n", WHEREARG, request->dataItem);
 		return;
 	}
-	
+
+	if (request->mode == ACQUIRE_MODE_DELETE)
+	{
+		//printf(WHERESTR "Performing delete-release for %d\n", WHEREARG, request->dataItem);
+		FREE(item);
+		FREE(request);
+		return;
+	}
+
 	//Ensure that the item exists
-	if ((obj =g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
+	if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
 	{
 		q = obj->Gwaitqueue;
 		
@@ -1087,6 +1096,7 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		{
 			//Get the next pending request
 			next = g_queue_pop_head(q);
+
 			if (next != NULL)
 			{
 				REPORT_ERROR("Bad queue, the top entry was not a locker!");
@@ -1230,11 +1240,11 @@ void HandleAcquireRequest(QueueableItem item)
 	struct acquireRequest* req = item->dataRequest;
 	OBJECT_TABLE_ENTRY_TYPE machineId = GetMachineID(req->dataItem);
 	void* obj;
-	printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number, req->requestID);
+	//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number, req->requestID);
 	
 	if (machineId != dsmcbe_host_number && machineId != OBJECT_TABLE_RESERVED)
 	{
-		printf(WHERESTR "Acquire for item %d must be handled remotely, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+		//printf(WHERESTR "Acquire for item %d must be handled remotely, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 		if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)req->dataItem)) != NULL && req->mode == ACQUIRE_MODE_READ)
 		{
 			//printf(WHERESTR "Read acquire for item %d, machineid: %d, machine id: %d, returned from local cache\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
@@ -1260,14 +1270,14 @@ void HandleAcquireRequest(QueueableItem item)
 	}
 	else if (machineId == OBJECT_TABLE_RESERVED)
 	{
-		printf(WHERESTR "Acquire for non-existing item %d, registering request locally, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+		//printf(WHERESTR "Acquire for non-existing item %d, registering request locally, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 		if (g_hash_table_lookup(rc_Gwaiters, (void*)req->dataItem) == NULL)
 			g_hash_table_insert(rc_Gwaiters, (void*)req->dataItem, g_queue_new());
 		g_queue_push_tail(g_hash_table_lookup(rc_Gwaiters, (void*)req->dataItem), item);
 	}
 	else 
 	{
-		printf(WHERESTR "Processing acquire locally for %d, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+		//printf(WHERESTR "Processing acquire locally for %d, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 		DoAcquire(item, (struct acquireRequest*)item->dataRequest);
 	}	
 }
@@ -1279,7 +1289,7 @@ void FreeDataObject(dataObject object)
 
 	if (temp == NULL || temp != object)
 	{
-		//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d)\n", WHEREARG, object->id, (int)object, (int)object->EA);
+		printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d), temp is %s\n", WHEREARG, object->id, (int)object, (int)object->EA, ISNULL_STRING(temp));
 
 		//Make sure we are not still using the actual memory
 		if (temp == NULL || temp->EA != object->EA)
@@ -1304,12 +1314,28 @@ void FreeDataObject(dataObject object)
 
 void DoDelete(dataObject obj)
 {
-	printf(WHERESTR "DoDelete\n", WHEREARG);
+	//printf(WHERESTR "DoDelete\n", WHEREARG);
 
 	if (g_hash_table_lookup(rc_Gwaiters, (void*)obj->id) != NULL)
 		REPORT_ERROR2("Item %d was already in the waiter list", obj->id);
 
 	GQueue* q = obj->Gwaitqueue;
+	obj->Gwaitqueue = NULL;
+
+	if (g_queue_is_empty(q))
+	{
+		REPORT_ERROR("Bad DoDelete, item was not locked!");
+	}
+	else
+	{
+		//Get the next pending request
+		void* next = g_queue_pop_head(q);
+		if (next != NULL)
+		{
+			REPORT_ERROR("Bad queue, the top entry was not a locker!");
+			g_queue_push_head(q, next);
+		}
+	}
 
 	g_hash_table_insert(rc_Gwaiters, (void*)obj->id, q);
 	g_hash_table_remove(rc_GallocatedItems, (void*)obj->id);
@@ -1329,6 +1355,7 @@ void DoDelete(dataObject obj)
 		QueueableItem item = g_queue_peek_nth(q, i);
 		if (item != NULL && ((struct createRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
 		{
+			//printf(WHERESTR "DoDelete - packageCode is %d\n", WHEREARG, ((struct createRequest*)item->dataRequest)->packageCode);
 			g_queue_pop_nth(q, i);
 			EnqueItem(item);
 		}
@@ -1359,7 +1386,7 @@ void HandleReleaseRequest(QueueableItem item)
 			dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)req->dataItem);
 			if (g_hash_table_lookup(rc_GallocatedItemsDirty, obj) != NULL || g_hash_table_lookup(rc_GwritebufferReady, obj) != NULL)
 			{
-				printf(WHERESTR "processing release event, object %d is in use, re-registering\n", WHEREARG, obj->id);
+				//printf(WHERESTR "processing release event, object %d is in use, re-registering\n", WHEREARG, obj->id);
 				//The object is still in use, re-register, the last invalidate response will free it
 				
 				GQueue* tmp = obj->Gwaitqueue;
@@ -1391,10 +1418,10 @@ void HandleReleaseRequest(QueueableItem item)
 			}
 			else
 			{
-				printf(WHERESTR "processing release event, object is not in use, updating\n", WHEREARG);
 
 				if (req->mode == ACQUIRE_MODE_DELETE)
 				{
+					//printf(WHERESTR "processing release event, object is not in use, deleting\n", WHEREARG);
 					//The object is not in use, just delete it
 					DoDelete(obj);
 					FreeDataObject(obj);

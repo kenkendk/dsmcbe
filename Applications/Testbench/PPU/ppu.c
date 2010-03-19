@@ -37,14 +37,14 @@ int main(int argc, char **argv)
 	item = acquire(VALUE, &size, ACQUIRE_MODE_DELETE);
 	printf("Value before delete %d\n", *item);
 	release(item);
-
-	printf("Value after delete %d\n", *item);
 	
 	item = create(VALUE, sizeof(int), CREATE_MODE_NONBLOCKING);
 	*item = 255;
 	printf("Value set to %d\n", *item);
 	release(item);
 	
+	printf("Item released after second create\n");
+
 	item = acquire(VALUE, &size, ACQUIRE_MODE_READ);
 	printf("Value is %d\n", *item);
 	release(item);

@@ -164,7 +164,7 @@ void* forwardRequest(void* data)
 	q->Gqueue = &dummy;
 	q->callback = NULL;
 	
-	//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);	
+	//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);
 	
 	//printf(WHERESTR "adding item to queue\n", WHEREARG);
 	RelayEnqueItem(q);
@@ -320,26 +320,26 @@ void processInvalidates(struct invalidateRequest* incoming)
 	struct invalidateRequest* req;
 	PointerEntry pe;
 	
-	printf(WHERESTR "In processInvalidates\n", WHEREARG);
+	//printf(WHERESTR "In processInvalidates\n", WHEREARG);
 	pthread_mutex_lock(&ppu_invalidate_mutex);
 	
 	if (incoming != NULL)
 	{
-		printf(WHERESTR "Inserted item in queue: %d, reqId: %d\n", WHEREARG, incoming->dataItem, incoming->requestID);
+		//printf(WHERESTR "Inserted item in queue: %d, reqId: %d\n", WHEREARG, incoming->dataItem, incoming->requestID);
 		g_queue_push_tail(Gppu_pendingInvalidate, incoming);
 	}
 
-	printf(WHERESTR "Testing queue\n", WHEREARG);
+	//printf(WHERESTR "Testing queue\n", WHEREARG);
 	
 	if (!g_queue_is_empty(Gppu_pendingInvalidate))
 	{
-		printf(WHERESTR "Queue is not empty\n", WHEREARG);
+		//printf(WHERESTR "Queue is not empty\n", WHEREARG);
 
 		//Gppu_temp = g_queue_new();
 		while(!g_queue_is_empty(Gppu_pendingInvalidate))
 		{
 			req = g_queue_pop_head(Gppu_pendingInvalidate);
-			printf(WHERESTR "Processing request for %d with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
+			//printf(WHERESTR "Processing request for %d with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
 
 			pthread_mutex_lock(&ppu_pointerOld_mutex);
 
@@ -352,12 +352,12 @@ void processInvalidates(struct invalidateRequest* incoming)
 					FREE(pe);
 					pe = NULL;
 			
-					printf(WHERESTR "Item was correctly freed: %d\n", WHEREARG, req->dataItem);
+					//printf(WHERESTR "Item was correctly freed: %d\n", WHEREARG, req->dataItem);
 					
 				}
 				else
 				{
-					printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
+					//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
 					g_queue_push_tail(Gppu_temp, req);
 					req = NULL;
 				}
@@ -379,7 +379,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 					pe = value;
 					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE && pe->mode != ACQUIRE_MODE_DELETE)
 					{
-						printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
+						//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
 						g_queue_push_tail(Gppu_temp, req);
 						req = NULL;
 						break;
@@ -389,7 +389,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 			}
 			
 			if (req != NULL) {
-				printf(WHERESTR "Responding to invalidate for %d, with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
+				//printf(WHERESTR "Responding to invalidate for %d, with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
 				
 				EnqueInvalidateResponse(req->requestID);
 				
@@ -406,8 +406,8 @@ void processInvalidates(struct invalidateRequest* incoming)
 			g_queue_clear(Gppu_temp);	
 			
 	}
-	else
-		printf(WHERESTR "Queue is empty\n", WHEREARG);
+	//else
+	//printf(WHERESTR "Queue is empty\n", WHEREARG);
 
 	pthread_mutex_unlock(&ppu_invalidate_mutex);
 }
@@ -514,7 +514,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	pthread_mutex_lock(&ppu_pointerOld_mutex);
 
 	if ((pe = g_hash_table_lookup(Gppu_pointersOld, (void*)id)) != NULL) {
-		printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
+		//printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
 		if (type == ACQUIRE_MODE_READ && (pe->count == 0 || pe->mode == ACQUIRE_MODE_READ) && !isPendingInvalidate(id))
 		{
 			pe->mode = type;
@@ -544,11 +544,13 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	cr->originalRequestID = UINT_MAX;
 
 	retval = NULL;
-		
+
+	//printf(WHERESTR "Forwarding request %i\n", WHEREARG, cr->packageCode);
+
 	//Perform the request and await the response
 	ar = (struct acquireResponse*)forwardRequest(cr);
 	
-	printf(WHERESTR "Received response %i\n", WHEREARG, ar->packageCode);
+	//printf(WHERESTR "Received response %i\n", WHEREARG, ar->packageCode);
 	
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
@@ -557,39 +559,39 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	}
 	else
 	{
-		printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
+		//printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
 		//The request was positive
 		retval = ar->data;
-		printf(WHERESTR "Step 0\n", WHEREARG);
+		//printf(WHERESTR "Step 0\n", WHEREARG);
 		(*size) = ar->dataSize;
 		
-		printf(WHERESTR "Step 1\n", WHEREARG);
+		//printf(WHERESTR "Step 1\n", WHEREARG);
 
 		if (type == ACQUIRE_MODE_WRITE || type == ACQUIRE_MODE_DELETE)
 		{
-			printf(WHERESTR "Step 2\n", WHEREARG);
+			//printf(WHERESTR "Step 2\n", WHEREARG);
 			pthread_mutex_lock(&ppu_pointerOld_mutex);
 			if ((pe = g_hash_table_lookup(Gppu_pointersOld, (void*)id)) != NULL)
 			{
-				printf(WHERESTR "Step 3\n", WHEREARG);
+				//printf(WHERESTR "Step 3\n", WHEREARG);
 				pe->mode = ACQUIRE_MODE_BLOCKED;
 				
 				while(pe->count != 0)
 					pthread_cond_wait(&ppu_pointerOld_cond, &ppu_pointerOld_mutex);
 
-				printf(WHERESTR "Step 4\n", WHEREARG, id);
+				//printf(WHERESTR "Step 4\n", WHEREARG, id);
 			}
 			pthread_mutex_unlock(&ppu_pointerOld_mutex);
 		}	
 	
-		printf(WHERESTR "Acquire completed\n", WHEREARG, id);
+		//printf(WHERESTR "Acquire completed\n", WHEREARG, id);
 		//recordPointer(retval, id, *size, 0, type);
 	}
 	
 	FREE(ar);
 	ar = NULL;
 
-	printf(WHERESTR "Acquire return\n", WHEREARG, id);
+	//printf(WHERESTR "Acquire return\n", WHEREARG, id);
 	return retval;	
 }
 
@@ -604,7 +606,7 @@ void threadRelease(void* data)
 	pthread_mutex_lock(&ppu_pointer_mutex);
 	if ((pe = g_hash_table_lookup(Gppu_pointers, data)) != NULL)
 	{
-		printf(WHERESTR "Found data in Gppu_pointers\n", WHEREARG);
+		//printf(WHERESTR "Found data in Gppu_pointers\n", WHEREARG);
 		//Extract the pointer, and release the mutex fast
 		pthread_mutex_unlock(&ppu_pointer_mutex);
 		
@@ -649,7 +651,7 @@ void threadRelease(void* data)
 			q->Gqueue = NULL;
 			q->callback = NULL;
 	
-			printf(WHERESTR "adding item to queue\n", WHEREARG);
+			//printf(WHERESTR "adding item to queue\n", WHEREARG);
 			RelayEnqueItem(q);
 		}
 
@@ -659,7 +661,7 @@ void threadRelease(void* data)
 		pthread_cond_broadcast(&ppu_pointerOld_cond);
 		pthread_mutex_unlock(&ppu_pointerOld_mutex);
 
-		printf(WHERESTR "processInvalidates\n", WHEREARG);
+		//printf(WHERESTR "processInvalidates\n", WHEREARG);
 		processInvalidates(NULL);
 	}
 	else
@@ -710,7 +712,7 @@ void* ppu_requestDispatcher(void* dummy)
 					break;
 				case PACKAGE_ACQUIRE_RESPONSE:
 					resp = (struct acquireResponse*)data;
-					printf(WHERESTR "Processing acquire response - mode = %d\n", WHEREARG, resp->mode);
+					//printf(WHERESTR "Processing acquire response - mode = %d\n", WHEREARG, resp->mode);
 					recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode == ACQUIRE_MODE_CREATE ? ACQUIRE_MODE_WRITE : resp->mode);
 					break;
 			}
