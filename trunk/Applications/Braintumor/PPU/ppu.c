@@ -113,7 +113,7 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	unsigned long size;
 
 	struct PACKAGE* package;
-	package = create(JOB+id, sizeof(struct PACKAGE));
+	package = create(JOB+id, sizeof(struct PACKAGE), CREATE_MODE_NONBLOCKING);
 	package->id = 0;
 	package->maxid = (shots / shots_spu);
 	package->heigth = HEIGTH;
@@ -158,132 +158,132 @@ void calc(int id, struct IMAGE_FORMAT_GREY* grid) {
 
 void loadImageNormal()
 {
-	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT00.ppm", grid00, GRID00IMAGE);
 	release(grid00);			
-	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT01.ppm", grid01, GRID01IMAGE);
 	release(grid01);			
-	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT02.ppm", grid02, GRID02IMAGE);
 	release(grid02);			
 
-	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT10.ppm", grid10, GRID10IMAGE);
 	release(grid10);			
-	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT11.ppm", grid11, GRID11IMAGE);
 	release(grid11);			
-	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT12.ppm", grid12, GRID12IMAGE);
 	release(grid12);
 	
-	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT20.ppm", grid20, GRID20IMAGE);
 	release(grid20);			
-	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT21.ppm", grid21, GRID21IMAGE);
 	release(grid21);			
-	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
 	release(grid22);			
 }
 
 void loadImageSmall()
 {
-	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT00.ppm", grid00, GRID00IMAGE);
 	release(grid00);			
-	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT01.ppm", grid01, GRID01IMAGE);
 	release(grid01);			
-	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT02.ppm", grid02, GRID02IMAGE);
 	release(grid02);			
-	struct IMAGE_FORMAT_GREY* grid03 = create(GRID03, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid03 = create(GRID03, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT03.ppm", grid03, GRID03IMAGE);
 	release(grid03);			
-	struct IMAGE_FORMAT_GREY* grid04 = create(GRID04, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid04 = create(GRID04, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT04.ppm", grid04, GRID04IMAGE);
 	release(grid04);			
 	
-	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT10.ppm", grid10, GRID10IMAGE);
 	release(grid10);			
-	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT11.ppm", grid11, GRID11IMAGE);
 	release(grid11);			
-	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT12.ppm", grid12, GRID12IMAGE);
 	release(grid12);			
-	struct IMAGE_FORMAT_GREY* grid13 = create(GRID13, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid13 = create(GRID13, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT13.ppm", grid13, GRID13IMAGE);
 	release(grid13);			
-	struct IMAGE_FORMAT_GREY* grid14 = create(GRID14, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid14 = create(GRID14, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT14.ppm", grid14, GRID14IMAGE);
 	release(grid14);			
 	
-	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT20.ppm", grid20, GRID20IMAGE);
 	release(grid20);			
-	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT21.ppm", grid21, GRID21IMAGE);
 	release(grid21);			
-	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
 	release(grid22);			
-	struct IMAGE_FORMAT_GREY* grid23 = create(GRID23, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid23 = create(GRID23, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT23.ppm", grid23, GRID23IMAGE);
 	release(grid23);			
-	struct IMAGE_FORMAT_GREY* grid24 = create(GRID24, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid24 = create(GRID24, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT24.ppm", grid24, GRID24IMAGE);
 	release(grid24);			
 	
-	struct IMAGE_FORMAT_GREY* grid30 = create(GRID30, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid30 = create(GRID30, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT30.ppm", grid30, GRID30IMAGE);
 	release(grid30);			
-	struct IMAGE_FORMAT_GREY* grid31 = create(GRID31, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid31 = create(GRID31, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT31.ppm", grid31, GRID31IMAGE);
 	release(grid31);			
-	struct IMAGE_FORMAT_GREY* grid32 = create(GRID32, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid32 = create(GRID32, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT32.ppm", grid32, GRID32IMAGE);
 	release(grid32);			
-	struct IMAGE_FORMAT_GREY* grid33 = create(GRID33, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid33 = create(GRID33, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT33.ppm", grid33, GRID33IMAGE);
 	release(grid33);			
-	struct IMAGE_FORMAT_GREY* grid34 = create(GRID34, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid34 = create(GRID34, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT34.ppm", grid34, GRID34IMAGE);
 	release(grid34);			
 	
-	struct IMAGE_FORMAT_GREY* grid40 = create(GRID40, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid40 = create(GRID40, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT40.ppm", grid40, GRID40IMAGE);
 	release(grid40);			
-	struct IMAGE_FORMAT_GREY* grid41 = create(GRID41, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid41 = create(GRID41, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT41.ppm", grid41, GRID41IMAGE);
 	release(grid41);			
-	struct IMAGE_FORMAT_GREY* grid42 = create(GRID42, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid42 = create(GRID42, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT42.ppm", grid42, GRID42IMAGE);
 	release(grid42);			
-	struct IMAGE_FORMAT_GREY* grid43 = create(GRID43, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid43 = create(GRID43, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT43.ppm", grid43, GRID43IMAGE);
 	release(grid43);			
-	struct IMAGE_FORMAT_GREY* grid44 = create(GRID44, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid44 = create(GRID44, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT44.ppm", grid44, GRID44IMAGE);
 	release(grid44);			
 	
-	struct IMAGE_FORMAT_GREY* grid50 = create(GRID50, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid50 = create(GRID50, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT50.ppm", grid50, GRID50IMAGE);
 	release(grid50);			
-	struct IMAGE_FORMAT_GREY* grid51 = create(GRID51, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid51 = create(GRID51, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT51.ppm", grid51, GRID51IMAGE);
 	release(grid51);			
-	struct IMAGE_FORMAT_GREY* grid52 = create(GRID52, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid52 = create(GRID52, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT52.ppm", grid52, GRID52IMAGE);
 	release(grid52);			
-	struct IMAGE_FORMAT_GREY* grid53 = create(GRID53, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid53 = create(GRID53, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT53.ppm", grid53, GRID53IMAGE);
 	release(grid53);			
-	struct IMAGE_FORMAT_GREY* grid54 = create(GRID54, sizeof(struct IMAGE_FORMAT_GREY));
+	struct IMAGE_FORMAT_GREY* grid54 = create(GRID54, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
 	readimage_grey_DSMCBE("CT54.ppm", grid54, GRID54IMAGE);
 	release(grid54);			
 }
@@ -333,7 +333,7 @@ int main(int argc, char* argv[])
 	threads = simpleInitialize(PPEid, file, SPU_THREADS);
 
 
-	unsigned int* speIDs = create(SPEID + PPEid, 4);
+	unsigned int* speIDs = create(SPEID + PPEid, 4, CREATE_MODE_NONBLOCKING);
 	*speIDs = PPEid * SPU_THREADS;
 	release(speIDs); 
 
@@ -353,7 +353,7 @@ int main(int argc, char* argv[])
 		//}
 	
 			
-		energy = create(ENERGY+PPEid, (sizeof(unsigned char) * (HEIGTH * WIDTH)));
+		energy = create(ENERGY+PPEid, (sizeof(unsigned char) * (HEIGTH * WIDTH)), CREATE_MODE_NONBLOCKING);
 		memset(energy, 0, sizeof(unsigned char) * (HEIGTH * WIDTH));
 	
 		cmap = (unsigned char*)malloc(sizeof(unsigned char)*(9*3));
@@ -457,7 +457,7 @@ int main(int argc, char* argv[])
 
 	if (PPEid != 0)
 	{	
-		energy = create(ENERGY+PPEid, sizeof(unsigned char) * (708 * 576));
+		energy = create(ENERGY+PPEid, sizeof(unsigned char) * (708 * 576), CREATE_MODE_NONBLOCKING);
 		memset(energy, 0, sizeof(unsigned char) * (708 * 576));
 		
 		collectResults(0, SHOTS, SHOTS_SPU, energy);
@@ -469,7 +469,7 @@ int main(int argc, char* argv[])
 		release(energy);
 		
 		//printf("CREATING - FINISHJOB %i\n", FINISHJOB+PPEid);
-		release(create(FINISHJOB+PPEid, sizeof(unsigned int)));
+		release(create(FINISHJOB+PPEid, sizeof(unsigned int), CREATE_MODE_NONBLOCKING));
 		//printf("CREATED\n");
 		
 		for(i = 0; i < SPU_THREADS; i++)

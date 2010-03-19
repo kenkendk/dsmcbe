@@ -1,5 +1,5 @@
-#include "dsmcbe_spu.h"
-#include "common/debug.h"
+#include <dsmcbe_spu.h>
+#include <debug.h>
 #include "../PPU/Shared.h"
 #include <malloc.h>
 #include <stdio.h>
@@ -248,7 +248,7 @@ int main(long long id)
 	for(i = 0; i < jobCount; i++)
 	{
 		//printf(WHERESTR "Creating %d with items %d and %d\n", WHEREARG, i, WORK_OFFSET + i + firstJob, SHARED_ROW_OFFSET + i + firstJob);
-		work_item = create(WORK_OFFSET + i + firstJob, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height);
+		work_item = create(WORK_OFFSET + i + firstJob, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height, CREATE_MODE_NONBLOCKING);
 		
 		unsigned int thisHeight;
 		
@@ -290,7 +290,7 @@ int main(long long id)
 		
 		release(work_item);
 		
-		shared_row = create(SHARED_ROW_OFFSET + i + firstJob, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+		shared_row = create(SHARED_ROW_OFFSET + i + firstJob, sizeof(PROBLEM_DATA_TYPE) * map_width * 2, CREATE_MODE_NONBLOCKING);
 		memset(shared_row, 0,  sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 
 		if (i + firstJob == sharedCount)
@@ -457,7 +457,7 @@ int main(long long id)
 #endif /*UPDATE_DELTA*/
 	}
 	
-	struct Results* res = create(RESULT_OFFSET + spu_no, sizeof(struct Results));
+	struct Results* res = create(RESULT_OFFSET + spu_no, sizeof(struct Results), CREATE_MODE_NONBLOCKING);
 	res->deltaSum = deltasum;
 	res->rc = rc;
 	release(res);

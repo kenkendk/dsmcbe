@@ -5,9 +5,10 @@
 #include <dsmcbe_spu.h>
 #include "../PPU/guids.h"
 #include "../Common/Common.h"
-#include "../DSMCBE/common/debug.h"
+#include <debug.h>
 
 //define PRINT
+
 
 #define Y 3
 #define X 3
@@ -241,7 +242,7 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 			
 			if (lastPoint > largestPoints)
 			{
-				points = create(lastPoint, sizeof(struct POINTS) * canonS);
+				points = create(lastPoint, sizeof(struct POINTS) * canonS, CREATE_MODE_NONBLOCKING);
 				largestPoints = lastPoint;
 			}
 			else
@@ -393,7 +394,7 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 		}
 
 		//printf("SPU %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 100) + speID);
-		unsigned int* ptr = create(FINISHED + (jobID * 100) + speID, sizeof(unsigned int) * 2);
+		unsigned int* ptr = create(FINISHED + (jobID * 100) + speID, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
 		ptr[0] = firstPoint;
 		ptr[1] = lastPoint;
 		//printf("SPU %i: First %u, last %u\n", speID, ptr[0], ptr[1]); 									 

@@ -1,12 +1,9 @@
 #include <dsmcbe_ppu.h>
 #include <stdio.h>
 #include "../guids.h"
-#include <common/debug.h>
 #include <unistd.h>
 #include <libspe2.h>
 #include <stdlib.h>
-
-#include <datapackages.h>
 
 #define REPETITIONS 100000
 

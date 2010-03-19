@@ -53,7 +53,7 @@
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib/glib-2.0/include&quot;"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/glib-2.0/glib&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.ppu.gnu32.c.compiler.debug.option.optimization.level.2038517709" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.debug.option.debugging.level.1646009472" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.debugging.level"/>
@@ -69,6 +69,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1674119818">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1674119818" moduleId="org.eclipse.cdt.core.settings" name="ppu-gnu32-release">
@@ -136,6 +137,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">

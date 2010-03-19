@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 
 	if(PPEid == 0)
 	{
-		unsigned int* count = create(COUNT, sizeof(unsigned int));
+		unsigned int* count = create(COUNT, sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
 		*count = SPU_THREADS * MAX(DSMCBE_MachineCount(), 1);
 		release(count);
 	}

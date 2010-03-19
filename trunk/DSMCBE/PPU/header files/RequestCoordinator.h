@@ -9,8 +9,8 @@
 #include <malloc_align.h>
 #include <free_align.h>
 #include <glib.h>
-#include "../../dsmcbe.h"
-#include "../../common/datapackages.h"
+#include "../../common/dsmcbe.h"
+#include "../header files/datapackages.h"
 
 #ifndef REQUESTCOORDINATOR_H_
 #define REQUESTCOORDINATOR_H_

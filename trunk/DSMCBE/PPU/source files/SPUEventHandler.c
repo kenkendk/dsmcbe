@@ -7,10 +7,9 @@
 #include "../header files/SPU_MemoryAllocator_Shared.h"
 #include "../header files/SPUEventHandler.h"
 #include "../header files/RequestCoordinator.h"
-#include "../../common/debug.h"
-#include "../../common/datapackages.h"
+#include "../header files/datapackages.h"
 #include "../header files/NetworkHandler.h"
-
+#include "../../common/debug.h"
 
 //The number of avalible DMA group ID's
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU! 

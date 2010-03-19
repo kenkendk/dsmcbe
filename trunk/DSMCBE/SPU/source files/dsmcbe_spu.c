@@ -15,9 +15,9 @@
 //Disable this if there are long wait periods in the program.
 #define TIMEOUT_DETECTION
 
-#include "../../dsmcbe_spu.h"
-#include "../../common/datapackages.h"
 #include "../../common/debug.h"
+#include "../../common/dsmcbe_spu.h"
+#include "../../PPU/header files/datapackages.h"
 #include "../../PPU/header files/SPU_MemoryAllocator_Shared.h"
 
 #define TRUE 1

@@ -1,7 +1,7 @@
 #ifndef SPUTHREADS_H_
 #define SPUTHREADS_H_
 
-#include "../../dsmcbe_spu.h"
+#include "../../common/dsmcbe_spu.h"
 #include <setjmp.h>
 
 //Stack must be multiple of 128 bits

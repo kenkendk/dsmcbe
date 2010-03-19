@@ -1,6 +1,5 @@
 //#define NO_EMBEDDED_SPU
 
-#include "../../dsmcbe.h"
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -17,8 +16,7 @@
 #include "../header files/SPUEventHandler.h"
 #include "../header files/RequestCoordinator.h"
 #include "../header files/NetworkHandler.h"
-#include "../../dsmcbe_ppu.h"
-
+#include "../../common/dsmcbe_ppu.h"
 #include "../../common/debug.h"
 
 extern unsigned int net_remote_hosts;
