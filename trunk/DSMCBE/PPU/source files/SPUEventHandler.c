@@ -192,7 +192,7 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 	}
 
 #ifdef DEBUG_COMMUNICATION	
-	printf(WHERESTR "Disposing item %d\n", WHEREARG, obj->id);
+	printf(WHERESTR "Disposing item %d @%d\n", WHEREARG, obj->id, obj->LS);
 #endif
 
 	if (obj->invalidateId != UINT_MAX)
@@ -395,7 +395,7 @@ void* spuhandler_AllocateSpaceForObject(struct SPU_State* state, unsigned long s
 }
  
 //This function handles incoming acquire requests from an SPU
-void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int requestId, GUID id, unsigned int mode)
+void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int requestId, GUID id, int mode)
 {
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Handling acquire request for %d, with requestId: %d\n", WHEREARG, id, requestId);
@@ -433,7 +433,8 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	preq->operation = PACKAGE_ACQUIRE_REQUEST;
 	preq->requestId = requestId;
 	preq->DMAcount = 0;
-	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
+	preq->mode = mode;
+	//printf(WHERESTR "Assigned reqId: %d, mode: %d\n", WHEREARG, preq->requestId, preq->mode);
 	
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
@@ -445,6 +446,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	req->originator = dsmcbe_host_number;
 	req->originalRecipient = UINT_MAX;
 	req->originalRequestID = UINT_MAX;
+	req->mode = mode;
 
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
@@ -514,6 +516,8 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 
 	if (g_hash_table_lookup(state->itemsById, (void*)id) != NULL)
 	{
+		printf(WHERESTR "Handling create request for %d, with requestId: %d, the object already exists\n", WHEREARG, id, requestId);
+		printf(WHERESTR "LS pointer: %d\n", WHEREARG, ((struct spu_dataObject*)g_hash_table_lookup(state->itemsById, (void*)id))->LS);
 		PUSH_TO_SPU(state, requestId);
 		PUSH_TO_SPU(state, NULL);
 		PUSH_TO_SPU(state, 0);
@@ -528,6 +532,7 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	preq->operation = PACKAGE_CREATE_REQUEST;
 	preq->requestId = requestId;
 	preq->DMAcount = 0;
+	preq->mode = ACQUIRE_MODE_WRITE;
 	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
 	
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
@@ -561,6 +566,7 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 	preq->operation = PACKAGE_ACQUIRE_BARRIER_REQUEST;
 	preq->requestId = requestId;
 	preq->DMAcount = 0;
+	preq->mode = ACQUIRE_MODE_READ;
 	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
 		
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
@@ -639,6 +645,28 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	{
 		//printf(WHERESTR "Handling read release %d, @%d\n", WHEREARG, obj->id, (unsigned int)data);
 		spuhandler_HandleObjectRelease(state, obj);
+	}
+	else if (obj->mode == ACQUIRE_MODE_DELETE)
+	{
+		//printf(WHERESTR "Handling delete release %d, @%d\n", WHEREARG, obj->id, (unsigned int)data);
+
+		struct releaseRequest* req = MALLOC(sizeof(struct releaseRequest));
+
+		req->data = obj->EA;
+		req->dataItem = obj->id;
+		req->dataSize = obj->size;
+		req->mode = ACQUIRE_MODE_DELETE;
+		req->offset = 0;
+		req->packageCode = PACKAGE_RELEASE_REQUEST;
+		req->requestID = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
+
+		spuhandler_SendRequestCoordinatorMessage(state, req);
+
+		int id = obj->id;
+		spuhandler_HandleObjectRelease(state, obj);
+		spuhandler_DisposeObject(state, obj);
+
+		//printf("The item %s\n", g_hash_table_lookup(state->itemsById, (void*)id) == NULL ? "does not exist" : "exists");
 	}
 	else /*if (obj->mode == ACQUIRE_MODE_WRITE)*/
 	{
