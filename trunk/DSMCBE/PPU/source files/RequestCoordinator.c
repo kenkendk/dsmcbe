@@ -1289,7 +1289,7 @@ void FreeDataObject(dataObject object)
 
 	if (temp == NULL || temp != object)
 	{
-		printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d), temp is %s\n", WHEREARG, object->id, (int)object, (int)object->EA, ISNULL_STRING(temp));
+		//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d), temp is %s\n", WHEREARG, object->id, (int)object, (int)object->EA, ISNULL_STRING(temp));
 
 		//Make sure we are not still using the actual memory
 		if (temp == NULL || temp->EA != object->EA)
