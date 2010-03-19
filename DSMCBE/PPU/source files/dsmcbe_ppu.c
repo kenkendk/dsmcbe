@@ -424,7 +424,13 @@ void* create(GUID id, unsigned long size, int mode){
 		return NULL;
 	}
 
-	unsigned int* tmp = threadCreate(id, size, mode);
+	if (mode == CREATE_MODE_BARRIER && size == 0)
+	{
+		REPORT_ERROR("Invalid size for barrier, must be greater than zero");
+		return NULL;
+	}
+
+	unsigned int* tmp = threadCreate(id, mode == CREATE_MODE_BARRIER ? sizeof(unsigned int) * 2 : size, mode == CREATE_MODE_BARRIER ? CREATE_MODE_NONBLOCKING : mode);
 
 	if (mode == CREATE_MODE_BARRIER)
 	{

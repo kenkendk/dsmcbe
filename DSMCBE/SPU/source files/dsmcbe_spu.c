@@ -128,6 +128,12 @@ void spu_dsmcbe_readMailbox() {
 //Initiates a create operation
 unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size, int mode)
 {
+	if (!spu_dsmcbe_initialized)
+	{
+		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
+		return UINT_MAX;
+	}
+
 	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("Cannot request object table");
@@ -136,14 +142,13 @@ unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size, int mode)
 	
 	if (id >= OBJECT_TABLE_SIZE)
 	{
-		printf("ID was %u\n", id);
-		REPORT_ERROR("ID was larger than object table size");
+		REPORT_ERROR2("ID %d is larger than object table size", id);
 		return UINT_MAX;
 	}
-	
-	if (!spu_dsmcbe_initialized)
+
+	if (mode == CREATE_MODE_BARRIER && size == 0)
 	{
-		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
+		REPORT_ERROR("Invalid size for barrier, must be greater than zero");
 		return UINT_MAX;
 	}
 	

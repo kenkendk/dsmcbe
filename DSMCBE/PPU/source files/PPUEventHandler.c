@@ -183,9 +183,8 @@ void* forwardRequest(void* data)
 	data = g_queue_pop_head(dummy);
 	pthread_mutex_unlock(&ppu_dummy_mutex);
 	
-	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && (((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE || ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_DELETE)) {
-	
-		
+	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && (((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE || ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_DELETE))
+	{
 		if (((struct acquireResponse*)data)->writeBufferReady != TRUE)
 		{
 			//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
@@ -329,12 +328,8 @@ void processInvalidates(struct invalidateRequest* incoming)
 		g_queue_push_tail(Gppu_pendingInvalidate, incoming);
 	}
 
-	//printf(WHERESTR "Testing queue\n", WHEREARG);
-	
 	if (!g_queue_is_empty(Gppu_pendingInvalidate))
 	{
-		//printf(WHERESTR "Queue is not empty\n", WHEREARG);
-
 		//Gppu_temp = g_queue_new();
 		while(!g_queue_is_empty(Gppu_pendingInvalidate))
 		{
@@ -406,8 +401,6 @@ void processInvalidates(struct invalidateRequest* incoming)
 			g_queue_clear(Gppu_temp);	
 			
 	}
-	//else
-	//printf(WHERESTR "Queue is empty\n", WHEREARG);
 
 	pthread_mutex_unlock(&ppu_invalidate_mutex);
 }
@@ -562,29 +555,21 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		//printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
 		//The request was positive
 		retval = ar->data;
-		//printf(WHERESTR "Step 0\n", WHEREARG);
 		(*size) = ar->dataSize;
 		
-		//printf(WHERESTR "Step 1\n", WHEREARG);
-
 		if (type == ACQUIRE_MODE_WRITE || type == ACQUIRE_MODE_DELETE)
 		{
-			//printf(WHERESTR "Step 2\n", WHEREARG);
 			pthread_mutex_lock(&ppu_pointerOld_mutex);
 			if ((pe = g_hash_table_lookup(Gppu_pointersOld, (void*)id)) != NULL)
 			{
-				//printf(WHERESTR "Step 3\n", WHEREARG);
 				pe->mode = ACQUIRE_MODE_BLOCKED;
 				
 				while(pe->count != 0)
 					pthread_cond_wait(&ppu_pointerOld_cond, &ppu_pointerOld_mutex);
-
-				//printf(WHERESTR "Step 4\n", WHEREARG, id);
 			}
 			pthread_mutex_unlock(&ppu_pointerOld_mutex);
 		}	
 	
-		//printf(WHERESTR "Acquire completed\n", WHEREARG, id);
 		//recordPointer(retval, id, *size, 0, type);
 	}
 	
@@ -606,7 +591,6 @@ void threadRelease(void* data)
 	pthread_mutex_lock(&ppu_pointer_mutex);
 	if ((pe = g_hash_table_lookup(Gppu_pointers, data)) != NULL)
 	{
-		//printf(WHERESTR "Found data in Gppu_pointers\n", WHEREARG);
 		//Extract the pointer, and release the mutex fast
 		pthread_mutex_unlock(&ppu_pointer_mutex);
 		
