@@ -1,5 +1,5 @@
-#include "dsmcbe_ppu.h"
-#include "common/debug.h"
+#include <dsmcbe_ppu.h>
+#include <debug.h>
 
 #include <stdio.h>
 #include <pthread.h>
@@ -180,8 +180,8 @@ int main(int argc, char* argv[])
 
 	if (id == 0)
 	{
-		release(create(OBJ_1, DATA_SIZE));
-		createBarrier(OBJ_BARRIER, 4);
+		release(create(OBJ_1, DATA_SIZE, CREATE_MODE_NONBLOCKING));
+		create(OBJ_BARRIER, 4, CREATE_MODE_BARRIER);
 	}
 #endif
 

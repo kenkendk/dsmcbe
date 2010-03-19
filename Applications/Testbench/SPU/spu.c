@@ -1,9 +1,12 @@
-#include "spu.h"
-#include <common/debug.h>
-#include <unistd.h>
-#include <malloc.h>
-#include <malloc_align.h>
-#include <free_align.h>
+#include <dsmcbe_spu.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <spu_mfcio.h>
+#include <math.h>
+#include <libmisc.h>
+#include <debug.h>
+#include "../guids.h"
+#include <dsmcbe.h>
 
 //We need the counter on the heap so the threads share it
 //static int counter = 0;
@@ -11,11 +14,10 @@
 void TEST();
 
 int main(int argc, char** argv) {
-	
+
 	initialize();
 
 	printf(WHERESTR "Hello World\n", WHEREARG);
-	
 	unsigned long size;
 	unsigned int i;
 	//unsigned int items;

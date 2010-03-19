@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "../header files/SPUThreads.h"
 #include "../../common/debug.h"
-#include "../../dsmcbe_spu.h"
+#include "../../common/dsmcbe_spu.h"
 #include <malloc_align.h>
 #include <free_align.h>
 #include <string.h>

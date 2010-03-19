@@ -26,7 +26,6 @@
 <tool commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG}${OUTPUT_PREFIX}${OUTPUT} ${INPUTS} -B/opt/cell/sysroot/usr/spu/lib" id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.27351483" name="SPU GNU C Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe">
 <option id="cell.gnu.c.linker.option.libs.2120120162" name="Libraries (-l)" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
 <listOptionValue builtIn="false" value="m"/>
-<listOptionValue builtIn="false" value="sputimer"/>
 <listOptionValue builtIn="false" value="dsmcbe_spu"/>
 </option>
 <option id="cell.gnu.c.linker.option.libs.lm.664927340" name="Math library (-lm)" superClass="cell.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
@@ -40,7 +39,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.441072089" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.include.paths.637708398" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
 </option>
@@ -181,6 +180,7 @@
 </profile>
 </storageModule>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1074610177">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1074610177" moduleId="org.eclipse.cdt.core.settings" name="spu-gnu-release">
@@ -362,6 +362,7 @@
 </profile>
 </storageModule>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cconfiguration>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">

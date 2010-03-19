@@ -7,7 +7,7 @@
 #include <memory.h>
 #include <dsmcbe_ppu.h>
 #include <pthread.h>
-#include <common/debug.h>
+#include <debug.h>
 #include <glib.h>
 
 #define JOBS_PR_PROCESSOR 10
@@ -90,7 +90,7 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 	{
 	    //printf(WHERESTR "PPU is broadcasting Prototein info, spu_count: %d\n", WHEREARG, spu_count);
 		//Broadcast info about the prototein
-		prototein_object = create(PROTOTEIN, (sizeof(unsigned int) * 2) + prototein_length);
+		prototein_object = create(PROTOTEIN, (sizeof(unsigned int) * 2) + prototein_length, CREATE_MODE_NONBLOCKING);
 		((unsigned int*)prototein_object)[0] = 0;
 		((unsigned int*)prototein_object)[1] = prototein_length;
 		memcpy(prototein_object + (sizeof(unsigned int) * 2), proto, prototein_length);
@@ -101,7 +101,7 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		
 	    //printf(WHERESTR "PPU is building work tree\n", WHEREARG);
 		//Allocate the consumer syncroniation primitive
-		work_counter = (unsigned int*)create(PACKAGE_ITEM, sizeof(unsigned int) * 2);
+		work_counter = (unsigned int*)create(PACKAGE_ITEM, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
 		work_counter[0] = 0;
 		
 		//Make a bag of tasks
@@ -113,7 +113,7 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		total_jobcount = 0;
 		while(current_job < job_queue_length)
 		{
-			wb = (struct workblock*)create(WORKITEM_OFFSET + total_jobcount, BUFFER_SIZE);
+			wb = (struct workblock*)create(WORKITEM_OFFSET + total_jobcount, BUFFER_SIZE, CREATE_MODE_NONBLOCKING);
 			PrepareWorkBlock(wb, current_job);
 			current_job += wb->worksize;
 			release(wb);
@@ -174,7 +174,7 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		printmap(winner, prototein_length);
 		printf("Fibers: %d\n", SPU_FIBERS);
 		
-		release(create(MASTER_COMPLETION_LOCK, sizeof(unsigned int)));
+		release(create(MASTER_COMPLETION_LOCK, sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
 	
 	}
 	else

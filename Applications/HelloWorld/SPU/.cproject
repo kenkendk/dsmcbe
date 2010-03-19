@@ -36,7 +36,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.1296363335" name="SPU GNU C++ Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe"/>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.955951408" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.include.paths.579932040" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.spu.gnu.c.compiler.debug.option.optimization.level.869423334" name="Optimization Level" superClass="cell.spu.gnu.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
@@ -176,6 +176,7 @@
 </profile>
 </storageModule>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.spu.gnu.exe.release.2113713739">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.spu.gnu.exe.release.2113713739" moduleId="org.eclipse.cdt.core.settings" name="spu-gnu-release">
@@ -198,12 +199,12 @@
 <inputType id="cdt.managedbuild.tool.gnu.assembler.input.2033204468" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 </tool>
 <tool commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG}${OUTPUT_PREFIX}${OUTPUT} ${INPUTS} -B/opt/cell/sysroot/usr/spu/lib" id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.1805263882" name="SPU GNU C Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe">
-<option id="cell.gnu.c.linker.option.libs.lm.1704004771" superClass="cell.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
-<option id="cell.gnu.c.linker.option.libs.2011951070" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
+<option id="cell.gnu.c.linker.option.libs.lm.1704004771" name="Math library (-lm)" superClass="cell.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
+<option id="cell.gnu.c.linker.option.libs.2011951070" name="Libraries (-l)" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
 <listOptionValue builtIn="false" value="m"/>
 <listOptionValue builtIn="false" value="dsmcbe_spu"/>
 </option>
-<option id="gnu.c.link.option.paths.2037004563" superClass="gnu.c.link.option.paths" valueType="libPaths">
+<option id="gnu.c.link.option.paths.2037004563" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/spu-gnu-release}&quot;"/>
 </option>
 <inputType id="cdt.managedbuild.tool.gnu.c.linker.input.478419957" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
@@ -215,7 +216,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.63561344" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release">
 <option defaultValue="gnu.c.optimization.level.most" id="cell.spu.gnu.c.compiler.release.option.optimization.level.318748590" name="Optimization Level" superClass="cell.spu.gnu.c.compiler.release.option.optimization.level" valueType="enumerated"/>
 <option id="cell.spu.gnu.c.compiler.release.option.debugging.level.2046530549" name="Debug Level" superClass="cell.spu.gnu.c.compiler.release.option.debugging.level"/>
-<option id="cell.spu.gnu.c.compiler.option.include.paths.1199475864" superClass="cell.spu.gnu.c.compiler.option.include.paths" valueType="includePath">
+<option id="cell.spu.gnu.c.compiler.option.include.paths.1199475864" name="Include paths (-I)" superClass="cell.spu.gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
 </option>
@@ -354,6 +355,7 @@
 </profile>
 </storageModule>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cconfiguration>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">

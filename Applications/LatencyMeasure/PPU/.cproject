@@ -49,7 +49,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe.2129083453" name="PPU GNU 32 bit C++ Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.cpp.linker.exe"/>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug.102281801" name="PPU GNU 32 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.include.paths.346430631" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include"/>
 </option>
@@ -67,6 +67,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1257953644">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.1257953644" moduleId="org.eclipse.cdt.core.settings" name="ppu-gnu32-release">
@@ -132,6 +133,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.371294144">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.371294144" moduleId="org.eclipse.cdt.core.settings" name="ppu-gnu64-debug">
@@ -190,6 +192,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.442303195">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.442303195" moduleId="org.eclipse.cdt.core.settings" name="ppu-gnu64-release">
@@ -248,6 +251,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.xl32.exe.debug.1120422797">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.xl32.exe.debug.1120422797" moduleId="org.eclipse.cdt.core.settings" name="ppu-xl32-debug">
@@ -287,6 +291,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.xl32.exe.release.1375244707">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.xl32.exe.release.1375244707" moduleId="org.eclipse.cdt.core.settings" name="ppu-xl32-release">
@@ -326,6 +331,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.xl64.exe.debug.1719800333">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.xl64.exe.debug.1719800333" moduleId="org.eclipse.cdt.core.settings" name="ppu-xl64-debug">
@@ -365,6 +371,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 <cconfiguration id="celldt.managedbuild.config.cell.ppu.xl64.exe.release.1140991311">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.ppu.xl64.exe.release.1140991311" moduleId="org.eclipse.cdt.core.settings" name="ppu-xl64-release">
@@ -404,6 +411,7 @@
 </storageModule>
 <storageModule moduleId="scannerConfiguration"/>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
 </cconfiguration>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">

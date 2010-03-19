@@ -36,14 +36,14 @@ int main(int argc, char* argv[])
 
 	if(PPEid == 0)
 	{
-		unsigned int* count = create(SPU_ID, sizeof(unsigned int) * 2);
+		unsigned int* count = create(SPU_ID, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
 		count[0] = 0;
 		count[1] = SPU_THREADS * MAX(DSMCBE_MachineCount(), 1);
 		release(count);
 		
-		createBarrier(BARRIER_LOCK, SPU_THREADS * MAX(DSMCBE_MachineCount(), 1));
+		create(BARRIER_LOCK, SPU_THREADS * MAX(DSMCBE_MachineCount(), 1), CREATE_MODE_BARRIER);
 		
-		count = create(BARRIER_ITEM, sizeof(unsigned int) * 2);
+		count = create(BARRIER_ITEM, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
 		count[0] = count[1] = 0;
 		release(count);
 		
@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
 	for(i = 0; i < SPU_THREADS; i++)
 		pthread_join(threads[i], NULL);
 	
-	release(create(MASTER_COMPLETION_LOCK, 1));
+	release(create(MASTER_COMPLETION_LOCK, 1, CREATE_MODE_NONBLOCKING));
 	
 	sleep(1);
 	

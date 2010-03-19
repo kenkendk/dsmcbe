@@ -1,5 +1,5 @@
-#include "dsmcbe_spu.h"
-#include "common/debug.h"
+#include <dsmcbe_spu.h>
+#include <debug.h>
 #include "../PPU/Shared.h"
 #include <libmisc.h>
 #include <spu_mfcio.h>

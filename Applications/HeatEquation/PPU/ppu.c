@@ -4,8 +4,8 @@
 #include <pthread.h>
 #include <malloc.h>
 #include <sys/mman.h>
-#include "dsmcbe_ppu.h"
-#include "common/debug.h"
+#include <dsmcbe_ppu.h>
+#include <debug.h>
 #include "Shared.h"
 #include "graphicsScreen.h"
 
@@ -135,7 +135,7 @@ void Coordinator(unsigned int spu_count)
 	
 
 	//Let all SPU's compete for a number
-	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
+	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit), CREATE_MODE_NONBLOCKING);
 	boot->map_width = map_width;
 	boot->map_height = map_height;
 	boot->spu_no = 0;
@@ -176,14 +176,14 @@ void Coordinator(unsigned int spu_count)
 	release(boot);
 	
 	//Set up the barrier
-	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
+	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit), CREATE_MODE_NONBLOCKING);
 	barrier->delta = 0;
 	barrier->lock_count = 0;
 	barrier->print_count = 0;
 	release(barrier);
 	
-	createBarrier(EX_BARRIER_1, spu_count);
-	createBarrier(EX_BARRIER_2, spu_count);
+	create(EX_BARRIER_1, spu_count, CREATE_MODE_NONBLOCKING);
+	create(EX_BARRIER_2, spu_count, CREATE_MODE_NONBLOCKING);
 	
 	/*
 	unsigned int rows = 0;
@@ -245,7 +245,7 @@ void Coordinator(unsigned int spu_count)
 		rows++;
 	}
 	*/
-	release(create(MASTER_START_LOCK, 1));
+	release(create(MASTER_START_LOCK, 1, CREATE_MODE_NONBLOCKING));
 
 
 //Periodically update window?
@@ -417,7 +417,7 @@ int main(int argc, char* argv[])
 	if (machineid == 0)
 	{
 		Coordinator(spu_count);
-		release(create(MASTER_COMPLETION_LOCK, 1));
+		release(create(MASTER_COMPLETION_LOCK, 1, CREATE_MODE_NONBLOCKING));
 	}
 	else
 	{

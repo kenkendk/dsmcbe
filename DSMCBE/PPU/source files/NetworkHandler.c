@@ -10,7 +10,7 @@
 //#define TRACE_NETWORK_PACKAGES
 
 #include "../header files/RequestCoordinator.h"
-#include "../../dsmcbe.h"
+#include "../../common/dsmcbe.h"
 #include "../../common/debug.h"
 #include "../header files/NetworkHandler.h"
 

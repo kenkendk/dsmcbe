@@ -7,7 +7,8 @@
 #include <malloc_align.h>
 #include <string.h>
 #include <dsmcbe_spu.h>
-#include <common/debug.h>
+#include <debug.h>
+#include <dsmcbe.h>
 
 //#define DOUBLE_BUFFER
 
@@ -204,7 +205,7 @@ int FoldPrototein(unsigned long long id)
     //printf(WHERESTR "SPU %d has completed %d jobs\n", WHEREARG, thread_id, totalwork);
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
 	//sleep((thread_id * 0.5) + 1);
-    winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2));
+    winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2), CREATE_MODE_NONBLOCKING);
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
     memcpy(winner_object + (sizeof(int) * 2), winner, sizeof(struct coordinate) * prototein_length);
     ((int*)winner_object)[0] = bestscore;
