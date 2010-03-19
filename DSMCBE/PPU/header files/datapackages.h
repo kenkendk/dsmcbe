@@ -8,7 +8,7 @@
 #ifndef DATAPACKAGES_H_
 #define DATAPACKAGES_H_
 
-#include "../dsmcbe.h"
+#include "../../common/dsmcbe.h"
 
 #define ACQUIRE_MODE_CREATE (ACQUIRE_MODE_DELETE + 2)
 #define ACQUIRE_MODE_BLOCKED (ACQUIRE_MODE_CREATE + 1)

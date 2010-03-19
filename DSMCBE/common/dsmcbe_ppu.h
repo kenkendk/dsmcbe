@@ -1,7 +1,7 @@
 #ifndef DSMCBE_PPU_H_
 #define DSMCBE_PPU_H_
 
-#include "./dsmcbe.h"
+#include "dsmcbe.h"
 #include <libspe2.h>
 #include <pthread.h>
 
@@ -10,6 +10,7 @@ extern pthread_t* simpleInitialize(unsigned int id, char* file, unsigned int thr
 extern unsigned int DSMCBE_MachineCount();
 extern void dsmcbe_display_network_startup(int value);
 extern void DSMCBE_SetHardwareThreads(unsigned int count);
+extern void terminate();
 
 #endif /*DSMCBE_PPU_H_*/
 
