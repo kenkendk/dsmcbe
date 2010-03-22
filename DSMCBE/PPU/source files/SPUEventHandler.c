@@ -514,7 +514,7 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	printf(WHERESTR "Handling create request for %d, with requestId: %d\n", WHEREARG, id, requestId);
 #endif
 
-	if (g_hash_table_lookup(state->itemsById, (void*)id) != NULL)
+	if (mode != CREATE_MODE_BLOCKING && g_hash_table_lookup(state->itemsById, (void*)id) != NULL)
 	{
 		printf(WHERESTR "Handling create request for %d, with requestId: %d, the object already exists\n", WHEREARG, id, requestId);
 		printf(WHERESTR "LS pointer: %d\n", WHEREARG, ((struct spu_dataObject*)g_hash_table_lookup(state->itemsById, (void*)id))->LS);

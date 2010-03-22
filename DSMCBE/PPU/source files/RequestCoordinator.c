@@ -684,6 +684,8 @@ void DoInvalidate(GUID dataItem, unsigned int removeLocalCopy)
 	
 	unsigned int leaseCount = g_hash_table_size(obj->GleaseTable);
 
+	//printf(WHERESTR "Lease count: %d\n", WHEREARG, leaseCount);
+
 	if (dsmcbe_host_number != GetMachineID(dataItem) && removeLocalCopy)
 	{
 		if(leaseCount != 0) {
@@ -1016,9 +1018,9 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
 	{
 		q = obj->Gwaitqueue;
-						
+
 		//If the object is not locked, register as locked and respond
-		if (g_queue_is_empty(q))
+		if (g_queue_is_empty(q) || g_queue_peek_head(q) != NULL)
 		{
 			//printf(WHERESTR "Object not locked\n", WHEREARG);
 			if (request->mode == ACQUIRE_MODE_READ) {
@@ -1026,7 +1028,7 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 				g_hash_table_insert(obj->GleaseTable, item->Gqueue, g_hash_table_lookup(rc_GinvalidateSubscribers, item->Gqueue));
 				RespondAcquire(item, obj, FALSE);
 			} else if (request->mode == ACQUIRE_MODE_WRITE || request->mode == ACQUIRE_MODE_DELETE) {
-				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
+				//printf(WHERESTR "Acquiring %s on not locked object\n", WHEREARG, request->mode == ACQUIRE_MODE_DELETE ? "DELETE" : "WRITE");
 				//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 					//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 
@@ -1034,7 +1036,8 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 			}
 
 		}
-		else {
+		else
+		{
 			//Otherwise add the request to the wait list			
 			//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 				//printf(WHERESTR "Object locked\n", WHEREARG);
@@ -1328,6 +1331,7 @@ void DoDelete(dataObject obj)
 
 	g_hash_table_insert(rc_Gwaiters, (void*)obj->id, q);
 	g_hash_table_remove(rc_GallocatedItems, (void*)obj->id);
+	g_hash_table_remove_all(obj->GleaseTable);
 
 	OBJECT_TABLE_ENTRY_TYPE* objecttable = GetObjectTable();
 	objecttable[obj->id] = OBJECT_TABLE_RESERVED;

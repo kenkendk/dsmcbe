@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 	//The initial processor starts the sequence
 	if (pid == 0)
 	{
-		tmp = create(writerChanel, sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
+		tmp = create(writerChanel, sizeof(unsigned int), CREATE_MODE_BLOCKING);
 		*tmp = 0;
 		release(tmp);
 	}
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
 
 		//sleep(5);
 		//printf("%d writing %d\n", pid, writerChanel);
-		tmp = create(writerChanel, sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
+		tmp = create(writerChanel, sizeof(unsigned int), CREATE_MODE_BLOCKING);
 		//printf("%d got pointer %d for id %d\n", pid, (unsigned int)tmp, writerChanel);
 		*tmp = counter;
 		release(tmp);
@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
 		time(&endtime);
 		elapsedSeconds = difftime (endtime, begintime);
 		printf("Elapsed time for %d iterations is %.2lf seconds, CommsTime score is: %.2lf.\n", counter, elapsedSeconds, elapsedSeconds / counter);
-		release(create(COMPLETION_LOCK, sizeof(int), CREATE_MODE_NONBLOCKING));
+		release(create(COMPLETION_LOCK, sizeof(int), CREATE_MODE_BLOCKING));
 	}
 
 	printf("SPU %d is terminating\n", pid);

@@ -7,8 +7,7 @@
 #include <malloc_align.h>
 #include <free_align.h>
 #include <spu_mfcio.h> 
-#include "../guids.h"
-#include <common/debug.h>
+#include "../PPU/guids.h"
 #include <malloc.h>
 
 #endif /*DSMCBE_SPU_LOCAL_H_*/
