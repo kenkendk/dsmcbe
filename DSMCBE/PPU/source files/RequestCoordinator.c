@@ -1130,11 +1130,12 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				
 				if (!g_queue_is_empty(q) && ((struct createRequest*)((QueueableItem)g_queue_peek_head(q))->dataRequest)->packageCode != PACKAGE_ACQUIRE_BARRIER_REQUEST )
 			    {
-					while (!g_queue_is_empty(q))
+					int i;
+					for(i = 0; i < g_queue_get_length(q); i++)
 					{
 						//Acquire for the next in the queue
 						//printf(WHERESTR "Acquire for the next in the queue for %d\n", WHEREARG, request->dataItem);
-						next = g_queue_pop_head(q);
+						next = g_queue_peek_nth(q, i);
 
 						int packageMode = -1;
 						int packageCode = ((struct acquireRequest*)next->dataRequest)->packageCode;
@@ -1142,19 +1143,22 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 							packageMode = ((struct acquireRequest*)next->dataRequest)->mode;
 
 						if (packageMode == ACQUIRE_MODE_WRITE || packageMode == ACQUIRE_MODE_DELETE){
+							g_queue_pop_nth(q, i--);
+
 							//if (machineId == 0 && ((struct acquireRequest*)next->dataRequest)->dataItem == 0)
 								//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 	
 							rc_ProcessAndRespondAcquire(next, obj, packageMode);
-							
 							break; //Done
 						} else if (packageMode == ACQUIRE_MODE_READ) {
+							g_queue_pop_nth(q, i--);
+
 							g_hash_table_insert(obj->GleaseTable, next->Gqueue, (void*)1);
 							RespondAcquire(next, obj, FALSE);						
-						} else {
-							REPORT_ERROR2("packageCode was neither WRITE nor READ, id %d", obj->id);
-							REPORT_ERROR2("packageCode was neither WRITE nor READ packageCode %d", packageCode);
-							REPORT_ERROR2("packageCode was neither WRITE nor READ mode %d", packageMode);
+						} else if (packageCode != PACKAGE_CREATE_REQUEST) {
+							REPORT_ERROR2("packageCode/mode was invalid, id %d", obj->id);
+							REPORT_ERROR2("packageCode/mode was invalid, packageCode %d", packageCode);
+							REPORT_ERROR2("packageCode/mode was invalid, mode %d", packageMode);
 						}						 
 					}
 			    }
@@ -1342,7 +1346,8 @@ void DoDelete(dataObject obj)
 		{
 			//printf(WHERESTR "DoDelete - packageCode is %d\n", WHEREARG, ((struct createRequest*)item->dataRequest)->packageCode);
 			g_queue_pop_nth(q, i);
-			EnqueItem(item);
+			HandleCreateRequest(item);
+			break; //Do not process anything else
 		}
 	}
 }
