@@ -141,7 +141,7 @@ void RelayEnqueItem(QueueableItem q)
 	pthread_mutex_lock(relay->mutex);
 	((struct createRequest*)relay->dataRequest)->requestID = NEXT_SEQ_NO(ppu_request_sequence_number, MAX_SEQUENCE_NUMBER);
 	g_hash_table_insert(ppuhandler_pendingRequests, (void*)(((struct createRequest*)relay->dataRequest)->requestID), q);
-	//printf(WHERESTR "Sending request with type %d, and reqId: %d\n", WHEREARG, ((struct createRequest*)relay->dataRequest)->packageCode, ((struct createRequest*)relay->dataRequest)->requestID);	
+	//printf(WHERESTR "Sending request with type %d, and reqId: %d\n", WHEREARG, ((struct createRequest*)relay->dataRequest)->packageCode, ((struct createRequest*)relay->dataRequest)->requestID);
 	pthread_mutex_unlock(relay->mutex);
 	
 	//printf(WHERESTR "Sending item %d\n", WHEREARG, (unsigned int)relay);
@@ -175,7 +175,7 @@ void* forwardRequest(void* data)
 
 
 	while (g_queue_is_empty(dummy)) {
-		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
+		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&dummy);
 		pthread_cond_wait(&ppu_dummy_cond, &ppu_dummy_mutex);
 		//printf(WHERESTR "queue filled\n", WHEREARG);
 	}
@@ -715,7 +715,7 @@ void* ppu_requestDispatcher(void* dummy)
 			} else {		
 				//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i \n", WHEREARG, (int)ui->event, (int)ui->mutex, (int)ui->queue);
 				
-				int freeReq;
+				int freeReq = FALSE;
 
 				if (((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 					freeReq = TRUE;
@@ -736,6 +736,7 @@ void* ppu_requestDispatcher(void* dummy)
 				
 				if (freeReq)
 				{
+					//printf(WHERESTR "Removing reqId %d\n", WHEREARG, reqId);
 					g_hash_table_remove(ppuhandler_pendingRequests, (void*)reqId);					
 					FREE(ui);
 					ui = NULL;
