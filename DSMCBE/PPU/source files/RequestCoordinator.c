@@ -979,7 +979,7 @@ void rc_ProcessAndRespondAcquire(QueueableItem next, dataObject obj, int mode)
 	g_queue_push_head(obj->Gwaitqueue, NULL);
 
 	GUID id = obj->id;
-	if (id != OBJECT_TABLE_ID && !onlyOwner && mode != ACQUIRE_MODE_DELETE)
+	if (id != OBJECT_TABLE_ID && !onlyOwner)
 		RecordBufferRequest(next, obj);
 	RespondAcquire(next, obj, onlyOwner);
 
