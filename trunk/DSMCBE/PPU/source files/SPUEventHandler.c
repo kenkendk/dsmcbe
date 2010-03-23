@@ -187,7 +187,7 @@ void spuhandler_DisposeObject(struct SPU_State* state, struct spu_dataObject* ob
 
 	if (obj->count != 0)
 	{
-		REPORT_ERROR("Tried to dispose an object that was still being referenced");
+		REPORT_ERROR2("Tried to dispose an object that was still being referenced, count: %d", obj->count);
 		return;
 	}
 
@@ -662,9 +662,17 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 
 		spuhandler_SendRequestCoordinatorMessage(state, req);
 
-		int id = obj->id;
 		spuhandler_HandleObjectRelease(state, obj);
-		spuhandler_DisposeObject(state, obj);
+
+		if (obj->writebuffer_ready)
+		{
+			//printf(WHERESTR "Handling delete release %d - Writebuffer is ready - count is %d\n", WHEREARG, obj->id, obj->count);
+			spuhandler_DisposeObject(state, obj);
+		}
+		else
+		{
+			//printf(WHERESTR "Handling delete release %d - Writebuffer is NOT ready - count is %d\n", WHEREARG, obj->id, obj->count);
+		}
 
 		//printf("The item %s\n", g_hash_table_lookup(state->itemsById, (void*)id) == NULL ? "does not exist" : "exists");
 	}
@@ -733,6 +741,12 @@ void spuhandler_HandleWriteBufferReady(struct SPU_State* state, GUID id)
 	if (obj->writebuffer_ready == TRUE)
 		REPORT_ERROR("Writebuffer ready already set?");
 	obj->writebuffer_ready = TRUE;
+
+	if (obj->mode == ACQUIRE_MODE_DELETE && obj->count == 0)
+	{
+		spuhandler_DisposeObject(state, obj);
+		return;
+	}
 
 	//If we are just waiting for the signal, then start the DMA transfer
 	//The DMAId is not set until the object is released
