@@ -15,7 +15,6 @@
 int main(int argc, char **argv)
 {
 	printf("Compile time - %s\n", __TIME__);
-	printf("Ready\n");
 
 	unsigned long size;
     int spu_threads;
