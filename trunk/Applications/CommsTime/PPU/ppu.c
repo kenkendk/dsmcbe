@@ -1,11 +1,12 @@
 #include <dsmcbe_ppu.h>
 #include <stdio.h>
 #include "../guids.h"
-#include <common/debug.h>
+#include <debug.h>
 #include <unistd.h>
 #include <libspe2.h>
 #include <stdlib.h>
 #include "guids.h"
+#include "StopWatch.h"
 
 #ifndef MAX
 #define MAX(x,y) ((x > y) ? (x) : (y))
@@ -21,6 +22,7 @@ int main(int argc, char **argv)
     int machineid;
     char* file;
     int i;
+    char buf[256];
 
     machineid = 0;
     spu_threads = 6;
@@ -46,25 +48,41 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	printf("Initializing\n");
     pthread_t* threads = simpleInitialize(machineid, file, spu_threads);
-	printf("Initialized\n");
 
     if (machineid == 0)
     {
-		int* tmp;
-
-		printf("Creating process counter\n");
-
 		//Create the ID counter object
-		tmp = create(PROCESS_COUNTER_GUID, sizeof(int), CREATE_MODE_NONBLOCKING);
+		int* tmp = create(PROCESS_COUNTER_GUID, sizeof(int), CREATE_MODE_NONBLOCKING);
 		*tmp = 0;
 		release(tmp);
 
-		printf("Creating barrier object\n");
-
 		//Create the shared barrier object
 		create(BARRIER_GUID, MAX(1, DSMCBE_MachineCount()) * spu_threads, CREATE_MODE_BARRIER);
+    }
+
+    sw_init();
+    release(acquire(DELTA_CHANNEL, &size, ACQUIRE_MODE_DELETE));
+
+	sw_start();
+
+	int counter = 0;
+
+    while(1)
+    {
+        release(acquire(DELTA_CHANNEL, &size, ACQUIRE_MODE_DELETE));
+    	if (counter >= REPETITIONS)
+    	{
+    		sw_stop();
+    		sw_timeString(buf);
+    		printf("CommsTime: %f usec, %d ops on %d SPU's in %s.\n", (sw_getSecondsElapsed() / counter / (MAX(1, DSMCBE_MachineCount()) * spu_threads)) * 1000000, counter, MAX(1, DSMCBE_MachineCount()) * spu_threads, buf);
+    		counter = 0;
+    		sw_start();
+    	}
+    	else
+    	{
+    		counter++;
+    	}
     }
 
 	printf("PPU is waiting for shutdown\n");
