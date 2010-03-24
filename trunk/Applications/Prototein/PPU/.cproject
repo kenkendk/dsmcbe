@@ -15,7 +15,7 @@
 </extensions>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">
-<configuration artifactExtension="" artifactName="PPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.2003603560" name="ppu-gnu32-debug" parent="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug">
+<configuration artifactExtension="" artifactName="PrototeinPPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.2003603560" name="ppu-gnu32-debug" parent="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug">
 <folderInfo id="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.2003603560.2032084221" name="/" resourcePath="">
 <toolChain id="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.toolchain.1350914848" name="PPU GNU 32 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu32.exe.debug.toolchain">
 <targetPlatform archList="ppc64" binaryParser="org.eclipse.cdt.core.ELF" id="celldt.managedbuild.target.cell.gnu.platform.788944897" name="Cell Platform" osList="linux" superClass="celldt.managedbuild.target.cell.gnu.platform"/>
@@ -30,14 +30,13 @@
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.1375675969" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
 <option id="cell.ppu.gnu.c.linker.option.libs.661692092" name="Libraries (-l)" superClass="cell.ppu.gnu.c.linker.option.libs" valueType="libs">
-<listOptionValue builtIn="false" value="m"/>
 <listOptionValue builtIn="false" value="dsmcbe_ppu"/>
 <listOptionValue builtIn="false" value="pthread"/>
 <listOptionValue builtIn="false" value="spe2"/>
 <listOptionValue builtIn="false" value="glib-2.0"/>
 <listOptionValue builtIn="false" value="gthread-2.0"/>
 </option>
-<option id="cell.ppu.gnu.c.linker.option.libs.lm.200178178" name="Math library (-lm)" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
+<option id="cell.ppu.gnu.c.linker.option.libs.lm.200178178" name="Math library (-lm)" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="false" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1203750186" name="Pthread library (-lpthread)" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1734965678" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1330958875" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
@@ -206,7 +205,7 @@
 </extensions>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">
-<configuration artifactExtension="" artifactName="PPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.579224286" name="ppu-gnu32-release" parent="celldt.managedbuild.config.cell.ppu.gnu32.exe.release">
+<configuration artifactExtension="" artifactName="PrototeinPPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.579224286" name="ppu-gnu32-release" parent="celldt.managedbuild.config.cell.ppu.gnu32.exe.release">
 <folderInfo id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.579224286.1191136107" name="/" resourcePath="">
 <toolChain id="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.toolchain.150632066" name="PPU GNU 32 bit Release Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu32.exe.release.toolchain">
 <targetPlatform archList="ppc64" binaryParser="org.eclipse.cdt.core.ELF" id="celldt.managedbuild.target.cell.gnu.platform.707472926" name="Cell Platform" osList="linux" superClass="celldt.managedbuild.target.cell.gnu.platform"/>
@@ -397,7 +396,7 @@
 </extensions>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">
-<configuration artifactExtension="" artifactName="PPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.286143666" name="ppu-gnu64-debug" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug">
+<configuration artifactExtension="" artifactName="PrototeinPPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.286143666" name="ppu-gnu64-debug" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug">
 <folderInfo id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.286143666.1574326522" name="/" resourcePath="">
 <toolChain id="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.toolchain.592791800" name="PPU GNU 64 bit Debug Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu64.exe.debug.toolchain">
 <targetPlatform archList="ppc64" binaryParser="org.eclipse.cdt.core.ELF" id="celldt.managedbuild.target.cell.gnu.platform.109141831" name="Cell Platform" osList="linux" superClass="celldt.managedbuild.target.cell.gnu.platform"/>
@@ -565,7 +564,7 @@
 </extensions>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">
-<configuration artifactExtension="" artifactName="PPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.1332850892" name="ppu-gnu64-release" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.release">
+<configuration artifactExtension="" artifactName="PrototeinPPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.1332850892" name="ppu-gnu64-release" parent="celldt.managedbuild.config.cell.ppu.gnu64.exe.release">
 <folderInfo id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.1332850892.1318839248" name="/" resourcePath="">
 <toolChain id="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.toolchain.1191295268" name="PPU GNU 64 bit Release Tool Chain" superClass="celldt.managedbuild.config.cell.ppu.gnu64.exe.release.toolchain">
 <targetPlatform archList="ppc64" binaryParser="org.eclipse.cdt.core.ELF" id="celldt.managedbuild.target.cell.gnu.platform.1429268366" name="Cell Platform" osList="linux" superClass="celldt.managedbuild.target.cell.gnu.platform"/>

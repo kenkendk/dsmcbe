@@ -3,22 +3,33 @@
 
 #include <stdio.h>
 
-/* These 4 defines are the constants used for data communication */ 
-//This is the SYNC lock
-#define PACKAGE_ITEM 1
 //This is the initial Prototein info
 #define PROTOTEIN 2 
 //This is the master lock
 #define MASTER_COMPLETION_LOCK 4
 
-//This is the buffer where each SPU will write data into
-#define WINNER_OFFSET 500
-
-//This is the actual workblock ID
-#define WORKITEM_OFFSET 1000
-
 //The number of lightweight threads on the SPU
 #define SPU_FIBERS 0
+
+//If this is set, the communication is more channel-like
+#define USE_CHANNEL_COMMUNICATION
+
+#ifdef USE_CHANNEL_COMMUNICATION
+	//The work channel ID
+	#define WORKITEM_CHANNEL 1000
+
+	//The winner channel ID
+	#define WINNER_CHANNEL 500
+#else
+	//This is the actual workblock ID
+	#define WORKITEM_OFFSET 1000
+
+	//This is the SYNC lock
+	#define PACKAGE_ITEM 1
+
+	//This is the buffer where each SPU will write data into
+	#define WINNER_OFFSET 500
+#endif
 
 //remove annoying warnings
 void exit(int);
