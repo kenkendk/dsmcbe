@@ -60,92 +60,129 @@ void PrepareWorkBlock(struct workblock* w, unsigned int current_job)
 	printf("\n");*/
 }
 
+void* DispatchWorkItems(void* dummy_or_count)
+{
+	void* prototein_object;
+	struct coordinate cord;
+	struct workblock* wb;
+	unsigned int total_jobcount = 0;
+
+#ifdef USE_CHANNEL_COMMUNICATION
+	int i;
+	//printf(WHERESTR "PPU is broadcasting Prototein info, spu_count: %d\n", WHEREARG, spu_count);
+	//Broadcast info about the prototein
+	for(i = 0; i < (int)dummy_or_count; i++)
+	{
+		prototein_object = create(PROTOTEIN, (sizeof(unsigned int) * 2) + prototein_length, CREATE_MODE_BLOCKING);
+		((unsigned int*)prototein_object)[0] = 0;
+		((unsigned int*)prototein_object)[1] = prototein_length;
+		memcpy(prototein_object + (sizeof(unsigned int) * 2), prototein, prototein_length);
+		release(prototein_object);
+	}
+#else
+	//printf(WHERESTR "PPU is broadcasting Prototein info, spu_count: %d\n", WHEREARG, spu_count);
+	//Broadcast info about the prototein
+	prototein_object = create(PROTOTEIN, (sizeof(unsigned int) * 2) + prototein_length, CREATE_MODE_NONBLOCKING);
+	((unsigned int*)prototein_object)[0] = 0;
+	((unsigned int*)prototein_object)[1] = prototein_length;
+	memcpy(prototein_object + (sizeof(unsigned int) * 2), prototein, prototein_length);
+	release(prototein_object);
+#endif
+
+
+    //printf(WHERESTR "PPU is setting up result buffers\n", WHEREARG);
+	//Allocate result buffers
+
+    //printf(WHERESTR "PPU is building work tree\n", WHEREARG);
+	//Allocate the consumer syncroniation primitive
+
+#ifndef USE_CHANNEL_COMMUNICATION
+	unsigned int* work_counter = (unsigned int*)create(PACKAGE_ITEM, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
+	work_counter[0] = 0;
+#endif
+
+	//Make a bag of tasks
+	cord.x = cord.y = prototein_length;
+	fold_broad(cord, REQUIRED_JOB_COUNT);
+
+    //printf(WHERESTR "PPU is building tasks\n", WHEREARG);
+	//Now create all actual tasks, this is a bit wastefull in terms of memory usage
+	total_jobcount = 0;
+	while(current_job < job_queue_length)
+	{
+#ifdef USE_CHANNEL_COMMUNICATION
+		wb = (struct workblock*)create(WORKITEM_CHANNEL, BUFFER_SIZE, CREATE_MODE_BLOCKING);
+#else
+		wb = (struct workblock*)create(WORKITEM_OFFSET + total_jobcount, BUFFER_SIZE, CREATE_MODE_NONBLOCKING);
+#endif
+		PrepareWorkBlock(wb, current_job);
+		current_job += wb->worksize;
+		release(wb);
+		total_jobcount++;
+
+		//printf(WHERESTR "PPU is building task: %d\n", WHEREARG, total_jobcount);
+	}
+
+    //printf(WHERESTR "PPU has completed building tasks\n", WHEREARG);
+	free(job_queue);
+
+	//printf(WHERESTR "PPU has created %d tasks, sending poision\n", WHEREARG, total_jobcount);
+
+#ifdef USE_CHANNEL_COMMUNICATION
+	for(i = 0; i < (int)dummy_or_count; i++)
+	{
+		//Size of one means "poision"
+		prototein_object = create(WORKITEM_CHANNEL, 1, CREATE_MODE_BLOCKING);
+		release(prototein_object);
+	}
+#else
+	//Let the SPU's begin their work
+	work_counter[1] = total_jobcount;
+	release(work_counter);
+#endif
+
+	//printf(WHERESTR "PPU is done sending poison and returning\n", WHEREARG);
+
+	pthread_exit((void*)total_jobcount);
+
+	return total_jobcount;
+}
+
 void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 {
 	size_t i;
-	void* prototein_object;
 	void* tempobj;
-	unsigned int* work_counter;
 	unsigned long size;
-	struct coordinate cord;
 	pthread_t* threads;
-	struct workblock* wb;
-	unsigned int* count_obj;
-	unsigned int winner_count;
+	unsigned int winner_count = 0;
 	
-	unsigned int total_jobcount = 0;
 	unsigned int reported_jobcount = 0;
+	unsigned int total_jobcount;
+	pthread_t dispatcher_thread;
 
 	bestscore = -9999999;
 	
 	prototein_length = strlen(proto);
 	prototein = proto;
 	
-	if (networkfile == NULL)
-		threads = simpleInitialize(0, NULL, spu_count);
-	else
-		threads = simpleInitialize(machineid, networkfile, spu_count);
+	threads = simpleInitialize(machineid, networkfile, spu_count);
 	
-	if (machineid == 0 || networkfile == NULL)
-	{
-	    //printf(WHERESTR "PPU is broadcasting Prototein info, spu_count: %d\n", WHEREARG, spu_count);
-		//Broadcast info about the prototein
-		prototein_object = create(PROTOTEIN, (sizeof(unsigned int) * 2) + prototein_length, CREATE_MODE_NONBLOCKING);
-		((unsigned int*)prototein_object)[0] = 0;
-		((unsigned int*)prototein_object)[1] = prototein_length;
-		memcpy(prototein_object + (sizeof(unsigned int) * 2), proto, prototein_length);
-		release(prototein_object);
-	
-	    //printf(WHERESTR "PPU is setting up result buffers\n", WHEREARG);
-		//Allocate result buffers
-		
-	    //printf(WHERESTR "PPU is building work tree\n", WHEREARG);
-		//Allocate the consumer syncroniation primitive
-		work_counter = (unsigned int*)create(PACKAGE_ITEM, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
-		work_counter[0] = 0;
-		
-		//Make a bag of tasks
-		cord.x = cord.y = prototein_length;
-		fold_broad(cord, REQUIRED_JOB_COUNT);
-	
-	    //printf(WHERESTR "PPU is building tasks\n", WHEREARG);
-		//Now create all actual tasks, this is a bit wastefull in terms of memory usage
-		total_jobcount = 0;
-		while(current_job < job_queue_length)
-		{
-			wb = (struct workblock*)create(WORKITEM_OFFSET + total_jobcount, BUFFER_SIZE, CREATE_MODE_NONBLOCKING);
-			PrepareWorkBlock(wb, current_job);
-			current_job += wb->worksize;
-			release(wb);
-			total_jobcount++;
-		}
-	
-	    //printf(WHERESTR "PPU has completed building tasks\n", WHEREARG);
-		free(job_queue);
-		
-		//Let the SPU's begin their work
-		work_counter[1] = total_jobcount;
-		release(work_counter);
-	}
-
-    //printf(WHERESTR "PPU is waiting for SPU completion\n", WHEREARG);
-	//Just wait for them all to complete
-	for(i = 0; i < (unsigned int)spu_count; i++)
-	{
-	    //printf(WHERESTR "waiting for SPU %i\n", WHEREARG, i);
-		pthread_join(threads[i], NULL);
-	}
-	
-	if (spu_count == 0)
-		sleep(5);
+#ifdef USE_CHANNEL_COMMUNICATION
+	winner_count = MAX(1, DSMCBE_MachineCount()) * spu_count;
+#endif
 	
 	if (machineid == 0)
+		pthread_create( &dispatcher_thread, NULL, DispatchWorkItems, (void*)winner_count);
+
+	if (machineid == 0)
 	{
+#ifndef USE_CHANNEL_COMMUNICATION
 	    //printf(WHERESTR "PPU is reading results\n", WHEREARG);
-		count_obj = acquire(PROTOTEIN, &size, ACQUIRE_MODE_WRITE);
+		unsigned int* count_obj = acquire(PROTOTEIN, &size, ACQUIRE_MODE_WRITE);
     	winner_count = *count_obj;
     	release(count_obj);
-		
+#endif
+
 	    //printf(WHERESTR "PPU is reading results\n", WHEREARG);
 		reported_jobcount = 0;
 		winner = (struct coordinate*)malloc(sizeof(struct coordinate) * prototein_length);
@@ -154,7 +191,11 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		for(i = 0; i < winner_count; i++)
 		{
 		    //printf(WHERESTR "PPU is reading result for %i\n", WHEREARG, i);
+#ifdef USE_CHANNEL_COMMUNICATION
+			tempobj = acquire(WINNER_CHANNEL, &size, ACQUIRE_MODE_DELETE);
+#else
 			tempobj = acquire(WINNER_OFFSET + i, &size, ACQUIRE_MODE_READ);
+#endif
 			if (tempobj == NULL)
 				printf(WHERESTR "winner buffer failed\n", WHEREARG);
 			else
@@ -174,17 +215,27 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		printmap(winner, prototein_length);
 		printf("Fibers: %d\n", SPU_FIBERS);
 		
-		release(create(MASTER_COMPLETION_LOCK, sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
+		release(create(MASTER_COMPLETION_LOCK, sizeof(unsigned int), CREATE_MODE_NONBLOCKING));
 	
 	}
 	else
 	{
 		release(acquire(MASTER_COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
 	}
+
+    //printf(WHERESTR "PPU is waiting for SPU completion\n", WHEREARG);
+	//Just wait for them all to complete
+	for(i = 0; i < (unsigned int)spu_count; i++)
+	{
+	    //printf(WHERESTR "waiting for SPU %i\n", WHEREARG, i);
+		pthread_join(threads[i], NULL);
+	}
 	
-	
-	
-	printf("The SPU's reported processing %d jobs out of %d\n", reported_jobcount, total_jobcount);
+	if (machineid == 0)
+	{
+		pthread_join(dispatcher_thread, (void**)&total_jobcount);
+		printf("The SPU's reported processing %d jobs out of %d\n", reported_jobcount, total_jobcount);
+	}
 	
 }
 

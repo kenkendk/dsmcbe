@@ -48,10 +48,11 @@ int FoldPrototein(unsigned long long id)
     struct workblock* work;
     void* prototein_object;
     void* winner_object;
-    unsigned int* synclock;
     unsigned long size;
+#ifndef USE_CHANNEL_COMMUNICATION
+    unsigned int* synclock;
     GUID itemno;
-//    unsigned int thread_id;
+#endif
     int threadNo;
     unsigned int total;
 
@@ -71,8 +72,12 @@ int FoldPrototein(unsigned long long id)
     
     //printf(WHERESTR "Started SPU\n", WHEREARG);
     initialize();
-    
+
+#ifdef USE_CHANNEL_COMMUNICATION
+    prototein_object = acquire(PROTOTEIN, &size, ACQUIRE_MODE_DELETE);
+#else
     prototein_object = acquire(PROTOTEIN, &size, ACQUIRE_MODE_WRITE);
+#endif
     //printf(WHERESTR "SPU got prototein @: %d\n", WHEREARG, (unsigned int)prototein_object);
     
     thread_id = ((unsigned int*)prototein_object)[0];
@@ -99,12 +104,12 @@ int FoldPrototein(unsigned long long id)
     	threadNo = CreateThreads(SPU_FIBERS);
     else
     	threadNo = 0;
-    	
+
     if (threadNo >= 0)
     {
 	    while(1)
 	    {
-
+#ifndef USE_CHANNEL_COMMUNICATION
 #ifdef DOUBLE_BUFFER
 		    
 		    if (lastOne)
@@ -142,7 +147,7 @@ int FoldPrototein(unsigned long long id)
 		    synclock[0]++;
 #endif 
 	    	release(synclock);
-	    	
+#endif
 	    	//printf("thread %d:%d End - Release write SYNCLOCK\n", thread_id, threadNo);
 	
 		    thread_no = threadNo;
@@ -161,7 +166,22 @@ int FoldPrototein(unsigned long long id)
 				work2 = beginAcquire(item2, ACQUIRE_MODE_READ);
 			}
 #else
+#ifdef USE_CHANNEL_COMMUNICATION
+			//printf(WHERESTR "thread %d is reading %d\n", WHEREARG, thread_id,  WORKITEM_CHANNEL);
+			void* tmp_work = (struct workblock*)acquire(WORKITEM_CHANNEL, &size, ACQUIRE_MODE_DELETE);
+			if (size == 1) //Size of one means poison
+			{
+				//printf(WHERESTR "thread %d has got poison from %d\n", WHEREARG, thread_id,  WORKITEM_CHANNEL);
+				release(tmp_work);
+				break;
+			}
+			work = MALLOC(size);
+			memcpy(work, tmp_work, size);
+			release(tmp_work); //We need to free this much earlier in channel mode, or we will block the channel
+			//printf(WHERESTR "thread %d has read %d, with size: %d\n", WHEREARG, thread_id,  WORKITEM_CHANNEL, size);
+#else
 			work = (struct workblock*)acquire(itemno, &size, ACQUIRE_MODE_READ);
+#endif
 #endif
 			//printf("thread %d:%d End - Acquire read WORK\n", thread_id, threadNo);	    
 		    thread_no = threadNo;
@@ -187,7 +207,11 @@ int FoldPrototein(unsigned long long id)
 	    	}
 		    thread_no = threadNo;
 		    //printf("thread %d:%d Start - Release read WORK\n", thread_id, threadNo);
-	    	release(work);
+#ifdef USE_CHANNEL_COMMUNICATION
+		    FREE(work);
+#else
+		    release(work);
+#endif
 	    	//printf("thread %d:%d End - Release read WORK\n", thread_id, threadNo);
 		    thread_no = threadNo;
 		    //printf(WHERESTR "thread %d:%d has completed work %d of %d\n", WHEREARG, thread_id, threadNo, itemno - WORKITEM_OFFSET, total);
@@ -203,9 +227,15 @@ int FoldPrototein(unsigned long long id)
 	}
 
     //printf(WHERESTR "SPU %d has completed %d jobs\n", WHEREARG, thread_id, totalwork);
+    //printmap(winner, prototein_length);
+
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
 	//sleep((thread_id * 0.5) + 1);
+#ifdef USE_CHANNEL_COMMUNICATION
+    winner_object = (struct coordinate*)create(WINNER_CHANNEL, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2), CREATE_MODE_BLOCKING);
+#else
     winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2), CREATE_MODE_NONBLOCKING);
+#endif
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
     memcpy(winner_object + (sizeof(int) * 2), winner, sizeof(struct coordinate) * prototein_length);
     ((int*)winner_object)[0] = bestscore;

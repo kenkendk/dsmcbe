@@ -184,7 +184,7 @@ struct migrationRequest
 
 
 #ifndef MAX
-#define MAX(a,b) (a > b ? a : b)
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
 #define MAX_PACKAGE_SIZE MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(MAX(sizeof(struct createRequest), sizeof(struct acquireRequest)), sizeof(struct acquireResponse)), sizeof(struct writebufferReady)), sizeof(struct migrationResponse)), sizeof(struct releaseRequest)), sizeof(struct NACK)), sizeof(struct invalidateRequest)), sizeof(struct invalidateResponse)), sizeof(struct acquireBarrierRequest)), sizeof(struct acquireBarrierResponse))
