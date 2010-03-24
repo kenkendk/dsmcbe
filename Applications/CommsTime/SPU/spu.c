@@ -11,10 +11,10 @@ int pid;
 
 void delta2(GUID in, GUID outA, GUID outB)
 {
-	unsigned long* inValue;
-	unsigned long* outValue;
+	unsigned int* inValue;
+	unsigned int* outValue;
 
-	unsigned long value;
+	unsigned int value;
 	unsigned long size;
 
 	while(1)
@@ -41,10 +41,10 @@ void delta2(GUID in, GUID outA, GUID outB)
 
 void delta1(GUID in, GUID out)
 {
-	unsigned long* inValue;
-	unsigned long* outValue;
+	unsigned int* inValue;
+	unsigned int* outValue;
 
-	unsigned long value;
+	unsigned int value;
 	unsigned long size;
 
 	while(1)
@@ -61,6 +61,21 @@ void delta1(GUID in, GUID out)
 		*outValue = value;
 		release(outValue);
 	}
+}
+
+void prefix(GUID in, GUID out, int value)
+{
+	unsigned int* outValue;
+
+	unsigned long size;
+
+	outValue = create(out, sizeof(int), CREATE_MODE_BLOCKING);
+	if (outValue == NULL)
+		printf("prefix outValue is NULL\n");
+	*outValue = value;
+	release(outValue);
+
+	delta1(in, out);
 }
 
 
@@ -96,6 +111,8 @@ int main(int argc, char** argv) {
 
 	if (pid == 0)
 		delta2(readerChannel, writerChannel, DELTA_CHANNEL);
+	else if (pid == 1)
+		prefix(readerChannel, writerChannel, 1);
 	else
 		delta1(readerChannel, writerChannel);
 	
