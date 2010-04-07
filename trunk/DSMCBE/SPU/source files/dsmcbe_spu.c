@@ -119,12 +119,14 @@ void spu_dsmcbe_readMailbox() {
 			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_ACQUIRE_BARRIER_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = NULL;
 			break;
-		
+		case PACKAGE_GET_REQUEST:
+			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_GET_RESPONSE;
+			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
+			spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
 		case PACKAGE_PUT_REQUEST:
 			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_PUT_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = NULL;
 			break;
-
 		default:
 			fprintf(stderr, WHERESTR "Unknown package recieved: %i, message: %s", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, strerror(errno));
 	};	
@@ -208,6 +210,42 @@ unsigned int spu_dsmcbe_acquire_barrier_begin(GUID id)
 
 	return nextId;
 	
+}
+
+unsigned int spu_dsmcbe_get_begin(GUID id)
+{
+	if (id == OBJECT_TABLE_ID)
+	{
+		REPORT_ERROR("Cannot request object table");
+		return UINT_MAX;
+	}
+
+	if (id >= OBJECT_TABLE_SIZE)
+	{
+		REPORT_ERROR("ID was larger than object table size");
+		return UINT_MAX;
+	}
+
+	if (!spu_dsmcbe_initialized)
+	{
+		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
+		return UINT_MAX;
+	}
+
+	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_GET_REQUEST);
+	if (nextId == UINT_MAX)
+		return UINT_MAX;
+
+	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
+	SPU_WRITE_OUT_MBOX(nextId);
+	SPU_WRITE_OUT_MBOX(id);
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "GET package sent, id: %d\n", WHEREARG, nextId);
+#endif
+
+	return nextId;
+
 }
 
 //Initiates an acquire operation
@@ -545,6 +583,10 @@ void* create(GUID id, unsigned long size, int mode) {
 	return spu_dsmcbe_endAsync(spu_dsmcbe_create_begin(id, size, mode), NULL);
 }
 
+void* get(GUID id, unsigned long* size) {
+	return spu_dsmcbe_endAsync(spu_dsmcbe_get_begin(id), size);
+}
+
 void* createMalloc(unsigned long size)
 {
 	return spu_dsmcbe_memory_malloc(size);
@@ -557,7 +599,7 @@ void put(GUID id, void* data)
 
 void* spu_dsmcbe_memory_malloc(unsigned long size)
 {
-	return spu_dsmcbe_endAsync(spu_dsmcbe_memory_malloc_begin(size), NULL);;
+	return spu_dsmcbe_endAsync(spu_dsmcbe_memory_malloc_begin(size), NULL);
 }
 
 void spu_dsmcbe_memory_free(void* data)

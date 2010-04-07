@@ -43,4 +43,7 @@ void EnqueInvalidateResponse(unsigned int requestNumber);
 extern void RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, GQueue** q, int network);
 extern void UnregisterInvalidateSubscriber(GQueue** q);
 
+//Public function to help send a message directly to a recipient
+void DSMCBE_RespondDirect(QueueableItem item, void* resp);
+
 #endif /*REQUESTCOORDINATOR_H_*/
