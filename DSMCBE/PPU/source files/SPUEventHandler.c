@@ -48,7 +48,7 @@ struct spu_dataObject
 {
 	//The object GUID
 	GUID id;
-	//The current mode, either READ or WRITE
+	//The current mode, either READ, WRITE, DELETE or GET
 	unsigned int mode;
 	//The number of times this object is acquired (only larger than 1 if mode == READ)
 	unsigned int count;
@@ -90,7 +90,10 @@ struct spu_pendingRequest
 	// ACQUIRE_MODE_READ
 	// ACQUIRE_MODE_WRITE
 	// ACQUIRE_MODE_DELETE
+	// ACQUIRE_MODE_GET
 	int mode;
+	//The queue to notify after a transfer
+	QueueableItem remoteQueue;
 };
 
 struct SPU_State
@@ -434,6 +437,7 @@ void spuhandler_HandleAcquireRequest(struct SPU_State* state, unsigned int reque
 	preq->requestId = requestId;
 	preq->DMAcount = 0;
 	preq->mode = mode;
+	preq->remoteQueue = NULL;
 	//printf(WHERESTR "Assigned reqId: %d, mode: %d\n", WHEREARG, preq->requestId, preq->mode);
 	
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
@@ -533,6 +537,7 @@ void spuhandler_HandleCreateRequest(struct SPU_State* state, unsigned int reques
 	preq->requestId = requestId;
 	preq->DMAcount = 0;
 	preq->mode = ACQUIRE_MODE_WRITE;
+	preq->remoteQueue = NULL;
 	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
 	
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
@@ -567,6 +572,7 @@ void spuhandler_handleBarrierRequest(struct SPU_State* state, unsigned int reque
 	preq->requestId = requestId;
 	preq->DMAcount = 0;
 	preq->mode = ACQUIRE_MODE_READ;
+	preq->remoteQueue = NULL;
 	//printf(WHERESTR "Assigned reqId: %d\n", WHEREARG, preq->requestId);
 		
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
@@ -624,8 +630,29 @@ void spuhandler_TransferObject(struct SPU_State* state, struct spu_pendingReques
 }
 
 //This function handles an incoming put request from an SPU
-void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId, GUID id, void* data)
+void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId, GUID id, void* ls)
 {
+	unsigned long size = (unsigned long)g_hash_table_lookup(state->map->allocated, ls);
+
+	if (size == 0)
+		REPORT_ERROR("Size of object is zero when trying to PUT");
+
+	struct spu_dataObject* obj = malloc(sizeof(struct spu_dataObject));
+	obj->DMAId = 0;
+	obj->LS = ls;
+	obj->EA = NULL;
+	obj->count = 1;
+	obj->id = id;
+	obj->invalidateId = UINT_MAX;
+	obj->isDMAToSPU = FALSE;
+	obj->mode = ACQUIRE_MODE_DELETE;
+	obj->size = size;
+	obj->writebuffer_ready = FALSE;
+
+	//TODO: If we have multiple threads (or a race), this goes wrong
+	g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
+	g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
+
 	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
 
 	// Setting DMAcount to UINT_MAX to initialize the struct.
@@ -644,17 +671,13 @@ void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId
 	req->requestID = requestId;
 	req->dataItem = id;
 
-	unsigned long size = 0;
-	size = (unsigned long)g_hash_table_lookup(state->map->allocated, data);
 
-	if (size == 0)
-		REPORT_ERROR("Size of object is zero when trying to PUT");
 
 	req->dataSize = size;
 	req->originator = dsmcbe_host_number;
 	req->originalRecipient = UINT_MAX;
 	req->originalRequestID = UINT_MAX;
-	req->data = data;
+	req->data = spe_ls_area_get(state->context) + (unsigned int)ls;
 
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
@@ -681,6 +704,15 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	{
 		//printf(WHERESTR "Handling read release %d, @%d\n", WHEREARG, obj->id, (unsigned int)data);
 		spuhandler_HandleObjectRelease(state, obj);
+	}
+	else if (obj->mode == ACQUIRE_MODE_GET)
+	{
+		if (obj->count != 1)
+			REPORT_ERROR2("The channel mode object %d has an invalid count", obj->id);
+		obj->count = 0;
+
+		spuhandler_DisposeObject(state, obj);
+		spuhandler_ManageDelayedAcquireResponses(state);
 	}
 	else if (obj->mode == ACQUIRE_MODE_DELETE)
 	{
@@ -721,6 +753,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 		preq->requestId = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
 		preq->operation = PACKAGE_RELEASE_REQUEST;
 		preq->DMAcount = (MAX(ALIGNED_SIZE(obj->size), SPE_DMA_MAX_TRANSFERSIZE) + (SPE_DMA_MAX_TRANSFERSIZE - 1)) / SPE_DMA_MAX_TRANSFERSIZE;
+		preq->remoteQueue = NULL;
 
 		obj->isDMAToSPU = FALSE;
 
@@ -1127,9 +1160,9 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 #endif
 
 	
-	//If the transfer was from PPU to SPU, we can now give the pointer to the SPU
 	if (preq->operation != PACKAGE_RELEASE_REQUEST)
 	{
+		//The transfer was from PPU to SPU, we can now give the pointer to the SPU
 		if (preq->DMAcount != 0)
 			return;
 			
@@ -1142,6 +1175,25 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 		
 		FREE(preq);
 		preq = NULL;
+
+		if (preq->operation == PACKAGE_GET_REQUEST)
+		{
+			if (preq->remoteQueue == NULL)
+			{
+				FREE_ALIGN(obj->EA);
+			}
+			else
+			{
+				struct writebufferReady* wbr = malloc(sizeof(struct writebufferReady));
+				wbr->packageCode = PACKAGE_WRITEBUFFER_READY;
+				wbr->dataItem = obj->id;
+				wbr->requestID = 0; //TODO: Do we need this for Network
+				DSMCBE_RespondDirect(preq->remoteQueue, wbr);
+
+			}
+
+			obj->EA = NULL;
+		}
 	}
 	else if(preq->DMAcount == 0)
 	{
@@ -1232,6 +1284,109 @@ void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int re
 			if (obj->count == 0)
 				spuhandler_DisposeObject(state, obj);
 		}
+	}
+}
+
+//This function handles an incoming GET request from the SPU
+void spuHandler_HandleGetRequest(struct SPU_State* state, unsigned int requestId, unsigned int id)
+{
+	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
+
+	// Setting DMAcount to UINT_MAX to initialize the struct.
+	preq->DMAcount = UINT_MAX;
+	//printf(WHERESTR "New pointer: %d\n", WHEREARG, (unsigned int)preq);
+
+	preq->objId = id;
+	preq->operation = PACKAGE_GET_REQUEST;
+	preq->requestId = requestId;
+	preq->DMAcount = 0;
+	preq->mode = ACQUIRE_MODE_GET;
+	preq->remoteQueue = NULL;
+	//printf(WHERESTR "Assigned reqId: %d, mode: %d\n", WHEREARG, preq->requestId, preq->mode);
+
+	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
+
+	struct getRequest* req = MALLOC(sizeof(struct getRequest));
+
+	req->packageCode = PACKAGE_GET_REQUEST;
+	req->requestID = requestId;
+	req->dataItem = id;
+	req->originator = dsmcbe_host_number;
+	req->originalRecipient = UINT_MAX;
+	req->originalRequestID = UINT_MAX;
+
+	spuhandler_SendRequestCoordinatorMessage(state, req);
+}
+
+void spuHandler_HandleGetResponse(struct SPU_State* state, unsigned int requestId, void* data, unsigned long size, QueueableItem remoteQueue)
+{
+	//TODO: If we support multiple threads on an SPU, we may have a situation where the data is already in the LS
+
+	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)requestId);
+	if (preq == NULL)
+	{
+		REPORT_ERROR("Found response to an unknown request");
+		return;
+	}
+
+	preq->remoteQueue = remoteQueue;
+
+	//Determine if data is already present on the SPU
+	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
+	if (obj == NULL)
+	{
+		void* ls = spuhandler_AllocateSpaceForObject(state, size);
+		/*if (ls == NULL)
+		{
+			//We have no space on the SPU
+			if (spuhandler_EstimatePendingReleaseSize(state) == 0)
+			{
+				REPORT_ERROR2("No more space, denying acquire request for %d", data->dataItem);
+
+				PUSH_TO_SPU(state, preq->requestId);
+				PUSH_TO_SPU(state, NULL);
+				PUSH_TO_SPU(state, 0);
+				g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+				FREE(preq);
+				//exit(-5);
+				return;
+			}
+		}*/
+
+		obj = MALLOC(sizeof(struct spu_dataObject));
+
+		obj->count = 1;
+		obj->EA = data;
+		obj->id = preq->objId;
+		obj->invalidateId = UINT_MAX;
+		obj->mode = preq->mode;
+		obj->size = size;
+		obj->LS = ls;
+		obj->writebuffer_ready = TRUE;
+		obj->isDMAToSPU = TRUE;
+
+		g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
+		g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
+
+		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+
+		if (ls == NULL)
+		{
+#ifdef DEBUG_COMMUNICATION
+			printf(WHERESTR "No more space, delaying acquire until space becomes available, free mem: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, data->dataSize);
+#endif
+			if (g_queue_find(state->releaseWaiters, preq) == NULL)
+				g_queue_push_tail(state->releaseWaiters, preq);
+		}
+		else
+		{
+			//Send it!
+			spuhandler_TransferObject(state, preq, obj);
+		}
+	}
+	else
+	{
+		REPORT_ERROR2("The item %d was found on the SPU", preq->objId)
 	}
 }
 
@@ -1345,6 +1500,11 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				spe_out_intr_mbox_read(state->context, &id, 1, SPE_MBOX_ALL_BLOCKING);
 				spuhandler_handleBarrierRequest(state, requestId, id);
 				break;
+			case PACKAGE_GET_REQUEST:
+				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
+				spe_out_intr_mbox_read(state->context, &id, 1, SPE_MBOX_ALL_BLOCKING);
+				spuHandler_HandleGetRequest(state, requestId, id);
+				break;
 			case PACKAGE_DEBUG_PRINT_STATUS:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 				spuhandler_PrintDebugStatus(state, requestId);
@@ -1396,6 +1556,9 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 				break;
 			case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 				spuhandler_HandleBarrierResponse(state, ((struct acquireBarrierResponse*)resp)->requestID);
+				break;
+			case PACKAGE_GET_RESPONSE:
+				spuHandler_HandleGetResponse(state, ((struct getResponse*)resp)->requestID, ((struct getResponse*)resp)->data, ((struct getResponse*)resp)->dataSize, (QueueableItem)((struct getResponse*)resp)->callback);
 				break;
 			case PACKAGE_PUT_RESPONSE:
 				spuhandler_HandlePutResponse(state, (struct putResponse*)resp);

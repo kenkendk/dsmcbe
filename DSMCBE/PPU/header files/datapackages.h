@@ -193,10 +193,10 @@ struct putRequest
     unsigned int packageCode; // = 50
 	unsigned int requestID;
 	GUID dataItem;
-	unsigned long dataSize;
 	unsigned int originator;
 	unsigned int originalRecipient;
 	unsigned int originalRequestID;
+	unsigned long dataSize;
 	void* data;
 };
 
