@@ -12,6 +12,7 @@
 
 #define ACQUIRE_MODE_CREATE (ACQUIRE_MODE_DELETE + 2)
 #define ACQUIRE_MODE_BLOCKED (ACQUIRE_MODE_CREATE + 1)
+#define ACQUIRE_MODE_GET (ACQUIRE_MODE_BLOCKED + 1)
 
 #define NEXT_SEQ_NO(current, max) ((current) = ((current)+1) % (max)) 
 
@@ -195,7 +196,7 @@ struct putRequest
 	unsigned long dataSize;
 	unsigned long offset;
 	void* data;
-	void* func;
+	void (*funcptr)(void*);
 };
 
 struct putResponse
@@ -224,7 +225,7 @@ struct getResponse
 	unsigned int originalRequestID;
     unsigned long dataSize;
     void* data;
-    void* func;
+	void (*funcptr)(void*);
 };
 
 #ifndef MAX
