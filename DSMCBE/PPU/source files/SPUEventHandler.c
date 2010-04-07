@@ -623,10 +623,46 @@ void spuhandler_TransferObject(struct SPU_State* state, struct spu_pendingReques
 	}
 }
 
+//This function handles an incoming put request from an SPU
+void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId, GUID id, void* data)
+{
+	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
+
+	// Setting DMAcount to UINT_MAX to initialize the struct.
+	preq->DMAcount = UINT_MAX;
+	preq->objId = id;
+	preq->operation = PACKAGE_PUT_REQUEST;
+	preq->requestId = requestId;
+	preq->DMAcount = 0;
+	preq->mode = ACQUIRE_MODE_WRITE;
+
+	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
+
+	struct putRequest* req = MALLOC(sizeof(struct putRequest));
+
+	req->packageCode = PACKAGE_PUT_REQUEST;
+	req->requestID = requestId;
+	req->dataItem = id;
+
+	unsigned long size = 0;
+	size = (unsigned long)g_hash_table_lookup(state->map->allocated, data);
+
+	if (size == 0)
+		REPORT_ERROR("Size of object is zero when trying to PUT");
+
+	req->dataSize = size;
+	req->originator = dsmcbe_host_number;
+	req->originalRecipient = UINT_MAX;
+	req->originalRequestID = UINT_MAX;
+	req->data = data;
+
+	spuhandler_SendRequestCoordinatorMessage(state, req);
+}
+
 //This function handles an incoming release request from an SPU
 void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 {
-#ifdef DEBUG_COMMUNICATION	
+#ifdef DEBUG_COMMUNICATION
 	printf(WHERESTR "Releasing object @: %d\n", WHEREARG, (unsigned int)data);
 #endif
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsByPointer, data);
@@ -636,7 +672,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 			fprintf(stderr, "* ERROR * " WHERESTR ": Attempted to release an object that was unknown: %d\n", WHEREARG,  (unsigned int)data);
 		else
 			fprintf(stderr, "* ERROR * " WHERESTR ": Attempted to release an object that was not acquired: %d\n", WHEREARG,  (unsigned int)data);
-		
+
 		return;
 	}
 
@@ -680,7 +716,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	{
 		//Get a group id, and register the active transfer
 		struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
-		
+
 		preq->objId = obj->id;
 		preq->requestId = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
 		preq->operation = PACKAGE_RELEASE_REQUEST;
@@ -688,17 +724,17 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 
 		obj->isDMAToSPU = FALSE;
 
-		//Inititate the DMA transfer if the buffer is ready		
+		//Inititate the DMA transfer if the buffer is ready
 		if (obj->writebuffer_ready)
 		{
-#ifdef DEBUG_COMMUNICATION	
+#ifdef DEBUG_COMMUNICATION
 			printf(WHERESTR "WriteBuffer was ready, performing transfer without delay: %d\n", WHEREARG, obj->id);
 #endif
 			spuhandler_TransferObject(state, preq, obj);
 		}
 		else
 		{
-#ifdef DEBUG_COMMUNICATION	
+#ifdef DEBUG_COMMUNICATION
 		printf(WHERESTR "WriteBuffer was NOT ready, registering a dummy object: %d\n", WHEREARG, obj->id);
 #endif
 			//Otherwise just register it as active to avoid disposing
@@ -709,7 +745,7 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 					REPORT_ERROR("DMA Sequence number overflow! This won't be pretty!");
 					exit(-6);
 				}
-				
+
 				obj->DMAId = NEXT_SEQ_NO(DMA_SEQ_NO, MAX_DMA_GROUPID);
 				if (g_hash_table_lookup(state->activeDMATransfers, (void*)obj->DMAId) != NULL)
 					continue;
@@ -717,12 +753,12 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 				break;
 			}
 
-#ifdef DEBUG_COMMUNICATION	
+#ifdef DEBUG_COMMUNICATION
 	printf(WHERESTR "Write buffer is not ready, delaying transfer for %d, mode: %d, dmaId: %d\n", WHEREARG, obj->id, obj->mode, obj->DMAId);
 #endif
 
 		}
-	}	
+	}
 }
 
 //This function handles a writebuffer ready message from the request coordinator
@@ -816,6 +852,34 @@ unsigned int spuhandler_EstimatePendingReleaseSize(struct SPU_State* state)
 	}
 
 	return pendingSize;
+}
+
+//This function handles an putResponse package from the request coordinator
+void spuhandler_HandlePutResponse(struct SPU_State* state, struct putResponse* data)
+{
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Handling put response for id: %d, requestId: %d\n", WHEREARG, data->dataItem, data->requestID);
+#endif
+
+	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)data->requestID);
+	if (preq == NULL)
+	{
+		REPORT_ERROR("Found put response to an unknown request");
+		return;
+	}
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Handling put response for id: %d, requestId: %d\n", WHEREARG, preq->objId, data->requestID);
+#endif
+
+	PUSH_TO_SPU(state, preq->requestId);
+
+	//if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
+	{
+		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+		FREE(preq);
+		preq = NULL;
+	}
 }
 
 //This function handles an acquireResponse package from the request coordinator
@@ -1216,6 +1280,7 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 		GUID id = 0;
 		unsigned int size = 0;
 		int mode = 0;
+		unsigned int data = 0;
 		
 		spe_out_intr_mbox_read(state->context, &packageCode, 1, SPE_MBOX_ALL_BLOCKING);
 		switch(packageCode)
@@ -1258,6 +1323,12 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 			case PACKAGE_RELEASE_REQUEST:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 				spuhandler_HandleReleaseRequest(state, (void*)requestId);
+				break;
+			case PACKAGE_PUT_REQUEST:
+				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
+				spe_out_intr_mbox_read(state->context, &id, 1, SPE_MBOX_ALL_BLOCKING);
+				spe_out_intr_mbox_read(state->context, &data, 1, SPE_MBOX_ALL_BLOCKING);
+				spuhandler_HandlePutRequest(state, requestId, id, (void*)requestId);
 				break;
 			case PACKAGE_SPU_MEMORY_FREE:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
@@ -1325,6 +1396,9 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 				break;
 			case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 				spuhandler_HandleBarrierResponse(state, ((struct acquireBarrierResponse*)resp)->requestID);
+				break;
+			case PACKAGE_PUT_RESPONSE:
+				spuhandler_HandlePutResponse(state, (struct putResponse*)resp);
 				break;
 			default:
 				REPORT_ERROR("Invalid package recieved");

@@ -194,9 +194,10 @@ struct putRequest
 	unsigned int requestID;
 	GUID dataItem;
 	unsigned long dataSize;
-	unsigned long offset;
+	unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
 	void* data;
-	void (*funcptr)(void*);
 };
 
 struct putResponse
@@ -225,7 +226,7 @@ struct getResponse
 	unsigned int originalRequestID;
     unsigned long dataSize;
     void* data;
-	void (*funcptr)(void*);
+    void* callback;
 };
 
 #ifndef MAX
