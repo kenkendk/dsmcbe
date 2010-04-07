@@ -120,6 +120,11 @@ void spu_dsmcbe_readMailbox() {
 			spu_dsmcbe_pendingRequests[requestID].pointer = NULL;
 			break;
 		
+		case PACKAGE_PUT_REQUEST:
+			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_PUT_RESPONSE;
+			spu_dsmcbe_pendingRequests[requestID].pointer = NULL;
+			break;
+
 		default:
 			fprintf(stderr, WHERESTR "Unknown package recieved: %i, message: %s", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, strerror(errno));
 	};	
@@ -265,6 +270,31 @@ void spu_dsmcbe_release_begin(void* data)
 #endif
 }
 
+//Initiates a release operation
+unsigned int spu_dsmcbe_put_begin(GUID id, void* data)
+{
+	if (!spu_dsmcbe_initialized)
+	{
+		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
+		return UINT_MAX;
+	}
+
+	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_CREATE_REQUEST);
+	if (nextId == UINT_MAX)
+		return UINT_MAX;
+
+	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
+	SPU_WRITE_OUT_MBOX(nextId);
+	SPU_WRITE_OUT_MBOX(id);
+	SPU_WRITE_OUT_MBOX((unsigned int)data);
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "PUT package sent @: %d\n", WHEREARG, (unsigned int)data);
+#endif
+
+	return nextId;
+}
+
 //Initiates a malloc operation
 unsigned int spu_dsmcbe_memory_malloc_begin(unsigned int size)
 {
@@ -343,11 +373,13 @@ unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 		case PACKAGE_ACQUIRE_REQUEST:
 		case PACKAGE_SPU_MEMORY_MALLOC_REQUEST:
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+		case PACKAGE_PUT_REQUEST:
 			return SPU_DSMCBE_ASYNC_BUSY;
 			
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 		case PACKAGE_ACQUIRE_RESPONSE:
 		case PACKAGE_SPU_MEMORY_MALLOC_RESPONSE:
+		case PACKAGE_PUT_RESPONSE:
 			return SPU_DSMCBE_ASYNC_READY;
 			
 		default:
@@ -513,10 +545,23 @@ void* create(GUID id, unsigned long size, int mode) {
 	return spu_dsmcbe_endAsync(spu_dsmcbe_create_begin(id, size, mode), NULL);
 }
 
-void* spu_dsmcbe_memory_malloc(unsigned long size) {
+void* createMalloc(unsigned long size)
+{
+	return spu_dsmcbe_memory_malloc(size);
+}
+
+void put(GUID id, void* data)
+{
+	spu_dsmcbe_endAsync(spu_dsmcbe_put_begin(id, data), NULL);
+}
+
+void* spu_dsmcbe_memory_malloc(unsigned long size)
+{
 	return spu_dsmcbe_endAsync(spu_dsmcbe_memory_malloc_begin(size), NULL);;
 }
-void spu_dsmcbe_memory_free(void* data) {
+
+void spu_dsmcbe_memory_free(void* data)
+{
 	spu_dsmcbe_memory_free_begin(data);
 }
 

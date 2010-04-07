@@ -1198,6 +1198,119 @@ OBJECT_TABLE_ENTRY_TYPE GetMachineID(GUID id)
 	return GetObjectTable()[id];
 }
 
+//Performs all actions releated to a create request
+void DoPut(QueueableItem item, struct putRequest* request)
+{
+	dataObject object;
+
+	//printf(WHERESTR "Create request for %d\n", WHEREARG, request->dataItem);
+
+
+	//Check that the item is not already created
+	if (g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem) != NULL)
+	{
+		dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem);
+		GQueue* q = obj->Gwaitqueue;
+		g_queue_push_tail(q, item);
+		return;
+	}
+
+	if (request->dataItem > OBJECT_TABLE_SIZE)
+	{
+		REPORT_ERROR("GUID was larger than object table size");
+		RespondNACK(item);
+		return;
+	}
+
+	if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
+	{
+		OBJECT_TABLE_ENTRY_TYPE* objTable = GetObjectTable();
+
+		if (objTable[request->dataItem] != OBJECT_TABLE_RESERVED)
+		{
+			REPORT_ERROR("Create request for already existing item");
+			RespondNACK(item);
+			return;
+		}
+		else
+		{
+			objTable[request->dataItem] = request->originator;
+		}
+	}
+
+	if (request->originator == dsmcbe_host_number)
+	{
+		// Make datastructures for later use
+		object = MALLOC(sizeof(struct dataObjectStruct));
+
+		object->id = request->dataItem;
+		object->EA = request->data;
+		object->size = request->dataSize;
+		object->GrequestCount = g_queue_new();
+		object->GleaseTable = g_hash_table_new(NULL, NULL);
+
+		g_hash_table_insert(object->GleaseTable, item->Gqueue, (void*)1);
+
+		//If there are pending acquires, add them to the list
+		if ((object->Gwaitqueue = g_hash_table_lookup(rc_Gwaiters, (void*)object->id)) != NULL)
+		{
+			//printf(WHERESTR "Create request for %d, waitqueue existed (%d : %d : %s)\n", WHEREARG, request->dataItem, (unsigned int)object->Gwaitqueue, g_queue_get_length(object->Gwaitqueue), g_queue_is_empty(object->Gwaitqueue) ? "true" : "false");
+			g_hash_table_remove(rc_Gwaiters, (void*)object->id);
+		}
+		else
+		{
+			//printf(WHERESTR "Create request for %d, waitqueue was empty\n", WHEREARG, request->dataItem);
+			object->Gwaitqueue = g_queue_new();
+		}
+
+		//Register this item as created
+		if (g_hash_table_lookup(rc_GallocatedItems, (void*)object->id) == NULL)
+			g_hash_table_insert(rc_GallocatedItems, (void*)object->id, object);
+		else
+			REPORT_ERROR("Could not insert into allocatedItems");
+
+	}
+	else if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
+	{
+		GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem);
+		while(dq != NULL && !g_queue_is_empty(dq))
+		{
+			//printf(WHERESTR "processed a waiter for %d (%d)\n", WHEREARG, object->id, (unsigned int)g_queue_peek_head(dq));
+			g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
+		}
+	}
+}
+
+
+void HandlePutRequest(QueueableItem item)
+{
+	struct createRequest* req = item->dataRequest;
+
+	//printf(WHERESTR "processing create event\n", WHEREARG);
+	if (OBJECT_TABLE_OWNER != dsmcbe_host_number) {
+
+		//Check if we can decline the request early on
+		if (GetObjectTable()[req->dataItem] != OBJECT_TABLE_RESERVED)
+		{
+			RespondNACK(item);
+			return;
+		}
+
+		NetRequest(item, OBJECT_TABLE_OWNER);
+#ifdef OPTIMISTIC_CREATE
+		DoCreate(item, req);
+#else
+		if (g_hash_table_lookup(rc_GpendingCreates, (void*)req->dataItem) != NULL)
+			RespondNACK(item);
+		else
+			g_hash_table_insert(rc_GpendingCreates, (void*)req->dataItem, item);
+#endif
+	} else {
+		DoCreate(item, req);
+	}
+}
+
+
 void HandleCreateRequest(QueueableItem item)
 {
 	struct createRequest* req = item->dataRequest;
@@ -1983,6 +2096,9 @@ void* rc_ProccessWork(void* data)
 				break;
 			case PACKAGE_MIGRATION_RESPONSE:
 				rc_HandleMigrationResponse(item, (struct migrationResponse*)item->dataRequest);
+				break;
+			case PACKAGE_PUT_REQUEST:
+				HandlePutRequest(item);
 				break;
 			default:
 				printf(WHERESTR "Unknown package code: %i\n", WHEREARG, datatype);

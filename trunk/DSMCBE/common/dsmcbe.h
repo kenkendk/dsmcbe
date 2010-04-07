@@ -21,8 +21,8 @@ extern void* create(GUID id, unsigned long size, int mode);
 extern void* acquire(GUID id, unsigned long* size, int mode);
 extern void release(void* data);
 
-extern void* createmalloc(unsigned long size);
-extern void put(GUID id, void* data, void* func);
+extern void* createMalloc(unsigned long size);
+extern void put(GUID id, void* data);
 extern void* get(GUID id, unsigned long* size);
 
 extern void acquireBarrier(GUID id);
