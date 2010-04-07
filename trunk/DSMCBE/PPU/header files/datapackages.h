@@ -41,6 +41,11 @@
 #define PACKAGE_ENQUEUE_STREAM_JOB 40
 #define PACKAGE_DEQUEUE_STREAM_JOB 41
 
+#define PACKAGE_PUT_REQUEST 50
+#define PACKAGE_PUT_RESPONSE 51
+#define PACKAGE_GET_REQUEST 52
+#define PACKAGE_GET_RESPONSE 53
+
 #define STREAM_STATUS_QUEUED 0
 #define STREAM_STATUS_REQUEST_SENT 1
 #define STREAM_STATUS_RESPONSE_RECIEVED 2
@@ -182,6 +187,45 @@ struct migrationRequest
 	unsigned int originalRequestID;
 };
 
+struct putRequest
+{
+    unsigned int packageCode; // = 50
+	unsigned int requestID;
+	GUID dataItem;
+	unsigned long dataSize;
+	unsigned long offset;
+	void* data;
+	void* func;
+};
+
+struct putResponse
+{
+    unsigned int packageCode; // = 51
+    unsigned int requestID;
+};
+
+struct getRequest
+{
+    unsigned int packageCode; // = 52
+    unsigned int requestID;
+    GUID dataItem;
+	unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
+};
+
+struct getResponse
+{
+    unsigned int packageCode; // = 53
+    unsigned int requestID;
+    GUID dataItem;
+	unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
+    unsigned long dataSize;
+    void* data;
+    void* func;
+};
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
