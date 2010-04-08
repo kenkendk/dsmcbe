@@ -19,23 +19,23 @@ void delta2(GUID in, GUID outA, GUID outB)
 
 	while(1)
 	{
-		inValue = acquire(in, &size, ACQUIRE_MODE_DELETE);
+		inValue = get(in, &size);
 		if (inValue == NULL)
 			printf("delta2 inValue is NULL\n");
 		value = *inValue;
 		release(inValue);
 
-		outValue = create(outA, sizeof(int), CREATE_MODE_BLOCKING);
+		outValue = createMalloc(sizeof(int));
 		if (outValue == NULL)
 			printf("delta2 outValue #1 is NULL\n");
 		*outValue = value;
-		release(outValue);
+		put(outA, outValue);
 
-		outValue = create(outB, sizeof(int), CREATE_MODE_BLOCKING);
+		outValue = createMalloc(sizeof(int));
 		if (outValue == NULL)
 			printf("delta2 outValue #2 is NULL\n");
 		*outValue = value;
-		release(outValue);
+		put(outB, outValue);
 	}
 }
 
@@ -49,17 +49,19 @@ void delta1(GUID in, GUID out)
 
 	while(1)
 	{
-		inValue = acquire(in, &size, ACQUIRE_MODE_DELETE);
+		inValue = get(in, &size);
 		if (inValue == NULL)
 			printf("delta1 inValue is NULL\n");
 		value = *inValue;
 		release(inValue);
 
-		outValue = create(out, sizeof(int), CREATE_MODE_BLOCKING);
+		outValue = createMalloc(sizeof(int));
+
 		if (outValue == NULL)
 			printf("delta1 outValue is NULL\n");
+
 		*outValue = value;
-		release(outValue);
+		put(out, outValue);
 	}
 }
 
@@ -67,13 +69,13 @@ void prefix(GUID in, GUID out, int value)
 {
 	unsigned int* outValue;
 
-	unsigned long size;
+	outValue = createMalloc(sizeof(int));
 
-	outValue = create(out, sizeof(int), CREATE_MODE_BLOCKING);
 	if (outValue == NULL)
 		printf("prefix outValue is NULL\n");
+
 	*outValue = value;
-	release(outValue);
+	put(out, outValue);
 
 	delta1(in, out);
 }
@@ -102,12 +104,6 @@ int main(int argc, char** argv) {
 
 	GUID readerChannel = CHANNEL_START_GUID + (pid % processcount);
 	GUID writerChannel = CHANNEL_START_GUID + ((pid + 1) % processcount);
-
-	//The initial processor starts the sequence
-	if (pid == 0)
-	{
-		release(create(readerChannel, sizeof(unsigned int), CREATE_MODE_BLOCKING));
-	}
 
 	if (pid == 0)
 		delta2(readerChannel, writerChannel, DELTA_CHANNEL);
