@@ -123,6 +123,7 @@ void spu_dsmcbe_readMailbox() {
 			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_GET_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
 			spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
+			break;
 		case PACKAGE_PUT_REQUEST:
 			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_PUT_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = NULL;
@@ -317,7 +318,7 @@ unsigned int spu_dsmcbe_put_begin(GUID id, void* data)
 		return UINT_MAX;
 	}
 
-	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_CREATE_REQUEST);
+	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_PUT_REQUEST);
 	if (nextId == UINT_MAX)
 		return UINT_MAX;
 
@@ -350,6 +351,10 @@ unsigned int spu_dsmcbe_memory_malloc_begin(unsigned int size)
 	SPU_WRITE_OUT_MBOX(nextId);
 	SPU_WRITE_OUT_MBOX(size);
 	
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "MALLOC package sent\n", WHEREARG);
+#endif
+
 	return nextId;
 }
 
@@ -403,7 +408,10 @@ unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 		spu_dsmcbe_readMailbox();
 	
 	if (requestNo > MAX_PENDING_REQUESTS || spu_dsmcbe_pendingRequests[requestNo].requestCode == 0)
+	{
+		printf("Packagekode was %d\n", spu_dsmcbe_pendingRequests[requestNo].requestCode);
 		return SPU_DSMCBE_ASYNC_ERROR;
+	}
 		
 	switch(spu_dsmcbe_pendingRequests[requestNo].requestCode)
 	{
@@ -412,12 +420,14 @@ unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 		case PACKAGE_SPU_MEMORY_MALLOC_REQUEST:
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
 		case PACKAGE_PUT_REQUEST:
+		case PACKAGE_GET_REQUEST:
 			return SPU_DSMCBE_ASYNC_BUSY;
 			
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
 		case PACKAGE_ACQUIRE_RESPONSE:
 		case PACKAGE_SPU_MEMORY_MALLOC_RESPONSE:
 		case PACKAGE_PUT_RESPONSE:
+		case PACKAGE_GET_RESPONSE:
 			return SPU_DSMCBE_ASYNC_READY;
 			
 		default:
@@ -487,7 +497,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 
 	if (size != NULL)
 	{
-		if (spu_dsmcbe_pendingRequests[requestNo].requestCode == PACKAGE_ACQUIRE_RESPONSE)
+		if (spu_dsmcbe_pendingRequests[requestNo].requestCode == PACKAGE_ACQUIRE_RESPONSE || spu_dsmcbe_pendingRequests[requestNo].requestCode == PACKAGE_GET_RESPONSE)
 			*size = spu_dsmcbe_pendingRequests[requestNo].size;
 		else
 			size = 0;
