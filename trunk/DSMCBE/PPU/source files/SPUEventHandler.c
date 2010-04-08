@@ -494,16 +494,11 @@ void spuhandler_InitiateDMATransfer(struct SPU_State* state, unsigned int toSPU,
 		printf(WHERESTR "Initiating simulated DMA transfer on PPU (%s), EA: %d, LS: %d, size: %d, tag: %d\n", WHEREARG, toSPU ? "EA->LS" : "LS->EA", EA, LS, size, groupId);
 #endif
 		
+		void* spu_ls = spe_ls_area_get(state->context) + LS;
 		if (toSPU)
-		{
-			void* spu_ls = spe_ls_area_get(state->context) + LS;
 			memcpy(spu_ls, (void*)EA, size);
-		}
 		else
-		{
-			void* spu_ls = spe_ls_area_get(state->context) + LS;
 			memcpy((void*)EA, spu_ls, size);
-		}
 		
 		spuhandler_HandleDMATransferCompleted(state, groupId);
 			
@@ -632,10 +627,12 @@ void spuhandler_TransferObject(struct SPU_State* state, struct spu_pendingReques
 //This function handles an incoming put request from an SPU
 void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId, GUID id, void* ls)
 {
-	unsigned long size = (unsigned long)g_hash_table_lookup(state->map->allocated, ls);
+	printf("Handling putRequest\n");
+
+	unsigned long size = (unsigned long)g_hash_table_lookup(state->map->allocated, ls) * 16;
 
 	if (size == 0)
-		REPORT_ERROR("Size of object is zero when trying to PUT");
+		REPORT_ERROR2("Size of object is zero when trying to PUT, ls: %d", (unsigned int)ls);
 
 	struct spu_dataObject* obj = malloc(sizeof(struct spu_dataObject));
 	obj->DMAId = 0;
@@ -891,7 +888,7 @@ unsigned int spuhandler_EstimatePendingReleaseSize(struct SPU_State* state)
 void spuhandler_HandlePutResponse(struct SPU_State* state, struct putResponse* data)
 {
 #ifdef DEBUG_COMMUNICATION
-	printf(WHERESTR "Handling put response for id: %d, requestId: %d\n", WHEREARG, data->dataItem, data->requestID);
+	printf(WHERESTR "Handling put response for requestId: %d\n", WHEREARG, data->requestID);
 #endif
 
 	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)data->requestID);
@@ -1167,15 +1164,12 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 			return;
 			
 #ifdef DEBUG_COMMUNICATION	
-		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying SPU\n", WHEREARG, groupID, preq->objId);
+		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, ls %u, notifying SPU\n", WHEREARG, groupID, preq->objId, obj->LS);
 #endif
 		PUSH_TO_SPU(state, preq->requestId);
 		PUSH_TO_SPU(state, obj->LS);
 		PUSH_TO_SPU(state, obj->size);
 		
-		FREE(preq);
-		preq = NULL;
-
 		if (preq->operation == PACKAGE_GET_REQUEST)
 		{
 			if (preq->remoteQueue == NULL)
@@ -1188,12 +1182,15 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 				wbr->packageCode = PACKAGE_WRITEBUFFER_READY;
 				wbr->dataItem = obj->id;
 				wbr->requestID = 0; //TODO: Do we need this for Network
-				DSMCBE_RespondDirect(preq->remoteQueue, wbr);
+				//DSMCBE_RespondDirect(preq->remoteQueue, wbr);
 
 			}
 
 			obj->EA = NULL;
 		}
+
+		FREE(preq);
+		preq = NULL;
 	}
 	else if(preq->DMAcount == 0)
 	{
@@ -1290,6 +1287,8 @@ void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int re
 //This function handles an incoming GET request from the SPU
 void spuHandler_HandleGetRequest(struct SPU_State* state, unsigned int requestId, unsigned int id)
 {
+	printf("Handling getRequest\n");
+
 	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
 
 	// Setting DMAcount to UINT_MAX to initialize the struct.
@@ -1373,7 +1372,7 @@ void spuHandler_HandleGetResponse(struct SPU_State* state, unsigned int requestI
 		if (ls == NULL)
 		{
 #ifdef DEBUG_COMMUNICATION
-			printf(WHERESTR "No more space, delaying acquire until space becomes available, free mem: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, data->dataSize);
+			printf(WHERESTR "No more space, delaying acquire until space becomes available, free mem: %d, reqSize: %d\n", WHEREARG, state->map->free_mem, size);
 #endif
 			if (g_queue_find(state->releaseWaiters, preq) == NULL)
 				g_queue_push_tail(state->releaseWaiters, preq);
@@ -1438,6 +1437,7 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 		unsigned int data = 0;
 		
 		spe_out_intr_mbox_read(state->context, &packageCode, 1, SPE_MBOX_ALL_BLOCKING);
+
 		switch(packageCode)
 		{
 			case PACKAGE_TERMINATE_REQUEST:
@@ -1483,7 +1483,7 @@ void spuhandler_SPUMailboxReader(struct SPU_State* state)
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 				spe_out_intr_mbox_read(state->context, &id, 1, SPE_MBOX_ALL_BLOCKING);
 				spe_out_intr_mbox_read(state->context, &data, 1, SPE_MBOX_ALL_BLOCKING);
-				spuhandler_HandlePutRequest(state, requestId, id, (void*)requestId);
+				spuhandler_HandlePutRequest(state, requestId, id, (void*)data);
 				break;
 			case PACKAGE_SPU_MEMORY_FREE:
 				spe_out_intr_mbox_read(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);

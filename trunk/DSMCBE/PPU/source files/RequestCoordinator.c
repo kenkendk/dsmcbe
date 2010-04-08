@@ -1255,11 +1255,16 @@ void rc_RespondGetPutPair(QueueableItem get, QueueableItem put)
 	getResp->dataSize = ((struct putRequest*)put->dataRequest)->dataSize;
 	getResp->data = ((struct putRequest*)put->dataRequest)->data;
 	getResp->callback = put;
+
+	printf("Sending package getResponse size is %lu and ls is %u\n", getResp->dataSize, getResp->data);
+
 	RespondAny(get, getResp);
 
 	//Respond to PUT
 	struct putResponse* putResp = malloc(sizeof(struct putResponse));
 	putResp->packageCode = PACKAGE_PUT_RESPONSE;
+
+	printf("Sending package putResponse\n");
 	RespondAny(put, putResp);
 }
 
@@ -1268,12 +1273,15 @@ void rc_DoPutOrGet(QueueableItem item, struct putRequest* request, unsigned int 
 {
 	dataObject object = rc_getOrCreateObject(request->dataItem, request->originator);
 
+	if (object == NULL)
+		REPORT_ERROR("Could not get or create object\n");
+
 	size_t i;
 
 	for(i = 0; i < g_queue_get_length(object->Gwaitqueue); i++)
 	{
 		QueueableItem other = (QueueableItem)g_queue_peek_nth(object->Gwaitqueue, i);
-		if (((struct createRequest*)item->dataRequest)->packageCode == packageCode)
+		if (((struct createRequest*)other->dataRequest)->packageCode == packageCode)
 		{
 			g_queue_pop_nth(object->Gwaitqueue, i);
 			if (packageCode == PACKAGE_GET_REQUEST)
@@ -1282,8 +1290,9 @@ void rc_DoPutOrGet(QueueableItem item, struct putRequest* request, unsigned int 
 				rc_RespondGetPutPair(item, other);
 			return;
 		}
-		else if (((struct createRequest*)item->dataRequest)->packageCode != (packageCode == PACKAGE_GET_REQUEST ? PACKAGE_PUT_REQUEST : PACKAGE_GET_REQUEST))
+		else if (((struct createRequest*)other->dataRequest)->packageCode != (packageCode == PACKAGE_GET_REQUEST ? PACKAGE_PUT_REQUEST : PACKAGE_GET_REQUEST))
 		{
+			printf("Detected invalid package type (%u) in queue for %d\n", ((struct createRequest*)other->dataRequest)->packageCode, object->id);
 			REPORT_ERROR2("Detected invalid package type in queue for %d", object->id);
 		}
 	}
