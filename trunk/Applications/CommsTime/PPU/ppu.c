@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     }
 
     sw_init();
-    release(acquire(DELTA_CHANNEL, &size, ACQUIRE_MODE_DELETE));
+    release(get(DELTA_CHANNEL, &size));
 
 	sw_start();
 
@@ -69,7 +69,7 @@ int main(int argc, char **argv)
 
     while(1)
     {
-        release(acquire(DELTA_CHANNEL, &size, ACQUIRE_MODE_DELETE));
+        release(get(DELTA_CHANNEL, &size));
     	if (counter >= REPETITIONS)
     	{
     		sw_stop();
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
     	}
     	else
     	{
-    		printf("Run %d completed\n", counter);
+    		//printf("Run %d completed\n", counter);
     		counter++;
     	}
     }

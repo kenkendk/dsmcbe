@@ -47,6 +47,9 @@
 #define PACKAGE_GET_REQUEST 52
 #define PACKAGE_GET_RESPONSE 53
 
+#define PACKAGE_MALLOC_REQUEST 60
+#define PACKAGE_TRANSFER_REQUEST 61
+
 #define STREAM_STATUS_QUEUED 0
 #define STREAM_STATUS_REQUEST_SENT 1
 #define STREAM_STATUS_RESPONSE_RECIEVED 2
@@ -198,6 +201,7 @@ struct putRequest
 	unsigned int originalRequestID;
 	unsigned long dataSize;
 	void* data;
+	unsigned int isLS;
 };
 
 struct putResponse
@@ -221,12 +225,31 @@ struct getResponse
     unsigned int packageCode; // = 53
     unsigned int requestID;
     GUID dataItem;
+	unsigned long size;
+	void* target;
+	void* source;
+	unsigned int isTransfered;
+};
+
+struct mallocRequest
+{
+    unsigned int packageCode; // = 60
+    unsigned int requestID;
+    void* callback;
+};
+
+struct transferRequest
+{
+    unsigned int packageCode; // = 61
+    unsigned int requestID;
+    GUID dataItem;
 	unsigned int originator;
 	unsigned int originalRecipient;
 	unsigned int originalRequestID;
-    unsigned long dataSize;
-    void* data;
-    void* callback;
+	unsigned long size;
+	void* target;
+	void* source;
+	void* callback;
 };
 
 #ifndef MAX
