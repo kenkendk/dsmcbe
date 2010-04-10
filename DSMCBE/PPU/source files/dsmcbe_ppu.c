@@ -480,3 +480,36 @@ void acquireBarrier(GUID id)
 
 	threadAcquireBarrier(id);
 }
+
+void* mallocCreate(unsigned long size)
+{
+	if (dsmcbe_initialized == 0)
+	{
+		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
+		return NULL;
+	}
+
+	return threadMalloc(size);
+}
+
+void put(GUID id, void* data)
+{
+	if (dsmcbe_initialized == 0)
+	{
+		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
+		return;
+	}
+
+	threadPut(id, data);
+}
+
+void* get(GUID id, unsigned long* size)
+{
+	if (dsmcbe_initialized == 0)
+	{
+		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
+		return NULL;
+	}
+
+	return threadGet(id, size);
+}

@@ -337,15 +337,6 @@ void EnqueInvalidateResponse(unsigned int requestNumber)
  	//printf(WHERESTR "unlocked mutex\n", WHEREARG);	
 }
 
-//Public function to help send a message directly to a recipient
-void DSMCBE_RespondDirect(QueueableItem item, void* resp)
-{
-	if (item == NULL)
-		free(resp);
-	else
-		RespondAny(item, resp);
-}
-
 //Helper method with common code for responding
 //It sets the requestID on the response, and frees the data structures
 void RespondAny(QueueableItem item, void* resp)
@@ -353,6 +344,13 @@ void RespondAny(QueueableItem item, void* resp)
 	unsigned int originator = UINT_MAX;
 	unsigned int originalRecipient = UINT_MAX;
 	unsigned int originalRequestID = UINT_MAX;
+
+	if (item->dataRequest == NULL)
+	{
+		REPORT_ERROR("Invalid dataRequest");
+		((struct createRequest*)item->dataRequest)->dataItem = 5;
+		return;
+	}
 
 	switch(((struct createRequest*)item->dataRequest)->packageCode)
 	{
@@ -418,6 +416,8 @@ void RespondAny(QueueableItem item, void* resp)
 
 	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
 	
+	unsigned int packageCode = ((struct createRequest*)resp)->packageCode;
+
 	if (item->mutex != NULL)
 		pthread_mutex_lock(item->mutex);
 	
@@ -438,11 +438,23 @@ void RespondAny(QueueableItem item, void* resp)
 	
 	//printf(WHERESTR "responding, done\n", WHEREARG);
 	
-	
-	FREE(item->dataRequest);
-	item->dataRequest = NULL;
-	FREE(item);
-	item = NULL;
+	if (packageCode != PACKAGE_PUT_RESPONSE)
+	{
+		FREE(item->dataRequest);
+		item->dataRequest = NULL;
+
+		FREE(item);
+		item = NULL;
+	}
+}
+
+//Public function to help send a message directly to a recipient
+void DSMCBE_RespondDirect(QueueableItem item, void* resp)
+{
+	if (item == NULL)
+		free(resp);
+	else
+		RespondAny(item, resp);
 }
 
 //Responds with NACK to a request
@@ -1248,7 +1260,9 @@ dataObject rc_getOrCreateObject(GUID id, unsigned int originator)
 
 void rc_RespondGetPutPair(QueueableItem get, QueueableItem put)
 {
+
 	//Respond to GET
+	/*
 	struct getResponse* getResp = malloc(sizeof(struct getResponse));
 	getResp->packageCode = PACKAGE_GET_RESPONSE;
 	getResp->dataItem = ((struct putRequest*)put->dataRequest)->dataItem;
@@ -1256,16 +1270,22 @@ void rc_RespondGetPutPair(QueueableItem get, QueueableItem put)
 	getResp->data = ((struct putRequest*)put->dataRequest)->data;
 	getResp->callback = put;
 
-	printf("Sending package getResponse size is %lu and ls is %u\n", getResp->dataSize, getResp->data);
-
 	RespondAny(get, getResp);
+	 */
 
 	//Respond to PUT
 	struct putResponse* putResp = malloc(sizeof(struct putResponse));
 	putResp->packageCode = PACKAGE_PUT_RESPONSE;
-
-	printf("Sending package putResponse\n");
 	RespondAny(put, putResp);
+
+	//Warning: The put package is used by the recipient of the mallocRequest,
+	//  so the putResponse must be completed before the mallocRequest is sent
+
+	struct mallocRequest* req = malloc(sizeof(struct mallocRequest));
+	req->packageCode = PACKAGE_MALLOC_REQUEST;
+	req->callback = put;
+	RespondAny(get, req);
+
 }
 
 //Performs all actions releated to a create request

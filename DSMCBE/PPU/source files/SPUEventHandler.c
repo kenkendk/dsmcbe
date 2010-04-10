@@ -627,8 +627,6 @@ void spuhandler_TransferObject(struct SPU_State* state, struct spu_pendingReques
 //This function handles an incoming put request from an SPU
 void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId, GUID id, void* ls)
 {
-	printf("Handling putRequest\n");
-
 	unsigned long size = (unsigned long)g_hash_table_lookup(state->map->allocated, ls) * 16;
 
 	if (size == 0)
@@ -667,9 +665,7 @@ void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId
 	req->packageCode = PACKAGE_PUT_REQUEST;
 	req->requestID = requestId;
 	req->dataItem = id;
-
-
-
+	req->isLS = TRUE;
 	req->dataSize = size;
 	req->originator = dsmcbe_host_number;
 	req->originalRecipient = UINT_MAX;
@@ -904,12 +900,9 @@ void spuhandler_HandlePutResponse(struct SPU_State* state, struct putResponse* d
 
 	PUSH_TO_SPU(state, preq->requestId);
 
-	//if (preq->operation != PACKAGE_ACQUIRE_REQUEST_WRITE)
-	{
-		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-		FREE(preq);
-		preq = NULL;
-	}
+	g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+	FREE(preq);
+	preq = NULL;
 }
 
 //This function handles an acquireResponse package from the request coordinator
@@ -1157,68 +1150,68 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 #endif
 
 	
-	if (preq->operation != PACKAGE_RELEASE_REQUEST)
+	if (preq->DMAcount == 0)
 	{
-		//The transfer was from PPU to SPU, we can now give the pointer to the SPU
-		if (preq->DMAcount != 0)
-			return;
-			
-#ifdef DEBUG_COMMUNICATION	
-		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, ls %u, notifying SPU\n", WHEREARG, groupID, preq->objId, obj->LS);
-#endif
-		PUSH_TO_SPU(state, preq->requestId);
-		PUSH_TO_SPU(state, obj->LS);
-		PUSH_TO_SPU(state, obj->size);
-		
-		if (preq->operation == PACKAGE_GET_REQUEST)
+		if (preq->operation == PACKAGE_RELEASE_REQUEST)
 		{
-			if (preq->remoteQueue == NULL)
-			{
-				FREE_ALIGN(obj->EA);
-			}
-			else
-			{
-				struct writebufferReady* wbr = malloc(sizeof(struct writebufferReady));
-				wbr->packageCode = PACKAGE_WRITEBUFFER_READY;
-				wbr->dataItem = obj->id;
-				wbr->requestID = 0; //TODO: Do we need this for Network
-				//DSMCBE_RespondDirect(preq->remoteQueue, wbr);
-
-			}
-
-			obj->EA = NULL;
-		}
-
-		FREE(preq);
-		preq = NULL;
-	}
-	else if(preq->DMAcount == 0)
-	{
-		//Data is transfered from SPU LS to EA, now notify the request coordinator
-#ifdef DEBUG_COMMUNICATION	
-		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying RC\n", WHEREARG, groupID, preq->objId);
-#endif
-		//__asm__ __volatile__("lwsync" : : : "memory");
-		
-		struct releaseRequest* req = MALLOC(sizeof(struct releaseRequest));
+			//Data is transfered from SPU LS to EA, now notify the request coordinator
+	#ifdef DEBUG_COMMUNICATION
+			printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying RC\n", WHEREARG, groupID, preq->objId);
+	#endif
+			//__asm__ __volatile__("lwsync" : : : "memory");
 			
-		req->data = obj->EA;
-		req->dataItem = obj->id;
-		req->dataSize = obj->size;
-		req->mode = ACQUIRE_MODE_WRITE;
-		req->offset = 0;
-		req->packageCode = PACKAGE_RELEASE_REQUEST;
-		req->requestID = preq->requestId;
-		
-		spuhandler_SendRequestCoordinatorMessage(state, req);
+			struct releaseRequest* req = MALLOC(sizeof(struct releaseRequest));
 
-		FREE(preq);
-		if (obj == NULL || obj->count == 0)
-		{
-			REPORT_ERROR("Release was completed, but the object was not acquired?");
-			return;
+			req->data = obj->EA;
+			req->dataItem = obj->id;
+			req->dataSize = obj->size;
+			req->mode = ACQUIRE_MODE_WRITE;
+			req->offset = 0;
+			req->packageCode = PACKAGE_RELEASE_REQUEST;
+			req->requestID = preq->requestId;
+
+			spuhandler_SendRequestCoordinatorMessage(state, req);
+
+			FREE(preq);
+			if (obj == NULL || obj->count == 0)
+			{
+				REPORT_ERROR("Release was completed, but the object was not acquired?");
+				return;
+			}
+
+			spuhandler_HandleObjectRelease(state, obj);
 		}
-		spuhandler_HandleObjectRelease(state, obj);
+		else if (preq->operation == PACKAGE_TRANSFER_REQUEST)
+		{
+			struct getResponse* resp = MALLOC(sizeof(struct getResponse));
+			resp->packageCode = PACKAGE_GET_RESPONSE;
+			resp->isTransfered = TRUE;
+			resp->requestID = preq->requestId;
+			resp->dataItem = preq->objId;
+			resp->source = NULL;
+			resp->target = obj->EA;
+			resp->size = obj->size;
+
+			DSMCBE_RespondDirect(preq->remoteQueue, resp);
+
+			spuhandler_HandleObjectRelease(state, obj);
+			FREE(preq);
+			preq = NULL;
+		}
+		else
+		{
+			//The transfer was from PPU to SPU, we can now give the pointer to the SPU
+
+	#ifdef DEBUG_COMMUNICATION
+			printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, ls %u, notifying SPU\n", WHEREARG, groupID, preq->objId, obj->LS);
+	#endif
+			PUSH_TO_SPU(state, preq->requestId);
+			PUSH_TO_SPU(state, obj->LS);
+			PUSH_TO_SPU(state, obj->size);
+
+			FREE(preq);
+			preq = NULL;
+		}
 	}
 }
 
@@ -1287,8 +1280,6 @@ void spuhandler_HandleInvalidateRequest(struct SPU_State* state, unsigned int re
 //This function handles an incoming GET request from the SPU
 void spuHandler_HandleGetRequest(struct SPU_State* state, unsigned int requestId, unsigned int id)
 {
-	printf("Handling getRequest\n");
-
 	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
 
 	// Setting DMAcount to UINT_MAX to initialize the struct.
@@ -1317,57 +1308,66 @@ void spuHandler_HandleGetRequest(struct SPU_State* state, unsigned int requestId
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
 
-void spuHandler_HandleGetResponse(struct SPU_State* state, unsigned int requestId, void* data, unsigned long size, QueueableItem remoteQueue)
+void spuHandler_HandleGetResponse(struct SPU_State* state, struct getResponse* resp)
 {
-	//TODO: If we support multiple threads on an SPU, we may have a situation where the data is already in the LS
+	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)resp->requestID);
 
-	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)requestId);
 	if (preq == NULL)
 	{
 		REPORT_ERROR("Found response to an unknown request");
 		return;
 	}
 
-	preq->remoteQueue = remoteQueue;
+	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
+	if (obj == NULL)
+		REPORT_ERROR("Dataobject is not allocated");
+
+	g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+
+	if (resp->isTransfered)
+	{
+		//The transfer was from PPU to SPU, we can now give the pointer to the SPU
+		if (preq->DMAcount != 0)
+			return;
+
+#ifdef DEBUG_COMMUNICATION
+		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, ls %u, notifying SPU\n", WHEREARG, groupID, preq->objId, obj->LS);
+#endif
+
+		PUSH_TO_SPU(state, preq->requestId);
+		PUSH_TO_SPU(state, obj->LS);
+		PUSH_TO_SPU(state, obj->size);
+
+		FREE(preq);
+		preq = NULL;
+	}
+	else
+	{
+		//Do transfer
+		spuhandler_TransferObject(state, preq, obj);
+	}
+
+}
+
+void spuhandler_HandleMallocRequest(struct SPU_State* state, struct mallocRequest* resp)
+{
+	//TODO: If we support multiple threads on an SPU, we may have a situation where the data is already in the LS
+
+	struct putRequest* put = (struct putRequest*)((QueueableItem)resp->callback)->dataRequest;
+
+	struct spu_pendingRequest* preq = g_hash_table_lookup(state->pendingRequests, (void*)resp->requestID);
+
+	if (preq == NULL)
+	{
+		REPORT_ERROR("Found response to an unknown request");
+		return;
+	}
 
 	//Determine if data is already present on the SPU
 	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
 	if (obj == NULL)
 	{
-		void* ls = spuhandler_AllocateSpaceForObject(state, size);
-		/*if (ls == NULL)
-		{
-			//We have no space on the SPU
-			if (spuhandler_EstimatePendingReleaseSize(state) == 0)
-			{
-				REPORT_ERROR2("No more space, denying acquire request for %d", data->dataItem);
-
-				PUSH_TO_SPU(state, preq->requestId);
-				PUSH_TO_SPU(state, NULL);
-				PUSH_TO_SPU(state, 0);
-				g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
-				FREE(preq);
-				//exit(-5);
-				return;
-			}
-		}*/
-
-		obj = MALLOC(sizeof(struct spu_dataObject));
-
-		obj->count = 1;
-		obj->EA = data;
-		obj->id = preq->objId;
-		obj->invalidateId = UINT_MAX;
-		obj->mode = preq->mode;
-		obj->size = size;
-		obj->LS = ls;
-		obj->writebuffer_ready = TRUE;
-		obj->isDMAToSPU = TRUE;
-
-		g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
-		g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
-
-		g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+		void* ls = spuhandler_AllocateSpaceForObject(state, put->dataSize);
 
 		if (ls == NULL)
 		{
@@ -1379,8 +1379,58 @@ void spuHandler_HandleGetResponse(struct SPU_State* state, unsigned int requestI
 		}
 		else
 		{
-			//Send it!
-			spuhandler_TransferObject(state, preq, obj);
+			obj = MALLOC(sizeof(struct spu_dataObject));
+
+			obj->count = 1;
+			obj->id = preq->objId;
+			obj->invalidateId = UINT_MAX;
+			obj->mode = preq->mode;
+			obj->size = put->dataSize;
+			obj->LS = ls;
+			obj->EA = NULL;
+			obj->writebuffer_ready = TRUE;
+			obj->isDMAToSPU = TRUE;
+
+			g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
+			g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
+
+			if (!(put->isLS))
+			{
+				//Send it!
+				obj->EA = put->data;
+				spuhandler_TransferObject(state, preq, obj);
+
+				g_hash_table_remove(state->pendingRequests, (void*)preq->requestId);
+
+				FREE(put);
+				put = NULL;
+				FREE(resp->callback);
+				resp->callback = NULL;
+			}
+			else
+			{
+				//Send transferrequest
+				struct transferRequest* transReq = malloc(sizeof(struct transferRequest));
+				transReq->packageCode = PACKAGE_TRANSFER_REQUEST;
+				transReq->size = put->dataSize;
+				transReq->source = put->data;
+				transReq->target = spe_ls_area_get(state->context) + (unsigned int)ls;
+				transReq->dataItem = put->dataItem;
+
+				QueueableItem callback = MALLOC(sizeof(struct QueueableItemStruct));
+				callback->Gqueue = &(state->queue);
+				callback->callback = NULL;
+				callback->dataRequest = transReq;
+				callback->mutex = &state->rqMutex;
+				callback->event = NULL;
+
+				transReq->callback = callback;
+
+				//We don't need the requestId any more, so we change it to fit the new sequence
+				put->requestID = resp->requestID;
+
+				DSMCBE_RespondDirect(resp->callback, transReq);
+			}
 		}
 	}
 	else
@@ -1423,6 +1473,47 @@ void spuhandler_PrintDebugStatus(struct SPU_State* state, unsigned int requestId
 	}
 }
 
+void spuhandler_HandleTransferRequest(struct SPU_State* state, struct transferRequest* req)
+{
+	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)req->dataItem);
+
+	if (obj != NULL)
+	{
+		//Do transfer
+		struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
+
+		// Setting DMAcount to UINT_MAX to initialize the struct.
+		preq->DMAcount = UINT_MAX;
+
+		//printf(WHERESTR "New pointer: %d\n", WHEREARG, (unsigned int)preq);
+		preq->objId = req->dataItem;
+		preq->operation = PACKAGE_TRANSFER_REQUEST;
+		preq->requestId = req->requestID;
+		preq->DMAcount = 0;
+		preq->mode = ACQUIRE_MODE_GET;
+		preq->remoteQueue = req->callback;
+
+		obj->isDMAToSPU = FALSE;
+		obj->EA = req->target;
+
+		spuhandler_TransferObject(state, preq, obj);
+	}
+	else
+	{
+		REPORT_ERROR("Could handle transferRequest because items did not exist.");
+
+		struct getResponse* resp = MALLOC(sizeof(struct getResponse));
+		resp->packageCode = PACKAGE_GET_RESPONSE;
+		resp->isTransfered = FALSE;
+		resp->requestID = req->requestID;
+		resp->dataItem = req->dataItem;
+		resp->source = NULL; //??
+		resp->target = req->target;
+		resp->size = req->size;
+
+		DSMCBE_RespondDirect(req->callback, resp);
+	}
+}
 
 //Reads an processes any incoming mailbox messages
 void spuhandler_SPUMailboxReader(struct SPU_State* state)
@@ -1558,10 +1649,17 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 				spuhandler_HandleBarrierResponse(state, ((struct acquireBarrierResponse*)resp)->requestID);
 				break;
 			case PACKAGE_GET_RESPONSE:
-				spuHandler_HandleGetResponse(state, ((struct getResponse*)resp)->requestID, ((struct getResponse*)resp)->data, ((struct getResponse*)resp)->dataSize, (QueueableItem)((struct getResponse*)resp)->callback);
+				spuHandler_HandleGetResponse(state, (struct getResponse*)resp);
 				break;
 			case PACKAGE_PUT_RESPONSE:
 				spuhandler_HandlePutResponse(state, (struct putResponse*)resp);
+				break;
+			case PACKAGE_MALLOC_REQUEST:
+				spuhandler_HandleMallocRequest(state, (struct mallocRequest*)resp);
+				break;
+			case PACKAGE_TRANSFER_REQUEST:
+				spuhandler_HandleTransferRequest(state, (struct transferRequest*)resp);
+				resp = NULL;
 				break;
 			default:
 				REPORT_ERROR("Invalid package recieved");
@@ -1570,6 +1668,7 @@ void spuhandler_HandleRequestCoordinatorMessages(struct SPU_State* state)
 		
 		if (resp != NULL)
 			FREE(resp);
+
 		resp = NULL;
 	}
 }

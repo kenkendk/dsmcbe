@@ -197,8 +197,6 @@ void* forwardRequest(void* data)
 	pthread_mutex_unlock(&ppu_dummy_mutex);
 	
 	int waitForWbr = ((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && (((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE || ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_DELETE);
-	waitForWbr |= ((struct acquireResponse*)data)->packageCode == PACKAGE_PUT_RESPONSE;
-
 
 	if (waitForWbr)
 	{
@@ -236,7 +234,7 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 {
 	PointerEntry ent;
 	
-	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_DELETE)
+	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_DELETE && type != ACQUIRE_MODE_GET)
 		REPORT_ERROR("pointer was neither READ nor WRITE");
 	
 	//If the response was valid, record the item data
@@ -612,8 +610,9 @@ void* threadMalloc(unsigned long size)
 void threadPut(GUID id, void* data)
 {
 	pthread_mutex_lock(&ppu_allocatedPointers_mutex);
-	unsigned long size = g_hash_table_lookup(Gppu_allocatedPointers, data);
-	g_hash_table_remove(Gppu_allocatedPointers, data);
+	unsigned long size = (unsigned long)g_hash_table_lookup(Gppu_allocatedPointers, data);
+	if (size != 0)
+		g_hash_table_remove(Gppu_allocatedPointers, data);
 	pthread_mutex_unlock(&ppu_allocatedPointers_mutex);
 
 	if (size == 0)
@@ -642,6 +641,7 @@ void threadPut(GUID id, void* data)
 	req->dataItem = id;
 	req->dataSize = size;
 	req->data = data;
+	req->isLS = FALSE;
 	req->originator = dsmcbe_host_number;
 	req->originalRecipient = UINT_MAX;
 	req->originalRequestID = UINT_MAX;
@@ -691,26 +691,11 @@ void* threadGet(GUID id, unsigned long* size)
 	else
 	{
 		if (size != NULL)
-			*size = resp->dataSize;
+			*size = resp->size;
 
-		res = resp->data;
-
-		//If on SPE, transfer
-		if (resp->dataOnSPE)
-		{
-			res = MALLOC_ALIGN(resp->dataSize, 1);
-
-			//TODO: use mfc commands
-			memcpy(res, resp->data, resp->dataSize);
-
-			struct writebufferReady* wbr = malloc(sizeof(struct writebufferReady));
-			wbr->packageCode = PACKAGE_WRITEBUFFER_READY;
-			wbr->dataItem = obj->id;
-			wbr->requestID = 0; //TODO: Do we need this for Network
-			DSMCBE_RespondDirect((QueueableItem)resp->callback, wbr);
-		}
-		else
-			res = resp->data;
+		res = resp->target;
+		if (!resp->isTransfered)
+			REPORT_ERROR("Transfer was not completed, but we can't fix it!");
 	}
 
 
@@ -762,6 +747,8 @@ void threadRelease(void* data)
 				REPORT_ERROR2("The counter for GET with id %d was not 0", pe->id);
 			pthread_mutex_unlock(&ppu_pointerOld_mutex);
 #endif
+			FREE_ALIGN(pe->data);
+			pe->data = NULL;
 		}
 		else if (pe->mode == ACQUIRE_MODE_WRITE || pe->mode == ACQUIRE_MODE_DELETE)
 		{
@@ -812,6 +799,7 @@ void* ppu_requestDispatcher(void* dummy)
 	
 	void* data;
 	struct acquireResponse* resp;
+	struct putRequest* putReq;
 	unsigned int reqId;
 	QueueableItem ui;
 	
@@ -851,11 +839,74 @@ void* ppu_requestDispatcher(void* dummy)
 					//printf(WHERESTR "Processing acquire response - mode = %d\n", WHEREARG, resp->mode);
 					recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode == ACQUIRE_MODE_CREATE ? ACQUIRE_MODE_WRITE : resp->mode);
 					break;
+				case PACKAGE_MALLOC_REQUEST:
+					putReq = (struct putRequest*) ((QueueableItem)((struct mallocRequest*)data)->callback)->dataRequest;
+					if (!(putReq->isLS))
+					{
+						//Easy, create a response
+
+						struct getResponse* getResp = MALLOC(sizeof(struct getResponse));
+						getResp->packageCode = PACKAGE_GET_RESPONSE;
+						getResp->dataItem = putReq->dataItem;
+						getResp->isTransfered = TRUE;
+						getResp->requestID = ((struct mallocRequest*)data)->requestID;
+						getResp->size = putReq->dataSize;
+						getResp->source = putReq->data;
+						getResp->target = putReq->data;
+
+						//Free everything
+						FREE(putReq);
+						putReq = NULL;
+						((QueueableItem)((struct mallocRequest*)data)->callback)->dataRequest = NULL;
+						FREE(((struct mallocRequest*)data)->callback);
+						((struct mallocRequest*)data)->callback = NULL;
+						FREE(data);
+
+						//Send the response
+						data = getResp;
+					}
+					else
+					{
+						unsigned long transfersize = ALIGNED_SIZE(putReq->dataSize);
+						void* dataTarget = MALLOC_ALIGN(transfersize, 7);
+
+						//Send transferrequest
+						struct transferRequest* transReq = malloc(sizeof(struct transferRequest));
+						transReq->packageCode = PACKAGE_TRANSFER_REQUEST;
+						transReq->size = putReq->dataSize;
+						transReq->source = putReq->data;
+						transReq->target = dataTarget;
+						transReq->dataItem = putReq->dataItem;
+
+						QueueableItem callback = MALLOC(sizeof(struct QueueableItemStruct));
+						callback->Gqueue = &Gppu_work_queue;
+						callback->callback = NULL;
+						callback->dataRequest = transReq;
+						callback->mutex = &ppu_queue_mutex;
+						callback->event = &ppu_queue_cond;
+
+						transReq->callback = callback;
+
+						//We don't need the requestId any more, so we change it to fit the new sequence
+						putReq->requestID = ((struct mallocRequest*)data)->requestID;
+
+						DSMCBE_RespondDirect((QueueableItem)((struct mallocRequest*)data)->callback, transReq);
+
+						FREE(data);
+						data = NULL;
+					}
+					putReq = NULL;
+					break;
+				case PACKAGE_TRANSFER_REQUEST:
+					break;
 			}
 		}
 		
 		if (data != NULL)
 		{
+			if (((struct createRequest*)data)->packageCode == PACKAGE_GET_RESPONSE)
+				recordPointer(((struct getResponse*)data)->target, ((struct getResponse*)data)->dataItem, ((struct getResponse*)data)->size, 0, ACQUIRE_MODE_GET);
+
 			reqId = ((struct createRequest*)data)->requestID;
 		
 			pthread_mutex_lock(&ppu_queue_mutex);
