@@ -94,6 +94,7 @@ struct spu_pendingRequest
 	int mode;
 	//The queue to notify after a transfer
 	QueueableItem remoteQueue;
+	void* ls;
 };
 
 struct SPU_State
@@ -135,6 +136,8 @@ struct SPU_State
 
 	//This is the stream queue
 	GQueue* streamItems;
+
+	GHashTable* putItemsByPointer;
 };
 
 //This is an array of SPU states
@@ -645,8 +648,15 @@ void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId
 	obj->writebuffer_ready = FALSE;
 
 	//TODO: If we have multiple threads (or a race), this goes wrong
-	g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
-	g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
+	if (g_hash_table_lookup(state->itemsById, (void*)obj->id) != NULL)
+		REPORT_ERROR2("The item %d was already present!", obj->id);
+
+	//g_hash_table_insert(state->itemsById, (void*)obj->id, obj);
+	//g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
+
+	void* lsInEA = spe_ls_area_get(state->context) + (unsigned int)obj->LS;
+
+	g_hash_table_insert(state->putItemsByPointer, lsInEA, obj);
 
 	struct spu_pendingRequest* preq = MALLOC(sizeof(struct spu_pendingRequest));
 
@@ -657,6 +667,7 @@ void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId
 	preq->requestId = requestId;
 	preq->DMAcount = 0;
 	preq->mode = ACQUIRE_MODE_WRITE;
+	preq->ls = lsInEA;
 
 	g_hash_table_insert(state->pendingRequests, (void*)preq->requestId, preq);
 
@@ -670,7 +681,7 @@ void spuhandler_HandlePutRequest(struct SPU_State* state, unsigned int requestId
 	req->originator = dsmcbe_host_number;
 	req->originalRecipient = UINT_MAX;
 	req->originalRequestID = UINT_MAX;
-	req->data = spe_ls_area_get(state->context) + (unsigned int)ls;
+	req->data = lsInEA;
 
 	spuhandler_SendRequestCoordinatorMessage(state, req);
 }
@@ -702,10 +713,11 @@ void spuhandler_HandleReleaseRequest(struct SPU_State* state, void* data)
 	{
 		if (obj->count != 1)
 			REPORT_ERROR2("The channel mode object %d has an invalid count", obj->id);
-		obj->count = 0;
 
-		spuhandler_DisposeObject(state, obj);
-		spuhandler_ManageDelayedAcquireResponses(state);
+		//Must be 1 otherwise HandleObjectRelease won't erase it
+		obj->count = 1;
+
+		spuhandler_HandleObjectRelease(state, obj);
 	}
 	else if (obj->mode == ACQUIRE_MODE_DELETE)
 	{
@@ -1113,6 +1125,11 @@ void spuhandler_HandleObjectRelease(struct SPU_State* state, struct spu_dataObje
 				spuhandler_DisposeObject(state, obj);
 				spuhandler_ManageDelayedAcquireResponses(state);
 			}
+			else if(obj->mode == ACQUIRE_MODE_GET || obj->mode == ACQUIRE_MODE_DELETE)
+			{
+				spuhandler_DisposeObject(state, obj);
+				spuhandler_ManageDelayedAcquireResponses(state);
+			}
 			else
 				g_queue_push_tail(state->agedObjectMap, (void*)obj->id);
 		}
@@ -1132,7 +1149,13 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 	g_hash_table_remove(state->activeDMATransfers, (void*)groupID);
 
 	//Get the corresponding data object
-	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
+	struct spu_dataObject* obj = NULL;
+
+	if (preq->operation != PACKAGE_TRANSFER_REQUEST)
+		obj = g_hash_table_lookup(state->itemsById, (void*)preq->objId);
+	else
+		obj = g_hash_table_lookup(state->putItemsByPointer, (void*)preq->ls);
+
 	if (obj == NULL)
 	{
 		FREE(preq);
@@ -1194,7 +1217,13 @@ void spuhandler_HandleDMATransferCompleted(struct SPU_State* state, unsigned int
 
 			DSMCBE_RespondDirect(preq->remoteQueue, resp);
 
-			spuhandler_HandleObjectRelease(state, obj);
+			//spuhandler_HandleObjectRelease(state, obj);
+
+			g_hash_table_remove(state->putItemsByPointer, preq->ls);
+			spu_memory_free(state->map, obj->LS);
+			FREE(obj);
+			obj = NULL;
+
 			FREE(preq);
 			preq = NULL;
 		}
@@ -1409,7 +1438,7 @@ void spuhandler_HandleMallocRequest(struct SPU_State* state, struct mallocReques
 			}
 			else
 			{
-				//Send transferrequest
+				//Send transferrequestl
 				struct transferRequest* transReq = malloc(sizeof(struct transferRequest));
 				transReq->packageCode = PACKAGE_TRANSFER_REQUEST;
 				transReq->size = put->dataSize;
@@ -1475,7 +1504,7 @@ void spuhandler_PrintDebugStatus(struct SPU_State* state, unsigned int requestId
 
 void spuhandler_HandleTransferRequest(struct SPU_State* state, struct transferRequest* req)
 {
-	struct spu_dataObject* obj = g_hash_table_lookup(state->itemsById, (void*)req->dataItem);
+	struct spu_dataObject* obj = g_hash_table_lookup(state->putItemsByPointer, req->source);
 
 	if (obj != NULL)
 	{
@@ -1492,6 +1521,7 @@ void spuhandler_HandleTransferRequest(struct SPU_State* state, struct transferRe
 		preq->DMAcount = 0;
 		preq->mode = ACQUIRE_MODE_GET;
 		preq->remoteQueue = req->callback;
+		preq->ls = req->source;
 
 		obj->isDMAToSPU = FALSE;
 		obj->EA = req->target;
@@ -1500,7 +1530,15 @@ void spuhandler_HandleTransferRequest(struct SPU_State* state, struct transferRe
 	}
 	else
 	{
-		REPORT_ERROR("Could handle transferRequest because items did not exist.");
+		REPORT_ERROR2("Could not handle transferRequest, item %d did not exist.", req->dataItem);
+
+		GHashTableIter iter;
+		g_hash_table_iter_init(&iter, state->itemsById);
+		void* key;
+		void* value;
+
+		while(g_hash_table_iter_next(&iter, &key, &value))
+			printf("Item %d is in table\n", (GUID)key);
 
 		struct getResponse* resp = MALLOC(sizeof(struct getResponse));
 		resp->packageCode = PACKAGE_GET_RESPONSE;
@@ -1786,6 +1824,7 @@ void InitializeSPUHandler(spe_context_ptr_t* threads, unsigned int thread_count)
 		spu_states[i].terminated = UINT_MAX;
 		spu_states[i].releaseSeqNo = 0;
 		spu_states[i].streamItems = g_queue_new();
+		spu_states[i].putItemsByPointer = g_hash_table_new(NULL, NULL);
 		pthread_mutex_init(&spu_states[i].rqMutex, NULL);
 		
 		RegisterInvalidateSubscriber(&spu_states[i].rqMutex, NULL, &spu_states[i].queue, -1);
