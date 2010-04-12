@@ -22,22 +22,36 @@ int main(int argc, char **argv)
     char* file;
     int i;
     char buf[256];
+    int hw_threads;
 
     machineid = 0;
     spu_threads = 6;
     file = NULL;
+    hw_threads = 1;
 
-	if(argc == 4) {
+	if(argc == 5) {
 		machineid = atoi(argv[1]);
 		file = argv[2];
 		spu_threads = atoi(argv[3]);
+		spu_threads = atoi(argv[4]);
+	} else if(argc == 4) {
+		machineid = atoi(argv[1]);
+		file = argv[2];
+		spu_threads = atoi(argv[3]);
+	} else if (argc == 3) {
+		machineid = 0;
+		file = NULL;
+		spu_threads = atoi(argv[1]);
+		hw_threads = atoi(argv[2]);
 	} else if (argc == 2) {
 		machineid = 0;
 		file = NULL;
 		spu_threads = atoi(argv[1]);
 	} else {
 		printf("Wrong number of arguments \"./PPU spu-threads\"\n");
+		printf("                       or \"./PPU spu-threads ppu-hw-threads\"\n");
 		printf("                       or \"./PPU id network-file spu-threads\"\n");
+		printf("                       or \"./PPU id network-file spu-threads ppu-hw-threads\"\n");
 		return -1;
 	}
 
@@ -66,6 +80,7 @@ int main(int argc, char **argv)
 	sw_start();
 
 	int counter = 0;
+	int repcount = 0;
 
     while(1)
     {
@@ -77,6 +92,9 @@ int main(int argc, char **argv)
     		printf("CommsTime: %f usec, %d ops on %d SPU's in %s.\n", (sw_getSecondsElapsed() / counter / (MAX(1, DSMCBE_MachineCount()) * spu_threads)) * 1000000, counter, MAX(1, DSMCBE_MachineCount()) * spu_threads, buf);
     		counter = 0;
     		sw_start();
+    		repcount ++;
+    		if (repcount >= 10)
+    			exit(0);
     	}
     	else
     	{

@@ -151,11 +151,11 @@ void RelayEnqueItem(QueueableItem q)
 	
 	q->dataRequest = NULL;
 	
-	pthread_mutex_lock(relay->mutex);
+	pthread_mutex_lock(&ppu_queue_mutex);
 	((struct createRequest*)relay->dataRequest)->requestID = NEXT_SEQ_NO(ppu_request_sequence_number, MAX_SEQUENCE_NUMBER);
 	g_hash_table_insert(ppuhandler_pendingRequests, (void*)(((struct createRequest*)relay->dataRequest)->requestID), q);
 	//printf(WHERESTR "Sending request with type %d, and reqId: %d\n", WHEREARG, ((struct createRequest*)relay->dataRequest)->packageCode, ((struct createRequest*)relay->dataRequest)->requestID);
-	pthread_mutex_unlock(relay->mutex);
+	pthread_mutex_unlock(&ppu_queue_mutex);
 	
 	//printf(WHERESTR "Sending item %d\n", WHEREARG, (unsigned int)relay);
 	EnqueItem(relay);
@@ -791,7 +791,6 @@ void threadRelease(void* data)
 	}
 }
 
-
 //This is a very simple thread that exists to remove race conditions
 //It ensures that no two requests are overlapping, and processes invalidate requests
 void* ppu_requestDispatcher(void* dummy)
@@ -832,7 +831,7 @@ void* ppu_requestDispatcher(void* dummy)
 					data = NULL;
 					break;
 				case PACKAGE_GET_RESPONSE:
-					recordPointer(((struct acquireResponse*)data)->data, ((struct acquireResponse*)data)->dataItem, ((struct acquireResponse*)data)->dataSize, 0, ACQUIRE_MODE_GET);
+					recordPointer(((struct getResponse*)data)->target, ((struct getResponse*)data)->dataItem, ((struct getResponse*)data)->size, 0, ACQUIRE_MODE_GET);
 					break;
 				case PACKAGE_ACQUIRE_RESPONSE:
 					resp = (struct acquireResponse*)data;
@@ -841,6 +840,7 @@ void* ppu_requestDispatcher(void* dummy)
 					break;
 				case PACKAGE_MALLOC_REQUEST:
 					putReq = (struct putRequest*) ((QueueableItem)((struct mallocRequest*)data)->callback)->dataRequest;
+
 					if (!(putReq->isLS))
 					{
 						//Easy, create a response
@@ -871,7 +871,7 @@ void* ppu_requestDispatcher(void* dummy)
 						void* dataTarget = MALLOC_ALIGN(transfersize, 7);
 
 						//Send transferrequest
-						struct transferRequest* transReq = malloc(sizeof(struct transferRequest));
+						struct transferRequest* transReq = MALLOC(sizeof(struct transferRequest));
 						transReq->packageCode = PACKAGE_TRANSFER_REQUEST;
 						transReq->size = putReq->dataSize;
 						transReq->source = putReq->data;
@@ -896,8 +896,6 @@ void* ppu_requestDispatcher(void* dummy)
 						data = NULL;
 					}
 					putReq = NULL;
-					break;
-				case PACKAGE_TRANSFER_REQUEST:
 					break;
 			}
 		}
@@ -940,7 +938,7 @@ void* ppu_requestDispatcher(void* dummy)
 				if (freeReq)
 				{
 					//printf(WHERESTR "Removing reqId %d\n", WHEREARG, reqId);
-					g_hash_table_remove(ppuhandler_pendingRequests, (void*)reqId);					
+					g_hash_table_remove(ppuhandler_pendingRequests, (void*)reqId);
 					FREE(ui);
 					ui = NULL;
 				}
