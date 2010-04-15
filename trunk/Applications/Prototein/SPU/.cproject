@@ -219,7 +219,7 @@
 <option id="gnu.c.compiler.option.include.paths.377195531" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/spu/include"/>
 </option>
 <option id="gnu.c.compiler.option.preprocessor.def.symbols.565931733" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols">

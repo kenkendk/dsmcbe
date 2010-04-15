@@ -129,7 +129,7 @@ void spu_dsmcbe_readMailbox() {
 			spu_dsmcbe_pendingRequests[requestID].pointer = NULL;
 			break;
 		default:
-			fprintf(stderr, WHERESTR "Unknown package recieved: %i, message: %s", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, strerror(errno));
+			fprintf(stderr, WHERESTR "Unknown package recieved: %d, message: %s\n", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, strerror(errno));
 	};	
 }
 
