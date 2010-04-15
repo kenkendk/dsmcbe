@@ -73,11 +73,11 @@ void* DispatchWorkItems(void* dummy_or_count)
 	//Broadcast info about the prototein
 	for(i = 0; i < (int)dummy_or_count; i++)
 	{
-		prototein_object = create(PROTOTEIN, (sizeof(unsigned int) * 2) + prototein_length, CREATE_MODE_BLOCKING);
+		prototein_object = createMalloc((sizeof(unsigned int) * 2) + prototein_length);
 		((unsigned int*)prototein_object)[0] = 0;
 		((unsigned int*)prototein_object)[1] = prototein_length;
 		memcpy(prototein_object + (sizeof(unsigned int) * 2), prototein, prototein_length);
-		release(prototein_object);
+		put(PROTOTEIN, prototein_object);
 	}
 #else
 	//printf(WHERESTR "PPU is broadcasting Prototein info, spu_count: %d\n", WHEREARG, spu_count);
@@ -111,13 +111,18 @@ void* DispatchWorkItems(void* dummy_or_count)
 	while(current_job < job_queue_length)
 	{
 #ifdef USE_CHANNEL_COMMUNICATION
-		wb = (struct workblock*)create(WORKITEM_CHANNEL, BUFFER_SIZE, CREATE_MODE_BLOCKING);
+		wb = (struct workblock*)createMalloc(BUFFER_SIZE);
 #else
 		wb = (struct workblock*)create(WORKITEM_OFFSET + total_jobcount, BUFFER_SIZE, CREATE_MODE_NONBLOCKING);
 #endif
 		PrepareWorkBlock(wb, current_job);
 		current_job += wb->worksize;
+
+#ifdef USE_CHANNEL_COMMUNICATION
+		put(WORKITEM_CHANNEL, wb);
+#else
 		release(wb);
+#endif
 		total_jobcount++;
 
 		//printf(WHERESTR "PPU is building task: %d\n", WHEREARG, total_jobcount);
@@ -132,8 +137,8 @@ void* DispatchWorkItems(void* dummy_or_count)
 	for(i = 0; i < (int)dummy_or_count; i++)
 	{
 		//Size of one means "poision"
-		prototein_object = create(WORKITEM_CHANNEL, 1, CREATE_MODE_BLOCKING);
-		release(prototein_object);
+		prototein_object = createMalloc(1);
+		put(WORKITEM_CHANNEL, prototein_object);
 	}
 #else
 	//Let the SPU's begin their work
@@ -192,7 +197,7 @@ void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		{
 		    //printf(WHERESTR "PPU is reading result for %i\n", WHEREARG, i);
 #ifdef USE_CHANNEL_COMMUNICATION
-			tempobj = acquire(WINNER_CHANNEL, &size, ACQUIRE_MODE_DELETE);
+			tempobj = get(WINNER_CHANNEL, &size);
 #else
 			tempobj = acquire(WINNER_OFFSET + i, &size, ACQUIRE_MODE_READ);
 #endif

@@ -481,7 +481,7 @@ void acquireBarrier(GUID id)
 	threadAcquireBarrier(id);
 }
 
-void* mallocCreate(unsigned long size)
+void* createMalloc(unsigned long size)
 {
 	if (dsmcbe_initialized == 0)
 	{

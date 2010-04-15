@@ -15,7 +15,7 @@
 #ifndef REQUESTCOORDINATOR_H_
 #define REQUESTCOORDINATOR_H_
 
-typedef struct QueueableItemStruct *QueueableItem;
+typedef struct QueueableItemStruct* QueueableItem;
 
 //When interacting with the provider, the caller must use this structure
 //The mutex is locked before appending the request to the queue

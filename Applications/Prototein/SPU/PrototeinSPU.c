@@ -74,7 +74,7 @@ int FoldPrototein(unsigned long long id)
     initialize();
 
 #ifdef USE_CHANNEL_COMMUNICATION
-    prototein_object = acquire(PROTOTEIN, &size, ACQUIRE_MODE_DELETE);
+    prototein_object = get(PROTOTEIN, &size);
 #else
     prototein_object = acquire(PROTOTEIN, &size, ACQUIRE_MODE_WRITE);
 #endif
@@ -168,7 +168,7 @@ int FoldPrototein(unsigned long long id)
 #else
 #ifdef USE_CHANNEL_COMMUNICATION
 			//printf(WHERESTR "thread %d is reading %d\n", WHEREARG, thread_id,  WORKITEM_CHANNEL);
-			void* tmp_work = (struct workblock*)acquire(WORKITEM_CHANNEL, &size, ACQUIRE_MODE_DELETE);
+			void* tmp_work = (struct workblock*)get(WORKITEM_CHANNEL, &size);
 			if (size == 1) //Size of one means poison
 			{
 				//printf(WHERESTR "thread %d has got poison from %d\n", WHEREARG, thread_id,  WORKITEM_CHANNEL);
@@ -232,7 +232,7 @@ int FoldPrototein(unsigned long long id)
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
 	//sleep((thread_id * 0.5) + 1);
 #ifdef USE_CHANNEL_COMMUNICATION
-    winner_object = (struct coordinate*)create(WINNER_CHANNEL, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2), CREATE_MODE_BLOCKING);
+    winner_object = createMalloc((sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2));
 #else
     winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2), CREATE_MODE_NONBLOCKING);
 #endif
@@ -240,16 +240,23 @@ int FoldPrototein(unsigned long long id)
     memcpy(winner_object + (sizeof(int) * 2), winner, sizeof(struct coordinate) * prototein_length);
     ((int*)winner_object)[0] = bestscore;
     ((int*)winner_object)[1] = totalwork;
-	release(winner_object);
+#ifdef USE_CHANNEL_COMMUNICATION
+    put(WINNER_CHANNEL, winner_object);
+#else
+    release(winner_object);
+#endif
     //printf(WHERESTR "SPU %d has written back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
 	
-   	FREE(prototein);
+
+    FREE(prototein);
     FREE(places);
    	FREE(map);
 	
-    //printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
+    printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
+    return 0;
+
     terminate();
-    //printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
+    printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
 	return 0;
 }
 
