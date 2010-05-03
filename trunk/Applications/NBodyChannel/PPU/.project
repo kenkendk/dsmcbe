@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>Fibonacci SPU</name>
+	<name>NBodyChannel_PPU</name>
 	<comment></comment>
 	<projects>
-		<project>dsmcbe_spu</project>
+		<project>dsmcbe_ppu</project>
+		<project>NBodyChannel_SPU</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
@@ -32,7 +33,7 @@
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.buildLocation</key>
-					<value>${workspace_loc:/SPU/spu-gnu-debug}</value>
+					<value>${workspace_loc:/PPU/ppu-gnu32-debug}</value>
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.cleanBuildTarget</key>
