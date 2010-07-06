@@ -31,7 +31,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib.1477957746" name="SPU GNU Archiver" superClass="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib"/>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.debug.1545673114" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.debug">
 <option id="gnu.c.compiler.option.include.paths.1262667757" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/home/ubuntu/Documents/dsmcbe/DSMCBE/Include"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/header files}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
 </option>

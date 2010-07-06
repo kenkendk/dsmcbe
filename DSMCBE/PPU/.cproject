@@ -35,11 +35,11 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.debug.1803753347" name="PPU GNU 32 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.compiler.lib.debug">
 <option id="gnu.c.compiler.option.include.paths.768605136" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/usr/lib/cell/sysroot/usr/include"/>
-<listOptionValue builtIn="false" value="/home/ubuntu/Documents/dsmcbe/DSMCBE/Include"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="/home/ubuntu/Documents/glib/include/glib-2.0"/>
-<listOptionValue builtIn="false" value="/home/ubuntu/Documents/glib/lib/glib-2.0/include"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/include/glib-2.0&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib/glib-2.0/include&quot;"/>
 </option>
 <option id="gnu.c.compiler.option.preprocessor.def.symbols.1568723257" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols"/>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.ppu.gnu32.c.compiler.debug.option.optimization.level.1616844890" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.optimization.level" valueType="enumerated"/>

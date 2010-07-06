@@ -331,7 +331,7 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	{
 		printf(WHERESTR "Bad version of GLIB (%d.%d.%d). Version should be (%d.%d.%d) or newer!!\n", WHEREARG, glib_major_version, glib_minor_version, glib_micro_version, GLIB_MAJOR_VERSION, GLIB_MINOR_VERSION, GLIB_MICRO_VERSION);
 		REPORT_ERROR2("%s", version);
-		exit(EXIT_FAILURE);
+		exit(1);
 		return NULL;
 	}
 
