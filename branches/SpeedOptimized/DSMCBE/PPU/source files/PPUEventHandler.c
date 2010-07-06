@@ -7,14 +7,11 @@
 
 #include <pthread.h>
 #include <stdio.h>
-#include <glib.h>
 
-#include "../header files/datapackages.h"
-#include "../header files/PPUEventHandler.h"
-#include "../header files/RequestCoordinator.h"
-#include "../header files/NetworkHandler.h"
-
-#include "../../common/debug.h"
+#include <PPUEventHandler.h>
+#include <RequestCoordinator.h>
+#include <NetworkHandler.h>
+#include <debug.h>
 
 //This mutex protects the pointer list
 pthread_mutex_t ppu_pointer_mutex;
@@ -28,10 +25,6 @@ pthread_cond_t ppu_pointerOld_cond;
 //These two tables contains the registered pointers, either active or retired
 GHashTable* Gppu_pointers;
 GHashTable* Gppu_pointersOld;
-
-//This mutex/table contains the size of malloc'ed pointers
-pthread_mutex_t ppu_allocatedPointers_mutex;
-GHashTable* Gppu_allocatedPointers;
 
 //This is the queue of pending invalidates
 GQueue* Gppu_pendingInvalidate;
@@ -51,6 +44,7 @@ pthread_t ppu_dispatchthread;
 GQueue* Gppu_temp;
 pthread_mutex_t ppu_dummy_mutex;
 pthread_cond_t ppu_dummy_cond;
+
 
 typedef struct PointerEntryStruct *PointerEntry;
 struct PointerEntryStruct
@@ -86,9 +80,6 @@ void InitializePPUHandler()
 	pthread_mutex_init(&ppu_queue_mutex, NULL);
 	pthread_cond_init(&ppu_queue_cond, NULL);	
 
-	Gppu_allocatedPointers = g_hash_table_new(NULL, NULL);
-	pthread_mutex_init(&ppu_allocatedPointers_mutex, NULL);
-
 	Gppu_work_queue = g_queue_new();	
 
 	Gppu_temp = g_queue_new();
@@ -111,13 +102,53 @@ void ppu_terminatePPUHandler()
 	
 	pthread_join(ppu_dispatchthread, NULL);
 	
+	g_hash_table_destroy(Gppu_pointers);
+	g_hash_table_destroy(Gppu_pointersOld);
 	
+/*
+	it = ht_iter_create(pointers);
+	keys = queue_create();
+	while(ht_iter_next(it))
+	{
+		pe = ht_iter_get_value(it);
+		queue_enq(keys, ht_iter_get_key(it)); 
+		FREE_ALIGN(pe->data);
+		pe->data = NULL;
+		FREE(pe);
+		pe = NULL;
+	}
+	ht_iter_destroy(it);
+	
+	while(!queue_empty(keys))
+		ht_delete(pointers, queue_deq(keys));
+	
+	ht_destroy(pointers);
+	queue_destroy(keys);
+
+	it = ht_iter_create(pointersOld);
+	keys = queue_create();
+	while(ht_iter_next(it))
+	{
+		pe = ht_iter_get_value(it);
+		queue_enq(keys, ht_iter_get_key(it)); 
+		FREE_ALIGN(pe->data);
+		pe->data = NULL;
+		FREE(pe);
+		pe = NULL;
+	}
+	ht_iter_destroy(it);
+	
+	while(!queue_empty(keys))
+		ht_delete(pointersOld, queue_deq(keys));
+	
+	ht_destroy(pointers);
+	queue_destroy(keys);
+*/	
 	UnregisterInvalidateSubscriber(&Gppu_pendingInvalidate);
 	
 	pthread_mutex_destroy(&ppu_pointer_mutex);
 	pthread_mutex_destroy(&ppu_pointerOld_mutex);
 	pthread_mutex_destroy(&ppu_invalidate_mutex);
-	pthread_mutex_destroy(&ppu_allocatedPointers_mutex);
 	pthread_cond_destroy(&ppu_pointerOld_cond);
 	g_queue_free(Gppu_pendingInvalidate);
 
@@ -127,15 +158,8 @@ void ppu_terminatePPUHandler()
 	g_queue_free(Gppu_work_queue);
 	
 	g_queue_free(Gppu_temp);	
-
-	g_hash_table_destroy(Gppu_pointers);
-	g_hash_table_destroy(Gppu_pointersOld);
-	g_hash_table_destroy(Gppu_allocatedPointers);
-
 	pthread_mutex_destroy(&ppu_dummy_mutex);
 	pthread_cond_destroy(&ppu_dummy_cond);
-
-
 }
 
 void RelayEnqueItem(QueueableItem q)
@@ -151,11 +175,11 @@ void RelayEnqueItem(QueueableItem q)
 	
 	q->dataRequest = NULL;
 	
-	pthread_mutex_lock(&ppu_queue_mutex);
+	pthread_mutex_lock(relay->mutex);
 	((struct createRequest*)relay->dataRequest)->requestID = NEXT_SEQ_NO(ppu_request_sequence_number, MAX_SEQUENCE_NUMBER);
 	g_hash_table_insert(ppuhandler_pendingRequests, (void*)(((struct createRequest*)relay->dataRequest)->requestID), q);
-	//printf(WHERESTR "Sending request with type %d, and reqId: %d\n", WHEREARG, ((struct createRequest*)relay->dataRequest)->packageCode, ((struct createRequest*)relay->dataRequest)->requestID);
-	pthread_mutex_unlock(&ppu_queue_mutex);
+	//printf(WHERESTR "Sending request with type %d, and reqId: %d\n", WHEREARG, ((struct createRequest*)relay->dataRequest)->packageCode, ((struct createRequest*)relay->dataRequest)->requestID);	
+	pthread_mutex_unlock(relay->mutex);
 	
 	//printf(WHERESTR "Sending item %d\n", WHEREARG, (unsigned int)relay);
 	EnqueItem(relay);
@@ -177,7 +201,7 @@ void* forwardRequest(void* data)
 	q->Gqueue = &dummy;
 	q->callback = NULL;
 	
-	//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);
+	//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);	
 	
 	//printf(WHERESTR "adding item to queue\n", WHEREARG);
 	RelayEnqueItem(q);
@@ -188,7 +212,7 @@ void* forwardRequest(void* data)
 
 
 	while (g_queue_is_empty(dummy)) {
-		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&dummy);
+		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&e);
 		pthread_cond_wait(&ppu_dummy_cond, &ppu_dummy_mutex);
 		//printf(WHERESTR "queue filled\n", WHEREARG);
 	}
@@ -196,10 +220,9 @@ void* forwardRequest(void* data)
 	data = g_queue_pop_head(dummy);
 	pthread_mutex_unlock(&ppu_dummy_mutex);
 	
-	int waitForWbr = ((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && (((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE || ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_DELETE);
-
-	if (waitForWbr)
-	{
+	if (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE) {
+	
+		
 		if (((struct acquireResponse*)data)->writeBufferReady != TRUE)
 		{
 			//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
@@ -218,8 +241,6 @@ void* forwardRequest(void* data)
 			
 			FREE(data2);
 			data2 = NULL;
-		
-			pthread_mutex_unlock(&ppu_dummy_mutex);
 		}
 	}
 	
@@ -232,9 +253,10 @@ void* forwardRequest(void* data)
 //Record information about the returned pointer
 void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offset, int type)
 {
+	
 	PointerEntry ent;
 	
-	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_DELETE && type != ACQUIRE_MODE_GET)
+	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE)
 		REPORT_ERROR("pointer was neither READ nor WRITE");
 	
 	//If the response was valid, record the item data
@@ -265,8 +287,9 @@ void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offs
 }
 
 //Perform a create in the current thread
-void* threadCreate(GUID id, unsigned long size, int mode)
+void* threadCreate(GUID id, unsigned long size)
 {
+	
 	struct createRequest* cr;
 	struct acquireResponse* ar;
 	void* retval;
@@ -279,7 +302,7 @@ void* threadCreate(GUID id, unsigned long size, int mode)
 	
 	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
+		REPORT_ERROR("requested ID exceeds PAGE_TABLE_SIZE");
 		return NULL;
 	}
 	
@@ -294,7 +317,6 @@ void* threadCreate(GUID id, unsigned long size, int mode)
 	cr->originator = dsmcbe_host_number;
 	cr->originalRecipient = UINT_MAX;
 	cr->originalRequestID = UINT_MAX;
-	cr->mode = mode;
 	
 	retval = NULL;
 	
@@ -341,8 +363,12 @@ void processInvalidates(struct invalidateRequest* incoming)
 		g_queue_push_tail(Gppu_pendingInvalidate, incoming);
 	}
 
+	//printf(WHERESTR "Testing queue\n", WHEREARG);
+	
 	if (!g_queue_is_empty(Gppu_pendingInvalidate))
 	{
+		//printf(WHERESTR "Queue is not empty\n", WHEREARG);
+
 		//Gppu_temp = g_queue_new();
 		while(!g_queue_is_empty(Gppu_pendingInvalidate))
 		{
@@ -385,7 +411,7 @@ void processInvalidates(struct invalidateRequest* incoming)
 				while (g_hash_table_iter_next (&iter, &key, &value)) 
 				{
 					pe = value;
-					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE && pe->mode != ACQUIRE_MODE_DELETE)
+					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE)
 					{
 						//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
 						g_queue_push_tail(Gppu_temp, req);
@@ -414,7 +440,6 @@ void processInvalidates(struct invalidateRequest* incoming)
 			g_queue_clear(Gppu_temp);	
 			
 	}
-
 	pthread_mutex_unlock(&ppu_invalidate_mutex);
 }
 
@@ -460,7 +485,7 @@ void threadAcquireBarrier(GUID id)
 	
 	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
+		REPORT_ERROR("requested ID exceeds PAGE_TABLE_SIZE");
 		return;
 	}
 	
@@ -504,14 +529,10 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	
 	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("requested ID exeeds OBJECT_TABLE_SIZE");
+		REPORT_ERROR("requested ID exceeds OBJECT_TABLE_SIZE");
 		return NULL;
 	}
 	
-	if (type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_DELETE) {
-		REPORT_ERROR("Cannot start acquiring. Mode is unknown");
-	}
-
 	// If acquire is of type read and id is in pointerOld, then we
 	// reacquire, without notifying system.
 	
@@ -541,8 +562,17 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	//Create the request, this will be released by the coordinator	
 	cr = MALLOC(sizeof(struct acquireRequest));
 
-	cr->packageCode = PACKAGE_ACQUIRE_REQUEST;
-	cr->mode = type;
+	if (type == ACQUIRE_MODE_WRITE) {
+		//printf(WHERESTR "Starting acquiring id: %i in mode: WRITE\n", WHEREARG, id);
+		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_WRITE;
+	}
+	else if (type == ACQUIRE_MODE_READ) {
+		//printf(WHERESTR "Starting acquiring id: %i in mode: READ\n", WHEREARG, id);
+		cr->packageCode = PACKAGE_ACQUIRE_REQUEST_READ;
+	}
+	else
+		REPORT_ERROR("Cannot start acquiring. Mode is unknown");
+		
 	cr->requestID = 0;
 	cr->dataItem = id;
 	cr->originator = dsmcbe_host_number;
@@ -550,13 +580,11 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	cr->originalRequestID = UINT_MAX;
 
 	retval = NULL;
-
-	//printf(WHERESTR "Forwarding request %i\n", WHEREARG, cr->packageCode);
-
+		
 	//Perform the request and await the response
 	ar = (struct acquireResponse*)forwardRequest(cr);
 	
-	//printf(WHERESTR "Received response %i\n", WHEREARG, ar->packageCode);
+	//printf(WHERESTR "Recieved response %i\n", WHEREARG, ar->packageCode);
 	
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
@@ -570,7 +598,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 		retval = ar->data;
 		(*size) = ar->dataSize;
 		
-		if (type == ACQUIRE_MODE_WRITE || type == ACQUIRE_MODE_DELETE)
+		if (type == ACQUIRE_MODE_WRITE)
 		{
 			pthread_mutex_lock(&ppu_pointerOld_mutex);
 			if ((pe = g_hash_table_lookup(Gppu_pointersOld, (void*)id)) != NULL)
@@ -588,121 +616,7 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	
 	FREE(ar);
 	ar = NULL;
-
-	//printf(WHERESTR "Acquire return\n", WHEREARG, id);
 	return retval;	
-}
-
-void* threadMalloc(unsigned long size)
-{
-	unsigned long transfersize = ALIGNED_SIZE(size);
-	void* data = MALLOC_ALIGN(transfersize, 7);
-
-	pthread_mutex_lock(&ppu_allocatedPointers_mutex);
-
-	g_hash_table_insert(Gppu_allocatedPointers, data, (void*)size);
-
-	pthread_mutex_unlock(&ppu_allocatedPointers_mutex);
-
-	return data;
-}
-
-void threadPut(GUID id, void* data)
-{
-	pthread_mutex_lock(&ppu_allocatedPointers_mutex);
-	unsigned long size = (unsigned long)g_hash_table_lookup(Gppu_allocatedPointers, data);
-	if (size != 0)
-		g_hash_table_remove(Gppu_allocatedPointers, data);
-	pthread_mutex_unlock(&ppu_allocatedPointers_mutex);
-
-	if (size == 0)
-	{
-		REPORT_ERROR("Size of the pointer was zero, this usually means that the pointer was not correct");
-		return;
-	}
-
-	if (id == OBJECT_TABLE_ID)
-	{
-		REPORT_ERROR("cannot request pagetable");
-		return;
-	}
-
-	if (id >= OBJECT_TABLE_SIZE)
-	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
-		return;
-	}
-
-	//Create the request, this will be released by the coordinator
-	struct putRequest* req = MALLOC(sizeof(struct putRequest));
-
-	req->packageCode = PACKAGE_PUT_REQUEST;
-	req->requestID = 0;
-	req->dataItem = id;
-	req->dataSize = size;
-	req->data = data;
-	req->isLS = FALSE;
-	req->originator = dsmcbe_host_number;
-	req->originalRecipient = UINT_MAX;
-	req->originalRequestID = UINT_MAX;
-
-	//Perform the request and await the response
-	struct putResponse* resp = (struct putResponse*)forwardRequest(req);
-	if (resp->packageCode != PACKAGE_PUT_RESPONSE)
-		REPORT_ERROR("Unexcepted response for a PUT request");
-
-	FREE(resp);
-	resp = NULL;
-}
-
-void* threadGet(GUID id, unsigned long* size)
-{
-	void* res = NULL;
-
-	if (id == OBJECT_TABLE_ID)
-	{
-		REPORT_ERROR("cannot request pagetable");
-		return NULL;
-	}
-
-	if (id >= OBJECT_TABLE_SIZE)
-	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
-		return NULL;
-	}
-
-	//Create the request, this will be released by the coordinator
-	struct getRequest* req = MALLOC(sizeof(struct getRequest));
-
-	req->packageCode = PACKAGE_GET_REQUEST;
-	req->requestID = 0;
-	req->dataItem = id;
-	req->originator = dsmcbe_host_number;
-	req->originalRecipient = UINT_MAX;
-	req->originalRequestID = UINT_MAX;
-
-	//Perform the request and await the response
-	struct getResponse* resp = (struct getResponse*)forwardRequest(req);
-	if (resp->packageCode != PACKAGE_GET_RESPONSE)
-	{
-		REPORT_ERROR("Unexcepted response for a GET request");
-		return NULL;
-	}
-	else
-	{
-		if (size != NULL)
-			*size = resp->size;
-
-		res = resp->target;
-		if (!resp->isTransfered)
-			REPORT_ERROR("Transfer was not completed, but we can't fix it!");
-	}
-
-
-	FREE(resp);
-	resp = NULL;
-
-	return res;
 }
 
 //Perform a release on the current thread
@@ -739,18 +653,7 @@ void threadRelease(void* data)
 		else
 			pthread_mutex_unlock(&ppu_pointerOld_mutex);
 		
-		if (pe->mode == ACQUIRE_MODE_GET)
-		{
-#ifdef DEBUG
-			pthread_mutex_lock(&ppu_pointerOld_mutex);
-			if (pe->count != 0)
-				REPORT_ERROR2("The counter for GET with id %d was not 0", pe->id);
-			pthread_mutex_unlock(&ppu_pointerOld_mutex);
-#endif
-			FREE_ALIGN(pe->data);
-			pe->data = NULL;
-		}
-		else if (pe->mode == ACQUIRE_MODE_WRITE || pe->mode == ACQUIRE_MODE_DELETE)
+		if (pe->mode == ACQUIRE_MODE_WRITE)
 		{
 			//Create a request, this will be released by the coordinator
 			re = MALLOC(sizeof(struct releaseRequest));
@@ -781,7 +684,6 @@ void threadRelease(void* data)
 		pthread_cond_broadcast(&ppu_pointerOld_cond);
 		pthread_mutex_unlock(&ppu_pointerOld_mutex);
 
-		//printf(WHERESTR "processInvalidates\n", WHEREARG);
 		processInvalidates(NULL);
 	}
 	else
@@ -791,6 +693,7 @@ void threadRelease(void* data)
 	}
 }
 
+
 //This is a very simple thread that exists to remove race conditions
 //It ensures that no two requests are overlapping, and processes invalidate requests
 void* ppu_requestDispatcher(void* dummy)
@@ -798,7 +701,6 @@ void* ppu_requestDispatcher(void* dummy)
 	
 	void* data;
 	struct acquireResponse* resp;
-	struct putRequest* putReq;
 	unsigned int reqId;
 	QueueableItem ui;
 	
@@ -830,81 +732,16 @@ void* ppu_requestDispatcher(void* dummy)
 					processInvalidates((struct invalidateRequest*)data);
 					data = NULL;
 					break;
-				case PACKAGE_GET_RESPONSE:
-					recordPointer(((struct getResponse*)data)->target, ((struct getResponse*)data)->dataItem, ((struct getResponse*)data)->size, 0, ACQUIRE_MODE_GET);
-					break;
 				case PACKAGE_ACQUIRE_RESPONSE:
+					//printf(WHERESTR "Processing acquire response\n", WHEREARG);
 					resp = (struct acquireResponse*)data;
-					//printf(WHERESTR "Processing acquire response - mode = %d\n", WHEREARG, resp->mode);
-					recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode == ACQUIRE_MODE_CREATE ? ACQUIRE_MODE_WRITE : resp->mode);
-					break;
-				case PACKAGE_MALLOC_REQUEST:
-					putReq = (struct putRequest*) ((QueueableItem)((struct mallocRequest*)data)->callback)->dataRequest;
-
-					if (!(putReq->isLS))
-					{
-						//Easy, create a response
-
-						struct getResponse* getResp = MALLOC(sizeof(struct getResponse));
-						getResp->packageCode = PACKAGE_GET_RESPONSE;
-						getResp->dataItem = putReq->dataItem;
-						getResp->isTransfered = TRUE;
-						getResp->requestID = ((struct mallocRequest*)data)->requestID;
-						getResp->size = putReq->dataSize;
-						getResp->source = putReq->data;
-						getResp->target = putReq->data;
-
-						//Free everything
-						FREE(putReq);
-						putReq = NULL;
-						((QueueableItem)((struct mallocRequest*)data)->callback)->dataRequest = NULL;
-						FREE(((struct mallocRequest*)data)->callback);
-						((struct mallocRequest*)data)->callback = NULL;
-						FREE(data);
-
-						//Send the response
-						data = getResp;
-					}
-					else
-					{
-						unsigned long transfersize = ALIGNED_SIZE(putReq->dataSize);
-						void* dataTarget = MALLOC_ALIGN(transfersize, 7);
-
-						//Send transferrequest
-						struct transferRequest* transReq = MALLOC(sizeof(struct transferRequest));
-						transReq->packageCode = PACKAGE_TRANSFER_REQUEST;
-						transReq->size = putReq->dataSize;
-						transReq->source = putReq->data;
-						transReq->target = dataTarget;
-						transReq->dataItem = putReq->dataItem;
-
-						QueueableItem callback = MALLOC(sizeof(struct QueueableItemStruct));
-						callback->Gqueue = &Gppu_work_queue;
-						callback->callback = NULL;
-						callback->dataRequest = transReq;
-						callback->mutex = &ppu_queue_mutex;
-						callback->event = &ppu_queue_cond;
-
-						transReq->callback = callback;
-
-						//We don't need the requestId any more, so we change it to fit the new sequence
-						putReq->requestID = ((struct mallocRequest*)data)->requestID;
-
-						DSMCBE_RespondDirect((QueueableItem)((struct mallocRequest*)data)->callback, transReq);
-
-						FREE(data);
-						data = NULL;
-					}
-					putReq = NULL;
+					recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode != ACQUIRE_MODE_READ ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
 					break;
 			}
 		}
 		
 		if (data != NULL)
 		{
-			if (((struct createRequest*)data)->packageCode == PACKAGE_GET_RESPONSE)
-				recordPointer(((struct getResponse*)data)->target, ((struct getResponse*)data)->dataItem, ((struct getResponse*)data)->size, 0, ACQUIRE_MODE_GET);
-
 			reqId = ((struct createRequest*)data)->requestID;
 		
 			pthread_mutex_lock(&ppu_queue_mutex);
@@ -916,12 +753,7 @@ void* ppu_requestDispatcher(void* dummy)
 			} else {		
 				//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i \n", WHEREARG, (int)ui->event, (int)ui->mutex, (int)ui->queue);
 				
-				int freeReq = FALSE;
-
-				if (((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE)
-					freeReq = TRUE;
-				else if (((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_DELETE)
-					freeReq = TRUE;
+				int freeReq = (((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE) || ((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE;
 				
 				if (ui->mutex != NULL)
 					pthread_mutex_lock(ui->mutex);
@@ -937,8 +769,7 @@ void* ppu_requestDispatcher(void* dummy)
 				
 				if (freeReq)
 				{
-					//printf(WHERESTR "Removing reqId %d\n", WHEREARG, reqId);
-					g_hash_table_remove(ppuhandler_pendingRequests, (void*)reqId);
+					g_hash_table_remove(ppuhandler_pendingRequests, (void*)reqId);					
 					FREE(ui);
 					ui = NULL;
 				}

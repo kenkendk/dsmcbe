@@ -1,5 +1,6 @@
 //#define NO_EMBEDDED_SPU
 
+#include <dsmcbe.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -10,21 +11,19 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <glib.h>
 
-#include "../header files/PPUEventHandler.h"
-#include "../header files/SPUEventHandler.h"
-#include "../header files/RequestCoordinator.h"
-#include "../header files/NetworkHandler.h"
-#include "../../common/dsmcbe_ppu.h"
-#include "../../common/debug.h"
+#include <PPUEventHandler.h>
+#include <SPUEventHandler.h>
+#include <RequestCoordinator.h>
+#include <NetworkHandler.h>
+#include <dsmcbe_ppu.h>
+#include <debug.h>
 
 extern unsigned int net_remote_hosts;
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
 OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number = OBJECT_TABLE_RESERVED;
 static int dsmcbe_display_network_startup_value = 0;
-int dsmcbe_initialized = 0;
 
 void dsmcbe_display_network_startup(int value) { dsmcbe_display_network_startup_value = value; }
 
@@ -33,10 +32,8 @@ void* ppu_pthread_function(void* arg) {
 	unsigned int entry = SPE_DEFAULT_ENTRY;
 	ctx = *((spe_context_ptr_t *)arg);
 	
-	int hostno = (int)dsmcbe_host_number;
-
 	//printf(WHERESTR "Starting SPU\n", WHEREARG);
-	if (spe_context_run(ctx, &entry, 0, (void*)hostno, NULL, NULL) < 0)
+	if (spe_context_run(ctx, &entry, 0, dsmcbe_host_number, NULL, NULL) < 0)
 	{
 		REPORT_ERROR("Failed running context");
 		return NULL;
@@ -326,9 +323,19 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	if (!g_thread_supported ())
 		g_thread_init (NULL);
 	else
-		printf(WHERESTR "Warning: GLIB is not THREAD SAFE!!\n", WHEREARG);	
- 
-	if (path != NULL) {
+		printf(WHERESTR "Warning: GLIB is not THREAD SAFE!!\n", WHEREARG);
+
+	const gchar* version = NULL;
+
+	if ((version = glib_check_version(GLIB_MAJOR_VERSION, GLIB_MINOR_VERSION, GLIB_MICRO_VERSION)) != NULL)
+	{
+		printf(WHERESTR "Bad version of GLIB (%d.%d.%d). Version should be (%d.%d.%d) or newer!!\n", WHEREARG, glib_major_version, glib_minor_version, glib_micro_version, GLIB_MAJOR_VERSION, GLIB_MINOR_VERSION, GLIB_MICRO_VERSION);
+		REPORT_ERROR2("%s", version);
+		exit(EXIT_FAILURE);
+		return NULL;
+	}
+
+ 	if (path != NULL) {
 		dsmcbe_host_number = id;
 		sockets = initializeNetwork(id, path, &socketsCount);
 	} else
@@ -412,104 +419,35 @@ void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sock
 	//printf(WHERESTR "Calling Initialize SPU\n", WHEREARG);
 	InitializeSPUHandler(threads, thread_count);	
 	//printf(WHERESTR "Done Initialize\n", WHEREARG);
-
-	//We are now ready to accept requests
-	dsmcbe_initialized = 1;
 }
 
-void* create(GUID id, unsigned long size, int mode){
-	if (dsmcbe_initialized == 0)
-	{
-		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
-		return NULL;
-	}
-
-	if (mode == CREATE_MODE_BARRIER && size == 0)
-	{
-		REPORT_ERROR("Invalid size for barrier, must be greater than zero");
-		return NULL;
-	}
-
-	unsigned int* tmp = threadCreate(id, mode == CREATE_MODE_BARRIER ? sizeof(unsigned int) * 2 : size, mode == CREATE_MODE_BARRIER ? CREATE_MODE_NONBLOCKING : mode);
-
-	if (mode == CREATE_MODE_BARRIER)
-	{
-		if (tmp == NULL)
-		{
-			REPORT_ERROR("Failed to create barrier");
-			return NULL;
-		}
-
-		tmp[0] = size;
-		tmp[1] = 0;
-		release(tmp);
-
-		return NULL;
-	}
-
-	return tmp;
+void* create(GUID id, unsigned long size){
+	return threadCreate(id, size);
 }
 
 void* acquire(GUID id, unsigned long* size, int type){
-	if (dsmcbe_initialized == 0)
-	{
-		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
-		return NULL;
-	}
-
 	return threadAcquire(id, size, type);	
 }
 
 void release(void* data){
-	if (dsmcbe_initialized == 0)
-	{
-		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
-		return;
-	}
-
 	threadRelease(data);
 }
 
 void acquireBarrier(GUID id)
 {
-	if (dsmcbe_initialized == 0)
-	{
-		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
-		return;
-	}
-
 	threadAcquireBarrier(id);
 }
 
-void* createMalloc(unsigned long size)
+void createBarrier(GUID id, unsigned int count)
 {
-	if (dsmcbe_initialized == 0)
+	unsigned int* tmp = create(id, sizeof(unsigned int) * 2);
+	if (tmp == NULL)
 	{
-		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
-		return NULL;
-	}
-
-	return threadMalloc(size);
-}
-
-void put(GUID id, void* data)
-{
-	if (dsmcbe_initialized == 0)
-	{
-		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
+		REPORT_ERROR("Failed to create barrier");
 		return;
 	}
-
-	threadPut(id, data);
-}
-
-void* get(GUID id, unsigned long* size)
-{
-	if (dsmcbe_initialized == 0)
-	{
-		REPORT_ERROR("Please call initialize or simpleInitialize before calling any DSMCBE function");
-		return NULL;
-	}
-
-	return threadGet(id, size);
+	
+	tmp[0] = count;
+	tmp[1] = 0;
+	release(tmp);
 }

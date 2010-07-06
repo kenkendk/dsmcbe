@@ -9,10 +9,9 @@
 
 //#define TRACE_NETWORK_PACKAGES
 
-#include "../header files/RequestCoordinator.h"
-#include "../../common/dsmcbe.h"
-#include "../../common/debug.h"
-#include "../header files/NetworkHandler.h"
+#include <RequestCoordinator.h>
+#include <debug.h>
+#include <NetworkHandler.h>
 
 struct QueueableItemWrapper
 {
@@ -149,7 +148,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	
 	void* datacopy;
 		
-	//printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
+	//printf(WHERESTR "Received a netrequest, target machine: %d\n", WHEREARG, machineId);
 	
 	if (net_remote_hosts == 0)
 	{
@@ -210,6 +209,54 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 
 	packagesize = PACKAGE_SIZE(((struct createRequest*)(item->dataRequest))->packageCode);
 	
+	/*switch (((struct createRequest*)(item->dataRequest))->packageCode) {
+		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
+			packagesize = sizeof(struct acquireBarrierRequest); 	
+			break;
+		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
+			packagesize = sizeof(struct acquireBarrierResponse); 	
+			break;
+		case PACKAGE_ACQUIRE_REQUEST_READ:
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			packagesize = sizeof(struct acquireRequest); 	
+			break;			
+		case PACKAGE_ACQUIRE_RESPONSE:
+			packagesize = sizeof(struct acquireResponse); 	
+			break;			
+		case PACKAGE_CREATE_REQUEST:
+			packagesize = sizeof(struct createRequest); 	
+			break;			
+		case PACKAGE_INVALIDATE_REQUEST:
+			packagesize = sizeof(struct invalidateRequest); 	
+			break;			
+		case PACKAGE_INVALIDATE_RESPONSE:
+			packagesize = sizeof(struct invalidateResponse); 	
+			break;			
+		case PACKAGE_MIGRATION_RESPONSE:
+			packagesize = sizeof(struct migrationResponse); 	
+			break;			
+		case PACKAGE_NACK:
+			packagesize = sizeof(struct NACK); 	
+			break;			
+		case PACKAGE_RELEASE_REQUEST:
+			packagesize = sizeof(struct releaseRequest); 	
+			break;			
+		case PACKAGE_RELEASE_RESPONSE:
+			packagesize = sizeof(struct releaseResponse); 	
+			break;			
+		case PACKAGE_WRITEBUFFER_READY:
+			packagesize = sizeof(struct writebufferReady); 	
+			break;			
+		default:
+			packagesize = 0;
+			break;
+	}*/
+	
+	//if (temp != packagesize)
+	//{
+		//fprintf(stderr, "Packagecode %u temp %i vs. packagesize %i", ((struct createRequest*)(item->dataRequest))->packageCode, temp, packagesize);
+	//}
+
 	datacopy = MALLOC(packagesize);
 	if (datacopy == NULL)
 		return;
@@ -231,7 +278,7 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	nextId = NEXT_SEQ_NO(net_sequenceNumbers[machineId], NET_MAX_SEQUENCE);
 	((struct createRequest*)(datacopy))->requestID = nextId;
 	
-	//printf(WHERESTR "Recieved a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, MALLOC: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
+	//printf(WHERESTR "Received a netrequest, target machine: %d, %d, %d, %d, %d, %d, %d, MALLOC: %d\n", WHEREARG, machineId, net_idlookups[machineId], net_idlookups, w, nextId, net_idlookups[machineId]->fill, net_idlookups[machineId]->count, (int)malloc);
 
 	NetEnqueueCallback(datacopy);
 	
@@ -241,12 +288,12 @@ void NetRequest(QueueableItem item, unsigned int machineId)
 	else
 		REPORT_ERROR("Could not insert into net_idlookups")
 	
-	//printf(WHERESTR "Recieved a netrequest, target machine: %d\n", WHEREARG, machineId);
+	//printf(WHERESTR "Received a netrequest, target machine: %d\n", WHEREARG, machineId);
 	g_queue_push_tail(Gnet_requestQueues[machineId], datacopy);
 	
 	//printf(WHERESTR "Signaling\n", WHEREARG);
 	pthread_cond_signal(&net_work_ready);
-	//printf(WHERESTR "Unlokcing\n", WHEREARG);
+	//printf(WHERESTR "Unlocking\n", WHEREARG);
 	pthread_mutex_unlock(&net_work_mutex);
 	//printf(WHERESTR "Unlocked\n", WHEREARG);
 
@@ -335,7 +382,7 @@ void NetUpdate(GUID id, unsigned int offset, unsigned int dataSize, void* data)
 
 	//printf(WHERESTR "Releasing lock: %d\n", WHEREARG, (int)&net_work_mutex);
 	pthread_mutex_unlock(&net_work_mutex);
-	//printf(WHERESTR "Processed udpates\n", WHEREARG);
+	//printf(WHERESTR "Processed updates\n", WHEREARG);
 }
 
 void TerminateNetworkHandler(int force)
@@ -409,7 +456,7 @@ void* net_Reader(void* data)
 		} else if (res == 0)
 			continue;		
 		
-		//printf(WHERESTR "Network packaged recieved\n", WHEREARG);
+		//printf(WHERESTR "Network packaged received\n", WHEREARG);
 		
 		for(i = 0; i < net_remote_hosts; i++)
 		{
@@ -442,6 +489,7 @@ void* net_Reader(void* data)
 
 void* net_Writer(void* data)
 {
+	
 	size_t i;
 	unsigned int hostno;
 	void* package;
@@ -475,7 +523,7 @@ void* net_Writer(void* data)
 			{
 				//printf(WHERESTR "Waiting\n", WHEREARG);
 				pthread_cond_wait(&net_work_ready, &net_work_mutex);
-				//printf(WHERESTR "Recieved signal\n", WHEREARG);
+				//printf(WHERESTR "Received signal\n", WHEREARG);
 			}
 		}
 		
@@ -571,7 +619,7 @@ void net_processPackage(void* data, unsigned int machineId)
 	}
 	
 #ifdef TRACE_NETWORK_PACKAGES
-		printf(WHERESTR "Recieved a package from machine: %d, type: %s (%d), reqId: %d, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode), ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID, ((struct createRequest*)data)->dataItem);
+		printf(WHERESTR "Received a package from machine: %d, type: %s (%d), reqId: %d, possible id: %d\n", WHEREARG, machineId, PACKAGE_NAME(((struct createRequest*)data)->packageCode), ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID, ((struct createRequest*)data)->dataItem);
 #endif
 
 	//Here we re-map the request to make it look like it came from the original recipient
@@ -598,7 +646,8 @@ void net_processPackage(void* data, unsigned int machineId)
 	switch(((struct createRequest*)data)->packageCode)
 	{
 		case PACKAGE_CREATE_REQUEST:
-		case PACKAGE_ACQUIRE_REQUEST:
+		case PACKAGE_ACQUIRE_REQUEST_READ:
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 		case PACKAGE_RELEASE_REQUEST:
 		case PACKAGE_INVALIDATE_REQUEST:
 		case PACKAGE_UPDATE:		
@@ -614,7 +663,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			ui->event = &net_work_ready;
 			ui->callback = &NetEnqueueCallback;
 			
-			//printf(WHERESTR "Enqued %d with callback %d\n", WHEREARG, (unsigned int)ui ,(int)ui->callback);
+			//printf(WHERESTR "Enqueued %d with callback %d\n", WHEREARG, (unsigned int)ui ,(int)ui->callback);
 			EnqueItem(ui);
 			break;
 		
@@ -657,7 +706,7 @@ void net_processPackage(void* data, unsigned int machineId)
 				ui->dataRequest = data;
 
 				//Forward this to the request coordinator, so it may record the data and propagate it
-				//printf(WHERESTR "Enque item :%d\n", WHEREARG, (unsigned int)ui);
+				//printf(WHERESTR "Enqueue item :%d\n", WHEREARG, (unsigned int)ui);
 				EnqueItem(ui);
 			}
 			else if (((struct createRequest*)data)->packageCode == PACKAGE_ACQUIRE_BARRIER_RESPONSE)
@@ -673,7 +722,7 @@ void net_processPackage(void* data, unsigned int machineId)
 			{
 				//printf(WHERESTR "Forwarding response directly\n", WHEREARG);
 				
-				//Other responses are sent directly to the reciever
+				//Other responses are sent directly to the receiver
 				if (ui->mutex != NULL)
 				{
 					//printf(WHERESTR "locking mutex\n", WHEREARG);
@@ -721,11 +770,17 @@ void* net_readPackage(int fd)
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
 				REPORT_ERROR("Failed to read entire create package"); 
 			break;
-		case PACKAGE_ACQUIRE_REQUEST:
+		case PACKAGE_ACQUIRE_REQUEST_READ:
 			blocksize = sizeof(struct acquireRequest);
 			data = MALLOC(blocksize);
 			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
-				REPORT_ERROR("Failed to read entire acquire package");
+				REPORT_ERROR("Failed to read entire acquire read package"); 
+			break;
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			blocksize = sizeof(struct acquireRequest);
+			data = MALLOC(blocksize);
+			if (recv(fd, data, blocksize, MSG_WAITALL) != blocksize)
+				REPORT_ERROR("Failed to read entire acquire write package"); 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			blocksize = sizeof(struct acquireResponse);
@@ -882,7 +937,14 @@ void net_sendPackage(void* package, unsigned int machineId)
 				((struct createRequest*)package)->originalRequestID = ((struct createRequest*)package)->requestID;
 			}
 			break;
-		case PACKAGE_ACQUIRE_REQUEST:
+		case PACKAGE_ACQUIRE_REQUEST_READ:
+			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
+			{
+				((struct acquireRequest*)package)->originalRecipient = machineId;
+				((struct acquireRequest*)package)->originalRequestID = ((struct acquireRequest*)package)->requestID;
+			}
+			break;
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 			if (((struct acquireRequest*)package)->originalRecipient == UINT_MAX)
 			{
 				((struct acquireRequest*)package)->originalRecipient = machineId;
@@ -946,9 +1008,13 @@ void net_sendPackage(void* package, unsigned int machineId)
 			if (send(fd, package, sizeof(struct createRequest), 0) != sizeof(struct createRequest))
 				REPORT_ERROR("Failed to send entire create request package");			 
 			break;
-		case PACKAGE_ACQUIRE_REQUEST:
+		case PACKAGE_ACQUIRE_REQUEST_READ:
 			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
 				REPORT_ERROR("Failed to send entire acquire request package");
+			break;
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
+			if (send(fd, package, sizeof(struct acquireRequest), 0) != sizeof(struct acquireRequest))
+				REPORT_ERROR("Failed to send entire acquire request write package");			 
 			break;
 		case PACKAGE_ACQUIRE_RESPONSE:
 			if (send(fd, package, sizeof(struct acquireResponse) - sizeof(void*), MSG_MORE) != sizeof(struct acquireResponse) - sizeof(void*))
