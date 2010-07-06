@@ -25,13 +25,13 @@
 <toolChain id="celldt.managedbuild.config.cell.spu.gnu.lib.debug.toolchain.611816415" name="SPU GNU Debug Tool Chain" superClass="celldt.managedbuild.config.cell.spu.gnu.lib.debug.toolchain">
 <targetPlatform archList="ppc64" binaryParser="org.eclipse.cdt.core.ELF" id="celldt.managedbuild.target.cell.gnu.platform.1276098975" name="Cell Platform" osList="linux" superClass="celldt.managedbuild.target.cell.gnu.platform"/>
 <builder buildPath="${workspace_loc:/dsmcbe_spu/spu-gnu-debug}" id="celldt.managedbuild.target.cell.gnu.builder.135646791" keepEnvironmentInBuildfile="false" name="GNU Make" superClass="celldt.managedbuild.target.cell.gnu.builder"/>
-<tool id="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic.1327211514" name="SPU GNU Assembler" superClass="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic">
+<tool command="spu-as" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG}${OUTPUT_PREFIX}${OUTPUT} ${INPUTS}" id="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic.1327211514" name="SPU GNU Assembler" superClass="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic">
 <inputType id="cdt.managedbuild.tool.gnu.assembler.input.167751685" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib.1477957746" name="SPU GNU Archiver" superClass="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib"/>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.debug.1545673114" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.debug">
 <option id="gnu.c.compiler.option.include.paths.1262667757" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/prototype/usr/spu/include/"/>
+<listOptionValue builtIn="false" value="/home/ubuntu/Documents/dsmcbe/DSMCBE/Include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
 </option>
@@ -205,7 +205,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib.247339324" name="SPU GNU Archiver" superClass="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib"/>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release.277799167" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release">
 <option id="gnu.c.compiler.option.include.paths.778454239" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
+<listOptionValue builtIn="false" value="/home/ubuntu/Documents/dsmcbe/DSMCBE/Include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/prototype/usr/spu/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>

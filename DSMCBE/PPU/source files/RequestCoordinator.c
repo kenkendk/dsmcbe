@@ -1,5 +1,4 @@
 /*
- *
  * This module contains implementation code for
  * Coordinating requests from various sources
  *
@@ -10,10 +9,9 @@
 #include <string.h>
 #include <limits.h>
 #include <libspe2.h>
-#include "../header files/RequestCoordinator.h"
-#include "../header files/NetworkHandler.h"
-
-#include "../../common/debug.h"
+#include <RequestCoordinator.h>
+#include <NetworkHandler.h>
+#include <debug.h>
 
 //#define DEBUG_PACKAGES
 //#define DEBUG_COMMUNICATION
@@ -26,10 +24,7 @@
 // (out of MAX_RECORDED_WRITE_REQUESTS) for migration to activate 
 #define MIGRATION_THRESHOLD 4
 
-//This is defined in NetworkHandler.c
-unsigned int DSMCBE_MachineCount();
 
-//This is a flag that is set when the coordinator thread should terminate
 volatile int terminate;
 
 pthread_mutex_t rc_invalidate_queue_mutex;
@@ -41,21 +36,20 @@ pthread_t rc_workthread;
 #define MAX_SEQUENCE_NR 1000000
 unsigned int rc_sequence_nr;
 
+//#define OPTIMISTIC_CREATE
+#ifndef OPTIMISTIC_CREATE 
 //This is the table of all pending creates
 GHashTable* rc_GpendingCreates;
+#endif
 //This is the table of all allocated active items
 GHashTable* rc_GallocatedItems;
-//This is a temporary table with objects that are slated for deletion
-GHashTable* rc_GallocatedItemsDirty;
 //This is a table that keeps track of un-answered invalidates
 GHashTable* rc_GpendingSequenceNr;
 //This is a table of items that await object creation
 GHashTable* rc_Gwaiters;
-//This is a table with QueuableItems that should be notified when all invalidates are in
-GHashTable* rc_GwritebufferReady;
 //This is a table with acquireRequests that are sent over the network, but not yet responded to
 GHashTable* rc_GpendingRequests;
-//This is a table of invalidate responses. They are in a separate queue because they are handled before any other requests.
+
 GQueue* rc_GpriorityResponses;
 
 typedef struct dataObjectStruct *dataObject;
@@ -76,8 +70,13 @@ struct dataObjectStruct{
 	GQueue* Gwaitqueue;
 	//A list of ID's of write requesters, used for migration decisions
 	GQueue* GrequestCount;
-	//A table with invalidateSubscribers that have recieved the data
+	//A table with invalidateSubscribers that have received the data
 	GHashTable* GleaseTable;
+	//This is a QueuableItem that should be notified when all invalidates are in
+	QueueableItem writebufferReady;
+	//Count indicating how many invalidates are unaccounted-for
+	//UINT_MAX indicating NULL!
+	unsigned int unaccountedInvalidates;
 };
 
 typedef struct invalidateSubscriber* invalidateSubscriber;
@@ -123,7 +122,7 @@ void UnregisterInvalidateSubscriber(GQueue** q)
 	//TODO: It is now possible to unsubscribe while the entry
 	//is in the lease table of an object.
 	
-	//The fix could be to itterate all objects, and
+	//The fix could be to iterate all objects, and
 	//remove the entries from all the objects
 	
 	//printf(WHERESTR "locking mutex\n", WHEREARG);
@@ -171,12 +170,12 @@ void TerminateCoordinator(int force)
 	g_queue_free(rc_GpriorityResponses);
 	rc_GpriorityResponses = NULL;
 
+#ifndef OPTIMISTIC_CREATE	
 	g_hash_table_destroy(rc_GpendingCreates);
 	rc_GpendingCreates = NULL;
+#endif	
 	g_hash_table_destroy(rc_GallocatedItems);
 	rc_GallocatedItems = NULL;
-	g_hash_table_destroy(rc_GallocatedItemsDirty);
-	rc_GallocatedItemsDirty = NULL;
 	g_hash_table_destroy(rc_Gwaiters);
 	rc_Gwaiters = NULL;
 	g_hash_table_destroy(rc_GpendingRequests);
@@ -217,13 +216,13 @@ void InitializeCoordinator()
 
 		/* For portability, explicitly create threads in a joinable state */
 		rc_GallocatedItems = g_hash_table_new(NULL, NULL);
-		rc_GallocatedItemsDirty = g_hash_table_new(NULL, NULL);
 		rc_GpendingSequenceNr = g_hash_table_new(NULL, NULL);
 		rc_Gwaiters = g_hash_table_new(NULL, NULL);
-		rc_GwritebufferReady = g_hash_table_new(NULL, NULL);
 		rc_GpendingRequests = g_hash_table_new(NULL, NULL);
 		rc_GinvalidateSubscribers = g_hash_table_new(NULL, NULL);
+#ifndef OPTIMISTIC_CREATE
 		rc_GpendingCreates = g_hash_table_new(NULL, NULL);
+#endif		
 		rc_GpriorityResponses = g_queue_new();
 		
 		//if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
@@ -236,6 +235,8 @@ void InitializeCoordinator()
 			obj->Gwaitqueue = g_queue_new();
 			obj->GrequestCount = g_queue_new();
 			obj->GleaseTable = g_hash_table_new(NULL, NULL);
+			obj->writebufferReady = NULL;
+			obj->unaccountedInvalidates = UINT_MAX;
 			
 			for(i = 0; i < OBJECT_TABLE_SIZE; i++)
 				((OBJECT_TABLE_ENTRY_TYPE*)obj->EA)[i] = OBJECT_TABLE_RESERVED;
@@ -345,13 +346,6 @@ void RespondAny(QueueableItem item, void* resp)
 	unsigned int originalRecipient = UINT_MAX;
 	unsigned int originalRequestID = UINT_MAX;
 
-	if (item->dataRequest == NULL)
-	{
-		REPORT_ERROR("Invalid dataRequest");
-		((struct createRequest*)item->dataRequest)->dataItem = 5;
-		return;
-	}
-
 	switch(((struct createRequest*)item->dataRequest)->packageCode)
 	{
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
@@ -359,7 +353,8 @@ void RespondAny(QueueableItem item, void* resp)
 			originalRecipient = ((struct acquireBarrierRequest*)item->dataRequest)->originalRecipient;
 			originalRequestID = ((struct acquireBarrierRequest*)item->dataRequest)->originalRequestID;
 			break;
-		case PACKAGE_ACQUIRE_REQUEST:
+		case PACKAGE_ACQUIRE_REQUEST_READ:
+		case PACKAGE_ACQUIRE_REQUEST_WRITE:
 			originator = ((struct acquireRequest*)item->dataRequest)->originator;
 			originalRecipient = ((struct acquireRequest*)item->dataRequest)->originalRecipient;
 			originalRequestID = ((struct acquireRequest*)item->dataRequest)->originalRequestID;
@@ -416,8 +411,6 @@ void RespondAny(QueueableItem item, void* resp)
 
 	//printf(WHERESTR "responding, locking %i\n", WHEREARG, (int)item->mutex);
 	
-	unsigned int packageCode = ((struct createRequest*)resp)->packageCode;
-
 	if (item->mutex != NULL)
 		pthread_mutex_lock(item->mutex);
 	
@@ -425,36 +418,25 @@ void RespondAny(QueueableItem item, void* resp)
 		g_queue_push_tail(*(item->Gqueue), resp);
 		
 	if (item->callback != NULL)
-		(*(item->callback))(resp);
+		(*(item->callback))(item, resp);
 		
 	if (item->event != NULL)
+	{
 		pthread_cond_signal(item->event);
+	}
 	
-	//printf(WHERESTR "responding, signalled %i\n", WHEREARG, (int)item->event);
+	//printf(WHERESTR "responding, signaled %i\n", WHEREARG, (int)item->event);
 	
 	//printf(WHERESTR "responded, unlocking %i\n", WHEREARG, (int)item->mutex);
 	if (item->mutex != NULL)
 		pthread_mutex_unlock(item->mutex);
 	
-	//printf(WHERESTR "responding, done\n", WHEREARG);
-	
-	if (packageCode != PACKAGE_PUT_RESPONSE)
-	{
-		FREE(item->dataRequest);
-		item->dataRequest = NULL;
+	FREE(item->dataRequest);
+	item->dataRequest = NULL;
+	FREE(item);
+	item = NULL;
 
-		FREE(item);
-		item = NULL;
-	}
-}
-
-//Public function to help send a message directly to a recipient
-void DSMCBE_RespondDirect(QueueableItem item, void* resp)
-{
-	if (item == NULL)
-		free(resp);
-	else
-		RespondAny(item, resp);
+	//printf(WHERESTR "Responding, done\n", WHEREARG);
 }
 
 //Responds with NACK to a request
@@ -503,8 +485,10 @@ void RespondAcquire(QueueableItem item, dataObject obj, unsigned int onlyOwner)
 	resp->dataItem = obj->id;
 	resp->writeBufferReady = onlyOwner;
 	
-	if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST)
-		resp->mode = ((struct acquireRequest*)item->dataRequest)->mode;
+	if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
+		resp->mode = ACQUIRE_MODE_WRITE;
+	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
+		resp->mode = ACQUIRE_MODE_READ;
 	else if (((struct acquireRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
 		resp->mode = ACQUIRE_MODE_CREATE;
 	else
@@ -525,9 +509,10 @@ OBJECT_TABLE_ENTRY_TYPE* GetObjectTable()
 	return (OBJECT_TABLE_ENTRY_TYPE*)otObj->EA; 	
 }
 
-//Performs all actions releated to a create request
+//Performs all actions related to a create request
 void DoCreate(QueueableItem item, struct createRequest* request)
 {
+	
 	unsigned long size;
 	unsigned int transfersize;
 	void* data;
@@ -538,15 +523,6 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	//Check that the item is not already created
 	if (g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem) != NULL)
 	{
-		//If request has mode set to blocking, put request in waitqueue
-		if (request->mode == CREATE_MODE_BLOCKING)
-		{
-			dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem);
-			GQueue* q = obj->Gwaitqueue;
-			g_queue_push_tail(q, item);
-			return;
-		}
-
 		REPORT_ERROR("Create request for already existing item");
 		RespondNACK(item);
 		return;
@@ -560,6 +536,33 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 	}
 
 	OBJECT_TABLE_ENTRY_TYPE* objTable = GetObjectTable();
+#ifdef OPTIMISTIC_CREATE
+	
+	if (objTable[request->dataItem] != OBJECT_TABLE_RESERVED)
+	{
+		REPORT_ERROR("Create request for already existing item");
+		RespondNACK(item);
+		return;
+	}
+	else
+	{
+		objTable[request->dataItem] = request->originator;
+		//printf(WHERESTR "Inserting creator %u for ID %u\n", WHEREARG, request->originator, request->dataItem);
+		
+		//Not needed, should be handled correctly anyway...
+		
+		/*GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem);
+		while(dq != NULL && !g_queue_is_empty(dq))
+		{
+			//printf(WHERESTR "processed a waiter for %d, (%d)\n", WHEREARG, request->dataItem, (unsigned int)g_queue_peek_head(dq));
+			g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
+		}
+		
+		g_queue_free(dq);
+		g_hash_table_remove(rc_Gwaiters, (void*)request->dataItem);*/
+	}
+	
+#else
 	if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
 	{
 		if (objTable[request->dataItem] != OBJECT_TABLE_RESERVED)
@@ -573,6 +576,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 			objTable[request->dataItem] = request->originator;
 		}
 	}
+#endif
 
 	if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
 	{
@@ -585,6 +589,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		transfersize = ALIGNED_SIZE(size);
 			
 		data = MALLOC_ALIGN(transfersize, 7);
+
 		if (data == NULL)
 		{
 			REPORT_ERROR("Failed to allocate buffer for create");
@@ -602,13 +607,13 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		object->size = size;
 		object->GrequestCount = g_queue_new();
 		object->GleaseTable = g_hash_table_new(NULL, NULL);
-
-		g_hash_table_insert(object->GleaseTable, item->Gqueue, (void*)1);
+		object->writebufferReady = NULL;
+		object->unaccountedInvalidates = UINT_MAX;
 	
 		//If there are pending acquires, add them to the list
 		if ((object->Gwaitqueue = g_hash_table_lookup(rc_Gwaiters, (void*)object->id)) != NULL)
 		{
-			//printf(WHERESTR "Create request for %d, waitqueue existed (%d : %d : %s)\n", WHEREARG, request->dataItem, (unsigned int)object->Gwaitqueue, g_queue_get_length(object->Gwaitqueue), g_queue_is_empty(object->Gwaitqueue) ? "true" : "false");
+			//printf(WHERESTR "Create request for %d, waitqueue was not empty (%d : %d)\n", WHEREARG, request->dataItem, (unsigned int)object->Gwaitqueue, g_queue_get_length(object->Gwaitqueue));
 			g_hash_table_remove(rc_Gwaiters, (void*)object->id);
 		}
 		else
@@ -616,8 +621,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 			//printf(WHERESTR "Create request for %d, waitqueue was empty\n", WHEREARG, request->dataItem);
 			object->Gwaitqueue = g_queue_new();
 		}
-
-
+			
 		//Acquire the item for the creator
 		g_queue_push_head(object->Gwaitqueue, NULL);
 		
@@ -627,9 +631,7 @@ void DoCreate(QueueableItem item, struct createRequest* request)
 		else 
 			REPORT_ERROR("Could not insert into allocatedItems");
 		
-
-
-		//Notify the requestor 
+		//Notify the requester
 		RespondAcquire(item, object, TRUE);	
 	}
 	else if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
@@ -670,19 +672,13 @@ void DoInvalidate(GUID dataItem, unsigned int removeLocalCopy)
 	
 	unsigned int leaseCount = g_hash_table_size(obj->GleaseTable);
 
-	//printf(WHERESTR "Lease count: %d\n", WHEREARG, leaseCount);
-
 	if (dsmcbe_host_number != GetMachineID(dataItem) && removeLocalCopy)
 	{
 		if(leaseCount != 0) {
 			// Mark memory as dirty
 			g_hash_table_remove(rc_GallocatedItems, (void*)dataItem);
-			unsigned int* count = MALLOC(sizeof(unsigned int));
-			*count = 0;
-			if(g_hash_table_lookup(rc_GallocatedItemsDirty, obj) == NULL)
-			{
-				g_hash_table_insert(rc_GallocatedItemsDirty, obj, count);
-			}
+			if(obj->unaccountedInvalidates == UINT_MAX)
+				obj->unaccountedInvalidates = 0;
 			else
 				REPORT_ERROR("Could not insert into allocatedItemsDirty");
 		} else {
@@ -708,13 +704,9 @@ void DoInvalidate(GUID dataItem, unsigned int removeLocalCopy)
 			pthread_mutex_unlock(&rc_invalidate_queue_mutex);
 			return;
 		}
-			
-		unsigned int* count = MALLOC(sizeof(unsigned int));
-		*count = 0;
-		if(g_hash_table_lookup(rc_GallocatedItemsDirty, obj) == NULL)
-		{
-			g_hash_table_insert(rc_GallocatedItemsDirty, obj, count);
-		}
+
+		if(obj->unaccountedInvalidates == UINT_MAX)
+			obj->unaccountedInvalidates = 0;
 		else
 			REPORT_ERROR("Could not insert into allocatedItemsDirty");
 	}	
@@ -742,7 +734,7 @@ void DoInvalidate(GUID dataItem, unsigned int removeLocalCopy)
 		sub = g_hash_table_lookup(rc_GinvalidateSubscribers, key);
 		if (sub == NULL)
 		{
-			//This happens if the requestor is unsubscribed
+			//This happens if the requester is unsubscribed
 			REPORT_ERROR("Failed to locate subscriber");
 			continue;
 		}
@@ -754,8 +746,8 @@ void DoInvalidate(GUID dataItem, unsigned int removeLocalCopy)
 			printf(WHERESTR "Seqnr is :%d, table count is: %d\n", WHEREARG, requ->requestID, g_hash_table_size(rc_GpendingSequenceNr));
 			REPORT_ERROR("Could not insert into pendingSequenceNr");
 		}
-		unsigned int* count = g_hash_table_lookup(rc_GallocatedItemsDirty, obj);
-		(*count)++;
+
+		obj->unaccountedInvalidates++;
 
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(sub->mutex);
@@ -783,14 +775,14 @@ QueueableItem RecordBufferRequest(QueueableItem item, dataObject obj)
 	temp->dataRequest = MALLOC(sizeof(struct acquireRequest));
 	memcpy(temp->dataRequest, item->dataRequest, sizeof(struct acquireRequest));
 
-	if (((struct acquireRequest*)item->dataRequest)->mode != ACQUIRE_MODE_WRITE && ((struct acquireRequest*)item->dataRequest)->mode != ACQUIRE_MODE_DELETE)
+	if (((struct acquireRequest*)item->dataRequest)->packageCode != PACKAGE_ACQUIRE_REQUEST_WRITE)
 		REPORT_ERROR("Recording buffer entry for non acquire or non write");
 
 	//printf(WHERESTR "Inserting into writebuffer table: %d, %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem, (int)obj);
-	if(g_hash_table_lookup(rc_GwritebufferReady, obj) == NULL)
+	if(obj->writebufferReady == NULL)
 	{
 		//printf(WHERESTR "Inserted item into writebuffer table: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
-		g_hash_table_insert(rc_GwritebufferReady, obj, temp);
+		obj->writebufferReady = temp;
 	}
 	else
 	{
@@ -801,11 +793,12 @@ QueueableItem RecordBufferRequest(QueueableItem item, dataObject obj)
 	return temp;
 }
 
-//Performs all actions releated to an acquire request
+//Performs all actions related to an acquire request
 void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 {
 	GQueue* q;
 	dataObject obj;
+
 #ifdef DEBUG_COMMUNICATION
 	printf(WHERESTR "Acquire barrier on id %i\n", WHEREARG, request->dataItem);
 #endif	
@@ -846,6 +839,7 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 #ifdef DEBUG_COMMUNICATION
 				printf(WHERESTR "Releasing barrier on id %i\n", WHEREARG, request->dataItem);
 #endif	
+				
 				((unsigned int*)obj->EA)[1] = 0;
 				while(!g_queue_is_empty(q))
 					RespondAcquireBarrier(g_queue_pop_head(q));
@@ -854,17 +848,13 @@ void DoAcquireBarrier(QueueableItem item, struct acquireBarrierRequest* request)
 				RespondAcquireBarrier(item);
 			}
 			else
-			{
-#ifdef DEBUG_COMMUNICATION
-				printf(WHERESTR "Waiting on barrier id %i, current: %d, limit: %d\n", WHEREARG, request->dataItem, ((unsigned int*)obj->EA)[1], ((unsigned int*)obj->EA)[0]);
-#endif
 				g_queue_push_tail(q, item);
-			}
+			
 		}
 	}
 }
 
-int TestForMigration(QueueableItem next, dataObject obj)
+int TestForMigration()
 {
 #ifdef ENABLE_MIGRATION
 	unsigned int machine_count = DSMCBE_MachineCount();
@@ -906,7 +896,7 @@ int TestForMigration(QueueableItem next, dataObject obj)
 
 			//TODO: It should be faster to avoid g_queue_peek_nth and use g_queue_foreach instead
 			 
-			//Step 1 count number of occurences
+			//Step 1 count number of occurrences
 			for(i = 0; i < g_queue_get_length(obj->GrequestCount); i++)
 			{
 				unsigned int machine = (unsigned int)g_queue_peek_nth(obj->GrequestCount, i);
@@ -922,7 +912,7 @@ int TestForMigration(QueueableItem next, dataObject obj)
 				if (i != dsmcbe_host_number && rc_request_count_buffer[i] > MIGRATION_THRESHOLD)
 				{
 #ifdef DEBUG_COMMUNICATION
-					printf(WHERESTR "Migration threshold exeeced for object %d by machine %d, initiating migration\n", WHEREARG, obj->id, i);
+					printf(WHERESTR "Migration threshold exceeded for object %d by machine %d, initiating migration\n", WHEREARG, obj->id, i);
 #endif
 					rc_PerformMigration(next, (struct acquireRequest*)next->dataRequest, obj, i);
 					DoInvalidate(obj->id, TRUE);
@@ -930,20 +920,16 @@ int TestForMigration(QueueableItem next, dataObject obj)
 				}
 		}
 	}
-#else
-	next = NULL;
-	obj = NULL;
 #endif	
-
-
-
 	return FALSE;
 }
 
-void SendWriteBufferReady(QueueableItem reciever, dataObject object)
+void SendWriteBufferReady(dataObject object)
 {
+	QueueableItem reciever = object->writebufferReady;
+
 	struct writebufferReady* invReq = (struct writebufferReady*)MALLOC(sizeof(struct writebufferReady));
-	g_hash_table_remove(rc_GwritebufferReady, object);
+	object->writebufferReady = NULL;
 			
 	invReq->packageCode = PACKAGE_WRITEBUFFER_READY;
 	invReq->requestID = ((struct acquireRequest*)reciever->dataRequest)->requestID;
@@ -953,46 +939,7 @@ void SendWriteBufferReady(QueueableItem reciever, dataObject object)
 	RespondAny(reciever, invReq);
 }
 
-//Responds to an acquire request, common for DoRelease and DoAcquire
-void rc_ProcessAndRespondAcquire(QueueableItem next, dataObject obj, int mode)
-{
-	if (TestForMigration(next, obj))
-		return;
-
-	void* requestor = next->Gqueue;
-	unsigned int onlyOwner = IsOnlyOwner(next, obj);
-
-	g_queue_push_head(obj->Gwaitqueue, NULL);
-
-	GUID id = obj->id;
-	if (id != OBJECT_TABLE_ID && !onlyOwner)
-		RecordBufferRequest(next, obj);
-	RespondAcquire(next, obj, onlyOwner);
-
-	//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
-	if (id != OBJECT_TABLE_ID)
-	{
-		if (!onlyOwner)
-		{
-			if (g_hash_table_size(obj->GleaseTable) == 0) {
-				REPORT_ERROR("***** THE UNLIKELY HAS HAPPEND!! *******\n");
-				SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, obj), obj);
-			}
-			else
-				g_hash_table_remove(obj->GleaseTable, requestor);
-
-			DoInvalidate(id, FALSE);
-		}
-	}
-
-	if (mode != ACQUIRE_MODE_DELETE)
-	{
-		if (g_hash_table_lookup(obj->GleaseTable, requestor) == NULL)
-			g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
-	}
-}
-
-//Performs all actions releated to an acquire request
+//Performs all actions related to an acquire request
 void DoAcquire(QueueableItem item, struct acquireRequest* request)
 {
 	GQueue* q;
@@ -1004,26 +951,64 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 	if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
 	{
 		q = obj->Gwaitqueue;
-
+						
 		//If the object is not locked, register as locked and respond
-		if (g_queue_is_empty(q) || g_queue_peek_head(q) != NULL)
+		if (g_queue_is_empty(q))
 		{
 			//printf(WHERESTR "Object not locked\n", WHEREARG);
-			if (request->mode == ACQUIRE_MODE_READ) {
+			if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
 				//printf(WHERESTR "Acquiring READ on not locked object\n", WHEREARG);
 				g_hash_table_insert(obj->GleaseTable, item->Gqueue, g_hash_table_lookup(rc_GinvalidateSubscribers, item->Gqueue));
 				RespondAcquire(item, obj, FALSE);
-			} else if (request->mode == ACQUIRE_MODE_WRITE || request->mode == ACQUIRE_MODE_DELETE) {
-				//printf(WHERESTR "Acquiring %s on not locked object\n", WHEREARG, request->mode == ACQUIRE_MODE_DELETE ? "DELETE" : "WRITE");
+			} else if (request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE) {			
+				//printf(WHERESTR "Acquiring WRITE on not locked object\n", WHEREARG);
 				//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 					//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 
-				rc_ProcessAndRespondAcquire(item, obj, request->mode);
+				if (TestForMigration(item, obj))
+					return;
+				
+				void* requestor = item->Gqueue;
+				unsigned int onlyOwner = IsOnlyOwner(item, obj);
+				
+				g_queue_push_head(q, NULL);
+				
+				if (obj->id != OBJECT_TABLE_ID && !onlyOwner)
+					RecordBufferRequest(item, obj);
+				
+				RespondAcquire(item, obj, onlyOwner);
+					
+				if (obj->id != OBJECT_TABLE_ID)
+				{
+					if (!onlyOwner)
+					{
+						//When onlyOwner is false, size of GleaseTable cannot be 0!
+						if (g_hash_table_size(obj->GleaseTable) == 0)
+						{
+							printf(WHERESTR "This should not happen!!\n", WHEREARG);
+							SendWriteBufferReady(obj);
+						}
+						else
+							g_hash_table_remove(obj->GleaseTable, requestor);
+						
+						DoInvalidate(obj->id, FALSE);
+					}
+				}
+				else
+				{
+					//printf(WHERESTR "Sending NetUpdate with ID %u, Offset %u, Size %u, Data %u\n", WHEREARG, obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);					
+					NetUpdate(obj->id, 0, OBJECT_TABLE_SIZE, obj->EA);
+				}
+				
+				g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
+
+				//if (g_hash_table_lookup(rc_GinvalidateSubscribers, requester) == NULL)
+				//	REPORT_ERROR("Bad insert");
+					
 			}
 
 		}
-		else
-		{
+		else {
 			//Otherwise add the request to the wait list			
 			//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 				//printf(WHERESTR "Object locked\n", WHEREARG);
@@ -1040,22 +1025,24 @@ void DoAcquire(QueueableItem item, struct acquireRequest* request)
 		//if (machineId == 0 && request->dataItem == 0 && request->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			//printf(WHERESTR "acquire requested for id %d, waiting for create\n", WHEREARG, request->dataItem);
 
-
-		if (g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem) == NULL)
-			g_hash_table_insert(rc_Gwaiters, (void*)request->dataItem, (void*)g_queue_new());
-		
 		//Append the request to the waiters, for use when the object gets created
 		q = g_hash_table_lookup(rc_Gwaiters, (void*)request->dataItem);
+
+		if (q == NULL)
+		{
+			q = g_queue_new();
+			g_hash_table_insert(rc_Gwaiters, (void*)request->dataItem, (void*)q);
+		}
+
 		g_queue_push_tail(q, item);		
 	}
 }
 
-//Performs all actions releated to a release
-void DoRelease(QueueableItem item, struct releaseRequest* request)
+//Performs all actions related to a release
+void DoRelease(QueueableItem item, struct releaseRequest* request, dataObject obj)
 {
 	
 	GQueue* q;
-	dataObject obj;
 	QueueableItem next;
 	
 	//OBJECT_TABLE_ENTRY_TYPE machineId = GetMachineID(request->dataItem);
@@ -1069,17 +1056,9 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		//printf(WHERESTR "Performing read-release for %d\n", WHEREARG, request->dataItem);
 		return;
 	}
-
-	if (request->mode == ACQUIRE_MODE_DELETE)
-	{
-		//printf(WHERESTR "Performing delete-release for %d\n", WHEREARG, request->dataItem);
-		FREE(item);
-		FREE(request);
-		return;
-	}
-
+	
 	//Ensure that the item exists
-	if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)request->dataItem)) != NULL)
+	if (obj != NULL)
 	{
 		q = obj->Gwaitqueue;
 		
@@ -1095,7 +1074,6 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		{
 			//Get the next pending request
 			next = g_queue_pop_head(q);
-
 			if (next != NULL)
 			{
 				REPORT_ERROR("Bad queue, the top entry was not a locker!");
@@ -1119,35 +1097,59 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 				
 				if (!g_queue_is_empty(q) && ((struct createRequest*)((QueueableItem)g_queue_peek_head(q))->dataRequest)->packageCode != PACKAGE_ACQUIRE_BARRIER_REQUEST )
 			    {
-					int i;
-					for(i = 0; i < g_queue_get_length(q); i++)
+					while (!g_queue_is_empty(q))
 					{
 						//Acquire for the next in the queue
 						//printf(WHERESTR "Acquire for the next in the queue for %d\n", WHEREARG, request->dataItem);
-						next = g_queue_peek_nth(q, i);
-
-						int packageMode = -1;
-						int packageCode = ((struct acquireRequest*)next->dataRequest)->packageCode;
-						if (packageCode == PACKAGE_ACQUIRE_REQUEST)
-							packageMode = ((struct acquireRequest*)next->dataRequest)->mode;
-
-						if (packageMode == ACQUIRE_MODE_WRITE || packageMode == ACQUIRE_MODE_DELETE){
-							g_queue_pop_nth(q, i--);
-
+						next = g_queue_pop_head(q);
+						if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE){
 							//if (machineId == 0 && ((struct acquireRequest*)next->dataRequest)->dataItem == 0)
 								//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, requestID %i\n", WHEREARG, request->dataItem, machineId, dsmcbe_host_number, request->requestID);
 	
-							rc_ProcessAndRespondAcquire(next, obj, packageMode);
-							break; //Done
-						} else if (packageMode == ACQUIRE_MODE_READ) {
-							g_queue_pop_nth(q, i--);
+							if (TestForMigration(next, obj))
+								return;
+														
+							void* requestor = next->Gqueue; 
+							unsigned int onlyOwner = IsOnlyOwner(next, obj);
+							
+							g_queue_push_head(q, NULL);
+	
+							GUID id = obj->id;
+							if (id != OBJECT_TABLE_ID && !onlyOwner)
+								RecordBufferRequest(next, obj);
 
+							RespondAcquire(next, obj, onlyOwner);
+
+							//printf(WHERESTR "Sending NET invalidate for id: %d\n", WHEREARG, id);
+
+							if (id != OBJECT_TABLE_ID)
+							{
+								if (!onlyOwner)
+								{
+									if (g_hash_table_size(obj->GleaseTable) == 0)
+										SendWriteBufferReady(obj);
+									else
+										g_hash_table_remove(obj->GleaseTable, requestor);
+	
+									DoInvalidate(id, FALSE);
+								}
+							}
+				
+							if (g_hash_table_lookup(obj->GleaseTable, requestor) == NULL)
+								g_hash_table_insert(obj->GleaseTable, requestor, (void*)1);
+
+
+							if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
+								REPORT_ERROR("Bad insert");
+							
+							break; //Done
+						} else if (((struct acquireRequest*)next->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_READ) {
 							g_hash_table_insert(obj->GleaseTable, next->Gqueue, (void*)1);
 							RespondAcquire(next, obj, FALSE);						
-						} else if (packageCode != PACKAGE_CREATE_REQUEST) {
-							REPORT_ERROR2("packageCode/mode was invalid, id %d", obj->id);
-							REPORT_ERROR2("packageCode/mode was invalid, packageCode %d", packageCode);
-							REPORT_ERROR2("packageCode/mode was invalid, mode %d", packageMode);
+						} else {
+							REPORT_ERROR2("packageCode was neither WRITE nor READ, real ID %d", obj->id);
+							REPORT_ERROR2("packageCode was neither WRITE nor READ, ID %d", ((struct acquireRequest*)next->dataRequest)->dataItem);
+							REPORT_ERROR2("packageCode was neither WRITE nor READ, but %d", ((struct acquireRequest*)next->dataRequest)->packageCode);
 						}						 
 					}
 			    }
@@ -1177,175 +1179,14 @@ void DoRelease(QueueableItem item, struct releaseRequest* request)
 		REPORT_ERROR("Tried to release a non-existing item");
 		RespondNACK(item);		
 	}
+
+	//printf(WHERESTR "Release done\n", WHEREARG);
 }
 
 OBJECT_TABLE_ENTRY_TYPE GetMachineID(GUID id)
 {
 	return GetObjectTable()[id];
 }
-
-dataObject rc_getOrCreateObject(GUID id, unsigned int originator)
-{
-	if (g_hash_table_lookup(rc_GallocatedItems, (void*)id) == NULL)
-	{
-		if (id > OBJECT_TABLE_SIZE)
-		{
-			REPORT_ERROR("GUID was larger than object table size");
-			return NULL;
-		}
-
-		OBJECT_TABLE_ENTRY_TYPE* objTable = GetObjectTable();
-
-		if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
-		{
-			if (objTable[id] != OBJECT_TABLE_RESERVED)
-			{
-				REPORT_ERROR("Create request for already existing item");
-				return NULL;
-			}
-			else
-			{
-				objTable[id] = originator;
-			}
-		}
-
-		if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
-		{
-			NetUpdate(OBJECT_TABLE_ID, sizeof(OBJECT_TABLE_ENTRY_TYPE) * id, sizeof(OBJECT_TABLE_ENTRY_TYPE), &(objTable[id]));
-		}
-
-		if (originator == dsmcbe_host_number)
-		{
-			// Make datastructures for later use
-			dataObject object = MALLOC(sizeof(struct dataObjectStruct));
-
-			object->id = id;
-			object->EA = NULL;
-			object->size = 0;
-			object->GrequestCount = g_queue_new();
-			object->GleaseTable = g_hash_table_new(NULL, NULL);
-
-			//If there are pending acquires, add them to the list
-			if ((object->Gwaitqueue = g_hash_table_lookup(rc_Gwaiters, (void*)object->id)) != NULL)
-			{
-				//printf(WHERESTR "Create request for %d, waitqueue existed (%d : %d : %s)\n", WHEREARG, request->dataItem, (unsigned int)object->Gwaitqueue, g_queue_get_length(object->Gwaitqueue), g_queue_is_empty(object->Gwaitqueue) ? "true" : "false");
-				g_hash_table_remove(rc_Gwaiters, (void*)object->id);
-			}
-			else
-			{
-				//printf(WHERESTR "Create request for %d, waitqueue was empty\n", WHEREARG, request->dataItem);
-				object->Gwaitqueue = g_queue_new();
-			}
-
-			//Register this item as created
-			if (g_hash_table_lookup(rc_GallocatedItems, (void*)object->id) == NULL)
-				g_hash_table_insert(rc_GallocatedItems, (void*)object->id, object);
-			else
-				REPORT_ERROR("Could not insert into allocatedItems");
-
-		}
-		else if (dsmcbe_host_number == OBJECT_TABLE_OWNER)
-		{
-			GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)id);
-			while(dq != NULL && !g_queue_is_empty(dq))
-			{
-				//printf(WHERESTR "processed a waiter for %d (%d)\n", WHEREARG, object->id, (unsigned int)g_queue_peek_head(dq));
-				g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
-			}
-		}
-	}
-
-	return g_hash_table_lookup(rc_GallocatedItems, (void*)id);
-}
-
-void rc_RespondGetPutPair(QueueableItem get, QueueableItem put)
-{
-
-	//Respond to GET
-	/*
-	struct getResponse* getResp = malloc(sizeof(struct getResponse));
-	getResp->packageCode = PACKAGE_GET_RESPONSE;
-	getResp->dataItem = ((struct putRequest*)put->dataRequest)->dataItem;
-	getResp->dataSize = ((struct putRequest*)put->dataRequest)->dataSize;
-	getResp->data = ((struct putRequest*)put->dataRequest)->data;
-	getResp->callback = put;
-
-	RespondAny(get, getResp);
-	 */
-
-	//Respond to PUT
-	struct putResponse* putResp = malloc(sizeof(struct putResponse));
-	putResp->packageCode = PACKAGE_PUT_RESPONSE;
-	RespondAny(put, putResp);
-
-	//Warning: The put package is used by the recipient of the mallocRequest,
-	//  so the putResponse must be completed before the mallocRequest is sent
-
-	struct mallocRequest* req = malloc(sizeof(struct mallocRequest));
-	req->packageCode = PACKAGE_MALLOC_REQUEST;
-	req->callback = put;
-	RespondAny(get, req);
-
-}
-
-//Performs all actions releated to a create request
-void rc_DoPutOrGet(QueueableItem item, struct putRequest* request, unsigned int packageCode)
-{
-	dataObject object = rc_getOrCreateObject(request->dataItem, request->originator);
-
-	if (object == NULL)
-		REPORT_ERROR("Could not get or create object\n");
-
-	size_t i;
-
-	for(i = 0; i < g_queue_get_length(object->Gwaitqueue); i++)
-	{
-		QueueableItem other = (QueueableItem)g_queue_peek_nth(object->Gwaitqueue, i);
-		if (((struct createRequest*)other->dataRequest)->packageCode == packageCode)
-		{
-			g_queue_pop_nth(object->Gwaitqueue, i);
-			if (packageCode == PACKAGE_GET_REQUEST)
-				rc_RespondGetPutPair(other, item);
-			else
-				rc_RespondGetPutPair(item, other);
-			return;
-		}
-		else if (((struct createRequest*)other->dataRequest)->packageCode != (packageCode == PACKAGE_GET_REQUEST ? PACKAGE_PUT_REQUEST : PACKAGE_GET_REQUEST))
-		{
-			printf("Detected invalid package type (%u) in queue for %d\n", ((struct createRequest*)other->dataRequest)->packageCode, object->id);
-			REPORT_ERROR2("Detected invalid package type in queue for %d", object->id);
-		}
-	}
-
-	//No pending get
-	g_queue_push_tail(object->Gwaitqueue, item);
-}
-
-void rc_HandleGetRequest(QueueableItem item)
-{
-	struct getRequest* req = item->dataRequest;
-
-	//printf(WHERESTR "processing create event\n", WHEREARG);
-	if (OBJECT_TABLE_OWNER != dsmcbe_host_number) {
-		NetRequest(item, OBJECT_TABLE_OWNER);
-	} else {
-		rc_DoPutOrGet(item, req, PACKAGE_PUT_REQUEST);
-	}
-
-}
-
-void rc_HandlePutRequest(QueueableItem item)
-{
-	struct putRequest* req = item->dataRequest;
-
-	//printf(WHERESTR "processing create event\n", WHEREARG);
-	if (OBJECT_TABLE_OWNER != dsmcbe_host_number) {
-		NetRequest(item, OBJECT_TABLE_OWNER);
-	} else {
-		rc_DoPutOrGet(item, req, PACKAGE_GET_REQUEST);
-	}
-}
-
 
 void HandleCreateRequest(QueueableItem item)
 {
@@ -1362,10 +1203,14 @@ void HandleCreateRequest(QueueableItem item)
 		}
 		
 		NetRequest(item, OBJECT_TABLE_OWNER);
+#ifdef OPTIMISTIC_CREATE
+		DoCreate(item, req);
+#else
 		if (g_hash_table_lookup(rc_GpendingCreates, (void*)req->dataItem) != NULL)
 			RespondNACK(item);
 		else
 			g_hash_table_insert(rc_GpendingCreates, (void*)req->dataItem, item);
+#endif
 	} else { 
 		DoCreate(item, req);
 	}
@@ -1382,18 +1227,20 @@ void HandleAcquireRequest(QueueableItem item)
 	if (machineId != dsmcbe_host_number && machineId != OBJECT_TABLE_RESERVED)
 	{
 		//printf(WHERESTR "Acquire for item %d must be handled remotely, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-		if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)req->dataItem)) != NULL && req->mode == ACQUIRE_MODE_READ)
+		if ((obj = g_hash_table_lookup(rc_GallocatedItems, (void*)req->dataItem)) != NULL && req->packageCode == PACKAGE_ACQUIRE_REQUEST_READ)
 		{
 			//printf(WHERESTR "Read acquire for item %d, machineid: %d, machine id: %d, returned from local cache\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 			RespondAcquire(item, obj, FALSE);
 		}
 		else
 		{
-			//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, registering\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-			if (g_hash_table_lookup(rc_GpendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem) == NULL)
+			//printf(WHRESTR "Acquire for item %d, machineid: %d, machine id: %d, registering\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
+			GQueue* queue = NULL;
+			if ((queue = g_hash_table_lookup(rc_GpendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem)) == NULL)
 			{
 				//printf(WHERESTR "Creating queue for %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem);
-				g_hash_table_insert(rc_GpendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, g_queue_new());
+				queue = g_queue_new();
+				g_hash_table_insert(rc_GpendingRequests, (void*)((struct acquireRequest*)item->dataRequest)->dataItem, queue);
 			}
 			//GQueue* q = g_hash_table_lookup(rc_GpendingRequests, (void*)req->dataItem);
 			//printf(WHERESTR "Queue->head: %d, Queue->tail: %d, Queue->length: %d, Queue->length 2: %d\n", WHEREARG, q->head, q->tail, q->length, g_queue_get_length(q));
@@ -1402,103 +1249,25 @@ void HandleAcquireRequest(QueueableItem item)
 			//printf(WHERESTR "Acquire for item %d, machineid: %d, machine id: %d, sending remote request\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 			NetRequest(item, machineId);
 			//printf(WHERESTR "Test x: %d, y: %d, z: %d, q: %d\n", WHEREARG, ((struct acquireRequest*)item->dataRequest)->dataItem, req->dataItem, (int)rc_GpendingRequests, (int)g_hash_table_lookup(rc_GpendingRequests, (void*)req->dataItem));
-			g_queue_push_tail(g_hash_table_lookup(rc_GpendingRequests, (void*)req->dataItem), item);
+			g_queue_push_tail(queue, item);
 		}
 	}
 	else if (machineId == OBJECT_TABLE_RESERVED)
 	{
 		//printf(WHERESTR "Acquire for non-existing item %d, registering request locally, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
-		if (g_hash_table_lookup(rc_Gwaiters, (void*)req->dataItem) == NULL)
-			g_hash_table_insert(rc_Gwaiters, (void*)req->dataItem, g_queue_new());
-		g_queue_push_tail(g_hash_table_lookup(rc_Gwaiters, (void*)req->dataItem), item);
+		GQueue* queue = NULL;
+		if ((queue = g_hash_table_lookup(rc_Gwaiters, (void*)req->dataItem)) == NULL)
+		{
+			queue = g_queue_new();
+			g_hash_table_insert(rc_Gwaiters, (void*)req->dataItem, queue);
+		}
+		g_queue_push_tail(queue, item);
 	}
 	else 
 	{
 		//printf(WHERESTR "Processing acquire locally for %d, machineid: %d, machine id: %d\n", WHEREARG, req->dataItem, machineId, dsmcbe_host_number);
 		DoAcquire(item, (struct acquireRequest*)item->dataRequest);
 	}	
-}
-
-//Releases all resources belonging to the object
-void FreeDataObject(dataObject object)
-{
-	dataObject temp = g_hash_table_lookup(rc_GallocatedItems, (void*)object->id);
-
-	if (temp == NULL || temp != object)
-	{
-		//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d), temp is %s\n", WHEREARG, object->id, (int)object, (int)object->EA, ISNULL_STRING(temp));
-
-		//Make sure we are not still using the actual memory
-		if (temp == NULL || temp->EA != object->EA)
-			FREE_ALIGN(object->EA);
-		object->EA = NULL;
-		//Release all control structures on the object
-		if (object->Gwaitqueue != NULL)
-			g_queue_free(object->Gwaitqueue);
-		if (object->GrequestCount != NULL)
-			g_queue_free(object->GrequestCount);
-		if (object->GleaseTable != NULL)
-			g_hash_table_destroy(object->GleaseTable);
-
-		object->Gwaitqueue = NULL;
-		object->GrequestCount = NULL;
-		object->GleaseTable = NULL;
-
-		FREE(object);
-		object = NULL;
-	}
-}
-
-void DoDelete(dataObject obj)
-{
-	//printf(WHERESTR "DoDelete\n", WHEREARG);
-
-	if (g_hash_table_lookup(rc_Gwaiters, (void*)obj->id) != NULL)
-		REPORT_ERROR2("Item %d was already in the waiter list", obj->id);
-
-	GQueue* q = obj->Gwaitqueue;
-	obj->Gwaitqueue = NULL;
-
-	if (g_queue_is_empty(q))
-	{
-		REPORT_ERROR("Bad DoDelete, item was not locked!");
-	}
-	else
-	{
-		//Get the next pending request
-		void* next = g_queue_pop_head(q);
-		if (next != NULL)
-		{
-			REPORT_ERROR("Bad queue, the top entry was not a locker!");
-			g_queue_push_head(q, next);
-		}
-	}
-
-	g_hash_table_insert(rc_Gwaiters, (void*)obj->id, q);
-	g_hash_table_remove(rc_GallocatedItems, (void*)obj->id);
-	g_hash_table_remove_all(obj->GleaseTable);
-
-	OBJECT_TABLE_ENTRY_TYPE* objecttable = GetObjectTable();
-	objecttable[obj->id] = OBJECT_TABLE_RESERVED;
-	NetUpdate(OBJECT_TABLE_ID, sizeof(OBJECT_TABLE_ENTRY_TYPE) * obj->id, sizeof(OBJECT_TABLE_ENTRY_TYPE), &(objecttable[obj->id]));
-
-	size_t i;
-	size_t len = g_queue_get_length(q);
-
-	//TODO: Faster to use g_queue_foreach
-
-	//If the waiters contain a create request, extract it and put it in the incoming request queue
-	for(i = 0; i < len; i++)
-	{
-		QueueableItem item = g_queue_peek_nth(q, i);
-		if (item != NULL && ((struct createRequest*)item->dataRequest)->packageCode == PACKAGE_CREATE_REQUEST)
-		{
-			//printf(WHERESTR "DoDelete - packageCode is %d\n", WHEREARG, ((struct createRequest*)item->dataRequest)->packageCode);
-			g_queue_pop_nth(q, i);
-			HandleCreateRequest(item);
-			break; //Do not process anything else
-		}
-	}
 }
 
 void HandleReleaseRequest(QueueableItem item)
@@ -1520,68 +1289,57 @@ void HandleReleaseRequest(QueueableItem item)
 	else
 	{
 		//printf(WHERESTR "processing release event, owner\n", WHEREARG);
-		if (req->mode == ACQUIRE_MODE_WRITE || req->mode == ACQUIRE_MODE_DELETE)
+		dataObject obj = NULL;
+
+		if (req->mode == ACQUIRE_MODE_WRITE)
 		{
-			dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)req->dataItem);
-			if (g_hash_table_lookup(rc_GallocatedItemsDirty, obj) != NULL || g_hash_table_lookup(rc_GwritebufferReady, obj) != NULL)
+			obj = g_hash_table_lookup(rc_GallocatedItems, (void*)req->dataItem);
+			if (obj->writebufferReady != NULL || obj->unaccountedInvalidates != UINT_MAX)
 			{
 				//printf(WHERESTR "processing release event, object %d is in use, re-registering\n", WHEREARG, obj->id);
 				//The object is still in use, re-register, the last invalidate response will free it
+				//TODO: Dette kode ser lidt mærkeligt ud!
 				
-				if (req->mode == ACQUIRE_MODE_DELETE)
-				{
-					DoDelete(obj);
-				}
-				else
-				{
-					GQueue* tmp = obj->Gwaitqueue;
-					GQueue* tmp2 = obj->GrequestCount;
-					GHashTable* tmp3 = obj->GleaseTable;
-					obj->Gwaitqueue = NULL;
-					obj->GrequestCount = NULL;
-					obj->GleaseTable = NULL;
+				GQueue* tmp = obj->Gwaitqueue;
+				GQueue* tmp2 = obj->GrequestCount;
+				GHashTable* tmp3 = obj->GleaseTable;
+				obj->Gwaitqueue = NULL;
+				obj->GrequestCount = NULL;
+				obj->GleaseTable = NULL;
+				
+				if (req->data == NULL)
+					req->data = obj->EA;
+					
+				obj = MALLOC(sizeof(struct dataObjectStruct));
 
-					if (req->data == NULL)
-						req->data = obj->EA;
+				obj->EA = req->data;
+				obj->id = req->dataItem;
+				obj->size = req->dataSize;
+				obj->Gwaitqueue = tmp;
+				obj->GrequestCount = tmp2;
+				obj->GleaseTable = tmp3;
 
-					obj = MALLOC(sizeof(struct dataObjectStruct));
-					obj->EA = req->data;
-					obj->id = req->dataItem;
-					obj->size = req->dataSize;
-					obj->Gwaitqueue = tmp;
-					obj->GrequestCount = tmp2;
-					obj->GleaseTable = tmp3;
-
-					g_hash_table_replace(rc_GallocatedItems, (void*)obj->id, obj);
-				}
+				obj->writebufferReady = NULL;
+				obj->unaccountedInvalidates = UINT_MAX;
+				
+				g_hash_table_insert(rc_GallocatedItems, (void*)obj->id, obj);
 			}
 			else
 			{
-
-				if (req->mode == ACQUIRE_MODE_DELETE)
+				//printf(WHERESTR "processing release event, object is not in use, updating\n", WHEREARG);
+				//The object is not in use, just copy in the new version
+				if (obj->EA != req->data && req->data != NULL)
 				{
-					//printf(WHERESTR "processing release event, object is not in use, deleting\n", WHEREARG);
-					//The object is not in use, just delete it
-					DoDelete(obj);
-					FreeDataObject(obj);
-				}
-				else
-				{
-					//printf(WHERESTR "processing release event, object is not in use, updating\n", WHEREARG);
-					//The object is not in use, just copy in the new version
-					if (obj->EA != req->data && req->data != NULL)
-					{
-						//printf(WHERESTR "Req: %i, Size(req) %i, Size(obj): %i, Data(req) %i, Data(obj) %i, id: %d\n", WHEREARG, (int)req, (int)req->dataSize, (int)obj->size, (int)req->data, (int)obj->EA, obj->id);
-						memcpy(obj->EA, req->data, obj->size);
-						FREE_ALIGN(req->data);
-						req->data = NULL;
-					}
+					//printf(WHERESTR "Req: %i, Size(req) %i, Size(obj): %i, Data(req) %i, Data(obj) %i, id: %d\n", WHEREARG, (int)req, (int)req->dataSize, (int)obj->size, (int)req->data, (int)obj->EA, obj->id);
+					memcpy(obj->EA, req->data, obj->size);
+					FREE_ALIGN(req->data);
+					req->data = NULL;				
 				}
 			}
 		}
 		
 		//printf(WHERESTR "processing release event, owner\n", WHEREARG);
-		DoRelease(item, (struct releaseRequest*)item->dataRequest);
+		DoRelease(item, (struct releaseRequest*)item->dataRequest, obj);
 	}
 	//printf(WHERESTR "processed release event\n", WHEREARG);
 	
@@ -1589,7 +1347,6 @@ void HandleReleaseRequest(QueueableItem item)
 
 void HandleInvalidateRequest(QueueableItem item)
 {
-	
 	struct invalidateRequest* req = item->dataRequest;
 	
 	//printf(WHERESTR "processing network invalidate request for: %d\n", WHEREARG, req->dataItem);
@@ -1611,11 +1368,14 @@ void HandleUpdateRequest(QueueableItem item)
 		//printf(WHERESTR "Getting ObjectTable\n", WHEREARG);
 		memcpy(((void*)GetObjectTable()) + req->offset, req->data, req->dataSize);
 
+#ifndef OPTIMISTIC_CREATE
 		if (req->dataSize == sizeof(OBJECT_TABLE_ENTRY_TYPE))
 		{
 			unsigned int id = req->offset / sizeof(OBJECT_TABLE_ENTRY_TYPE);
+
 			//printf(WHERESTR "Object %d was created\n", WHEREARG, id);
 			QueueableItem item = g_hash_table_lookup(rc_GpendingCreates, (void*)id);
+
 			if (item != NULL)
 			{
 				g_hash_table_remove(rc_GpendingCreates, (void*)req->dataItem);
@@ -1649,6 +1409,14 @@ void HandleUpdateRequest(QueueableItem item)
 			
 			ProcessWaiters(GetObjectTable());
 		}
+#else
+		GQueue* dq = g_hash_table_lookup(rc_Gwaiters, (void*)id);
+		while(dq != NULL && !g_queue_is_empty(dq))
+		{
+			//printf(WHERESTR "processed a waiter for %d (%d)\n", WHEREARG, id, (unsigned int)g_queue_peek_head(dq));
+			g_queue_push_tail(rc_GbagOfTasks, g_queue_pop_head(dq));
+		}
+#endif			
 		//printf(WHERESTR "Done\n", WHEREARG);
 	}
 	else
@@ -1662,9 +1430,9 @@ void HandleUpdateRequest(QueueableItem item)
 	item = NULL;	
 }
 
-
 void HandleInvalidateResponse(QueueableItem item)
 {
+	
 	dataObject object;
 	struct invalidateResponse* req = item->dataRequest;
 	
@@ -1681,8 +1449,8 @@ void HandleInvalidateResponse(QueueableItem item)
 	}
 
 	//printf(WHERESTR "processing invalidate response for %d\n", WHEREARG, object->id);
-	
-	if (g_hash_table_lookup(rc_GallocatedItemsDirty, (void*)object) == NULL)
+
+	if (object->unaccountedInvalidates == UINT_MAX)
 	{
 		g_hash_table_remove(rc_GpendingSequenceNr, (void*)req->requestID);
 		FREE(item->dataRequest);
@@ -1694,21 +1462,18 @@ void HandleInvalidateResponse(QueueableItem item)
 		return;
 	}
 	
-	unsigned int* count = g_hash_table_lookup(rc_GallocatedItemsDirty, object);
-	*count = *count - 1;
-	if (*count <= 0) {
-		g_hash_table_remove(rc_GallocatedItemsDirty, (void*)object);
-	
-		FREE(count);
-		count = NULL;
-		
+	object->unaccountedInvalidates--;
+
+	if (object->unaccountedInvalidates <= 0)
+	{
+		object->unaccountedInvalidates = UINT_MAX;
 		QueueableItem reciever = NULL;
 		
-		if((reciever = g_hash_table_lookup(rc_GwritebufferReady, object)) != NULL) {
+		if((reciever = object->writebufferReady) != NULL) {
 			//printf(WHERESTR "The last response is in for: %d, sending writebuffer signal, %d\n", WHEREARG, object->id, (int)object);
 		
 			struct writebufferReady* invReq = (struct writebufferReady*)MALLOC(sizeof(struct writebufferReady));
-			g_hash_table_remove(rc_GwritebufferReady, object);
+			object->writebufferReady = NULL;
 					
 			invReq->packageCode = PACKAGE_WRITEBUFFER_READY;
 			invReq->requestID = ((struct acquireRequest*)reciever->dataRequest)->requestID;
@@ -1723,7 +1488,27 @@ void HandleInvalidateResponse(QueueableItem item)
 			//printf(WHERESTR "Last invalidate was in for: %d, EA: %d, but there was not a recipient?\n", WHEREARG, object->id, (int)object);
 		}
 
-		FreeDataObject(object);
+		dataObject temp = g_hash_table_lookup(rc_GallocatedItems, (void*)object->id);
+		
+		if (temp == NULL || temp != object)
+		{  		
+			printf(WHERESTR "Special case: Why is object not in allocatedItemsDirty or allocedItems?\n", WHEREARG);
+			//printf(WHERESTR "Item is no longer required, freeing: %d (%d,%d)\n", WHEREARG, object->id, (int)object, (int)object->EA);
+			
+			//Make sure we are not still using the actual memory
+			if (temp == NULL || temp->EA != object->EA)
+				FREE_ALIGN(object->EA);
+			object->EA = NULL;
+			//Release all control structures on the object
+			if (object->Gwaitqueue != NULL)
+				g_queue_free(object->Gwaitqueue);
+			if (object->Gwaitqueue != NULL)
+				g_queue_free(object->GrequestCount);
+			if (object->GleaseTable != NULL)
+				g_hash_table_destroy(object->GleaseTable);
+			FREE(object);
+			object = NULL;
+		}
 	}
 	else
 	{
@@ -1803,6 +1588,8 @@ void HandleAcquireResponse(QueueableItem item)
 		object->Gwaitqueue = NULL;
 		object->GrequestCount = g_queue_new();
 		object->GleaseTable = g_hash_table_new(NULL, NULL);
+		object->writebufferReady = NULL;
+		object->unaccountedInvalidates = UINT_MAX;
 
 		/*if (req->dataItem == OBJECT_TABLE_ID)
 			printf(WHERESTR "objecttable entry 1 = %d\n", WHEREARG, ((OBJECT_TABLE_ENTRY_TYPE*)object->EA)[1]);*/
@@ -1844,7 +1631,7 @@ void HandleAcquireResponse(QueueableItem item)
 			//printf(WHERESTR "processed a waiter for %d\n", WHEREARG, object->id);
 			QueueableItem q = (QueueableItem)g_queue_pop_head(dq);
 			//printf(WHERESTR "waiter package type: %d, reqId: %d, mode: %d\n", WHEREARG, ((struct createRequest*)q->dataRequest)->packageCode, ((struct createRequest*)q->dataRequest)->requestID, req->mode);
-			if (((struct acquireRequest*)q->dataRequest)->mode == ACQUIRE_MODE_WRITE || ((struct acquireRequest*)q->dataRequest)->mode == ACQUIRE_MODE_DELETE)
+			if (((struct createRequest*)q->dataRequest)->packageCode == PACKAGE_ACQUIRE_REQUEST_WRITE)
 			{
 				if (req->mode != ACQUIRE_MODE_READ)
 				{
@@ -1864,14 +1651,13 @@ void HandleAcquireResponse(QueueableItem item)
 					if (!onlyOwner)
 					{
 						if (g_hash_table_size(object->GleaseTable) == 0)
-							SendWriteBufferReady(g_hash_table_lookup(rc_GwritebufferReady, object), object);
+							SendWriteBufferReady(object);
 						
 						DoInvalidate(object->id, TRUE);
 					}
 					
-					if (g_hash_table_lookup(object->GleaseTable, requestor) == NULL)
-						g_hash_table_insert(object->GleaseTable, requestor, (void*)1);
-						
+					g_hash_table_insert(object->GleaseTable, requestor, (void*)1);
+
 					//if (g_hash_table_lookup(rc_GinvalidateSubscribers, requestor) == NULL)
 					//	REPORT_ERROR("Bad insert");
 				}
@@ -1931,7 +1717,7 @@ void HandleAcquireBarrierResponse(QueueableItem item)
 void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* resp)
 {
 #ifdef DEBUG_COMMUNICATION
-	printf(WHERESTR "Recieving migration for object %d from %d\n", WHEREARG, resp->dataItem, resp->originator);
+	printf(WHERESTR "Receiving migration for object %d from %d\n", WHEREARG, resp->dataItem, resp->originator);
 #endif
 	
 	//Clear any local copies first
@@ -1963,7 +1749,7 @@ void rc_HandleMigrationResponse(QueueableItem item, struct migrationResponse* re
 	//HandleAcquireResponse assumes that the object is owned by another machine
 	dataObject obj = g_hash_table_lookup(rc_GallocatedItems, (void*)resp->dataItem);
 	if (obj == NULL)
-		REPORT_ERROR("Recieved item, but it did not exist?")
+		REPORT_ERROR("Received item, but it did not exist?")
 	
 	if (obj->Gwaitqueue == NULL)
 		obj->Gwaitqueue = g_queue_new();
@@ -1993,7 +1779,7 @@ void rc_PerformMigration(QueueableItem item, struct acquireRequest* req, dataObj
 	resp->data = obj->EA;
 	resp->dataItem = obj->id;
 	resp->dataSize = obj->size;
-	resp->mode = req->packageCode == PACKAGE_ACQUIRE_REQUEST ? req->mode : ACQUIRE_MODE_WRITE;
+	resp->mode = req->packageCode == PACKAGE_ACQUIRE_REQUEST_READ ? ACQUIRE_MODE_READ : ACQUIRE_MODE_WRITE;
 	
 	resp->originalRecipient = req->originalRecipient;
 	resp->originalRequestID = req->originalRequestID;
@@ -2021,7 +1807,8 @@ void* rc_ProccessWork(void* data)
 	
 	QueueableItem item;
 	unsigned int datatype;
-	
+	struct timespec ts;
+
 	while(!terminate)
 	{
 		//Get the next item, or sleep until it arrives	
@@ -2030,10 +1817,20 @@ void* rc_ProccessWork(void* data)
 		//printf(WHERESTR "locking mutex\n", WHEREARG);
 		pthread_mutex_lock(&rc_queue_mutex);
 		//printf(WHERESTR "locked mutex\n", WHEREARG);
-		while (g_queue_is_empty(rc_GbagOfTasks) && g_queue_is_empty(rc_GpriorityResponses) && !terminate) {
-			//printf(WHERESTR "waiting for event\n", WHEREARG);
-			pthread_cond_wait(&rc_queue_ready, &rc_queue_mutex);
-			//printf(WHERESTR "event recieved\n", WHEREARG);
+		while (g_queue_is_empty(rc_GbagOfTasks) && g_queue_is_empty(rc_GpriorityResponses) && !terminate)
+		{
+			clock_gettime(CLOCK_REALTIME, &ts);
+			ts.tv_sec += 5;
+
+			//printf(WHERESTR "Waiting for event\n", WHEREARG);
+			pthread_cond_timedwait(&rc_queue_ready, &rc_queue_mutex, &ts);
+			//printf(WHERESTR "Event recieved\n", WHEREARG);
+
+			if (g_queue_is_empty(rc_GpriorityResponses) && g_queue_is_empty(rc_GbagOfTasks))
+			{
+				printf("RequestCoordinator got timeout\n");
+				continue;
+			}
 		}
 		
 		if (terminate)
@@ -2092,7 +1889,8 @@ void* rc_ProccessWork(void* data)
 			case PACKAGE_CREATE_REQUEST:
 				HandleCreateRequest(item);
 				break;
-			case PACKAGE_ACQUIRE_REQUEST:
+			case PACKAGE_ACQUIRE_REQUEST_READ:
+			case PACKAGE_ACQUIRE_REQUEST_WRITE:
 				HandleAcquireRequest(item);
 				break;
 			case PACKAGE_RELEASE_REQUEST:
@@ -2119,12 +1917,6 @@ void* rc_ProccessWork(void* data)
 			case PACKAGE_MIGRATION_RESPONSE:
 				rc_HandleMigrationResponse(item, (struct migrationResponse*)item->dataRequest);
 				break;
-			case PACKAGE_GET_REQUEST:
-				rc_HandleGetRequest(item);
-				break;
-			case PACKAGE_PUT_REQUEST:
-				rc_HandlePutRequest(item);
-				break;
 			default:
 				printf(WHERESTR "Unknown package code: %i\n", WHEREARG, datatype);
 				REPORT_ERROR("Unknown package recieved");
@@ -2132,7 +1924,7 @@ void* rc_ProccessWork(void* data)
 		};	
 		
 		//All responses ensure that the QueueableItem and request structures are free'd
-		//It is the obligation of the requestor to free the response
+		//It is the obligation of the requester to free the response
 	}
 	
 	//Returning the unused argument removes a warning

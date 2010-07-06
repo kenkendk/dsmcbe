@@ -1,6 +1,6 @@
-#include "../header files/SPU_MemoryAllocator.h"
-#include "../header files/datapackages.h"
-#include "../../common/debug.h"
+#include <SPU_MemoryAllocator.h>
+#include <debug.h>
+#include <datapackages.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
