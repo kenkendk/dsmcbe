@@ -5,7 +5,6 @@
 #include <strings.h>
 #include <sys/socket.h>
 #include <poll.h>
-#include <stropts.h>
 
 //#define TRACE_NETWORK_PACKAGES
 
