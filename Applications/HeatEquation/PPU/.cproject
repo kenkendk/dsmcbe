@@ -50,7 +50,7 @@
 <option id="gnu.c.link.option.paths.31975948" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-debug}&quot;"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/HeatEquation PPU}/../TinyPTC&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib/&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib/&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.1509433855" name="Math library (-lm)" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
@@ -63,7 +63,7 @@
 <option id="gnu.c.compiler.option.include.paths.53978546" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/HeatEquation PPU}/../TinyPTC&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.ppu.gnu32.c.compiler.debug.option.optimization.level.1043302702" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.debug.option.debugging.level.2078002752" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.debugging.level"/>
