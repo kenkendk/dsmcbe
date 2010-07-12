@@ -51,7 +51,7 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1575743146" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.325155881" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-debug}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib-ppc32/usr/lib&quot;"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/HeatEquation PPU}/../TinyPTC&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib/"/>
 </option>

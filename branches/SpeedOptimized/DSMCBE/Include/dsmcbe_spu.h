@@ -2,10 +2,8 @@
 #define DSMCBE_SPU_H_
 
 #include "./dsmcbe.h"
-extern void initialize();
-extern void terminate();
-extern void clean(GUID id);
-extern void getStats();
+extern void dsmcbe_initialize();
+extern void dsmcbe_terminate();
 extern void* spu_dsmcbe_memory_malloc(unsigned long size);
 extern void spu_dsmcbe_memory_free(void* data);
 extern unsigned int spu_dsmcbe_acquire_begin(GUID id, int type);

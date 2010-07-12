@@ -5,7 +5,7 @@
 
 #define USEDYNAMICPARTITIONSCHEME
 
-struct SPU_Memory_Map_struct {
+struct dsmcbe_spu_memory_map_struct {
 	//The offset used to calculator the resulting pointer
 	unsigned int offset;
 	//The size of the bitmap, memsize is 16 * 8 * size
@@ -35,14 +35,14 @@ struct SPU_Memory_Map_struct {
 	GHashTable* allocated;
 };
 
-typedef struct SPU_Memory_Map_struct SPU_Memory_Map;
+typedef struct dsmcbe_spu_memory_map_struct SPU_Memory_Map;
 
-SPU_Memory_Map* spu_memory_create(unsigned int offset, unsigned int size);
+SPU_Memory_Map* dsmcbe_spu_memory_create(unsigned int offset, unsigned int size);
 
-void spu_memory_destroy(SPU_Memory_Map* map);
+void dsmcbe_spu_memory_destroy(SPU_Memory_Map* map);
 
-void* spu_memory_malloc(SPU_Memory_Map* map, unsigned int size);
+void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, unsigned int size);
 
-void spu_memory_free(SPU_Memory_Map* map, void* data);
+void dsmcbe_spu_memory_free(SPU_Memory_Map* map, void* data);
 
 #endif /* SPU_MEMORYALLOCATOR_H_ */

@@ -3,10 +3,10 @@
 
 #include "dsmcbe.h"
 
-extern void* threadCreate(GUID id, unsigned long size);
-extern void* threadAcquire(GUID id, unsigned long* size, int type);
-extern void threadRelease(void* data);
-extern void threadAcquireBarrier(GUID id);
-extern void InitializePPUHandler();
+extern void* dsmcbe_ppu_create(GUID id, unsigned long size);
+extern void* dsmcbe_ppu_acquire(GUID id, unsigned long* size, int type);
+extern void dsmcbe_ppu_release(void* data);
+extern void dsmcbe_ppu_acquireBarrier(GUID id);
+extern void dsmcbe_ppu_initialize();
 
 #endif /*PPUEVENTHANDLER_H_*/

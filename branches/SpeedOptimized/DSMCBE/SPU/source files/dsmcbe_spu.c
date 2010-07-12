@@ -1,14 +1,11 @@
 #include <libmisc.h>
 #include <limits.h>
-#include <spu_mfcio.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
-
-//Switch to interrupt mailbox in order to enable the PPU eventhandler
-#define SPU_WRITE_OUT_MBOX spu_write_out_intr_mbox
-//#define SPU_WRITE_OUT_MBOX spu_write_out_mbox 
+#include <SPUEventHandler_extrapackages.h>
+#include <dsmcbe_spu_internal.h>
 
 //#define DEBUG_COMMUNICATION
 //Activating this makes the code use polling rather than just waiting for a mailbox message.
@@ -19,55 +16,28 @@
 #include "../header files/dsmcbe_spu.h"
 #include "../header files/datapackages.h"
 #include "../header files/debug.h"
-#include "../header files/SPU_MemoryAllocator_Shared.h"
 
-#define TRUE 1
-#define FALSE 0
-
-struct spu_dsmcbe_pendingRequestStruct
-{
-	//The code the package was created with.
-	//Zero means available
-	unsigned int requestCode;
-	
-	//The pointer result
-	void* pointer;
-	//The resulting size
-	unsigned int size;
-};
-
-//The total number of pending requests possible
-#define MAX_PENDING_REQUESTS 16
-
-//The statically allocated buffer for the pending requests
-struct spu_dsmcbe_pendingRequestStruct spu_dsmcbe_pendingRequests[MAX_PENDING_REQUESTS];
-
-//The next available request number to use.
-//Having this number avoids having to search through the spu_dsmcbe_pendingRequests 
 unsigned int spu_dsmcbe_nextRequestNo = 0;
+unsigned int spu_dsmcbe_initialized = FALSE;
 
-//A flag indicating if initialize has been called.
-unsigned int spu_dsmcbe_initialized = FALSE; 
 
 //This function gets the next available request number, and sets the response flag to "not ready"
 unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
 {
-	//printf(WHERESTR "\n\nReqNo wanted with requestCode %i (%i)\n", WHEREARG, requestCode, spu_dsmcbe_nextRequestNo);
 	size_t i;
 	unsigned int value;
 	for(i = 0; i < MAX_PENDING_REQUESTS; i++)
 		if (spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].requestCode == 0)
 		{
 			spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].requestCode = requestCode;
+			spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].responseCode = 0;
 			value = spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS;
 			spu_dsmcbe_nextRequestNo = (spu_dsmcbe_nextRequestNo + 1) % MAX_PENDING_REQUESTS;
-			//printf(WHERESTR "Returned reqNo %i\n\n\n", WHEREARG, value);
 			return value;
 		}
 		else
 		{
 			spu_dsmcbe_nextRequestNo++;
-			//printf(WHERESTR "Entry(%i) had value %i\n", WHEREARG, (i + spu_dsmcbe_nextRequestNo) % MAX_PENDING_REQUESTS, spu_dsmcbe_pendingRequests[(i + spu_dsmcbe_nextRequestNo) % MAX_PENDING_REQUESTS].requestCode );
 		}
 		
 	REPORT_ERROR("No available request slots found, consider raising the MAX_PENDING_REQUESTS");
@@ -99,6 +69,7 @@ void spu_dsmcbe_readMailbox() {
 			printf(WHERESTR "TERMINATE package received\n", WHEREARG);
 #endif
 			spu_dsmcbe_initialized = FALSE;
+			spu_dsmcbe_pendingRequests[requestID].responseCode = PACKAGE_TERMINATE_RESPONSE;
 			break;
 			
 		case PACKAGE_CREATE_REQUEST:
@@ -108,7 +79,7 @@ void spu_dsmcbe_readMailbox() {
 			printf(WHERESTR "ACQUIRE package received\n", WHEREARG);
 #endif
 			
-			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_ACQUIRE_RESPONSE;
+			spu_dsmcbe_pendingRequests[requestID].responseCode = PACKAGE_ACQUIRE_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox(); 
 			spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
 			break;			
@@ -117,15 +88,38 @@ void spu_dsmcbe_readMailbox() {
 #ifdef DEBUG_COMMUNICATION	
 			printf(WHERESTR "MALLOC package received\n", WHEREARG);
 #endif
-			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_SPU_MEMORY_MALLOC_RESPONSE;
+			spu_dsmcbe_pendingRequests[requestID].responseCode = PACKAGE_SPU_MEMORY_MALLOC_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
 			break;			
 		
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
-			spu_dsmcbe_pendingRequests[requestID].requestCode = PACKAGE_ACQUIRE_BARRIER_RESPONSE;
+			spu_dsmcbe_pendingRequests[requestID].responseCode = PACKAGE_ACQUIRE_BARRIER_RESPONSE;
 			spu_dsmcbe_pendingRequests[requestID].pointer = NULL;
 			break;
-		
+
+		case PACKAGE_CSP_CHANNEL_CREATE_REQUEST:
+		case PACKAGE_CSP_CHANNEL_POISON_REQUEST:
+		case PACKAGE_CSP_CHANNEL_READ_REQUEST:
+		case PACKAGE_CSP_CHANNEL_WRITE_REQUEST:
+		case PACKAGE_SPU_CSP_ITEM_CREATE_REQUEST:
+		case PACKAGE_SPU_CSP_ITEM_FREE_REQUEST:
+		case PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST:
+		case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST:
+			spu_dsmcbe_pendingRequests[requestID].responseCode = spu_read_in_mbox();
+
+			if (spu_dsmcbe_pendingRequests[requestID].responseCode == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE)
+				spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
+			else if (
+					spu_dsmcbe_pendingRequests[requestID].responseCode == PACKAGE_CSP_CHANNEL_READ_RESPONSE ||
+					spu_dsmcbe_pendingRequests[requestID].responseCode == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE ||
+					spu_dsmcbe_pendingRequests[requestID].responseCode == PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE
+			)
+			{
+				spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
+				spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
+			}
+
+			break;
 		default:
 			fprintf(stderr, WHERESTR "Unknown package received: %i, message: %s", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, strerror(errno));
 	};	
@@ -294,7 +288,7 @@ void spu_dsmcbe_memory_free_begin(void* data)
 
 
 //Cleanly terminates the DSMCBE system
-void terminate() 
+void dsmcbe_terminate()
 {
 	if (!spu_dsmcbe_initialized)
 	{
@@ -330,23 +324,7 @@ unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 	if (requestNo > MAX_PENDING_REQUESTS || spu_dsmcbe_pendingRequests[requestNo].requestCode == 0)
 		return SPU_DSMCBE_ASYNC_ERROR;
 		
-	switch(spu_dsmcbe_pendingRequests[requestNo].requestCode)
-	{
-		case PACKAGE_CREATE_REQUEST:
-		case PACKAGE_ACQUIRE_REQUEST_READ:
-		case PACKAGE_ACQUIRE_REQUEST_WRITE:
-		case PACKAGE_SPU_MEMORY_MALLOC_REQUEST:
-		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
-			return SPU_DSMCBE_ASYNC_BUSY;
-			
-		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
-		case PACKAGE_ACQUIRE_RESPONSE:
-		case PACKAGE_SPU_MEMORY_MALLOC_RESPONSE:
-			return SPU_DSMCBE_ASYNC_READY;
-			
-		default:
-			return SPU_DSMCBE_ASYNC_ERROR;
-	}
+	return spu_dsmcbe_pendingRequests[requestNo].responseCode == 0 ? SPU_DSMCBE_ASYNC_BUSY : SPU_DSMCBE_ASYNC_READY;
 }
 
 //Ends an async operation. Blocking if the operation is not complete on entry
@@ -383,9 +361,6 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
 	{
 		//Should get response before we can count to this
-
-		//if (i > 0 && i % 5000 == 0)
-			//printf(WHERESTR "Waiting %u\n", WHEREARG, i);
 
 		if (i++ == 4000000000U) 
 		{
@@ -425,7 +400,10 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 
 	if (size != NULL)
 	{
-		if (spu_dsmcbe_pendingRequests[requestNo].requestCode == PACKAGE_ACQUIRE_RESPONSE)
+		if (spu_dsmcbe_pendingRequests[requestNo].responseCode == PACKAGE_ACQUIRE_RESPONSE ||
+			spu_dsmcbe_pendingRequests[requestNo].responseCode == PACKAGE_CSP_CHANNEL_READ_RESPONSE ||
+			spu_dsmcbe_pendingRequests[requestNo].responseCode == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE)
+
 			*size = spu_dsmcbe_pendingRequests[requestNo].size;
 		else
 			size = 0;
@@ -501,21 +479,21 @@ void* spu_dsmcbe_dequeueStreamAcquire(GUID* id, unsigned long* size)
 
 
 
-void enqueueStreamAcquire(GUID id, int type)
+void dsmcbe_enqueueStreamAcquire(GUID id, int type)
 {
 	spu_dsmcbe_enqueueStreamAcquire(id, type);
 }
 
-void* dequeueStreamAcquire(GUID* id, unsigned long* size)
+void* dsmcbe_dequeueStreamAcquire(GUID* id, unsigned long* size)
 {
 	return spu_dsmcbe_dequeueStreamAcquire(id, size);
 }
 
-void acquireBarrier(GUID id) {
+void dsmcbe_acquireBarrier(GUID id) {
 	spu_dsmcbe_endAsync(spu_dsmcbe_acquire_barrier_begin(id), NULL);		
 }
  
-void* acquire(GUID id, unsigned long* size, int type) {
+void* dsmcbe_acquire(GUID id, unsigned long* size, int type) {
 	return spu_dsmcbe_endAsync(spu_dsmcbe_acquire_begin(id, type), size);
 }
 
@@ -523,7 +501,7 @@ void release(void* data) {
 	spu_dsmcbe_release_begin(data);
 }
 
-void* create(GUID id, unsigned long size) {
+void* dsmcbe_create(GUID id, unsigned long size) {
 	return spu_dsmcbe_endAsync(spu_dsmcbe_create_begin(id, size), NULL);
 }
 
@@ -557,7 +535,7 @@ void spu_dsmcbe_memory_setup(unsigned int reservedMemory)
 }
 
 //Initializes the DSMCBE system
-void initializeReserved(unsigned int reservedMemory)
+void dsmcbe_initializeReserved(unsigned int reservedMemory)
 {
 	//printf(WHERESTR "Setting up malloc\n", WHEREARG);
 	spu_dsmcbe_memory_setup(reservedMemory);
@@ -566,15 +544,15 @@ void initializeReserved(unsigned int reservedMemory)
 }
 
 //Initializes the DSMCBE system
-void initialize()
+void dsmcbe_initialize()
 {
-	initializeReserved(0);
+	dsmcbe_initializeReserved(0);
 }
 
 //Creates a new barrier
-void createBarrier(GUID id, unsigned int count)
+void dsmcbe_createBarrier(GUID id, unsigned int count)
 {
-	unsigned int* tmp = create(id, sizeof(unsigned int) * 2);
+	unsigned int* tmp = dsmcbe_create(id, sizeof(unsigned int) * 2);
 	if (tmp == NULL)
 	{
 		REPORT_ERROR("Failed to create barrier");
