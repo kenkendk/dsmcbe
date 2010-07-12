@@ -36,7 +36,6 @@ int main(int argc, char **argv)
 {
 	printf("Compile time - %s\n", __TIME__);
 
-	unsigned long size;
     size_t spu_threadcount;
     size_t ppu_threadcount;
     int machineid;
@@ -136,6 +135,8 @@ int main(int argc, char **argv)
 
 		double totalseconds = 0;
 
+#define ROUNDS 10
+
 		while(1)
 		{
 			CSP_CONSUME("delta", DELTA_CHANNEL);
@@ -149,12 +150,12 @@ int main(int argc, char **argv)
 				counter = 0;
 				sw_start();
 				repcount ++;
-				if (repcount >= 10)
+				if (repcount >= ROUNDS)
 				{
 					CSP_SAFE_CALL("poison delta", dsmcbe_csp_channel_poison(DELTA_CHANNEL));
 					CSP_SAFE_CALL("poison completion", dsmcbe_csp_channel_poison(COMPLETION_LOCK));
 
-					printf("CommsTime avg: %f usec\n", (totalseconds / (10 * REPETITIONS) / actual_processes) * 1000000);
+					printf("CommsTime avg: %f usec\n", (totalseconds / (ROUNDS * REPETITIONS) / actual_processes) * 1000000);
 					break;
 				}
 			}

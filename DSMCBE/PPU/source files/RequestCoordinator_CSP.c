@@ -26,14 +26,22 @@ GHashTable* dsmcbe_rc_cspChannels;
 //This table contains all QueuableItem's that are present in multiple csp channel queues
 GHashTable* dsmcbe_rc_cspMultiWaiters;
 
+//Indicates that no poisoning has occured
+#define POISON_STATE_NONE 0
+//Indicates that poisoning is detected, but is currently buffered
+#define POISON_STATE_PENDING 1
+//Indicates that the channel is poisoned
+#define POISON_STATE_POISONED 2
+
+
 //This structure defines a single CSP channel
 struct dsmcbe_cspChannelStruct {
 	//The channel ID
 	GUID id;
 	//This flag is set to true once the channel has been created
 	unsigned int created;
-	//This is set to TRUE if the channel has been poisoned
-	unsigned int poisoned;
+	//The state of poisoning
+	unsigned int poisonState;
 	//The channel type
 	unsigned int type;
 	//The size of the built-in write buffer
@@ -51,7 +59,7 @@ cspChannel dsmcbe_rc_csp_createChannelObject(GUID channelId)
 {
 	cspChannel c = (cspChannel)MALLOC(sizeof(struct dsmcbe_cspChannelStruct));
 	c->id = channelId;
-	c->poisoned = FALSE;
+	c->poisonState = POISON_STATE_NONE;
 	c->type = -1;
 	c->buffersize = -1;
 	c->created = FALSE;
@@ -150,11 +158,8 @@ QueueableItem dsmcbe_rc_csp_RemoveMultiPair(QueueableItem item)
 		while(!g_queue_is_empty(waiters))
 		{
 			cspChannel chan = (cspChannel)g_queue_pop_head(waiters);
-			if (!chan->poisoned)
-			{
-				g_queue_remove(chan->Greaders, item);
-				g_queue_remove(chan->Gwriters, item);
-			}
+			g_queue_remove(chan->Greaders, item);
+			g_queue_remove(chan->Gwriters, item);
 		}
 		g_queue_free(waiters);
 	}
@@ -165,8 +170,7 @@ QueueableItem dsmcbe_rc_csp_RemoveMultiPair(QueueableItem item)
 //Responds all pending reads and writes for the channel with a poison response, and marks the channel as poisoned
 void dsmcbe_rc_csp_PoisonAndFlushChannel(cspChannel chan)
 {
-	//TODO: Do not flush when poisoned
-	chan->poisoned = TRUE;
+	chan->poisonState = POISON_STATE_POISONED;
 
 	while(!g_queue_is_empty (chan->Greaders))
 		dsmcbe_rc_csp_RespondChannelPoisoned(dsmcbe_rc_csp_RemoveMultiPair((QueueableItem)g_queue_pop_head(chan->Greaders)), chan->id);
@@ -182,24 +186,61 @@ void dsmcbe_rc_csp_PoisonAndFlushChannel(cspChannel chan)
 }
 
 //Handles a match between a read and a write by responding to both
-void dsmcbe_rc_csp_MatchedReaderAndWriter(GUID channelId, QueueableItem reader, QueueableItem writer)
+//When this function is called, both requests are removed from their respective queues
+void dsmcbe_rc_csp_MatchedReaderAndWriter(cspChannel chan, QueueableItem reader, QueueableItem writer)
 {
 	dsmcbe_rc_csp_RemoveMultiPair(reader);
 	dsmcbe_rc_csp_RemoveMultiPair(writer);
 
 	struct dsmcbe_cspChannelWriteRequest* wrq = (struct dsmcbe_cspChannelWriteRequest*)writer->dataRequest;
 
-	dsmcbe_rc_csp_RespondChannelRead(reader, channelId, wrq->data, wrq->size, wrq->onSPE);
-	if (writer->Gqueue == NULL)
+	if (wrq->packageCode == PACKAGE_CSP_CHANNEL_POISON_REQUEST)
 	{
-		//The request is buffered, so we have already responded, just clean up
-		FREE(writer->dataRequest);
-		writer->dataRequest = NULL;
-		FREE(writer);
-		writer = NULL;
+		dsmcbe_rc_csp_RespondChannelPoison(writer);
+
+		//This request is not in queue, so we respond here
+		dsmcbe_rc_csp_RespondChannelPoisoned(reader, chan->id);
+
+		//Update the flag and poison the channel, flushing any remaining items
+		dsmcbe_rc_csp_PoisonAndFlushChannel(chan);
 	}
-	else //Respond as normal
-		dsmcbe_rc_csp_RespondChannelWrite(writer, channelId);
+	else
+	{
+		dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->onSPE);
+		if (writer->Gqueue == NULL)
+		{
+			//The request is buffered, so we have already responded, just clean up
+			FREE(writer->dataRequest);
+			writer->dataRequest = NULL;
+			FREE(writer);
+			writer = NULL;
+		}
+		else //Respond as normal
+			dsmcbe_rc_csp_RespondChannelWrite(writer, chan->id);
+	}
+}
+
+void dsmcbe_rc_csp_RespondWriteChannelWithCopy(cspChannel chan, QueueableItem item)
+{
+	//Create a copy of the request, as it is free'd when responding
+	struct dsmcbe_cspChannelWriteRequest* req = (struct dsmcbe_cspChannelWriteRequest*)MALLOC(sizeof(struct dsmcbe_cspChannelWriteRequest));
+	memcpy(req, item->dataRequest, sizeof(struct dsmcbe_cspChannelWriteRequest));
+
+	//We won't pass these pointers to the response as it may try to free them,
+	// and we may need them
+	req->channels = NULL;
+	req->channelcount = 0;
+
+	//Respond with the copy
+	QueueableItem tmp = dsmcbe_rc_new_QueueableItem(item->mutex, item->event, item->Gqueue, req, item->callback);
+	dsmcbe_rc_csp_RespondChannelWrite(tmp, chan->id);
+
+	//Modify the original so we do not respond twice
+	item->mutex = NULL;
+	item->event = NULL;
+	item->Gqueue = NULL;
+	item->callback = NULL;
+	//item->dataRequest = <original request block>;
 }
 
 //Attempts to pair a read request with write requests for the given channel
@@ -222,7 +263,26 @@ int dsmcbe_rc_csp_AttemptPairRead(cspChannel chan, QueueableItem item, unsigned 
 		else
 		{
 			QueueableItem writer = g_queue_pop_head(chan->Gwriters);
-			dsmcbe_rc_csp_MatchedReaderAndWriter(chan->id, item, writer);
+			dsmcbe_rc_csp_MatchedReaderAndWriter(chan, item, writer);
+
+			//If we are buffered, and have waiting writes flush one
+			if (chan->buffersize > 0 && g_queue_get_length(chan->Gwriters) >= chan->buffersize && chan->poisonState == POISON_STATE_NONE)
+			{
+				QueueableItem n = g_queue_peek_nth(chan->Gwriters, chan->buffersize - 1);
+				if (n->Gqueue == NULL)
+					REPORT_ERROR("Some odd internal error");
+
+				if (((struct dsmcbe_cspChannelWriteRequest*)item->dataRequest)->packageCode == PACKAGE_CSP_CHANNEL_POISON_REQUEST)
+				{
+					//Poison requests are blocking
+					chan->poisonState = POISON_STATE_PENDING;
+				}
+				else
+				{
+					//Respond, and modify the original
+					dsmcbe_rc_csp_RespondWriteChannelWithCopy(chan, item);
+				}
+			}
 
 			return TRUE;
 		}
@@ -252,17 +312,10 @@ int dsmcbe_rc_csp_AttemptPairWrite(cspChannel chan, QueueableItem item, unsigned
 			if (g_queue_get_length(chan->Gwriters) < chan->buffersize)
 			{
 				//Buffer the request, but respond immediately
-
-				//Create a copy of the request, as it is free'd when responding
-				struct dsmcbe_cspChannelWriteRequest* req = (struct dsmcbe_cspChannelWriteRequest*)MALLOC(sizeof(struct dsmcbe_cspChannelWriteRequest));
-				memcpy(req, item->dataRequest, sizeof(struct dsmcbe_cspChannelWriteRequest));
-
-				QueueableItem tmp = dsmcbe_rc_new_QueueableItem(NULL, NULL, NULL, req, NULL);
-
-				dsmcbe_rc_csp_RespondChannelWrite(item, chan->id);
+				dsmcbe_rc_csp_RespondWriteChannelWithCopy(chan, item);
 
 				//Record the copy, so we can pair it later
-				g_queue_push_tail(chan->Gwriters, tmp);
+				g_queue_push_tail(chan->Gwriters, item);
 				return TRUE;
 			}
 			else
@@ -274,7 +327,7 @@ int dsmcbe_rc_csp_AttemptPairWrite(cspChannel chan, QueueableItem item, unsigned
 		}
 		else
 		{
-			dsmcbe_rc_csp_MatchedReaderAndWriter(chan->id, g_queue_pop_head(chan->Greaders), item);
+			dsmcbe_rc_csp_MatchedReaderAndWriter(chan, g_queue_pop_head(chan->Greaders), item);
 			return TRUE;
 		}
 	}
@@ -323,15 +376,32 @@ void dsmcbe_rc_csp_ProcessChannelPoisonRequest(QueueableItem item)
 		REPORT_ERROR2("Attempted to poison a non-existing channel: %d", chan->id);
 		dsmcbe_rc_RespondNACK(item);
 	}
-	else if (chan->poisoned)
+	else if (chan->poisonState != POISON_STATE_NONE)
 	{
 		REPORT_ERROR2("Attempted to re-poison a channel: %d", chan->id);
 		dsmcbe_rc_RespondNACK(item);
 	}
 	else
 	{
-		dsmcbe_rc_csp_PoisonAndFlushChannel(chan);
-		dsmcbe_rc_csp_RespondChannelPoison(item);
+		//If there is no buffer, the pending writes can be seen as having happened
+		// at the same logical time as the poison request
+		if (chan->buffersize == 0 || g_queue_is_empty(chan->Gwriters))
+		{
+			//If we have no pending writers, just poison the channel
+			dsmcbe_rc_csp_PoisonAndFlushChannel(chan);
+			dsmcbe_rc_csp_RespondChannelPoison(item);
+		}
+		else
+		{
+			//We have pending writers, so insert the poison request as if it was a write
+
+			//If we are writing within the buffer range, the poison is now pending
+			// otherwise, it will be discovered at some later point
+			if (chan->buffersize > g_queue_get_length(chan->Gwriters))
+				chan->poisonState = POISON_STATE_PENDING;
+
+			g_queue_push_tail(chan->Gwriters, item);
+		}
 	}
 }
 
@@ -353,7 +423,7 @@ void dsmcbe_rc_csp_ProcessChannelReadOrWriteRequest(QueueableItem item, unsigned
 
 		cspChannel chan = dsmcbe_rc_csp_getChannelObject(channelId);
 
-		if (chan->poisoned)
+		if (chan->poisonState == POISON_STATE_POISONED)
 			dsmcbe_rc_csp_RespondChannelPoisoned(item, chan->id);
 		else
 			pairfunc(chan, item, TRUE);
@@ -384,11 +454,13 @@ void dsmcbe_rc_csp_ProcessChannelReadOrWriteRequest(QueueableItem item, unsigned
 				channels[i] = dsmcbe_rc_csp_getChannelObject((*channelIds)[i]);
 
 				//If any channel in the set is poisoned, we return poison
-				if (channels[i]->poisoned)
+				if (channels[i]->poisonState == POISON_STATE_POISONED)
 				{
-					dsmcbe_rc_csp_RespondChannelPoisoned(item, (*channelIds)[i]);
 					FREE(*channelIds);
 					(*channelIds) = NULL;
+
+					dsmcbe_rc_csp_RespondChannelPoisoned(item, channels[i]->id);
+
 					FREE(channels);
 					return;
 				}

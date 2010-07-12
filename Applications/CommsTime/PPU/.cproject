@@ -229,7 +229,7 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1360020526" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1354936909" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-release}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib/"/>
 </option>
 <inputType id="cdt.managedbuild.tool.gnu.c.linker.input.605095176" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
@@ -244,8 +244,7 @@
 <option id="gnu.c.compiler.option.include.paths.1390338151" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
 </option>
 <inputType id="celldt.managedbuild.tool.cell.ppu.gnu.c.compiler.input.1246344379" superClass="celldt.managedbuild.tool.cell.ppu.gnu.c.compiler.input"/>
 </tool>

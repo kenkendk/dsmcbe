@@ -205,8 +205,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib.247339324" name="SPU GNU Archiver" superClass="celldt.managedbuild.tool.cell.spu.gnu.archiver.lib"/>
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release.277799167" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.lib.release">
 <option id="gnu.c.compiler.option.include.paths.778454239" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-<listOptionValue builtIn="false" value="/home/ubuntu/Documents/dsmcbe/DSMCBE/Include"/>
-<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/prototype/usr/spu/include/"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/header files}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
 </option>
