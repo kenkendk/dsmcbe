@@ -11,7 +11,7 @@
 //Activating this makes the code use polling rather than just waiting for a mailbox message.
 //The current Cell BE implementation seems to use busy waiting in either case though.
 //Disable this if there are long wait periods in the program.
-#define TIMEOUT_DETECTION
+//#define TIMEOUT_DETECTION
 
 #include "../header files/dsmcbe_spu.h"
 #include "../header files/datapackages.h"

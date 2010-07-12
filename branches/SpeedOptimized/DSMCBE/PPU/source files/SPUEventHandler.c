@@ -178,8 +178,9 @@ void dsmcbe_SetHardwareThreads(unsigned int count)
 
 void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int packageCode, unsigned int requestId, unsigned int data, unsigned int size)
 {
-	//TODO: Determine if it is possible to accidentially insert a barrier response because it fits in mbox, but still have messages in queue
+	//TODO: Determine if it is possible to accidentally insert a barrier response because it fits in mbox, but still have messages in queue
 	// this would lead to mixing of package data
+
 	if (state->writerDirtyReadFlag == 0)
 	{
 		//If there is space, send directly
@@ -1810,6 +1811,7 @@ void* dsmcbe_spu_mainthreadSpinning(void* threadranges)
 				//    -> The processing will be defered to next round
 				//Case 2: The item is non-zero, but no items are in queue
 				//    -> The lock below prevents reading an empty queue
+
 				if (state->inQueue->length == 0)
 					break;
 
@@ -1905,7 +1907,6 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 
 
 	dsmcbe_spu_states = MALLOC(sizeof(struct dsmcbe_spu_state) * thread_count);
-	//if (pthread_mutex_init(&spu_rq_mutex, NULL) != 0) REPORT_ERROR("Mutex initialization failed");
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -1992,8 +1993,6 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 
 		for(i = 0; i < dsmcbe_spu_ppu_threadcount; i++)
 		{
-			//printf(WHERESTR "Starting thread %d with SPU %d to %d\n", WHEREARG, i, cur_thread, cur_thread + tmp[i]);
-			//sleep(5);
 			unsigned int* ranges = MALLOC(sizeof(unsigned int) * 2);
 			ranges[0] = cur_thread;
 			cur_thread += tmp[i];

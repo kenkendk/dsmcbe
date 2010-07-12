@@ -1,3 +1,4 @@
+#include <dsmcbe.h>
 #include <dsmcbe_csp.h>
 
 #ifndef CSP_COMMONS_H_
