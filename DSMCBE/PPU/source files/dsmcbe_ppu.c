@@ -18,8 +18,10 @@
 #include <NetworkHandler.h>
 #include <dsmcbe_ppu.h>
 #include <debug.h>
+#include <dsmcbe_initializers.h>
+#include <stdlib.h>
 
-extern unsigned int net_remote_hosts;
+extern unsigned int dsmcbe_net_remote_hosts;
 static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
 OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number = OBJECT_TABLE_RESERVED;
@@ -27,13 +29,13 @@ static int dsmcbe_display_network_startup_value = 0;
 
 void dsmcbe_display_network_startup(int value) { dsmcbe_display_network_startup_value = value; }
 
-void* ppu_pthread_function(void* arg) {
+void* dsmcbe_ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
 	unsigned int entry = SPE_DEFAULT_ENTRY;
 	ctx = *((spe_context_ptr_t *)arg);
 	
 	//printf(WHERESTR "Starting SPU\n", WHEREARG);
-	if (spe_context_run(ctx, &entry, 0, dsmcbe_host_number, NULL, NULL) < 0)
+	if (spe_context_run(ctx, &entry, 0, (void*)((int)dsmcbe_host_number), NULL, NULL) < 0)
 	{
 		REPORT_ERROR("Failed running context");
 		return NULL;
@@ -69,7 +71,7 @@ void itoa(int n, char s[])
     reverse(s);
 } 
 
-void updateNetworkFile(char* path, unsigned int networkcount)
+void dsmcbe_ppu_updateNetworkFile(char* path, unsigned int networkcount)
 {
 	return;
 	
@@ -128,12 +130,12 @@ void updateNetworkFile(char* path, unsigned int networkcount)
 	
 }
 
-int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
+int* dsmcbe_ppu_initializeNetwork(unsigned int id, char* path, unsigned int* count)
 {
 	FILE* filesource;
 	struct sockaddr_in* network;
-	//TODO: Do not hardcode a limit of 20 machines :)	
-	network = MALLOC(sizeof(struct sockaddr_in) * 20);
+	//TODO: Do not hardcode a limit of 100 machines :)
+	network = MALLOC(sizeof(struct sockaddr_in) * 100);
 	
 	struct sockaddr_in addr;
 	unsigned int port;
@@ -225,7 +227,7 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 			}
 		}
 		
-		updateNetworkFile(path, networkcount);
+		dsmcbe_ppu_updateNetworkFile(path, networkcount);
 
 	} else if (id < networkcount){
 		if (dsmcbe_display_network_startup_value)
@@ -252,9 +254,6 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 		if (dsmcbe_display_network_startup_value)
 			printf(WHERESTR "This machine listens on port: %i\n", WHEREARG, network[id].sin_port);
 
-		/*printf(WHERESTR "All done, bailing: %i\n", WHEREARG, network[id].sin_port);
-		exit(2);*/
-		
 		//We set the backlog to the number of machines
 		if(listen(sockfd[id], networkcount) == -1)
 		{
@@ -307,9 +306,8 @@ int* initializeNetwork(unsigned int id, char* path, unsigned int* count)
 	return sockfd;
 }
 
-pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_count)
+pthread_t* dsmcbe_simpleInitialize(unsigned int id, char* path, unsigned int thread_count)
 {
-	//fbminit();
 	size_t i;
 	spe_context_ptr_t* spe_ids;
 	pthread_t* spu_threads;
@@ -319,10 +317,11 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	spe_program_handle_t* program;
 #endif		
 
-	// Make GLIB thread safe - way is this not default behavior
+	// Make GLIB thread safe - this is not default behavior
 	if (!g_thread_supported ())
 		g_thread_init (NULL);
-	else
+
+	if (!g_thread_supported ())
 		printf(WHERESTR "Warning: GLIB is not THREAD SAFE!!\n", WHEREARG);
 
 	const gchar* version = NULL;
@@ -337,7 +336,7 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 
  	if (path != NULL) {
 		dsmcbe_host_number = id;
-		sockets = initializeNetwork(id, path, &socketsCount);
+		sockets = dsmcbe_ppu_initializeNetwork(id, path, &socketsCount);
 	} else
 		dsmcbe_host_number = 0;
 		
@@ -379,7 +378,7 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	
 			//printf(WHERESTR "Starting SPU thread\n", WHEREARG);
 			// Create thread for each SPE context
-			if (pthread_create (&spu_threads[i], NULL,	&ppu_pthread_function, &spe_ids[i])) 
+			if (pthread_create (&spu_threads[i], NULL,	&dsmcbe_ppu_pthread_function, &spe_ids[i]))
 			{
 				perror ("Failed creating thread");
 				return NULL;
@@ -400,47 +399,47 @@ pthread_t* simpleInitialize(unsigned int id, char* path, unsigned int thread_cou
 	
 	//printf(WHERESTR "Calling initialize\n", WHEREARG);
 
-	initialize(spe_ids, thread_count, sockets, socketsCount);
+	dsmcbe_initialize(spe_ids, thread_count, sockets, socketsCount);
 	
 	return spu_threads;
 }
 
-void initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sockets, unsigned int socketsCount)
+void dsmcbe_initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sockets, unsigned int socketsCount)
 {
 	//The coordinator needs this
-	net_remote_hosts = socketsCount;
+	dsmcbe_net_remote_hosts = socketsCount;
 	
 	//printf(WHERESTR "Calling Initialize Coordinator\n", WHEREARG);
-	InitializeCoordinator();
+	dsmcbe_rc_initialize();
 	//printf(WHERESTR "Calling Initialize Network\n", WHEREARG);
-	InitializeNetworkHandler(sockets, socketsCount);
+	dsmcbe_net_initialize(sockets, socketsCount);
 	//printf(WHERESTR "Calling Initialize PPU\n", WHEREARG);
-	InitializePPUHandler();
+	dsmcbe_ppu_initialize();
 	//printf(WHERESTR "Calling Initialize SPU\n", WHEREARG);
-	InitializeSPUHandler(threads, thread_count);	
+	dsmcbe_spu_initialize(threads, thread_count);
 	//printf(WHERESTR "Done Initialize\n", WHEREARG);
 }
 
-void* create(GUID id, unsigned long size){
-	return threadCreate(id, size);
+void* dsmcbe_create(GUID id, unsigned long size){
+	return dsmcbe_ppu_create(id, size);
 }
 
-void* acquire(GUID id, unsigned long* size, int type){
-	return threadAcquire(id, size, type);	
+void* dsmcbe_acquire(GUID id, unsigned long* size, int type){
+	return dsmcbe_ppu_acquire(id, size, type);
 }
 
-void release(void* data){
-	threadRelease(data);
+void dsmcbe_release(void* data){
+	dsmcbe_ppu_release(data);
 }
 
-void acquireBarrier(GUID id)
+void dsmcbe_acquireBarrier(GUID id)
 {
-	threadAcquireBarrier(id);
+	dsmcbe_ppu_acquireBarrier(id);
 }
 
-void createBarrier(GUID id, unsigned int count)
+void dsmcbe_createBarrier(GUID id, unsigned int count)
 {
-	unsigned int* tmp = create(id, sizeof(unsigned int) * 2);
+	unsigned int* tmp = dsmcbe_create(id, sizeof(unsigned int) * 2);
 	if (tmp == NULL)
 	{
 		REPORT_ERROR("Failed to create barrier");
@@ -449,5 +448,11 @@ void createBarrier(GUID id, unsigned int count)
 	
 	tmp[0] = count;
 	tmp[1] = 0;
-	release(tmp);
+	dsmcbe_release(tmp);
+}
+
+
+void dsmcbe_terminate()
+{
+	//TODO: Implement this!
 }

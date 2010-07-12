@@ -12,10 +12,10 @@ typedef unsigned int GUID;
 #define OBJECT_TABLE_ENTRY_TYPE unsigned char
 #define OBJECT_TABLE_RESERVED 255
  
-extern void* create(GUID id, unsigned long size);
-extern void* acquire(GUID id, unsigned long* size, int type);
-extern void release(void* data);
-extern void createBarrier(GUID id, unsigned int count);
-extern void acquireBarrier(GUID id);
+extern void* dsmcbe_create(GUID id, unsigned long size);
+extern void* dsmcbe_acquire(GUID id, unsigned long* size, int type);
+extern void dsmcbe_release(void* data);
+extern void dsmcbe_createBarrier(GUID id, unsigned int count);
+extern void dsmcbe_acquireBarrier(GUID id);
 
 #endif /*DSMCBE_H_*/

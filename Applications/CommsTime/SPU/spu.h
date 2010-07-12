@@ -2,6 +2,7 @@
 #define DSMCBE_SPU_LOCAL_H_
 
 #include <dsmcbe_spu.h>
+#include <dsmcbe_csp.h>
 #include <stdio.h>
 #include <spu_intrinsics.h>
 #include <malloc_align.h>
