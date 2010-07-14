@@ -13,7 +13,7 @@
 #include <malloc_align.h>
 #include <free_align.h>
 #include <pthread.h>
-#include <dsmcbe_ppu_csp.h>
+#include <PPUEventHandler_CSP.h>
 #include <stdlib.h>
 
 //This module uses this function from PPUEventHandler.c
