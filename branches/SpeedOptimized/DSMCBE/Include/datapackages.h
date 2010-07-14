@@ -1,6 +1,6 @@
 /*
  * 
- * This file contains definitions for all the avalible
+ * This file contains definitions for all the available
  * transferable data packages in DSMCBE
  * 
  */
@@ -9,6 +9,7 @@
 #define DATAPACKAGES_H_
 
 #include "dsmcbe.h"
+#include <pthread.h>
 
 #define ACQUIRE_MODE_CREATE (ACQUIRE_MODE_WRITE + 2)
 #define ACQUIRE_MODE_BLOCKED (ACQUIRE_MODE_CREATE + 1)
@@ -53,7 +54,7 @@
 #define PACKAGE_CSP_CHANNEL_POISONED_RESPONSE 58
 #define PACKAGE_CSP_CHANNEL_SKIP_RESPONSE 59
 
-#define PACKAGE_MALLOC_REQUEST 60
+#define PACKAGE_FREE_REQUEST 60
 #define PACKAGE_TRANSFER_REQUEST 61
 
 #define PACKAGE_DMA_COMPLETE 70
@@ -82,6 +83,8 @@
  * Any following fields are package specific
  *
  */
+
+struct dsmcbe_QueueableItemStruct;
 
 struct dsmcbe_createRequest
 {
@@ -321,6 +324,8 @@ struct dsmcbe_cspChannelReadResponse
 	unsigned int originalRecipient;
 	unsigned int originalRequestID;
 
+	struct dsmcbe_QueueableItemStruct* transferManager;
+
 	unsigned int onSPE;
 	unsigned long size;
 	void* data;
@@ -335,6 +340,8 @@ struct dsmcbe_cspChannelWriteRequest
     unsigned int originator;
 	unsigned int originalRecipient;
 	unsigned int originalRequestID;
+
+	struct dsmcbe_QueueableItemStruct* transferManager;
 
 	//These are set if the request is an ALT request
 	unsigned int mode;
@@ -379,6 +386,27 @@ struct dsmcbe_cspChannelSkipResponse
 	unsigned int originalRequestID;
 };
 
+struct dsmcbe_freeRequest
+{
+    unsigned int packageCode; // = 60
+    unsigned int requestID;
+    GUID dataItem;
+
+    void* data;
+};
+
+struct dsmcbe_transferRequest
+{
+    unsigned int packageCode; // = 61
+    unsigned int requestID;
+    GUID dataItem;
+
+    unsigned int isTransfered;
+    void* mutex;
+    void* cond;
+    void* data;
+};
+
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
@@ -389,7 +417,7 @@ struct dsmcbe_cspChannelSkipResponse
 //# define MAX_PACKAGE_SIZE _DSMCBE_MACRO_RECURSIVE_SIZE(50)
 */
 
-//This is divided into two because GCC uses +2gb mem if it is written as one line...
+//This is divided into 3 because GCC uses +2gb mem if it is written as one line...
 #define MAX_PACKAGE_SIZE_A \
 	MAX(sizeof(struct dsmcbe_createRequest), \
 	MAX(sizeof(struct dsmcbe_acquireRequest), \
@@ -417,8 +445,12 @@ struct dsmcbe_cspChannelSkipResponse
 	MAX(sizeof(struct dsmcbe_cspChannelPoisonedResponse), \
 	MAX(sizeof(struct dsmcbe_cspChannelSkipResponse), \
 		0))))))))))))
+#define MAX_PACKAGE_SIZE_C \
+		MAX(sizeof(struct dsmcbe_transferRequest), \
+		MAX(sizeof(struct dsmcbe_freeRequest), \
+			0))
 
-#define MAX_PACKAGE_SIZE MAX(MAX_PACKAGE_SIZE_A, MAX_PACKAGE_SIZE_B)
+#define MAX_PACKAGE_SIZE MAX(MAX(MAX_PACKAGE_SIZE_A, MAX_PACKAGE_SIZE_B), MAX_PACKAGE_SIZE_C)
 
 #define MAX_PACKAGE_ID 100
 
@@ -447,7 +479,9 @@ struct dsmcbe_cspChannelSkipResponse
 		( x == PACKAGE_CSP_CHANNEL_WRITE_REQUEST ? sizeof(struct dsmcbe_cspChannelWriteRequest) : \
 		( x == PACKAGE_CSP_CHANNEL_WRITE_RESPONSE ? sizeof(struct dsmcbe_cspChannelWriteResponse) : \
 		( x == PACKAGE_CSP_CHANNEL_SKIP_RESPONSE ? sizeof(struct dsmcbe_cspChannelSkipResponse) : \
-				0))))) ))))) ))))) ))))) )))))
+		( x == PACKAGE_TRANSFER_REQUEST ? sizeof(struct dsmcbe_transferRequest) : \
+		( x == PACKAGE_FREE_REQUEST ? sizeof(struct dsmcbe_freeRequest) : \
+				0))))) ))))) ))))) ))))) ))))) ))
 
 struct packageBuffer
 {

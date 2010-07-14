@@ -15,4 +15,6 @@
 
 #define REPETITIONS 10000
 
+#define DATA_BLOCK_SIZE (1024 * 64)
+
 #endif /* COMMSTIME_GUIDS_H_ */

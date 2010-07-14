@@ -20,6 +20,10 @@ unsigned int doPrint = FALSE;
 //Indicate if Events should be used instead of the great spinning lock.
 //#define USE_EVENTS
 
+//When testing for thread race conditions, activate this flag to
+// prevent the intentional race conditions
+//#define NO_DIRTY_READS
+
 //The default number of hardware threads used for spinning
 #define DEFAULT_PPU_THREAD_COUNT 1
 
@@ -41,10 +45,6 @@ unsigned int doPrint = FALSE;
 
 //This number is the max number of bytes the PPU can transfer without contacting the SPU
 #define SPE_DMA_MAX_TRANSFERSIZE (16 * 1024)
-
-//This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
-//Set to zero to disable alternate transfer methods
-#define SPE_DMA_MIN_TRANSFERSIZE (32)
 
 //unsigned int spu_dma_seq_no;
 #define DMA_SEQ_NO state->dmaSeqNo
@@ -132,6 +132,7 @@ struct dsmcbe_spu_pendingRequest* dsmcbe_spu_new_PendingRequest(struct dsmcbe_sp
 	preq->DMAcount = DMAcount;
 	preq->isCSP = isCSP;
 	preq->channelPointer = NULL;
+	preq->transferHandler = NULL;
 
 	return preq;
 }
@@ -145,6 +146,7 @@ void dsmcbe_spu_free_PendingRequest(struct dsmcbe_spu_pendingRequest* preq)
 	preq->DMAcount = UINT_MAX;
 	preq->isCSP = UINT_MAX;
 	preq->channelPointer = NULL;
+	preq->transferHandler = NULL;
 }
 
 struct dsmcbe_spu_pendingRequest* dsmcbe_spu_FindPendingRequest(struct dsmcbe_spu_state* state, unsigned int requestId)
@@ -1052,6 +1054,20 @@ void dsmcbe_spu_HandleObjectRelease(struct dsmcbe_spu_state* state, struct dsmcb
 		}
 }
 
+//This function responds to the requester when a transfer has completed
+void dsmcbe_spu_HandleTransferRequestCompleted(struct dsmcbe_transferRequest* req, void* ea)
+{
+	pthread_mutex_lock((pthread_mutex_t*)req->mutex);
+
+	req->data = ea;
+	req->isTransfered = TRUE;
+
+	pthread_cond_signal((pthread_cond_t*)req->cond);
+
+	pthread_mutex_unlock((pthread_mutex_t*)req->mutex);
+}
+
+
 //This function handles completed DMA transfers
 void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsigned int groupID)
 {
@@ -1084,90 +1100,136 @@ void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsig
 	printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, count: %d, DMAId: %d\n", WHEREARG, groupID, preq->DMAcount, obj->DMAId);
 #endif
 
-	
-	//If the transfer was from PPU to SPU, we can now give the pointer to the SPU
-	if (preq->operation != PACKAGE_RELEASE_REQUEST && preq->operation != PACKAGE_CSP_CHANNEL_WRITE_REQUEST && preq->operation != PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST)
+	if (preq->DMAcount == 0)
 	{
-		if (preq->DMAcount != 0)
-			return;
-			
 #ifdef DEBUG_COMMUNICATION	
-		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying SPU\n", WHEREARG, groupID, preq->objId);
+		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying %s\n", WHEREARG, groupID, preq->objId, obj->isDMAToSPU ? "SPU" : "RC");
 #endif
-		
-		if (preq->isCSP)
+
+		//If the transfer was from PPU to SPU, we can now give the pointer to the SPU
+		if (
+				preq->operation != PACKAGE_RELEASE_REQUEST &&
+				preq->operation != PACKAGE_CSP_CHANNEL_WRITE_REQUEST &&
+				preq->operation != PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST &&
+				preq->operation != PACKAGE_TRANSFER_REQUEST
+				)
 		{
-			if (preq->operation == PACKAGE_CSP_CHANNEL_READ_REQUEST)
+			if (preq->DMAcount != 0)
+				return;
+
+			if (preq->isCSP)
 			{
-				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_CSP_CHANNEL_READ_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
-			}
-			else if (preq->operation == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST)
-			{
-				if (preq->channelPointer != NULL)
-					*((unsigned int*)preq->channelPointer) = preq->objId;
-				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
+				if (preq->operation == PACKAGE_CSP_CHANNEL_READ_REQUEST || preq->operation == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST)
+				{
+					if (preq->transferHandler != NULL)
+					{
+						QueueableItem q = (QueueableItem)preq->transferHandler;
+						preq->transferHandler = NULL;
+
+						struct dsmcbe_freeRequest* freeReq = dsmcbe_new_freeRequest(obj->EA);
+						//Important: Do not free EA as it is in fact an LS address, and has not been malloc'ed
+						obj->EA = NULL;
+
+						dsmcbe_rc_SendMessage(q, freeReq);
+					}
+
+					if (preq->operation == PACKAGE_CSP_CHANNEL_READ_REQUEST)
+					{
+						dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_CSP_CHANNEL_READ_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
+					}
+					else if (preq->operation == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST)
+					{
+						if (preq->channelPointer != NULL)
+							*((unsigned int*)preq->channelPointer) = preq->objId;
+						dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
+					}
+				}
+				else
+				{
+					REPORT_ERROR2("Unexpected csp package code %d", preq->operation);
+				}
 			}
 			else
 			{
-				REPORT_ERROR2("Unexpected csp package code %d", preq->operation);
+				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_ACQUIRE_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
 			}
-		}
-		else
-		{
-			dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_ACQUIRE_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
-		}
-
-		obj->preq = NULL;
-		dsmcbe_spu_free_PendingRequest(preq);
-		preq = NULL;
-
-	}
-	else if(preq->DMAcount == 0)
-	{
-		//Data is transfered from SPU LS to EA, now notify the request coordinator
-#ifdef DEBUG_COMMUNICATION	
-		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying RC\n", WHEREARG, groupID, preq->objId);
-#endif
-		//__asm__ __volatile__("lwsync" : : : "memory");
-		
-		if (preq->isCSP)
-		{
-			if (preq->operation == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST)
-			{
-				//We already have the required struct created, so just forward it
-				dsmcbe_spu_SendRequestCoordinatorMessage(state, preq->channelPointer);
-				preq->channelPointer = NULL;
-			}
-			else if (preq->operation == PACKAGE_CSP_CHANNEL_WRITE_REQUEST)
-			{
-				//Create the request and forward it
-				struct dsmcbe_cspChannelWriteRequest* req;
-				if (dsmcbe_new_cspChannelWriteRequest_single(&req, preq->objId, preq->requestId, obj->EA, obj->size, TRUE) != CSP_CALL_SUCCESS)
-					exit(-1);
-
-				dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
-			}
-			else
-			{
-				REPORT_ERROR2("Unexpected csp package code %d", preq->operation);
-			}
-		}
-		else
-		{
-			struct dsmcbe_releaseRequest* req = dsmcbe_new_releaseRequest(obj->id, preq->requestId, ACQUIRE_MODE_WRITE, obj->size, 0, obj->EA);
-
-			dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
 
 			obj->preq = NULL;
 			dsmcbe_spu_free_PendingRequest(preq);
-			if (obj == NULL || obj->count == 0)
+			preq = NULL;
+
+		}
+		else
+		{
+			//Data is transfered from SPU LS to EA, now notify the request coordinator
+			//__asm__ __volatile__("lwsync" : : : "memory");
+
+			if (preq->isCSP)
 			{
-				REPORT_ERROR("Release was completed, but the object was not acquired?");
-				return;
+
+#ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
+				if (preq->operation == PACKAGE_TRANSFER_REQUEST)
+				{
+					dsmcbe_spu_memory_free(state->map, obj->LS);
+					g_hash_table_remove(state->csp_items, obj->LS);
+					dsmcbe_spu_HandleTransferRequestCompleted((struct dsmcbe_transferRequest*)preq->transferHandler, obj->EA);
+					dsmcbe_spu_free_PendingRequest(preq);
+					obj->preq = NULL;
+					FREE(obj);
+					obj = NULL;
+				}
+#else
+				if (preq->operation == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST)
+				{
+
+					//We already have the required struct created, so just forward it
+					dsmcbe_spu_SendRequestCoordinatorMessage(state, preq->channelPointer);
+					preq->channelPointer = NULL;
+				}
+				else if (preq->operation == PACKAGE_CSP_CHANNEL_WRITE_REQUEST)
+				{
+					//Create the request and forward it
+					struct dsmcbe_cspChannelWriteRequest* req;
+					if (dsmcbe_new_cspChannelWriteRequest_single(&req, preq->objId, preq->requestId, obj->EA, obj->size, FALSE, NULL) != CSP_CALL_SUCCESS)
+						exit(-1);
+
+					dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
+				}
+#endif
+				else
+				{
+					REPORT_ERROR2("Unexpected csp package code %d", preq->operation);
+				}
 			}
-			dsmcbe_spu_HandleObjectRelease(state, obj);
+			else
+			{
+				struct dsmcbe_releaseRequest* req = dsmcbe_new_releaseRequest(obj->id, preq->requestId, ACQUIRE_MODE_WRITE, obj->size, 0, obj->EA);
+
+				dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
+
+				obj->preq = NULL;
+				dsmcbe_spu_free_PendingRequest(preq);
+				if (obj == NULL || obj->count == 0)
+				{
+					REPORT_ERROR("Release was completed, but the object was not acquired?");
+					return;
+				}
+				dsmcbe_spu_HandleObjectRelease(state, obj);
+			}
 		}
 	}
+}
+
+QueueableItem dsmcbe_spu_createTransferManager(struct dsmcbe_spu_state* state)
+{
+#ifdef USE_EVENTS
+	#define RQ_EVENT &state->inCond
+#else
+	#define RQ_EVENT NULL
+#endif
+	return dsmcbe_rc_new_QueueableItem(&state->inMutex, RQ_EVENT, &state->inQueue, NULL, NULL);
+#undef RQ_EVENT
+
 }
 
 //This function handles incoming barrier responses from the request coordinator
@@ -1218,6 +1280,58 @@ void dsmcbe_spu_HandleInvalidateRequest(struct dsmcbe_spu_state* state, unsigned
 		else
 			REPORT_ERROR2("The Invalidate was for %d in NON read mode or obj->count was NOT 0", obj->id);
 	}
+}
+
+void dsmcbe_spu_HandleFreeRequest(struct dsmcbe_spu_state* state, void* package)
+{
+	struct dsmcbe_freeRequest* req = (struct dsmcbe_freeRequest*)package;
+	void* ls = req->data - (unsigned int)spe_ls_area_get(state->context);
+	struct dsmcbe_spu_dataObject* obj = (struct dsmcbe_spu_dataObject*)g_hash_table_lookup(state->csp_items, ls);
+	if (obj == NULL) {
+		REPORT_ERROR2("Got an unmatched free request for item @ %d", (unsigned int)req->data);
+	}
+	else
+	{
+		g_hash_table_remove(state->csp_items, ls);
+		if (obj->LS != NULL)
+			dsmcbe_spu_memory_free(state->map, obj->LS);
+		if (obj->EA != NULL)
+			FREE_ALIGN(obj->EA);
+
+		obj->LS = NULL;
+		obj->EA = NULL;
+
+		FREE(obj);
+	}
+}
+
+void dsmcbe_spu_HandleTransferRequest(struct dsmcbe_spu_state* state, void* package)
+{
+	struct dsmcbe_transferRequest* req = (struct dsmcbe_transferRequest*)package;
+
+	struct dsmcbe_spu_dataObject* obj = (struct dsmcbe_spu_dataObject*)g_hash_table_lookup(state->csp_items, req->data - (unsigned int)spe_ls_area_get(state->context));
+	if (obj == NULL)
+	{
+		REPORT_ERROR2("Got an unmatched transfer request for item @ %d", (unsigned int)req->data);
+		exit(-1);
+	}
+
+	if (obj->LS == NULL)
+	{
+		dsmcbe_spu_HandleTransferRequestCompleted(req, obj->EA);
+		return;
+	}
+
+	if (obj->EA == NULL)
+		obj->EA = MALLOC_ALIGN(obj->size, 7);
+
+	obj->isDMAToSPU = FALSE;
+	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_new_PendingRequest(state, 0, req->packageCode, 0, obj, 0, TRUE);
+	obj->preq = preq;
+
+	preq->transferHandler = req;
+
+	dsmcbe_spu_TransferObject(state, preq, obj);
 }
 
 void dsmcbe_spu_PrintDebugStatus(struct dsmcbe_spu_state* state, unsigned int requestId)
@@ -1764,6 +1878,14 @@ void dsmcbe_spu_HandleMessagesFromQueue(struct dsmcbe_spu_state* state, void* pa
 		case PACKAGE_NACK:
 			dsmcbe_spu_csp_HandleChannelPoisonNACKorSkipResponse(state, package);
 			break;
+
+		case PACKAGE_TRANSFER_REQUEST:
+			dsmcbe_spu_HandleTransferRequest(state, package);
+			package = NULL;
+			break;
+		case PACKAGE_FREE_REQUEST:
+			dsmcbe_spu_HandleFreeRequest(state, package);
+			break;
 		default:
 
 			//KS: WTF? The structs are not even comparable....
@@ -1812,9 +1934,10 @@ void* dsmcbe_spu_mainthreadSpinning(void* threadranges)
 				//Case 2: The item is non-zero, but no items are in queue
 				//    -> The lock below prevents reading an empty queue
 
+#ifndef NO_DIRTY_READS
 				if (state->inQueue->length == 0)
 					break;
-
+#endif
 				pthread_mutex_lock(&state->inMutex);
 				//Returns NULL if the queue is empty
 				resp = g_queue_pop_head(state->inQueue);

@@ -11,15 +11,13 @@
  *  After this writer needs to free the pointer
  *
  * Scenario 3, reader is SPU, writer is PPU
- *  Reader needs to allocate space and transfer data
+ * Simple, reader needs to allocate space and transfer data
  *
  * Scenario 4, reader is PPU, writer is SPU
- *   Reader needs to allocate space
- *   Writer needs to transfer data, and free the pointer, then notify the reader
+ *   Writer needs to transfer data, then notify the reader
  *
  * To handle these scenarios correctly, the PACKAGE_READ_RESPONSE has a flag indicating
  * if the data is located on the SPU.
- *
  *
  */
 
@@ -206,20 +204,30 @@ void dsmcbe_spu_csp_HandleChannelReadRequestAlt(struct dsmcbe_spu_state* state, 
 
 
 //This function handles incoming create channel responses from the request coordinator
-void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, void* resp)
+void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, void* package)
 {
-	unsigned int requestId = ((struct dsmcbe_cspChannelReadResponse*)resp)->requestID;
+	struct dsmcbe_cspChannelReadResponse* resp = (struct dsmcbe_cspChannelReadResponse*)package;
+	unsigned int requestId = resp->requestID;
 
-	if (((struct dsmcbe_cspChannelReadResponse*)resp)->packageCode != PACKAGE_CSP_CHANNEL_READ_RESPONSE)
+	if (resp->packageCode != PACKAGE_CSP_CHANNEL_READ_RESPONSE)
 	{
 		REPORT_ERROR("Got invalid packageCode for readResponse");
 	}
 
 	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_FindPendingRequest(state, requestId);
-	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(((struct dsmcbe_cspChannelReadResponse*)resp)->channelId, TRUE, 0, 0, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->data, NULL, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->size, TRUE, TRUE, preq);
+	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(resp->channelId, TRUE, 0, 0, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->data, NULL, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->size, TRUE, TRUE, preq);
 
 	preq->dataObj = obj;
-	preq->objId = ((struct dsmcbe_cspChannelReadResponse*)resp)->channelId;
+	preq->objId = resp->channelId;
+	if (resp->onSPE)
+	{
+		preq->transferHandler = resp->transferManager;
+	}
+	else if (resp->transferManager != NULL)
+	{
+		FREE(resp->transferManager);
+		resp->transferManager = NULL;
+	}
 
 	obj->LS = dsmcbe_spu_csp_attempt_get_pointer(state, preq, obj->size);
 
@@ -241,6 +249,8 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 		return;
 	}
 
+#ifdef SPE_CSP_CHANNEL_EAGER_TRANSFER
+
 	if (obj->EA == NULL)
 		obj->EA = MALLOC_ALIGN(obj->size, 7);
 
@@ -251,6 +261,20 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 	obj->isDMAToSPU = FALSE;
 
 	dsmcbe_spu_TransferObject(state, preq, obj);
+
+#else
+
+	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_WRITE_REQUEST);
+
+	struct dsmcbe_cspChannelWriteRequest* req;
+	if(dsmcbe_new_cspChannelWriteRequest_single(&req, id, requestId, spe_ls_area_get(state->context) + (unsigned int)obj->LS, obj->size, TRUE, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
+		exit(-1);
+
+	preq->transferHandler = req->transferManager;
+
+	dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
+
+#endif
 }
 
 //This function handles incoming channel write requests from an SPU
@@ -266,7 +290,8 @@ void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state,
 		return;
 	}
 
-	//Record the ongoing request
+#ifdef SPE_CSP_CHANNEL_EAGER_TRANSFER
+
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST);
 	preq->dataObj = obj;
 	obj->preq = preq;
@@ -275,10 +300,25 @@ void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state,
 	if (obj->EA == NULL)
 		obj->EA = MALLOC_ALIGN(obj->size, 7);
 
-	if (dsmcbe_new_cspChannelWriteRequest_multiple((struct dsmcbe_cspChannelWriteRequest**)&(preq->channelPointer), requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, obj->EA, TRUE) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelWriteRequest_multiple((struct dsmcbe_cspChannelWriteRequest**)&(preq->channelPointer), requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, obj->EA, FALSE, NULL) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	dsmcbe_spu_TransferObject(state, preq, obj);
+
+#else
+
+	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST);
+
+	struct dsmcbe_cspChannelWriteRequest* req;
+	if (dsmcbe_new_cspChannelWriteRequest_multiple(&req, requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, spe_ls_area_get(state->context) + (unsigned int)obj->LS, TRUE, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
+		exit(-1);
+
+	preq->transferHandler = req->transferManager;
+
+	dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
+
+#endif
+
 }
 
 //This function handles incoming create channel responses from the request coordinator
@@ -294,19 +334,19 @@ void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, v
 		return;
 	}
 
-	if (preq->dataObj == NULL)
-	{
-		REPORT_ERROR("Got a write response, but found no data");
-	}
-
 	if (((struct dsmcbe_createRequest*)resp)->packageCode != PACKAGE_CSP_CHANNEL_WRITE_RESPONSE)
 	{
 		REPORT_ERROR("Got a write response, with invalid package code");
 	}
 
-	//Data is now delivered correctly, free the local space
-	if (preq->dataObj != NULL)
+#ifdef SPE_CSP_CHANNEL_EAGER_TRANSFER
+	if (preq->dataObj == NULL)
 	{
+		REPORT_ERROR("Got a write response, but found no data");
+	}
+	else
+	{
+		//Data is now delivered correctly, free the local space
 		if (preq->dataObj->LS != NULL)
 		{
 			g_hash_table_remove(state->csp_items, preq->dataObj->LS);
@@ -318,6 +358,7 @@ void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, v
 		FREE(preq->dataObj);
 		preq->dataObj = NULL;
 	}
+#endif
 
 	dsmcbe_spu_SendMessagesToSPU(state, preq->operation == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST ? PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE : PACKAGE_CSP_CHANNEL_WRITE_RESPONSE, requestId, ((struct dsmcbe_cspChannelWriteResponse*)resp)->channelId, 0);
 
@@ -342,16 +383,10 @@ void dsmcbe_spu_csp_HandleChannelPoisonNACKorSkipResponse(struct dsmcbe_spu_stat
 		return;
 	}
 
-	if (preq->operation == PACKAGE_CSP_CHANNEL_WRITE_REQUEST || preq->operation == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST)
+	if (preq->transferHandler != NULL && (preq->operation == PACKAGE_CSP_CHANNEL_WRITE_REQUEST || preq->operation == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST))
 	{
-		//If we get a NACK, Posion or skip here, we have not de-registered the object,
-		// so it is still in csp_items, but we don't need the EA pointer anymore,
-		// but we keep it, to avoid another malloc call
-		if (preq->dataObj != NULL && preq->dataObj->EA != NULL)
-		{
-			FREE_ALIGN(preq->dataObj->EA);
-			preq->dataObj->EA = NULL;
-		}
+		FREE(preq->transferHandler);
+		preq->transferHandler = NULL;
 	}
 
 	dsmcbe_spu_SendMessagesToSPU(state, ((struct dsmcbe_createRequest*)resp)->packageCode, requestId, 0, 0);

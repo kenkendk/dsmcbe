@@ -15,6 +15,7 @@
 #include <stdlib.h>
 
 #include <glib.h>
+#include <limits.h>
 
 struct dsmcbe_net_QueueableItemWrapper
 {
