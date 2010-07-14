@@ -366,6 +366,35 @@ void dsmcbe_rc_EnqueInvalidateResponse(GUID id, unsigned int requestNumber)
  	pthread_mutex_unlock(&dsmcbe_rc_queue_mutex);
 }
 
+//Sends the message in data to the queue supplied
+void dsmcbe_rc_SendMessage(QueueableItem item, void* data)
+{
+	if (item->mutex != NULL)
+		pthread_mutex_lock(item->mutex);
+
+	if (item->Gqueue != NULL)
+		g_queue_push_tail(*(item->Gqueue), data);
+
+	if (item->callback != NULL)
+		(*(item->callback))(item, data);
+
+	if (item->event != NULL)
+		pthread_cond_signal(item->event);
+
+	if (item->mutex != NULL)
+		pthread_mutex_unlock(item->mutex);
+
+	if (item->dataRequest != NULL)
+	{
+		FREE(item->dataRequest);
+		item->dataRequest = NULL;
+	}
+
+	FREE(item);
+	item = NULL;
+
+}
+
 //Helper method with common code for responding
 //It sets the requestID on the response, and frees the data structures
 void dsmcbe_rc_RespondAny(QueueableItem item, void* resp)
@@ -388,30 +417,15 @@ void dsmcbe_rc_RespondAny(QueueableItem item, void* resp)
 		((struct dsmcbe_acquireResponse*)resp)->originalRequestID = originalRequestID;
 	}
 
-	
 	//The actual type is not important, since the first two fields are 
 	// layed out the same way for all packages
 	((struct dsmcbe_acquireResponse*)resp)->requestID = CAST_TO_PACKAGE(item)->requestID;
 
-	if (item->mutex != NULL)
-		pthread_mutex_lock(item->mutex);
-	
-	if (item->Gqueue != NULL)
-		g_queue_push_tail(*(item->Gqueue), resp);
-		
-	if (item->callback != NULL)
-		(*(item->callback))(item, resp);
-		
-	if (item->event != NULL)
-		pthread_cond_signal(item->event);
-	
-	if (item->mutex != NULL)
-		pthread_mutex_unlock(item->mutex);
-	
-	FREE(item->dataRequest);
-	item->dataRequest = NULL;
-	FREE(item);
-	item = NULL;
+#ifdef DEBUG_PACKAGES
+	printf(WHERESTR "Responding with package %s (%d), reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(((struct dsmcbe_acquireResponse*)resp)->packageCode), ((struct dsmcbe_acquireResponse*)resp)->packageCode, ((struct dsmcbe_acquireResponse*)resp)->requestID,  ((struct dsmcbe_acquireResponse*)resp)->dataItem);
+#endif
+
+	dsmcbe_rc_SendMessage(item, resp);
 }
 
 //Responds with NACK to a request
@@ -1602,7 +1616,7 @@ void* dsmcbe_rc_ProccessWork(void* data)
 		datatype = CAST_TO_PACKAGE(item)->packageCode;
 
 #ifdef DEBUG_PACKAGES
-		printf(WHERESTR "processing type %s (%d), reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(datatype), datatype, ((struct acquireRequest*)item->dataRequest)->requestID, ((struct acquireRequest*)item->dataRequest)->dataItem);
+		printf(WHERESTR "processing type %s (%d), reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(datatype), datatype, CAST_TO_PACKAGE(item)->requestID, CAST_TO_PACKAGE(item)->dataItem);
 #endif		
 
 		handler = datatype >= MAX_PACKAGE_ID ? NULL : dsmcbe_rc_packagehandlers[datatype];

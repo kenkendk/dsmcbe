@@ -121,7 +121,7 @@ int dsmcbe_new_cspChannelReadRequest_single(struct dsmcbe_cspChannelReadRequest*
 	return CSP_CALL_SUCCESS;
 }
 
-int dsmcbe_new_cspChannelWriteRequest_multiple(struct dsmcbe_cspChannelWriteRequest** result, unsigned int requestId, unsigned int mode, GUID* channels, size_t channelcount, size_t size, void* data, unsigned int onSPE)
+int dsmcbe_new_cspChannelWriteRequest_multiple(struct dsmcbe_cspChannelWriteRequest** result, unsigned int requestId, unsigned int mode, GUID* channels, size_t channelcount, size_t size, void* data, unsigned int onSPE, QueueableItem transferManager)
 {
 	*result = (struct dsmcbe_cspChannelWriteRequest*)MALLOC(sizeof(struct dsmcbe_cspChannelWriteRequest));
 	if (*result == NULL)
@@ -141,13 +141,14 @@ int dsmcbe_new_cspChannelWriteRequest_multiple(struct dsmcbe_cspChannelWriteRequ
 	(*result)->data = data;
 	(*result)->size = size;
 	(*result)->onSPE = onSPE;
+	(*result)->transferManager = transferManager;
 
 	SETUP_ORIGINATOR(*result);
 
 	return CSP_CALL_SUCCESS;
 }
 
-int dsmcbe_new_cspChannelWriteRequest_single(struct dsmcbe_cspChannelWriteRequest** result, GUID channelid, unsigned int requestId, void* data, size_t size, unsigned int onSPE)
+int dsmcbe_new_cspChannelWriteRequest_single(struct dsmcbe_cspChannelWriteRequest** result, GUID channelid, unsigned int requestId, void* data, size_t size, unsigned int onSPE, QueueableItem transferManager)
 {
 	if (channelid == CSP_SKIP_GUARD || channelid == CSP_TIMEOUT_GUARD)
 	{
@@ -170,6 +171,7 @@ int dsmcbe_new_cspChannelWriteRequest_single(struct dsmcbe_cspChannelWriteReques
 	(*result)->data = data;
 	(*result)->size = size;
 	(*result)->onSPE = onSPE;
+	(*result)->transferManager = transferManager;
 
 	SETUP_ORIGINATOR(*result);
 
@@ -260,7 +262,7 @@ int dsmcbe_new_cspChannelSkipResponse(struct dsmcbe_cspChannelSkipResponse** res
 	return CSP_CALL_SUCCESS;
 }
 
-int dsmcbe_new_cspChannelReadResponse(struct dsmcbe_cspChannelReadResponse** result, GUID channelid, unsigned int requestId, void* data, unsigned int size, unsigned int onSPE)
+int dsmcbe_new_cspChannelReadResponse(struct dsmcbe_cspChannelReadResponse** result, GUID channelid, unsigned int requestId, void* data, unsigned int size, unsigned int onSPE, struct dsmcbe_QueueableItemStruct* transferManager)
 {
 	if (channelid == CSP_SKIP_GUARD || channelid == CSP_TIMEOUT_GUARD)
 	{
@@ -280,6 +282,7 @@ int dsmcbe_new_cspChannelReadResponse(struct dsmcbe_cspChannelReadResponse** res
 	(*result)->data = data;
 	(*result)->size = size;
 	(*result)->onSPE = onSPE;
+	(*result)->transferManager = transferManager;
 
 	SETUP_ORIGINATOR(*result);
 

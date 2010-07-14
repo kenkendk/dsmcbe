@@ -16,7 +16,7 @@
 #define CSP_CONSUME(name, channel) \
 	{ \
 		void* __csp_tmp; \
-		CSP_SAFE_CALL("reading " name, dsmcbe_csp_channel_read(channel, NULL, &__csp_tmp)); \
+		CSP_SAFE_CALL("reading " name, dsmcbe_csp_channel_read(channel, &size, &__csp_tmp)); \
 		CSP_SAFE_CALL("free'ing " name, dsmcbe_csp_item_free(__csp_tmp)); \
 	};
 
@@ -139,6 +139,7 @@ int main(int argc, char **argv)
 
 		while(1)
 		{
+			size_t size;
 			CSP_CONSUME("delta", DELTA_CHANNEL);
 
 			if (counter >= REPETITIONS)
@@ -146,7 +147,7 @@ int main(int argc, char **argv)
 				sw_stop();
 				sw_timeString(buf);
 				totalseconds += sw_getSecondsElapsed();
-				printf("CommsTime: %f usec, %d ops on %d processes's in %s.\n", (sw_getSecondsElapsed() / counter / actual_processes) * 1000000, counter, actual_processes, buf);
+				printf("CommsTime: %f usec, datasize: %d, %d ops on %d processes's in %s.\n", (sw_getSecondsElapsed() / counter / actual_processes) * 1000000, size, counter, actual_processes, buf);
 				counter = 0;
 				sw_start();
 				repcount ++;

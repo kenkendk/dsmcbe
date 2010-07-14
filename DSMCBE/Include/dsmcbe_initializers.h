@@ -6,6 +6,7 @@
  */
 
 #include <datapackages.h>
+#include <pthread.h>
 
 struct dsmcbe_createRequest* dsmcbe_new_createRequest(GUID id, unsigned int requestId, unsigned long size);
 struct dsmcbe_acquireRequest* dsmcbe_new_acquireRequest(GUID id, unsigned int requestId, unsigned int mode);
@@ -20,5 +21,7 @@ struct dsmcbe_acquireBarrierRequest* dsmcbe_new_acquireBarrierRequest(GUID id, u
 struct dsmcbe_acquireBarrierResponse* dsmcbe_new_acquireBarrierResponse(GUID id, unsigned int requestId);
 struct dsmcbe_migrationRequest* dsmcbe_new_migrationRequest(GUID id, unsigned int requestId, unsigned int targetMachine);
 struct dsmcbe_migrationResponse* dsmcbe_new_migrationResponse(GUID id, unsigned int requestId, int mode, unsigned long size, void* data);
+struct dsmcbe_transferRequest* dsmcbe_new_transferRequest(pthread_mutex_t* mutex, pthread_cond_t* cond, void* data);
+struct dsmcbe_freeRequest* dsmcbe_new_freeRequest(void* data);
 
 #endif /* DSMCBE_INITIALIZERS_H_ */

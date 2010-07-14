@@ -4,6 +4,8 @@
 
 #include <dsmcbe_csp.h>
 #include <dsmcbe_csp_initializers.h>
+#include <dsmcbe_initializers.h>
+#include <RequestCoordinator.h>
 #include <glib.h>
 #include <datapackages.h>
 #include <stdio.h>
@@ -141,7 +143,7 @@ int dsmcbe_csp_channel_write(GUID channelid, void* data)
 	pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	int res = dsmcbe_new_cspChannelWriteRequest_single(&req, channelid, 0, data, size, FALSE);
+	int res = dsmcbe_new_cspChannelWriteRequest_single(&req, channelid, 0, data, size, FALSE, NULL);
 	if (res != CSP_CALL_SUCCESS)
 		return res;
 
@@ -164,6 +166,40 @@ int dsmcbe_csp_channel_write(GUID channelid, void* data)
 	FREE(resp);
 
 	return result;
+}
+
+void dsmcbe_csp_request_spe_transfer(struct dsmcbe_cspChannelReadResponse* resp)
+{
+	//We need the SPUEventHandler to transfer the item for us
+
+	//TODO: Bad for performance to keep creating and destroying these
+	pthread_mutex_t tmpMutex;
+	pthread_cond_t tmpCond;
+
+	pthread_mutex_init(&tmpMutex, NULL);
+	pthread_cond_init(&tmpCond, NULL);
+
+	//Prepare the request
+	struct dsmcbe_transferRequest* req = dsmcbe_new_transferRequest(&tmpMutex, &tmpCond, resp->data);
+	QueueableItem q = resp->transferManager;
+	q->dataRequest = NULL;
+
+	dsmcbe_rc_SendMessage(q, req);
+
+	//Wait for response, blocking
+	pthread_mutex_lock(&tmpMutex);
+
+	while(req->isTransfered == FALSE)
+		pthread_cond_wait(&tmpCond, &tmpMutex);
+
+	resp->data = req->data;
+	pthread_mutex_unlock(&tmpMutex);
+
+	//Clean up
+	pthread_mutex_destroy(&tmpMutex);
+	pthread_cond_destroy(&tmpCond);
+
+	FREE(req);
 }
 
 int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
@@ -194,6 +230,9 @@ int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 
 	if (result == CSP_CALL_SUCCESS)
 	{
+		if (resp->onSPE)
+			dsmcbe_csp_request_spe_transfer(resp);
+
 		if (size != NULL)
 			*size = resp->size;
 		*data = resp->data;
@@ -251,7 +290,7 @@ int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t chann
 	pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	int res = dsmcbe_new_cspChannelWriteRequest_multiple(&req, 0, mode, channels, channelcount, size, data, FALSE);
+	int res = dsmcbe_new_cspChannelWriteRequest_multiple(&req, 0, mode, channels, channelcount, size, data, FALSE, NULL);
 	if (res != CSP_CALL_SUCCESS)
 		return res;
 
@@ -349,6 +388,9 @@ int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channe
 	}
 	else if (result == CSP_CALL_SUCCESS)
 	{
+		if (resp->onSPE)
+			dsmcbe_csp_request_spe_transfer(resp);
+
 		if (size != NULL)
 			*size = resp->size;
 		*data = resp->data;

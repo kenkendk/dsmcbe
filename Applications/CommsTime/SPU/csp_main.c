@@ -90,7 +90,11 @@ int csp_thread_main()
 	if (pid == 0)
 		call_result = delta2(readerChannel, DELTA_CHANNEL, writerChannel);
 	else if (pid == 1)
-		call_result = prefix(readerChannel, writerChannel, 1);
+	{
+		void* data;
+		CSP_SAFE_CALL("create prefix value", dsmcbe_csp_item_create(&data, DATA_BLOCK_SIZE));
+		call_result = prefix(readerChannel, writerChannel, data);
+	}
 	else
 		call_result = delta1(readerChannel, writerChannel);
 

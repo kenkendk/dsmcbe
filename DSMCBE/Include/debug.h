@@ -30,7 +30,7 @@
 		(x == 57 ? "CspChannelWriteResponse" : \
 		(x == 58 ? "CspChannelPoisonedResponse" : \
 		(x == 59 ? "CspChannelSkipResponse" : \
-		(x == 60 ? "MallocRequest" : \
+		(x == 60 ? "FreeRequest" : \
 		(x == 61 ? "TransferRequest" : \
 		(x == 70 ? "DMAComplete" : \
 		(x == 20 ? "SPUMallocSetup" : \

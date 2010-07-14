@@ -1,19 +1,21 @@
 #include "csp_commons.h"
 #include <dsmcbe.h>
 #include <stdlib.h>
+#include <string.h> //Defines memcpy
 
 int delta2(GUID in, GUID outA, GUID outB)
 {
 	unsigned int* inValue;
 	unsigned int* outValue;
+	size_t size;
 
 	while(1)
 	{
-		CSP_SAFE_CALL("delta2 inValue read", dsmcbe_csp_channel_read(in, NULL, (void**)&inValue));
+		CSP_SAFE_CALL("delta2 inValue read", dsmcbe_csp_channel_read(in, &size, (void**)&inValue));
 
-		CSP_SAFE_CALL("delta2 allocate memory for output", dsmcbe_csp_item_create((void**)&outValue, sizeof(int)));
+		CSP_SAFE_CALL("delta2 allocate memory for output", dsmcbe_csp_item_create((void**)&outValue, size));
 
-		*outValue = *inValue;
+		memcpy(outValue, inValue, size);
 
 		CSP_SAFE_CALL("delta2 outA write", dsmcbe_csp_channel_write(outA, inValue));
 
@@ -35,15 +37,9 @@ int delta1(GUID in, GUID out)
 	return CSP_CALL_SUCCESS;
 }
 
-int prefix(GUID in, GUID out, int value)
+int prefix(GUID in, GUID out, void* data)
 {
-	unsigned int* outValue;
-
-	CSP_SAFE_CALL("prefix create", dsmcbe_csp_item_create((void**)&outValue, sizeof(int)));
-
-	*outValue = value;
-
-	CSP_SAFE_CALL("prefix write", dsmcbe_csp_channel_write(out, outValue));
+	CSP_SAFE_CALL("prefix write", dsmcbe_csp_channel_write(out, data));
 
 	return delta1(in, out);
 }

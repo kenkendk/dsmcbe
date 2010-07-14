@@ -3,6 +3,7 @@
 	<name>dsmcbe_ppu</name>
 	<comment></comment>
 	<projects>
+		<project>dsmcbe_spu</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
@@ -31,7 +32,7 @@
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.buildLocation</key>
-					<value>${workspace_loc:/dsmcbe_ppu/ppu-gnu32-release}</value>
+					<value>${workspace_loc:/dsmcbe_ppu/ppu-gnu32-debug}</value>
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.cleanBuildTarget</key>

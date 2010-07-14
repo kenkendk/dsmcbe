@@ -137,11 +137,11 @@ void dsmcbe_rc_csp_RespondChannelWrite(QueueableItem item, GUID channelId)
 }
 
 //Sends a read notification
-void dsmcbe_rc_csp_RespondChannelRead(QueueableItem item, GUID channelId, void* data, unsigned int size, unsigned int onSPE)
+void dsmcbe_rc_csp_RespondChannelRead(QueueableItem item, GUID channelId, void* data, unsigned int size, unsigned int onSPE, QueueableItem transferManager)
 {
 	//The used field in both read and write have the same layout
 	struct dsmcbe_cspChannelReadResponse* resp;
-	if (dsmcbe_new_cspChannelReadResponse(&resp, channelId, ((struct dsmcbe_createRequest*)item->dataRequest)->requestID, data, size, onSPE) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelReadResponse(&resp, channelId, ((struct dsmcbe_createRequest*)item->dataRequest)->requestID, data, size, onSPE, transferManager) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	dsmcbe_rc_RespondAny(item, resp);
@@ -206,7 +206,7 @@ void dsmcbe_rc_csp_MatchedReaderAndWriter(cspChannel chan, QueueableItem reader,
 	}
 	else
 	{
-		dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->onSPE);
+		dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->onSPE, wrq->transferManager);
 		if (writer->Gqueue == NULL)
 		{
 			//The request is buffered, so we have already responded, just clean up
@@ -230,6 +230,7 @@ void dsmcbe_rc_csp_RespondWriteChannelWithCopy(cspChannel chan, QueueableItem it
 	// and we may need them
 	req->channels = NULL;
 	req->channelcount = 0;
+	req->transferManager = NULL;
 
 	//Respond with the copy
 	QueueableItem tmp = dsmcbe_rc_new_QueueableItem(item->mutex, item->event, item->Gqueue, req, item->callback);

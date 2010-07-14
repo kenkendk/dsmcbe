@@ -1,14 +1,24 @@
+//If this flag is set, the SPE will always transfer data to the EA when
+// writing to a channel, this will be faster if there is limited
+// spu-spu communication
+//#define SPE_CSP_CHANNEL_EAGER_TRANSFER
+
+
 #ifndef SPUEVENTHANDLER_SHARED_H_
 #define SPUEVENTHANDLER_SHARED_H_
 
 #include <glib.h>
 #include <SPU_MemoryAllocator.h>
 #include "SPUEventHandler_extrapackages.h"
-
+#include <RequestCoordinator.h>
 
 //The number of available DMA group ID's
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU!
 #define MAX_DMA_GROUPID 16
+
+//This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
+//Set to zero to disable alternate transfer methods
+#define SPE_DMA_MIN_TRANSFERSIZE (32)
 
 //This structure represents an item on the SPU
 struct dsmcbe_spu_dataObject
@@ -70,6 +80,9 @@ struct dsmcbe_spu_pendingRequest
 	//A pointer to the result channel, when used with CSP,
 	// used to communicate more than the 4 mailbox messages usually allowed
 	void* channelPointer;
+
+	//The read response transfer handler
+	void* transferHandler;
 };
 
 struct dsmcbe_spu_state
@@ -192,5 +205,7 @@ struct dsmcbe_spu_dataObject* dsmcbe_spu_new_dataObject(GUID id, unsigned int is
 struct dsmcbe_spu_pendingRequest* dsmcbe_spu_new_PendingRequest(struct dsmcbe_spu_state* state, unsigned int requestId, unsigned int operation, GUID objId, struct dsmcbe_spu_dataObject* dataObj, unsigned int DMAcount, unsigned int isCSP);
 void dsmcbe_spu_free_PendingRequest(struct dsmcbe_spu_pendingRequest* preq);
 struct dsmcbe_spu_pendingRequest* dsmcbe_spu_FindPendingRequest(struct dsmcbe_spu_state* state, unsigned int requestId);
+
+QueueableItem dsmcbe_spu_createTransferManager(struct dsmcbe_spu_state* state);
 
 #endif /* SPUEVENTHANDLER_SHARED_H_ */

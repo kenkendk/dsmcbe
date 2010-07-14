@@ -5,6 +5,7 @@
 #include <dsmcbe_initializers.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <glib.h>
 
 extern OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number;
 
@@ -225,6 +226,42 @@ struct dsmcbe_migrationResponse* dsmcbe_new_migrationResponse(GUID id, unsigned 
 	res->data = data;
 
 	SETUP_ORIGINATOR(res);
+
+	return res;
+}
+
+struct dsmcbe_transferRequest* dsmcbe_new_transferRequest(pthread_mutex_t* mutex, pthread_cond_t* cond, void* data)
+{
+	struct dsmcbe_transferRequest* res = (struct dsmcbe_transferRequest*)MALLOC(sizeof(struct dsmcbe_transferRequest));
+
+	if (res == NULL)
+		return NULL;
+
+	GUID id = 0;
+	unsigned int requestId = 0;
+	COMMON_SETUP(res, PACKAGE_TRANSFER_REQUEST);
+
+	res->mutex = mutex;
+	res->cond = cond;
+	res->data = data;
+	res->isTransfered = FALSE;
+
+	return res;
+
+}
+
+struct dsmcbe_freeRequest* dsmcbe_new_freeRequest(void* data)
+{
+	struct dsmcbe_freeRequest* res = (struct dsmcbe_freeRequest*)MALLOC(sizeof(struct dsmcbe_freeRequest));
+
+	if (res == NULL)
+		return NULL;
+
+	GUID id = 0;
+	unsigned int requestId = 0;
+	COMMON_SETUP(res, PACKAGE_FREE_REQUEST);
+
+	res->data = data;
 
 	return res;
 }

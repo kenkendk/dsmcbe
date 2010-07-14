@@ -6,6 +6,6 @@
 
 int delta2(GUID in, GUID outA, GUID outB);
 int delta1(GUID in, GUID out);
-int prefix(GUID in, GUID out, int value);
+int prefix(GUID in, GUID out, void* data);
 
 #endif /* CSP_COMMONS_H_ */

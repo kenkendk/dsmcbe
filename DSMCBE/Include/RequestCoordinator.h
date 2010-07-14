@@ -41,11 +41,14 @@ extern void dsmcbe_rc_terminate(int force);
 //Responds to an invalidate with high priority
 extern void dsmcbe_rc_EnqueInvalidateResponse(GUID id, unsigned int requestNumber);
 
-//Threads wishing to recieve invalidation notification must register/unregister with the two calls below
+//Threads wishing to receive invalidation notification must register/unregister with the two calls below
 extern void dsmcbe_rc_RegisterInvalidateSubscriber(pthread_mutex_t* mutex, pthread_cond_t* event, GQueue** q, int network);
 extern void dsmcbe_rc_UnregisterInvalidateSubscriber(GQueue** q);
 
 extern QueueableItem dsmcbe_rc_new_QueueableItem(pthread_mutex_t* mutex, pthread_cond_t* cond, GQueue** queue, void* dataRequest, dsmcbe_rc_callback callback);
+
+//Sends the message in data to the queue supplied
+extern void dsmcbe_rc_SendMessage(QueueableItem item, void* data);
 
 OBJECT_TABLE_ENTRY_TYPE dsmcbe_rc_GetMachineID(GUID id);
 
