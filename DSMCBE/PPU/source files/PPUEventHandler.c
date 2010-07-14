@@ -12,7 +12,7 @@
 #include <RequestCoordinator.h>
 #include <NetworkHandler.h>
 #include <debug.h>
-#include <dsmcbe_ppu_csp.h>
+#include <PPUEventHandler_CSP.h>
 #include <dsmcbe_initializers.h>
 #include <stdlib.h>
 
