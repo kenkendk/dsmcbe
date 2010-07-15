@@ -1,7 +1,7 @@
 #include <dsmcbe_ppu.h>
 #include <stdio.h>
 #include "../guids.h"
-#include <common/debug.h>
+#include <debug.h>
 #include <unistd.h>
 #include <libspe2.h>
 #include <stdlib.h>
@@ -40,17 +40,17 @@ int main(int argc, char **argv) {
 	printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
-	spu_threads = simpleInitialize(id, file, SPU_THREADS);
+	spu_threads = dsmcbe_simpleInitialize(id, file, SPU_THREADS);
 
 	/*printf(WHERESTR "Starting\n", WHEREARG);
-	release(create(700, 4));
+	dsmcbe_release(dsmcbe_create(700, 4));
 	printf(WHERESTR "Starting\n", WHEREARG);
 
 	for(i = 0; i < 10000000; i++)
 	{
 		if (i % 1000 == 0)
 			printf("i: %d\n", i);
-		release(acquire(700, &size, ACQUIRE_MODE_WRITE));
+		dsmcbe_release(dsmcbe_acquire(700, &size, ACQUIRE_MODE_WRITE));
 	}*/
 
 	int* data;
@@ -65,23 +65,23 @@ int main(int argc, char **argv) {
 	{
 		sleep(1);
 		printf(WHERESTR "%d: Creating\n", WHEREARG, id);
-		data = create(ETTAL, sizeof(int), CREATE_MODE_NONBLOCKING);
+		data = dsmcbe_create(ETTAL, sizeof(int));
 
 		(*data) = 928;
 		
 		printf(WHERESTR "%d: Data location is %i\n", WHEREARG, id, (unsigned int)data);
 		
 		printf(WHERESTR "%d: Releasing\n", WHEREARG, id);
-		release(data);
+		dsmcbe_release(data);
 	}
 	else
 	{
 		printf(WHERESTR "%d: Reading\n", WHEREARG, id);
-		data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
+		data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 
 		printf(WHERESTR "%d: Read: %d\n", WHEREARG, id, *data);
 		
-		release(data);
+		dsmcbe_release(data);
 
 		printf(WHERESTR "%d: Released\n", WHEREARG, id);
 	}
@@ -91,12 +91,12 @@ int main(int argc, char **argv) {
 
 	if (SPU_THREADS != 0)
 	{
-		release(acquire(LOCK_ITEM_SPU, &size, ACQUIRE_MODE_READ));
+		dsmcbe_release(dsmcbe_acquire(LOCK_ITEM_SPU, &size, ACQUIRE_MODE_READ));
 		//sleep(1);
 		
 		printf(WHERESTR "Updating data\n", WHEREARG);
 		
-		data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+		data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 		
 		*data = 210;
 		
@@ -104,31 +104,31 @@ int main(int argc, char **argv) {
 		printf(WHERESTR "Value is %i. The expected value is 210.\n", WHEREARG, *data);
 		
 		//printf(WHERESTR "Releasing, this should invalidate SPU\n", WHEREARG);
-		release(data);
+		dsmcbe_release(data);
 		
-		release(create(LOCK_ITEM_PPU, 0, CREATE_MODE_NONBLOCKING));
+		dsmcbe_release(dsmcbe_create(LOCK_ITEM_PPU, 0));
 		printf(WHERESTR "Released\n", WHEREARG);
 	
 		
 		items = 25 * 1024;
-		unsigned int* largeblock = create(LARGE_ITEM, items * sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
+		unsigned int* largeblock = dsmcbe_create(LARGE_ITEM, items * sizeof(unsigned int));
 	
 		printf(WHERESTR "Created large block at %d\n", WHEREARG, (unsigned int)largeblock);
 		for(i = 0; i < items; i++)
 			largeblock[i] = i;
 		
 		printf(WHERESTR "Releasing large block with %d items\n", WHEREARG, items);
-		release(largeblock);
+		dsmcbe_release(largeblock);
 	
 	
 		printf(WHERESTR "Creating large sequence, %d blocks of size %d\n", WHEREARG, SEQUENCE_COUNT, items * sizeof(unsigned int));
 		for(i = 0; i < SEQUENCE_COUNT; i++)
 		{
-			void* dataitem = create(LARGE_SEQUENCE + i, items * sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
+			void* dataitem = dsmcbe_create(LARGE_SEQUENCE + i, items * sizeof(unsigned int));
 			if (dataitem == NULL)
 				printf(WHERESTR "Failed to create item with ID: %d\n", WHEREARG, LARGE_SEQUENCE + i);
 			else
-				release(dataitem);
+				dsmcbe_release(dataitem);
 		}
 	
 		/*printf(WHERESTR "Creating small sequence, %d blocks of size %d\n", WHEREARG, SMALL_SEQUENCE_COUNT, sizeof(unsigned int));
@@ -146,9 +146,9 @@ int main(int argc, char **argv) {
 }*/
 		
 		printf(WHERESTR "Acquiring SPU item\n", WHEREARG);
-		data = acquire(SPUITEM, &size, ACQUIRE_MODE_WRITE);
+		data = dsmcbe_acquire(SPUITEM, &size, ACQUIRE_MODE_WRITE);
 		printf(WHERESTR "Acquired SPU item, value is %d. Expected value 4.\n", WHEREARG, (*data));
-		release(data);
+		dsmcbe_release(data);
 		printf(WHERESTR "Released SPU item\n", WHEREARG);
 		
 		/*
@@ -190,18 +190,18 @@ int main(int argc, char **argv) {
 		if (id == PAGE_TABLE_OWNER)
 		{
 			printf(WHERESTR "Reset number\n", WHEREARG);
-			data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+			data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 			*data = 0;
-			release(data);
+			dsmcbe_release(data);
 			printf(WHERESTR  "number was reset\n", WHEREARG);
 		}
 		else
 		{
 			while(previous != 0)
 			{
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				previous = *data;
-				release(data);
+				dsmcbe_release(data);
 			}				
 			printf(WHERESTR "Reset detected\n", WHEREARG);
 		}
@@ -215,16 +215,16 @@ int main(int argc, char **argv) {
 			for(i = 0; i < REPETITIONS; i++)
 			{
 				printf("i: %d\n", i);
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				*data = i;
-				release(data);
+				dsmcbe_release(data);
 			}
 		}
 		else
 		{
 			while(previous < (REPETITIONS - 1))
 			{
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				if (*data >= previous)
 				{
 					if (*data != previous)
@@ -233,7 +233,7 @@ int main(int argc, char **argv) {
 				}
 				else	
 					printf(WHERESTR "number decreased?\n", WHEREARG);
-				release(data);
+				dsmcbe_release(data);
 
 				//printf("prev: %d\n", previous);
 			}
@@ -252,10 +252,10 @@ int main(int argc, char **argv) {
 		if (id != PAGE_TABLE_OWNER)
 		{
 			printf(WHERESTR "Starting acquire\n", WHEREARG);
-			data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+			data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 			*data = 0;
 			printf(WHERESTR "data is %i\n", WHEREARG, *data);			
-			release(data);			
+			dsmcbe_release(data);
 			printf(WHERESTR "Reset number\n", WHEREARG);
 		}
 		else
@@ -263,10 +263,10 @@ int main(int argc, char **argv) {
 			while(previous != 0)
 			{
 				//printf(WHERESTR "Starting acquire\n", WHEREARG);
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);			
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				previous = *data;
 				//printf(WHERESTR "data is %i\n", WHEREARG, previous);
-				release(data);
+				dsmcbe_release(data);
 				//printf(WHERESTR "data is %i\n", WHEREARG, previous);
 
 			}				
@@ -281,16 +281,16 @@ int main(int argc, char **argv) {
 			for(i = 0; i < REPETITIONS; i++)
 			{
 				printf("i: %d\n", i);
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				*data = i;
-				release(data);
+				dsmcbe_release(data);
 			}
 		}
 		else
 		{
 			while(previous < (REPETITIONS - 1))
 			{
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				if (*data >= previous)
 				{
 					if (*data != previous)
@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
 				}
 				else	
 					printf(WHERESTR "number decreased?\n", WHEREARG);
-				release(data);
+				dsmcbe_release(data);
 			}
 		}
 		
@@ -315,10 +315,10 @@ int main(int argc, char **argv) {
 		if (id != PAGE_TABLE_OWNER)
 		{
 			printf(WHERESTR "Starting acquire\n", WHEREARG);
-			data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+			data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 			*data = 0;
 			printf(WHERESTR "data is %i\n", WHEREARG, *data);			
-			release(data);			
+			dsmcbe_release(data);
 			printf(WHERESTR "Reset number\n", WHEREARG);
 		}
 		else
@@ -326,10 +326,10 @@ int main(int argc, char **argv) {
 			while(previous != 0)
 			{
 				//printf(WHERESTR "Starting acquire\n", WHEREARG);
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_READ);			
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 				previous = *data;
 				//printf(WHERESTR "data is %i\n", WHEREARG, previous);
-				release(data);
+				dsmcbe_release(data);
 				//printf(WHERESTR "data is %i\n", WHEREARG, previous);
 
 			}				
@@ -345,16 +345,16 @@ int main(int argc, char **argv) {
 			for(i = 0; i < REPETITIONS; i++)
 			{
 				printf("i: %d\n", i);
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				while(*data % 2 == 0){
-					release(data);
-					data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+					dsmcbe_release(data);
+					data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				}
 
 				//printf(WHERESTR "ID %i: Data was %i\n", WHEREARG, id, *data);
 				*data = *data + 1;
 				previous = *data;				
-				release(data);
+				dsmcbe_release(data);
 			}
 		}
 		else
@@ -362,16 +362,16 @@ int main(int argc, char **argv) {
 			for(i = 0; i < REPETITIONS; i++)
 			{
 				printf("i: %d\n", i);
-				data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+				data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				while(*data % 2 != 0){
-					release(data);
-					data = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+					dsmcbe_release(data);
+					data = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				}
 
 				//printf(WHERESTR "ID %i: Data was %i\n", WHEREARG, id, *data);
 				*data = *data + 1;
 				previous = *data;				
-				release(data);
+				dsmcbe_release(data);
 			}
 		}
 		

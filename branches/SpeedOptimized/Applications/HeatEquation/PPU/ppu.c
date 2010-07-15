@@ -45,18 +45,18 @@ void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned i
 	for(i =0; i < rows; i++)
 	{
 		//printf(WHERESTR "Fetching work row: %d\n", WHEREARG, WORK_OFFSET + i);
-		item = acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
+		item = dsmcbe_acquire(WORK_OFFSET + i, &size, ACQUIRE_MODE_READ);
         memcpy(&data[item->line_start * map_width], &item->problem, item->heigth * map_width * sizeof(PROBLEM_DATA_TYPE));
 		if (i < sharedCount)
 		{
 			//printf(WHERESTR "Fetching shared row: %d\n", WHEREARG, SHARED_ROW_OFFSET + i);
-			temp = acquire(SHARED_ROW_OFFSET + i, &size, ACQUIRE_MODE_READ);
+			temp = dsmcbe_acquire(SHARED_ROW_OFFSET + i, &size, ACQUIRE_MODE_READ);
 			memcpy(&data[(item->line_start + item->heigth) * map_width], temp, map_width * 2 * sizeof(PROBLEM_DATA_TYPE));
-	        release(temp);
+			dsmcbe_release(temp);
 			//printf(WHERESTR "Updated from: %d, height: %d\n", WHEREARG, item->line_start + item->heigth, 2);
 		}
 
-        release(item);
+		dsmcbe_release(item);
 	}
 	
 	//sleep(1);
@@ -67,11 +67,9 @@ void UpdateMasterMap(PROBLEM_DATA_TYPE* data, unsigned int map_width, unsigned i
 //The coordinator calls this process
 void Coordinator(unsigned int spu_count)
 {
-	size_t i, j;
+	size_t i;
 	unsigned int rc;
-	PROBLEM_DATA_TYPE* temp;
 	char buf[256];
-	struct Work_Unit* send_buffer = NULL;
 	unsigned long size;
 	double deltasum;
 	
@@ -79,15 +77,14 @@ void Coordinator(unsigned int spu_count)
 	unsigned int map_height;	
 	unsigned long datasize = MEMORY_SIZE;
 
-	if (DSMCBE_MachineCount() != 0)
+	if (dsmcbe_MachineCount() != 0)
 	{
-		spu_count *= DSMCBE_MachineCount();
-		datasize *= DSMCBE_MachineCount();
+		spu_count *= dsmcbe_MachineCount();
+		datasize *= dsmcbe_MachineCount();
 	}
 	
 	map_height = datasize / (map_width * sizeof(PROBLEM_DATA_TYPE));
 
-   	unsigned int map_size = map_width * map_height;
 	double epsilon = 0.001 * (map_width - 1) * (map_height - 1);
 	unsigned int slice_height = BLOCK_SIZE / (map_width * sizeof(PROBLEM_DATA_TYPE));
 	//printf(WHERESTR "Boot and barrier done\n", WHEREARG);
@@ -96,6 +93,8 @@ void Coordinator(unsigned int spu_count)
 	PROBLEM_DATA_TYPE* data;
 	unsigned int cnt = 0;
 	double delta;
+   	unsigned int map_size = map_width * map_height;
+	size_t j;
    
 	data = (PROBLEM_DATA_TYPE*)malloc(sizeof(PROBLEM_DATA_TYPE) * map_size);
     memset(data, 0, map_size * sizeof(PROBLEM_DATA_TYPE));
@@ -135,7 +134,7 @@ void Coordinator(unsigned int spu_count)
 	
 
 	//Let all SPU's compete for a number
-	struct Assignment_Unit* boot = create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
+	struct Assignment_Unit* boot = dsmcbe_create(ASSIGNMENT_LOCK, sizeof(struct Assignment_Unit));
 	boot->map_width = map_width;
 	boot->map_height = map_height;
 	boot->spu_no = 0;
@@ -173,79 +172,19 @@ void Coordinator(unsigned int spu_count)
 
 	printf(WHERESTR "Created %d jobs, and each of the %d SPU's get %d items\n", WHEREARG, boot->maxjobs, spu_count, boot->job_count); 
 
-	release(boot);
+	dsmcbe_release(boot);
 	
 	//Set up the barrier
-	struct Barrier_Unit* barrier = create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
+	struct Barrier_Unit* barrier = dsmcbe_create(BARRIER_LOCK, sizeof(struct Barrier_Unit));
 	barrier->delta = 0;
 	barrier->lock_count = 0;
 	barrier->print_count = 0;
-	release(barrier);
+	dsmcbe_release(barrier);
 	
-	create(EX_BARRIER_1, spu_count);
-	create(EX_BARRIER_2, spu_count);
+	dsmcbe_create(EX_BARRIER_1, spu_count);
+	dsmcbe_create(EX_BARRIER_2, spu_count);
 	
-	/*
-	unsigned int rows = 0;
-	unsigned int remainingLines = map_height;
-	unsigned int lineOffset = 0;
-
-	sharedCount = 0;
-	workUnits = 0;
-
-	while(remainingLines > 0)
-	{
-		unsigned int thisHeight = MIN(slice_height, remainingLines);
-		//printf(WHERESTR "Created work %d, height: %d\n", WHEREARG, WORK_OFFSET + rows, thisHeight);
-		
-		remainingLines -= thisHeight;
-
-		send_buffer = acquire(WORK_OFFSET + rows, &size, ACQUIRE_MODE_WRITE);
-		if (size != (sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height))
-			printf(WHERESTR "Invalid size %ld vs %d, width: %d, slice: %d\n", WHEREARG, size, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height, map_width, slice_height);
-
-		if (send_buffer->block_no != rows)
-			REPORT_ERROR("Bad init");
-		if (send_buffer->buffer_size != map_width * thisHeight)
-			REPORT_ERROR("Bad init");
-		if (send_buffer->heigth != thisHeight)
-			REPORT_ERROR("Bad init");
-		if (send_buffer->line_start != lineOffset)
-			REPORT_ERROR("Bad init");
-		workUnits++;
-
-		if (memcmp(&send_buffer->problem, &data[send_buffer->line_start * map_width], send_buffer->buffer_size * sizeof(PROBLEM_DATA_TYPE)) != 0)
-			REPORT_ERROR("Bad init");
-		
-		release(send_buffer);
-		
-		lineOffset += thisHeight;
-		
-		if (remainingLines > 0)
-		{
-			//printf(WHERESTR "Creating shared row %d\n", WHEREARG, SHARED_ROW_OFFSET + rows);
-			temp = acquire(SHARED_ROW_OFFSET + rows, &size, ACQUIRE_MODE_WRITE);
-			
-			if (memcmp(temp, &data[lineOffset * map_width], sizeof(PROBLEM_DATA_TYPE) * map_width * 2) != 0)
-			{
-				//for(i = 0; i < map_width * 2; i++)
-				//	if (temp[i] != data[(lineOffset * map_width) + i])
-				//		printf("Index %d differs, %lf vs %lf\n", i, temp[i], data[(lineOffset * map_width) + i]);
-						
-				REPORT_ERROR("Bad init");
-			}
-			
-			release(temp);
-			
-			lineOffset += 2;
-			remainingLines -= 2;
-			sharedCount++;
-		}
-
-		rows++;
-	}
-	*/
-	release(create(MASTER_START_LOCK, 1));
+	dsmcbe_release(dsmcbe_create(MASTER_START_LOCK, 1));
 
 
 //Periodically update window?
@@ -310,10 +249,10 @@ void Coordinator(unsigned int spu_count)
     for(i = 0; i< spu_count; i++)
     {
 		//printf(WHERESTR "Reading results: %d\n", WHEREARG, RESULT_OFFSET + i);
-    	struct Results* results = acquire(RESULT_OFFSET + i, &size, ACQUIRE_MODE_READ);
+    	struct Results* results = dsmcbe_acquire(RESULT_OFFSET + i, &size, ACQUIRE_MODE_READ);
         deltasum += results->deltaSum;
         rc += results->rc;
-        release(results);
+        dsmcbe_release(results);
     }
 
          
@@ -408,21 +347,21 @@ int main(int argc, char* argv[])
 	}*/
 
 	//Set before initialize
-	DSMCBE_SetHardwareThreads(hardware_threads);
+	dsmcbe_SetHardwareThreads(hardware_threads);
 	
-	pthreads = simpleInitialize(machineid, filename, spu_count);
+	pthreads = dsmcbe_simpleInitialize(machineid, filename, spu_count);
 	
 	//printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
 	
 	if (machineid == 0)
 	{
 		Coordinator(spu_count);
-		release(create(MASTER_COMPLETION_LOCK, 1));
+		dsmcbe_release(dsmcbe_create(MASTER_COMPLETION_LOCK, 1));
 	}
 	else
 	{
 		unsigned long size;
-		release(acquire(MASTER_COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
+		dsmcbe_release(dsmcbe_acquire(MASTER_COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
 	}
 	
 	//printf(WHERESTR "Shutting down machine %d\n", WHEREARG, machineid);

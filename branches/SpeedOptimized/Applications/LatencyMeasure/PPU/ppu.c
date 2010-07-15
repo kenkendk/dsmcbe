@@ -167,26 +167,26 @@ int main(int argc, char* argv[])
 #ifdef DSM_MODE_SINGLE	
 	char* mode = "DSM Single";
 
-	simpleInitialize(0, NULL, 2);
+	dsmcbe_simpleInitialize(0, NULL, 2);
 	
-	release(create(OBJ_1, DATA_SIZE));
-	createBarrier(OBJ_BARRIER, 3);
+	dsmcbe_release(create(OBJ_1, DATA_SIZE));
+	dsmcbe_createBarrier(OBJ_BARRIER, 3);
 	int id = 0;
 #else
 	char* mode = "DSM";
 
 	int id = atoi(argv[1]);
-	simpleInitialize(id, "network.txt", 1);
+	dsmcbe_simpleInitialize(id, "network.txt", 1);
 
 	if (id == 0)
 	{
-		release(create(OBJ_1, DATA_SIZE, CREATE_MODE_NONBLOCKING));
-		create(OBJ_BARRIER, 4, CREATE_MODE_BARRIER);
+		dsmcbe_release(dsmcbe_create(OBJ_1, DATA_SIZE));
+		dsmcbe_createBarrier(OBJ_BARRIER, 4);
 	}
 #endif
 
 	
-	acquireBarrier(OBJ_BARRIER);
+	dsmcbe_acquireBarrier(OBJ_BARRIER);
 	
 	//This ensures that the output is on machine 0
 	if (id != 0)
@@ -199,6 +199,10 @@ int main(int argc, char* argv[])
 	sw_timeString(buf);
 	printf("Time taken for %s with size %i and count %d: %s\n", mode, DATA_SIZE, PROBLEM_SIZE, buf);
 	
+	//Remove compiler warning
+	argc = 0;
+	argv = NULL;
+
 	return 0;
 }
 

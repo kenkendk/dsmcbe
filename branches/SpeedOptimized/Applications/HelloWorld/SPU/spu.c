@@ -5,27 +5,32 @@
 
 int main(unsigned long long speid, unsigned long long argp, unsigned long long envp)
 {
-	initialize();
+	dsmcbe_initialize();
 	unsigned long size;
 	printf("SPE %llu saying Hallo World\n", speid);
 		
-	unsigned int* count = acquire(COUNT, &size, ACQUIRE_MODE_WRITE);	
+	unsigned int* count = dsmcbe_acquire(COUNT, &size, ACQUIRE_MODE_WRITE);
 	*count = *count - 1;
 	printf("SPE %llu saying COUNT is %u\n", speid, *count);
-	release(count);
+	dsmcbe_release(count);
 	
 	while(1)
 	{
-		count = acquire(COUNT, &size, ACQUIRE_MODE_READ);
+		count = dsmcbe_acquire(COUNT, &size, ACQUIRE_MODE_READ);
 		if (*count == 0)
 		{
-			release(count);
+			dsmcbe_release(count);
 			break;			
 		}
-		release(count);
+		dsmcbe_release(count);
 	}
 	
 	printf("SPE %llu saying Goodbye\n", speid);
-	terminate();
+	dsmcbe_terminate();
+
+	//Remove compiler warning
+	argp = 0;
+	envp = 0;
+
 	return 0;
 }

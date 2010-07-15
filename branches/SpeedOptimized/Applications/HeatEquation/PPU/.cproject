@@ -37,10 +37,8 @@
 <listOptionValue builtIn="false" value="Xv"/>
 <listOptionValue builtIn="false" value="Xxf86dga"/>
 <listOptionValue builtIn="false" value="Xxf86vm"/>
-<listOptionValue builtIn="false" value="Xxf86misc"/>
 <listOptionValue builtIn="false" value="Xau"/>
 <listOptionValue builtIn="false" value="Xdmcp"/>
-<listOptionValue builtIn="false" value="dl"/>
 <listOptionValue builtIn="false" value="pthread"/>
 <listOptionValue builtIn="false" value="spe2"/>
 <listOptionValue builtIn="false" value="m"/>

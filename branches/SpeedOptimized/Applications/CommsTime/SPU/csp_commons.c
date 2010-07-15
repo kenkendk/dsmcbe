@@ -44,3 +44,45 @@ int prefix(GUID in, GUID out, void* data)
 	return delta1(in, out);
 }
 
+int tail(GUID in, GUID out)
+{
+	//Consume the first entry
+	void* tmp;
+
+	CSP_SAFE_CALL("tail consume", dsmcbe_csp_channel_read(in, NULL, &tmp));
+
+	CSP_SAFE_CALL("tail free", dsmcbe_csp_item_free(tmp));
+
+	return delta1(in, out);
+}
+
+int combine(GUID inA, GUID inB, GUID out, void* (*combineFunc)(void*, size_t, void*, size_t))
+{
+	void *data1, *data2, *outData;
+	size_t size1, size2;
+
+	GUID channelList[2];
+	channelList[0] = inA;
+	channelList[1] = inB;
+
+	GUID selectedChannel;
+
+	while(1)
+	{
+		CSP_SAFE_CALL("combine read alt", dsmcbe_csp_channel_read_alt(CSP_ALT_MODE_PRIORITY, channelList, 2, &selectedChannel, &size1, &data1));
+		CSP_SAFE_CALL("combine read other", dsmcbe_csp_channel_read(selectedChannel == inA ? inB : inA, &size2, &data2));
+
+		if (selectedChannel == inA)
+			outData = combineFunc(data1, size1, data2, size2);
+		else
+			outData = combineFunc(data2, size2, data1, size1);
+
+		if (outData != data1)
+			CSP_SAFE_CALL("release item 1", dsmcbe_csp_item_free(data1));
+
+		if (outData != data2)
+			CSP_SAFE_CALL("release item 2", dsmcbe_csp_item_free(data2));
+
+		CSP_SAFE_CALL("combine write", dsmcbe_csp_channel_write(out, outData));
+	}
+}

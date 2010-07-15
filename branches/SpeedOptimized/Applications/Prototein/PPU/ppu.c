@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <libspe2.h>
 #include "StopWatch.h"
+#include <unistd.h>
 
 void FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count);
 

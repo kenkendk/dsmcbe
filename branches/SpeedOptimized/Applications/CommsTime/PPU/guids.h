@@ -13,8 +13,8 @@
 
 #define CHANNEL_START_GUID 1000
 
-#define REPETITIONS 10000
+#define REPETITIONS 10
 
-#define DATA_BLOCK_SIZE (1024 * 64)
+#define DATA_BLOCK_SIZE (sizeof(unsigned int))
 
 #endif /* COMMSTIME_GUIDS_H_ */
