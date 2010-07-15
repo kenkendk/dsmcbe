@@ -1,4 +1,5 @@
 #include <dsmcbe_ppu.h>
+#include <dsmcbe_csp.h>
 #include <stdio.h>
 #include "../guids.h"
 #include <debug.h>
@@ -10,7 +11,7 @@
 #include <math.h>
 #include <graphicsScreen.h>
 
-//#define GRAPHICS
+#define GRAPHICS
 
 #ifndef MAX
 #define MAX(x,y) ((x > y) ? (x) : (y))
@@ -44,7 +45,6 @@
 
 #define SIGN(x) (((x) >= 0) ? (1) : (-1))
 
-void* mallocCreate(unsigned long size);
 void InitializeBigBangParticles(unsigned int size, struct Particle* particles);
 
 int main(int argc, char **argv)
@@ -53,7 +53,6 @@ int main(int argc, char **argv)
 
 	srand(time(NULL));
 
-	unsigned long size;
     unsigned int spu_threads;
     unsigned int machineid;
     char* file;
@@ -100,16 +99,19 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-    pthread_t* threads = simpleInitialize(machineid, file, spu_threads);
+    pthread_t* threads = dsmcbe_simpleInitialize(machineid, file, spu_threads);
 
     if (machineid == 0)
     {
     	//printf("PPU is setting up data\n");
-    	processes = spu_threads * MAX(DSMCBE_MachineCount(), 1);
+    	processes = spu_threads * MAX(dsmcbe_MachineCount(), 1);
+
+    	CSP_SAFE_CALL("create simulation channel", dsmcbe_csp_channel_create(SIMULATION_SETUP, 0, CSP_CHANNEL_TYPE_ONE2ANY));
+    	CSP_SAFE_CALL("create feedback channel", dsmcbe_csp_channel_create(FEEDBACK_CHANNEL, 0, CSP_CHANNEL_TYPE_ONE2ONE));
 
     	for(i = 0; i < processes; i++)
     	{
-    		args = mallocCreate(sizeof(struct SimulationArgs));
+    		CSP_SAFE_CALL("create startup args", dsmcbe_csp_item_create((void**)&args, sizeof(struct SimulationArgs)));
     		args->ProcessId = i;
     		args->Gravity = SIMULATION_GRAVITY;
     		args->ProcessCount = processes;
@@ -122,7 +124,7 @@ int main(int argc, char **argv)
     		args->RoundCount = REPETITIONS;
     		args->UpdateFrequency = SIMULATION_UPDATE_FREQUENCY;
 
-    		put(SIMULATION_SETUP, args);
+    		CSP_SAFE_CALL("write startup args",dsmcbe_csp_channel_write(SIMULATION_SETUP, args));
     	}
 
     	//printf("PPU has sent setup packages\n");
@@ -143,14 +145,15 @@ int main(int argc, char **argv)
 
 			unsigned int elementCount = endIndex - startIndex;
 
-			void* tmp = mallocCreate((sizeof(unsigned int) * 2) + (sizeof(struct Particle) * elementCount));
+			void* tmp;
+			CSP_SAFE_CALL("create particle block", dsmcbe_csp_item_create(&tmp, (sizeof(unsigned int) * 2) + (sizeof(struct Particle) * elementCount)));
 			((unsigned int*)tmp)[0] = elementCount;
 			((unsigned int*)tmp)[1] = i;
 
 			InitializeBigBangParticles(elementCount, tmp + (sizeof(unsigned int) * 2));
 
     		//printf("PPU is sending package %d with %d particles\n", i, elementCount);
-			put(CHANNEL_START_GUID, tmp);
+			CSP_SAFE_CALL("write particle package", dsmcbe_csp_channel_write(CHANNEL_START_GUID, tmp));
 
 			startIndex = endIndex;
 		}
@@ -179,7 +182,8 @@ int main(int argc, char **argv)
 			for(i = 0; i < processes; i++)
 			{
 				//printf("Waiting for particle updates\n");
-				void* resData = get(FEEDBACK_CHANNEL, &size);
+				void* resData;
+				CSP_SAFE_CALL("read particle update", dsmcbe_csp_channel_read(FEEDBACK_CHANNEL, NULL, &resData));
 				//printf("Got result for package %d with %d particles\n", ((unsigned int*)resData)[0], ((unsigned int*)resData)[1]);
 
 #ifdef GRAPHICS
@@ -187,7 +191,7 @@ int main(int argc, char **argv)
 				particleOffset += (((unsigned int*)resData)[1] * sizeof(struct Particle));
 #endif
 
-				release(resData);
+				CSP_SAFE_CALL("free particle update", dsmcbe_csp_item_free(resData));
 			}
 			printf("Updating screen, remaining count: %d\n", updates);
 
@@ -203,12 +207,13 @@ int main(int argc, char **argv)
                     int y = (int)(((p->yPos - SIMULATION_MIN_Y) / (SIMULATION_MAX_Y - SIMULATION_MIN_Y)) * DISPLAY_HEIGHT);
 
                     //ARGB is actually BGRA
-                    unsigned char R = (unsigned char)(((double)COLOR_RATIO_R * (p->mass / SIMULATION_MAX_MASS)) + MIN_COLOR_R);
+                    /*unsigned char R = (unsigned char)(((double)COLOR_RATIO_R * (p->mass / SIMULATION_MAX_MASS)) + MIN_COLOR_R);
                     unsigned char G = (unsigned char)(((double)COLOR_RATIO_G * (p->mass / SIMULATION_MAX_MASS)) + MIN_COLOR_G);
                     unsigned char B = (unsigned char)(((double)COLOR_RATIO_B * (p->mass / SIMULATION_MAX_MASS)) + MIN_COLOR_B);
 
                     //printf("Updating pixel %d (%d, %d) with value: %d (%d,%d,%d)\n", i, x, y, (R << 16 | G << 8 | B), R, G, B);
-                    //gs_plot(x, y, (R << 16 | G << 8 | B));
+                    gs_plot(x, y, (R << 16 | G << 8 | B));*/
+
                     gs_plot(x, y, 0);
                 }
                 /*else if (i % 100 == 0)
@@ -231,11 +236,14 @@ int main(int argc, char **argv)
 		printf("Simulation parameters:\nParticles: \t%d\nRounds: \t%d\nUpdate freq.: \t%d\n\n", SIMULATION_PARTICLE_COUNT, REPETITIONS, SIMULATION_UPDATE_FREQUENCY);
 		printf("Elapsed time with %d SPU's: %s\n", processes, buf);
 
-		release(create(MASTER_COMPLETION_LOCK, 1, CREATE_MODE_NONBLOCKING));
+		CSP_SAFE_CALL("create termination channel", dsmcbe_csp_channel_create(MASTER_COMPLETION_LOCK, 0, CSP_CHANNEL_TYPE_ONE2ANY));
+		CSP_SAFE_CALL("poison termination channel", dsmcbe_csp_channel_poison(MASTER_COMPLETION_LOCK));
     }
     else
     {
-    	release(acquire(MASTER_COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
+    	void* dummy;
+    	if (dsmcbe_csp_channel_read(MASTER_COMPLETION_LOCK, NULL, &dummy) != CSP_CALL_POISON)
+    		REPORT_ERROR("Unexpected termination response");
     }
 
 	printf("PPU is waiting for threads to complete\n");
@@ -248,7 +256,7 @@ int main(int argc, char **argv)
 
 	printf("PPU is terminating\n");
 
-	terminate();
+	dsmcbe_terminate();
 	return 0;
 }
 

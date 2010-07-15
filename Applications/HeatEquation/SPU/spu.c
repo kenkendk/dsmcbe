@@ -69,7 +69,6 @@ void solve(struct Work_Unit* work_item, PROBLEM_DATA_TYPE** fr)
 	//printf(WHERESTR "SPU %d is solving %d\n", WHEREARG, spu_no, work_item->block_no);
 	unsigned int x, y;
 	unsigned int height, width;
-	unsigned long firstSize;
 	unsigned long lastSize;
 	PROBLEM_DATA_TYPE* data;
 	PROBLEM_DATA_TYPE old, new;
@@ -88,12 +87,6 @@ void solve(struct Work_Unit* work_item, PROBLEM_DATA_TYPE** fr)
 
 	isFirst = work_item->block_no == 0;
 	isLast = work_item->block_no >= sharedCount;
-	
-	/*if (!isFirst)
-	{
-	    //printf(WHERESTR "SPU %d is fetching top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
-		firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &firstSize, ACQUIRE_MODE_WRITE);
-	}*/
 	
 	if (!isFirst)
 		height += 2;
@@ -114,13 +107,13 @@ void solve(struct Work_Unit* work_item, PROBLEM_DATA_TYPE** fr)
 			if (!isLast && y == height - 3)
 			{
 				//printf(WHERESTR "SPU %d fetching lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
-				lastRows = acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
+				lastRows = dsmcbe_acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
 			}
 			
 			if (firstRows != NULL && y == 3)
 			{
 			    //printf(WHERESTR "SPU %d is releasing top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
-				release(firstRows);
+				dsmcbe_release(firstRows);
 				firstRows = NULL;
 			}
 			
@@ -149,13 +142,13 @@ void solve(struct Work_Unit* work_item, PROBLEM_DATA_TYPE** fr)
 			if (!isLast && y == height - 3)
 			{
 				//printf(WHERESTR "SPU %d reading lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
-				lastRows = acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
+				lastRows = dsmcbe_acquire(SHARED_ROW_OFFSET + work_item->block_no, &lastSize, ACQUIRE_MODE_WRITE);
 			}
 			
 			if (firstRows != NULL && y == 3)
 			{
 			    //printf(WHERESTR "SPU %d is releasing top line %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
-				release(firstRows);
+				dsmcbe_release(firstRows);
 				firstRows = NULL;
 			}
 
@@ -184,13 +177,13 @@ void solve(struct Work_Unit* work_item, PROBLEM_DATA_TYPE** fr)
 	if (lastRows != NULL)
 	{
 		//printf(WHERESTR "SPU %d releasing lastrow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no);
-		release(lastRows);
+		dsmcbe_release(lastRows);
 	}
 
 	if (firstRows != NULL)
 	{
 		//printf(WHERESTR "SPU %d releasing firstRow %d\n", WHEREARG, spu_no, SHARED_ROW_OFFSET + work_item->block_no - 1);
-		release(firstRows);
+		dsmcbe_release(firstRows);
 	}
 
 	//printf(WHERESTR "Delta for %s workblock %d was %lf\n", WHEREARG, red_round ? "red" : "black", work_item->block_no, itemDelta);
@@ -215,13 +208,13 @@ int main(long long id)
     unsigned int barrier_alternation = 0;
 #endif
     
-    initialize();
+    dsmcbe_initialize();
     
     rc = 0;
     delta = 0.0;
     deltasum = 0.0;
 
-	struct Assignment_Unit* boot = acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_WRITE);
+	struct Assignment_Unit* boot = dsmcbe_acquire(ASSIGNMENT_LOCK, &size, ACQUIRE_MODE_WRITE);
 	spu_no = boot->spu_no;
 	spu_count = boot->spu_count;
 	map_width = boot->map_width;
@@ -243,12 +236,12 @@ int main(long long id)
 	
 	//printf(WHERESTR "SPU %d has %d jobs, starting at %d, map is: (%d x %d), slice is: %d\n", WHEREARG, spu_no, jobCount, firstJob, map_width, map_height, slice_height); 
 	
-	release(boot);
+	dsmcbe_release(boot);
 	
 	for(i = 0; i < jobCount; i++)
 	{
 		//printf(WHERESTR "Creating %d with items %d and %d\n", WHEREARG, i, WORK_OFFSET + i + firstJob, SHARED_ROW_OFFSET + i + firstJob);
-		work_item = create(WORK_OFFSET + i + firstJob, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height);
+		work_item = dsmcbe_create(WORK_OFFSET + i + firstJob, sizeof(struct Work_Unit) +  sizeof(PROBLEM_DATA_TYPE) * map_width * slice_height);
 		
 		unsigned int thisHeight;
 		
@@ -288,9 +281,9 @@ int main(long long id)
 			shared_row[map_width - 1 + (j * map_width)] = 40.0;
 		}
 		
-		release(work_item);
+		dsmcbe_release(work_item);
 		
-		shared_row = create(SHARED_ROW_OFFSET + i + firstJob, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
+		shared_row = dsmcbe_create(SHARED_ROW_OFFSET + i + firstJob, sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 		memset(shared_row, 0,  sizeof(PROBLEM_DATA_TYPE) * map_width * 2);
 
 		if (i + firstJob == sharedCount)
@@ -307,7 +300,7 @@ int main(long long id)
 			shared_row[0] = shared_row[map_width] = -273.15; 
 			shared_row[map_width - 1] = shared_row[(map_width * 2) - 1] = 40.0;
 		}
-		release(shared_row);
+		dsmcbe_release(shared_row);
 		
 
 	}
@@ -315,11 +308,11 @@ int main(long long id)
 #ifdef INDIVIDUAL_BARRIERS	
 	//Special shared barrier
 	if (spu_no != 0)
-		createBarrier(BARRIER_LOCK_OFFSET + spu_no, 2);
+		dsmcbe_createBarrier(BARRIER_LOCK_OFFSET + spu_no, 2);
 #endif
 	
 	PROGRESS(WHERESTR "SPU %d is at master lock (%d)\n", WHEREARG, spu_no, ITTERATIONS);
-	release(acquire(MASTER_START_LOCK, &size, ACQUIRE_MODE_READ));
+	dsmcbe_release(dsmcbe_acquire(MASTER_START_LOCK, &size, ACQUIRE_MODE_READ));
 	PROGRESS(WHERESTR "SPU %d is ready! (%d)\n", WHEREARG, spu_no, ITTERATIONS);
 
 	//printf(WHERESTR "Done creating\n", WHEREARG); 
@@ -335,64 +328,64 @@ int main(long long id)
 		//Red round
 		red_round = 1;
 		
-		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
+		prefetch = dsmcbe_beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 
 		if (work_item->block_no != 0)
-			firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &size, ACQUIRE_MODE_WRITE);
+			firstRows = dsmcbe_acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &size, ACQUIRE_MODE_WRITE);
 			
 		for(i = 0; i < jobCount; i++)
 		{
 		    if (i + 1 < jobCount)
-		    	prefetch_temp = beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
-		    work_item = endAsync(prefetch, &size);
+		    	prefetch_temp = dsmcbe_beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
+		    work_item = spu_dsmcbe_endAsync(prefetch, &size);
 			//printf(WHERESTR "SPU %d fetched %d (%d)\n", WHEREARG, spu_no, i, WORK_OFFSET + firstJob + i);
 		    prefetch = prefetch_temp;
 	    	solve(work_item, &firstRows);
-			release(work_item);
+	    	dsmcbe_release(work_item);
 		}
 		
 		if (firstRows != NULL)
-			release(firstRows);
+			dsmcbe_release(firstRows);
 		
 		PROGRESS(WHERESTR "SPU %d is at red barrier %d\n", WHEREARG, spu_no, itterations);
 #ifdef INDIVIDUAL_BARRIERS	
 		//Wait
 		if (spu_no != 0)
-			acquireBarrier(BARRIER_LOCK_OFFSET + spu_no);
+			dsmcbe_acquireBarrier(BARRIER_LOCK_OFFSET + spu_no);
 		if (spu_no != spu_count - 1)
-			acquireBarrier(BARRIER_LOCK_OFFSET + spu_no + 1);
+			dsmcbe_acquireBarrier(BARRIER_LOCK_OFFSET + spu_no + 1);
 #else
-		acquireBarrier(EX_BARRIER_1);
+		dsmcbe_acquireBarrier(EX_BARRIER_1);
 #endif
 		
 		PROGRESS(WHERESTR "SPU %d is at black %d\n", WHEREARG, spu_no, itterations);
 		//Black round
 		red_round = 0;
 
-		prefetch = beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
+		prefetch = dsmcbe_beginAcquire(WORK_OFFSET + firstJob, ACQUIRE_MODE_WRITE);
 
 		if (work_item->block_no != 0)
-			firstRows = acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &size, ACQUIRE_MODE_WRITE);
+			firstRows = dsmcbe_acquire(SHARED_ROW_OFFSET + work_item->block_no - 1, &size, ACQUIRE_MODE_WRITE);
 
 		for(i = 0; i < jobCount; i++)
 		{
 		    if (i + 1 < jobCount)
-		    	prefetch_temp = beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
-		    work_item = endAsync(prefetch, &size);
+		    	prefetch_temp = dsmcbe_beginAcquire(WORK_OFFSET + firstJob + i + 1, ACQUIRE_MODE_WRITE);
+		    work_item = dsmcbe_endAsync(prefetch, &size);
 			//printf(WHERESTR "SPU %d fetched %d (%d)\n", WHEREARG, spu_no, i, WORK_OFFSET + firstJob + i);
 		    prefetch = prefetch_temp;
 	    	solve(work_item, &firstRows);
-			release(work_item);
+	    	dsmcbe_release(work_item);
 		}
 		
 		if (firstRows != NULL)
-			release(firstRows);
+			dsmcbe_release(firstRows);
 		
 		
 #ifdef UPDATE_DELTA		
 		PROGRESS(WHERESTR "SPU %d is at black lock %d\n", WHEREARG, spu_no, itterations);
 		//Gather delta sum
-		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_WRITE);
+		barrier = dsmcbe_acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_WRITE);
 	
 		if (barrier->lock_count == 0)
 			barrier->delta = delta;
@@ -414,22 +407,22 @@ int main(long long id)
 			barrier->lock_count++;
 			
 		//printf(WHERESTR "SPU %d is releasing black lock: %d\n", WHEREARG, spu_no, barrier->lock_count);
-		release(barrier);
+		dsmcbe_release(barrier);
 #endif /*UPDATE_DELTA*/
 		
 		PROGRESS(WHERESTR "SPU %d is at black barrier %d\n", WHEREARG, spu_no, itterations);
 #ifdef INDIVIDUAL_BARRIERS	
 		if (spu_no != 0)
-			acquireBarrier(BARRIER_LOCK_OFFSET + spu_no);
+			dsmcbe_acquireBarrier(BARRIER_LOCK_OFFSET + spu_no);
 		if (spu_no != spu_count - 1)
-			acquireBarrier(BARRIER_LOCK_OFFSET + spu_no + 1);
+			dsmcbe_acquireBarrier(BARRIER_LOCK_OFFSET + spu_no + 1);
 #else
-		acquireBarrier(EX_BARRIER_2);
+		dsmcbe_acquireBarrier(EX_BARRIER_2);
 #endif
 
 #ifdef UPDATE_DELTA		
 		//PROGRESS(WHERESTR "SPU %d is spinning %d\n", WHEREARG, spu_no, itterations);
-		barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
+		barrier = dsmcbe_acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		//PROGRESS(WHERESTR "SPU %d is spinning val: %d\n", WHEREARG, spu_no, barrier->lock_count);
 		while(barrier->lock_count != 0)
 		{
@@ -439,15 +432,15 @@ int main(long long id)
 			sleep(1);
 #endif /*GRAPHICS*/
 			//We should not get here unless were are displaying graphics
-			release(barrier);
-			barrier = acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
+			dsmcbe_release(barrier);
+			barrier = dsmcbe_acquire(BARRIER_LOCK + barrier_alternation, &size, ACQUIRE_MODE_READ);
 		}
 		delta = barrier->delta;
 
 		if (spu_no == 0 && itterations % PRINT_PROGRESS_COUNT == 0)
 			printf(WHERESTR "SPU %d is reporting delta: %lf, round: %d\n", WHEREARG, spu_no, barrier->delta, itterations);
 
-		release(barrier);
+		dsmcbe_release(barrier);
 		
 		//barrier_alternation = (barrier_alternation + 1) % 1;
 #else /*UPDATE_DELTA*/
@@ -457,13 +450,13 @@ int main(long long id)
 #endif /*UPDATE_DELTA*/
 	}
 	
-	struct Results* res = create(RESULT_OFFSET + spu_no, sizeof(struct Results));
+	struct Results* res = dsmcbe_create(RESULT_OFFSET + spu_no, sizeof(struct Results));
 	res->deltaSum = deltasum;
 	res->rc = rc;
-	release(res);
+	dsmcbe_release(res);
 	
 	//printf(WHERESTR "SPU %d is terminating, delta was: %lf, epsilon was: %lf\n", WHEREARG, spu_no, delta, epsilon);
-	terminate();	
+	dsmcbe_terminate();
 	//printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
 	  
 	return id;  

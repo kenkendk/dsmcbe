@@ -37,7 +37,7 @@
 <tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.1115882960" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
 <option id="gnu.c.compiler.option.include.paths.1636201903" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/header files}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.spu.gnu.c.compiler.debug.option.optimization.level.456480307" name="Optimization Level" superClass="cell.spu.gnu.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
@@ -220,7 +220,7 @@
 <option id="cell.spu.gnu.c.compiler.option.include.paths.1558281502" name="Include paths (-I)" superClass="cell.spu.gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/header files}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
 </option>
 <inputType id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.input.1161210532" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.input"/>

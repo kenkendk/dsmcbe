@@ -8,5 +8,6 @@
 #include <free_align.h>
 #include <spu_mfcio.h> 
 #include <malloc.h>
+#include <dsmcbe_csp.h>
 
 #endif /*DSMCBE_SPU_LOCAL_H_*/

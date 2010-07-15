@@ -41,7 +41,7 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1734965678" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1330958875" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib/"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib&quot;"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-debug}&quot;"/>
 </option>
 </tool>
@@ -50,9 +50,7 @@
 <option id="gnu.c.compiler.option.include.paths.1633481816" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/glib-2.0&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib/glib-2.0/include&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.ppu.gnu32.c.compiler.debug.option.optimization.level.338106712" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.debug.option.debugging.level.93477618" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.debugging.level"/>
@@ -232,7 +230,7 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.254560922" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1750447987" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib/"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib&quot;"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-release}&quot;"/>
 </option>
 </tool>
@@ -241,9 +239,7 @@
 <option id="gnu.c.compiler.option.include.paths.1840750511" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/glib-2.0&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib/glib-2.0/include&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.most" id="cell.ppu.gnu32.c.compiler.release.option.optimization.level.2055417768" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.release.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.release.option.debugging.level.1794571165" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.release.option.debugging.level"/>

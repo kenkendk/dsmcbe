@@ -24,24 +24,24 @@ int main(long long id)
 #else /*MBOX_MODE*/
 #ifdef DSM_MODE
 
-		initialize();
+		dsmcbe_initialize();
 		
 		unsigned int prev = PROBLEM_SIZE - 1;
 		
 		while(prev < PROBLEM_SIZE)
 		{
-			unsigned int* data = acquire(OBJ_1, NULL, ACQUIRE_MODE_WRITE);
+			unsigned int* data = dsmcbe_acquire(OBJ_1, NULL, ACQUIRE_MODE_WRITE);
 			if (*data != prev)
 			{
 				(*data)++;
 				prev = *data;
 				//printf("%d\n", *data);
 			}
-			release(data);
+			dsmcbe_release(data);
 		}
 		
-		acquireBarrier(OBJ_BARRIER);
-		terminate();		
+		dsmcbe_acquireBarrier(OBJ_BARRIER);
+		dsmcbe_terminate();
 
 #else /*DSM_MODE*/
 	unsigned int* value = _malloc_align(DATA_SIZE, 7);
@@ -68,7 +68,7 @@ int main(long long id)
 #endif /*MBOX_MODE*/
 	
 	
-	 
+	id = 0; //Remove compiler warning
 	return 0;
 }
 

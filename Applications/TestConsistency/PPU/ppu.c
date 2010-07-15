@@ -32,31 +32,31 @@ int main(int argc, char* argv[])
 	else
 		printf("Wrong number of inputs\n");
 		
-	pthread_t* threads = simpleInitialize(PPEid, file, SPU_THREADS);
+	pthread_t* threads = dsmcbe_simpleInitialize(PPEid, file, SPU_THREADS);
 
 	if(PPEid == 0)
 	{
-		unsigned int* count = create(SPU_ID, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
+		unsigned int* count = dsmcbe_create(SPU_ID, sizeof(unsigned int) * 2);
 		count[0] = 0;
-		count[1] = SPU_THREADS * MAX(DSMCBE_MachineCount(), 1);
-		release(count);
+		count[1] = SPU_THREADS * MAX(dsmcbe_MachineCount(), 1);
+		dsmcbe_release(count);
 		
-		create(BARRIER_LOCK, SPU_THREADS * MAX(DSMCBE_MachineCount(), 1), CREATE_MODE_BARRIER);
+		dsmcbe_createBarrier(BARRIER_LOCK, SPU_THREADS * MAX(dsmcbe_MachineCount(), 1));
 		
-		count = create(BARRIER_ITEM, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
+		count = dsmcbe_create(BARRIER_ITEM, sizeof(unsigned int) * 2);
 		count[0] = count[1] = 0;
-		release(count);
+		dsmcbe_release(count);
 		
 	}
 	else
 	{
-		release(acquire(MASTER_COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
+		dsmcbe_release(dsmcbe_acquire(MASTER_COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
 	}
 	
 	for(i = 0; i < SPU_THREADS; i++)
 		pthread_join(threads[i], NULL);
 	
-	release(create(MASTER_COMPLETION_LOCK, 1, CREATE_MODE_NONBLOCKING));
+	dsmcbe_release(dsmcbe_create(MASTER_COMPLETION_LOCK, 1));
 	
 	sleep(1);
 	

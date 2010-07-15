@@ -1,13 +1,13 @@
-#define WHITE (0xffffff)
-#define BLUE  (0x0000ff)
-#define CYAN  (0x7c8dff)
-#define BLACK (0x000000)
-#define GREEN (0x18ff08)
-#define MAGENTA (0xff00ff)
-#define ORANGE (0xff8706)
-#define PINK (0xff9a96)
-#define YELLOW (0xffff00)
-#define RED  (0xff0000)
+#define WHITE (0x00ffffff)
+#define BLUE  (0x000000ff)
+#define CYAN  (0x007c8dff)
+#define BLACK (0x00000000)
+#define GREEN (0x0018ff08)
+#define MAGENTA (0x00ff00ff)
+#define ORANGE (0x00ff8706)
+#define PINK (0x00ff9a96)
+#define YELLOW (0x00ffff00)
+#define RED  (0x00ff0000)
 
 
 void gs_update();

@@ -167,14 +167,14 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 	unsigned int i,j;
 	
 	
-	initialize();
+	dsmcbe_initialize();
 
 	unsigned long size;
 	unsigned int speID;	
-	unsigned int* speIDs = acquire(SPEID + argp, &size, ACQUIRE_MODE_WRITE);
+	unsigned int* speIDs = dsmcbe_acquire(SPEID + argp, &size, ACQUIRE_MODE_WRITE);
 	speID = *speIDs;
 	*speIDs = *speIDs + 1;
-	release(speIDs);
+	dsmcbe_release(speIDs);
 	unsigned int largestPoints = 0; 
 			
 	int jobID = 0;
@@ -185,7 +185,7 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 	{
 
 		//printf(WHERESTR "SPU %i: Starting acquire package with id %i\n", WHEREARG, speID, JOB+jobID);	
-		package = acquire(JOB+jobID, &size, ACQUIRE_MODE_READ);
+		package = dsmcbe_acquire(JOB+jobID, &size, ACQUIRE_MODE_READ);
 		//printf(WHERESTR "SPU %i: Acquire for package returned pointer id %i\n", WHEREARG, speID, package);
 
 		//printf("SPU %i: Ready to start\n", speID);
@@ -213,7 +213,7 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 		CTWIDTH = package->width;
 		CTHEIGTH = package->heigth;			
 
-		release(package);
+		dsmcbe_release(package);
 				
 		//printf("SPU %i: rounds %i\n", speID, rounds);
 
@@ -227,11 +227,11 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 		while(pid < maxpid)
 		{
 			//printf("spu %i: Trying acquire\n", speID);
-			package = acquire(JOB+jobID, &size, ACQUIRE_MODE_WRITE);
+			package = dsmcbe_acquire(JOB+jobID, &size, ACQUIRE_MODE_WRITE);
 			//printf("spu %i: Releasing\n", speID);
 			pid = package->id;
 			package->id = pid + 1;
-			release(package);
+			dsmcbe_release(package);
 			//printf("spu %i: Done\n", speID);
 				
 #endif
@@ -242,11 +242,11 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 			
 			if (lastPoint > largestPoints)
 			{
-				points = create(lastPoint, sizeof(struct POINTS) * canonS, CREATE_MODE_NONBLOCKING);
+				points = dsmcbe_create(lastPoint, sizeof(struct POINTS) * canonS);
 				largestPoints = lastPoint;
 			}
 			else
-				points = acquire(lastPoint, &size, ACQUIRE_MODE_WRITE);
+				points = dsmcbe_acquire(lastPoint, &size, ACQUIRE_MODE_WRITE);
 				
 			//printf(WHERESTR "SPU %i: Acquire for points returned pointer id %i\n", WHEREARG, speID, points);
 	
@@ -278,7 +278,7 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
     		unsigned int currentID = 0;			
 
 			//printf(WHERESTR "SPU %i: Starting acquire buffer with id %i\n", WHEREARG, speID, id);
-			bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);
+			bufferID1 = dsmcbe_beginAcquire(id, ACQUIRE_MODE_READ);
 			currentID = bufferID1;
 
 			while(more_to_do)
@@ -297,21 +297,21 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 						id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));
 						//printf(WHERESTR "SPU %i: Starting acquire buffer with id %i\n", WHEREARG, speID, id);
 						if (currentID == bufferID1)
-							bufferID2 = beginAcquire(id, ACQUIRE_MODE_READ);
+							bufferID2 = dsmcbe_beginAcquire(id, ACQUIRE_MODE_READ);
 						else
-							bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);														
+							bufferID1 = dsmcbe_beginAcquire(id, ACQUIRE_MODE_READ);
 
-						buffer = endAsync(currentID, &size);
+						buffer = dsmcbe_endAsync(currentID, &size);
 						//printf(WHERESTR "SPU %i: Acquire for buffer returned pointer id %i\n", WHEREARG, speID, buffer);
 						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
-						release(buffer);
+						dsmcbe_release(buffer);
 						//printf(WHERESTR "SPU %i: Released buffer with pointer %i\n", WHEREARG, speID, buffer);
 
 						if(!more_to_do)
 						{
-							buffer = endAsync(currentID == bufferID1 ? bufferID2 : bufferID1, &size);
+							buffer = dsmcbe_endAsync(currentID == bufferID1 ? bufferID2 : bufferID1, &size);
 							//printf(WHERESTR "SPU %i: Acquire for buffer returned pointer id %i\n", WHEREARG, speID, buffer);
-							release(buffer);
+							dsmcbe_release(buffer);
 							//printf(WHERESTR "SPU %i: Released buffer with pointer %i\n", WHEREARG, speID, buffer);
 							//printf(WHERESTR "No more to do - Last\n", WHEREARG);
 							break;
@@ -327,21 +327,21 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 				id = (GRID00IMAGE + (next_grid.y * 100) + (next_grid.x * 10));
 				//printf(WHERESTR "SPU %i: Starting acquire buffer with id %i\n", WHEREARG, speID, id);
 				if (currentID == bufferID1)
-					bufferID2 = beginAcquire(id, ACQUIRE_MODE_READ);
+					bufferID2 = dsmcbe_beginAcquire(id, ACQUIRE_MODE_READ);
 				else
-					bufferID1 = beginAcquire(id, ACQUIRE_MODE_READ);			
+					bufferID1 = dsmcbe_beginAcquire(id, ACQUIRE_MODE_READ);
 								
-				buffer = endAsync(currentID, &size);
+				buffer = dsmcbe_endAsync(currentID, &size);
 				//printf(WHERESTR "SPU %i: Acquire for buffer returned pointer id %i\n", WHEREARG, speID, buffer);
 				more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);
-				release(buffer);
+				dsmcbe_release(buffer);
 				//printf(WHERESTR "SPU %i: Released buffer with pointer %i\n", WHEREARG, speID, buffer);
 				
 				if(!more_to_do)
 				{
-					buffer = endAsync(currentID == bufferID1 ? bufferID2 : bufferID1, &size);
+					buffer = dsmcbe_endAsync(currentID == bufferID1 ? bufferID2 : bufferID1, &size);
 					//printf(WHERESTR "SPU %i: Acquire for buffer returned pointer id %i\n", WHEREARG, speID, buffer);
-					release(buffer);
+					dsmcbe_release(buffer);
 					//printf(WHERESTR "SPU %i: Released buffer with pointer %i\n", WHEREARG, speID, buffer);
 					//printf(WHERESTR "No more to do - Middel\n", WHEREARG);
 				}
@@ -356,7 +356,7 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 			while(more_to_do)
 			{
 				id = (GRID00IMAGE + (current_grid.y * 100) + (current_grid.x * 10));
-				buffer = acquire(id, &size, ACQUIRE_MODE_READ);
+				buffer = dsmcbe_acquire(id, &size, ACQUIRE_MODE_READ);
 							
 				next_grid.x = current_grid.x + 1;
 				if(next_grid.x == 3)
@@ -367,7 +367,7 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 					if(next_grid.y == 3)
 					{
 						more_to_do = canon(points, canonAX, canonAY, canonS, buffer, current_grid);			
-						release(buffer);
+						dsmcbe_release(buffer);
 						if(!more_to_do)
 						{
 							break;
@@ -385,22 +385,27 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 				current_grid.x = next_grid.x;
 				current_grid.y = next_grid.y;
 		
-				release(buffer);
+				dsmcbe_release(buffer);
 			}
 #endif
-			release(points);
+			dsmcbe_release(points);
 			lastPoint++;
 			//printf(WHERESTR "SPU %i: Released points with pointer %i\n", WHEREARG, speID,  points);
 		}
 
 		//printf("SPU %i: Creating FINISH package with id %i\n", speID, FINISHED + (jobID * 100) + speID);
-		unsigned int* ptr = create(FINISHED + (jobID * 100) + speID, sizeof(unsigned int) * 2, CREATE_MODE_NONBLOCKING);
+		unsigned int* ptr = dsmcbe_create(FINISHED + (jobID * 100) + speID, sizeof(unsigned int) * 2);
 		ptr[0] = firstPoint;
 		ptr[1] = lastPoint;
 		//printf("SPU %i: First %u, last %u\n", speID, ptr[0], ptr[1]); 									 
-		release(ptr);
+		dsmcbe_release(ptr);
 		//printf("SPU %i: Created FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);
 		jobID++;
 	}
+
+	//Remove compiler warning
+	envp = 0;
+	speid = 0;
+
 	return 0;
 }
