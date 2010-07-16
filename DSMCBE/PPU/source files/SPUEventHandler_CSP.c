@@ -102,6 +102,7 @@ void* dsmcbe_spu_csp_attempt_get_pointer(struct dsmcbe_spu_state* state, struct 
 	{
 		if (dsmcbe_spu_EstimatePendingReleaseSize(state) == 0)
 		{
+			REPORT_ERROR2("Out of memory on SPU, requested size: %d", size);
 			dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, preq->requestId, 0, 0);
 			if (preq->dataObj->LS != NULL)
 				g_hash_table_remove(state->csp_items, preq->dataObj->LS);

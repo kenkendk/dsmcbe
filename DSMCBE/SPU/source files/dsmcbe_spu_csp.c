@@ -119,8 +119,6 @@ int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 		return CSP_CALL_POISON;
 	else
 		return CSP_CALL_ERROR;
-
-	return CSP_CALL_ERROR;
 }
 
 int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channelcount, GUID* channelid, size_t* size, void** data)

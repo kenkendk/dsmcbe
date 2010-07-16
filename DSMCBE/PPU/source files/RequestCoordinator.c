@@ -1087,13 +1087,17 @@ void dsmcbe_rc_HandleCreateRequest(QueueableItem item)
 		//Check if we can decline the request early on
 		if (dsmcbe_rc_GetObjectTable()[req->dataItem] != OBJECT_TABLE_RESERVED)
 		{
+			REPORT_ERROR("Attempted to create existing item");
 			dsmcbe_rc_RespondNACK(item);
 			return;
 		}
 		
 		dsmcbe_net_Request(item, OBJECT_TABLE_OWNER);
 		if (g_hash_table_lookup(dsmcbe_rc_GpendingCreates, (void*)req->dataItem) != NULL)
+		{
+			REPORT_ERROR("Attempted to create item which already has a pending create");
 			dsmcbe_rc_RespondNACK(item);
+		}
 		else
 			g_hash_table_insert(dsmcbe_rc_GpendingCreates, (void*)req->dataItem, item);
 	} else { 
