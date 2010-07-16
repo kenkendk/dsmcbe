@@ -74,10 +74,13 @@ int DispatchWorkItems_Inner(unsigned int* counter)
 	unsigned int total_jobcount = 0;
 
 #ifdef USE_CHANNEL_COMMUNICATION
-	//printf(WHERESTR "PPU is sending Prototein info, spu_count: %d\n", WHEREARG, spu_count);
+	//printf(WHERESTR "PPU is sending Prototein info\n", WHEREARG);
 
 	//We set the buffer to 1 so the last participant can write without waiting
 	CSP_SAFE_CALL("create setup channel", dsmcbe_csp_channel_create(PROTOTEIN, 1, CSP_CHANNEL_TYPE_ANY2ANY));
+	//We allow a little buffer here as well to allow SPE's to finish simultaneously
+	CSP_SAFE_CALL("create winner channel", dsmcbe_csp_channel_create(WINNER_CHANNEL, 10, CSP_CHANNEL_TYPE_ANY2ONE));
+
 	CSP_SAFE_CALL("create prototein", dsmcbe_csp_item_create(&prototein_object, (sizeof(unsigned int) * 2) + prototein_length));
 	((unsigned int*)prototein_object)[0] = 0;
 	((unsigned int*)prototein_object)[1] = prototein_length;
@@ -197,7 +200,7 @@ int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 	{
 		unsigned int* count_obj;
 #ifdef USE_CHANNEL_COMMUNICATION
-		sleep(2); //Wait for SPE's to start
+		sleep(1); //Wait for SPE's to start
 
 		CSP_SAFE_CALL("find out number of participants", dsmcbe_csp_channel_read(PROTOTEIN, NULL, (void**)&count_obj));
     	winner_count = *count_obj;
@@ -212,14 +215,15 @@ int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
     	dsmcbe_release(count_obj);
 #endif
 
-	    //printf(WHERESTR "PPU is reading results\n", WHEREARG);
+	    //printf(WHERESTR "PPU is reading %d results\n", WHEREARG, winner_count);
+
 		reported_jobcount = 0;
 		winner = (struct coordinate*)malloc(sizeof(struct coordinate) * prototein_length);
 	    //printf(WHERESTR "PPU is reading results\n", WHEREARG);
 		//Pick up the results
 		for(i = 0; i < winner_count; i++)
 		{
-		    //printf(WHERESTR "PPU is reading result for %i\n", WHEREARG, i);
+		    //printf(WHERESTR "PPU is reading result for %i of %i\n", WHEREARG, i, winner_count);
 #ifdef USE_CHANNEL_COMMUNICATION
 			CSP_SAFE_CALL("read winner data", dsmcbe_csp_channel_read(WINNER_CHANNEL, NULL, &tempobj));
 #else
@@ -229,7 +233,7 @@ int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 				printf(WHERESTR "winner buffer failed\n", WHEREARG);
 			else
 			{
-				//printf(WHERESTR "SPU %d result was %d\n", WHEREARG,i, ((int*)tempobj)[0]); 
+				//printf(WHERESTR "SPU %d result was %d for %d jobs\n", WHEREARG,i, ((int*)tempobj)[0], ((int*)tempobj)[1]);
 				reported_jobcount += ((int*)tempobj)[1];
 				if (((int*)tempobj)[0] > bestscore)
 				{
@@ -248,12 +252,22 @@ int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		printmap(winner, prototein_length);
 		printf("Fibers: %d\n", SPU_FIBERS);
 		
+#ifdef USE_CHANNEL_COMMUNICATION
+		CSP_SAFE_CALL("create termination channel", dsmcbe_csp_channel_create(MASTER_COMPLETION_LOCK, 0, CSP_CHANNEL_TYPE_ONE2ANY));
+		CSP_SAFE_CALL("poison termnination channel", dsmcbe_csp_channel_poison(MASTER_COMPLETION_LOCK));
+#else
 		dsmcbe_release(dsmcbe_create(MASTER_COMPLETION_LOCK, sizeof(unsigned int)));
-	
+#endif
 	}
 	else
 	{
+#ifdef USE_CHANNEL_COMMUNICATION
+		void* dummy;
+		if (dsmcbe_csp_channel_read(MASTER_COMPLETION_LOCK, NULL, &dummy) != CSP_CALL_POISON)
+			REPORT_ERROR("Did not get poison from termination channel");
+#else
 		dsmcbe_release(dsmcbe_acquire(MASTER_COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
+#endif
 	}
 
     //printf(WHERESTR "PPU is waiting for SPU completion\n", WHEREARG);
@@ -266,10 +280,11 @@ int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 	
 	if (machineid == 0)
 	{
-		pthread_join(dispatcher_thread, (void**)&total_jobcount);
-		printf("The SPU's reported processing %d jobs out of %d\n", reported_jobcount, total_jobcount);
+		pthread_join(dispatcher_thread, NULL);
+		printf("The %d SPU's reported processing %d jobs out of %d\n", winner_count, reported_jobcount, total_jobcount);
 	}
 
+	dsmcbe_terminate();
 	return 0;
 }
 
