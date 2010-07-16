@@ -194,7 +194,9 @@ int FoldPrototein(unsigned long long id)
 			//printf("thread %d:%d End - Acquire read WORK\n", thread_id, threadNo);	    
 		    thread_no = threadNo;
 		    queue = (struct coordinate*)(((void*)work) + sizeof(struct workblock));
-		   	//printf(WHERESTR "SPU recieved a work block with %d items\n", WHEREARG, (*work).worksize);
+
+		    //printf(WHERESTR "SPU recieved a work block with %d items\n", WHEREARG, (*work).worksize);
+
 		    for(i = 0; i < (*work).worksize; i++)
 		    {
 		    	if (i == (*work).worksize_delta)
@@ -214,6 +216,7 @@ int FoldPrototein(unsigned long long id)
 		        queue += (*work).item_length;
 	    	}
 		    thread_no = threadNo;
+
 		    //printf("thread %d:%d Start - Release read WORK\n", thread_id, threadNo);
 #ifdef USE_CHANNEL_COMMUNICATION
 		    CSP_SAFE_CALL("release work", dsmcbe_csp_item_free(work));
@@ -260,11 +263,13 @@ int FoldPrototein(unsigned long long id)
     FREE(places);
    	FREE(map);
 	
-    printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
-    return 0;
-
+    //printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
     dsmcbe_terminate();
-    printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
+    //printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
+
+    //There seems to be some stack corruption here, so the SPE hangs if we return
+    exit(0);
+
 	return 0;
 }
 
