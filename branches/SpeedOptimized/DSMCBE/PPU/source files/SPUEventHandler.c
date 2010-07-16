@@ -24,6 +24,11 @@ unsigned int doPrint = FALSE;
 // prevent the intentional race conditions
 //#define NO_DIRTY_READS
 
+//When testing for memory errors, activate this flag
+// to clear memory that is written by the MFC, so
+// the memory debugger does not report it as uninitialized
+//#define CLEAR_MFC_MEMORY
+
 //The default number of hardware threads used for spinning
 #define DEFAULT_PPU_THREAD_COUNT 1
 
@@ -49,14 +54,8 @@ unsigned int doPrint = FALSE;
 //unsigned int spu_dma_seq_no;
 #define DMA_SEQ_NO state->dmaSeqNo
 
-//This is an array of SPU states
-struct dsmcbe_spu_state* dsmcbe_spu_states;
-
 //This is the SPU main threads
 pthread_t* dsmcbe_spu_mainthread = NULL;
-
-//This is the number of SPU's allocated 
-unsigned int dsmcbe_spu_thread_count;
 
 //This is the number of threads in use for spinning
 unsigned int dsmcbe_spu_ppu_threadcount = DEFAULT_PPU_THREAD_COUNT;
@@ -182,6 +181,15 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 {
 	//TODO: Determine if it is possible to accidentally insert a barrier response because it fits in mbox, but still have messages in queue
 	// this would lead to mixing of package data
+
+#ifdef SPU_STOP_AND_WAIT
+	pthread_mutex_lock(&state->csp_sleep_mutex);
+
+	state->csp_sleep_flag = 1;
+	pthread_cond_signal(&state->csp_sleep_cond);
+
+	pthread_mutex_unlock(&state->csp_sleep_mutex);
+#endif
 
 	if (state->writerDirtyReadFlag == 0)
 	{
@@ -582,6 +590,9 @@ void dsmcbe_spu_InitiateDMATransfer(struct dsmcbe_spu_state* state, unsigned int
 		}
 		else
 		{
+#ifdef CLEAR_MFC_MEMORY
+			memset((void*)EA, 0, transfersize);
+#endif
 			if (spe_mfcio_put(state->context, LS, (void*)EA, transfersize, groupId, 0, 0) != 0)
 			{
 				REPORT_ERROR("DMA transfer from LS to EA failed");
@@ -2028,6 +2039,10 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 
 	dsmcbe_spu_do_terminate = FALSE;
 
+#ifdef SPU_STOP_AND_WAIT
+	if (spe_callback_handler_register(dsmcbe_spu_csp_callback, CSP_STOP_FUNCTION_CODE, SPE_CALLBACK_NEW) != 0)
+		REPORT_ERROR("Failed to register callback handler");
+#endif
 
 	dsmcbe_spu_states = MALLOC(sizeof(struct dsmcbe_spu_state) * thread_count);
 
@@ -2055,6 +2070,12 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 
 		pthread_mutex_init(&dsmcbe_spu_states[i].inMutex, NULL);
 
+#ifdef SPU_STOP_AND_WAIT
+		pthread_mutex_init(&dsmcbe_spu_states[i].csp_sleep_mutex, NULL);
+		pthread_cond_init(&dsmcbe_spu_states[i].csp_sleep_cond, NULL);
+		dsmcbe_spu_states[i].csp_sleep_flag = 0;
+#endif
+
 #ifdef USE_EVENTS
 		pthread_cond_init(&dsmcbe_spu_states[i].inCond, NULL);
 		pthread_mutex_init(&dsmcbe_spu_states[i].writerMutex, NULL);
@@ -2069,7 +2090,6 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 #else
 		dsmcbe_rc_RegisterInvalidateSubscriber(&dsmcbe_spu_states[i].inMutex, NULL, &dsmcbe_spu_states[i].inQueue, -1);
 #endif
-
 		for(j = 0; j < MAX_DMA_GROUPID; j++)
 		{
 			dsmcbe_spu_states[i].pendingRequestsPointer[j] = MALLOC(sizeof(struct dsmcbe_spu_pendingRequest));
@@ -2170,6 +2190,10 @@ void dsmcbe_spu_terminate(int force)
 			FREE(dsmcbe_spu_states[i].pendingRequestsPointer[j]);
 
 		pthread_mutex_destroy(&dsmcbe_spu_states[i].inMutex);
+#ifdef SPU_STOP_AND_WAIT
+		pthread_mutex_destroy(&dsmcbe_spu_states[i].csp_sleep_mutex);
+		pthread_cond_destroy(&dsmcbe_spu_states[i].csp_sleep_cond);
+#endif
 
 #ifdef USE_EVENTS
 		pthread_cond_destroy(&dsmcbe_spu_states[i].inCond);

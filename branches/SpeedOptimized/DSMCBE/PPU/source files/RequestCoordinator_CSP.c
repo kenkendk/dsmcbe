@@ -267,21 +267,21 @@ int dsmcbe_rc_csp_AttemptPairRead(cspChannel chan, QueueableItem item, unsigned 
 			dsmcbe_rc_csp_MatchedReaderAndWriter(chan, item, writer);
 
 			//If we are buffered, and have waiting writes flush one
-			if (chan->buffersize > 0 && g_queue_get_length(chan->Gwriters) >= chan->buffersize && chan->poisonState == POISON_STATE_NONE)
+			if (chan->poisonState == POISON_STATE_NONE && chan->buffersize > 0 && g_queue_get_length(chan->Gwriters) >= chan->buffersize)
 			{
 				QueueableItem n = g_queue_peek_nth(chan->Gwriters, chan->buffersize - 1);
 				if (n->Gqueue == NULL)
 					REPORT_ERROR("Some odd internal error");
 
-				if (((struct dsmcbe_cspChannelWriteRequest*)item->dataRequest)->packageCode == PACKAGE_CSP_CHANNEL_POISON_REQUEST)
+				if (((struct dsmcbe_cspChannelWriteRequest*)n->dataRequest)->packageCode == PACKAGE_CSP_CHANNEL_POISON_REQUEST)
 				{
 					//Poison requests are blocking
 					chan->poisonState = POISON_STATE_PENDING;
 				}
 				else
 				{
-					//Respond, and modify the original
-					dsmcbe_rc_csp_RespondWriteChannelWithCopy(chan, item);
+					//Respond, don't modify the original
+					dsmcbe_rc_csp_RespondWriteChannelWithCopy(chan, n);
 				}
 			}
 
@@ -302,7 +302,7 @@ int dsmcbe_rc_csp_AttemptPairWrite(cspChannel chan, QueueableItem item, unsigned
 	}
 	else
 	{
-		if (!chan->created)
+		if (!chan->created || chan->poisonState != POISON_STATE_NONE)
 		{
 			if (addToQueue)
 				g_queue_push_tail(chan->Gwriters, item);

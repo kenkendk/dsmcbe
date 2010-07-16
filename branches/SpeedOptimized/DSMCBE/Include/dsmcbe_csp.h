@@ -7,25 +7,35 @@
 #define DSMCBE_CSP_H_
 
 //The call succeeded
-#define CSP_CALL_SUCCESS 0
+#define CSP_CALL_SUCCESS (0)
 //The call failed
-#define CSP_CALL_ERROR -1
+#define CSP_CALL_ERROR (-1)
 //The channel was poisoned
-#define CSP_CALL_POISON -2
+#define CSP_CALL_POISON (-2)
 
-#define CSP_CHANNEL_TYPE_ONE2ONE 1
-#define CSP_CHANNEL_TYPE_ONE2ANY 2
-#define CSP_CHANNEL_TYPE_ANY2ONE 3
-#define CSP_CHANNEL_TYPE_ANY2ANY 4
+//Defines that there can be only one reader and one writer
+#define CSP_CHANNEL_TYPE_ONE2ONE (1)
+//Defines that there can only be one writer, but multiple readers
+#define CSP_CHANNEL_TYPE_ONE2ANY (2)
+//Defines that there can be multiple writers, but only one reader
+#define CSP_CHANNEL_TYPE_ANY2ONE (3)
+//Defines that there can be multiple readers and writers
+#define CSP_CHANNEL_TYPE_ANY2ANY (4)
 
-#define CSP_ALT_MODE_FAIR 0x0
-#define CSP_ALT_MODE_PRIORITY 0x1
+//Defines fair scheduling in external choice
+#define CSP_ALT_MODE_FAIR (0x0)
+//Defines priority scheduling in external choice
+#define CSP_ALT_MODE_PRIORITY (0x1)
+//Defines all avalible csp scheduling modes
 #define CSP_ALT_MODES { CSP_ALT_MODE_FAIR, CSP_ALT_MODE_PRIORITY, -1 }
 
+//Defines the internal callback code used to temporarily stop the SPU when waiting for data
+#define CSP_STOP_FUNCTION_CODE (0x0f)
+
 //The skip guard can only be used with alt's, and returns immediately if the call would otherwise block
-#define CSP_SKIP_GUARD 0x0
+#define CSP_SKIP_GUARD (0x0)
 //The timeout guard can only be used with alt's, and after the specified time if the call would otherwise block
-#define CSP_TIMEOUT_GUARD 0x1
+#define CSP_TIMEOUT_GUARD (0x1)
 
 /*TODO: This macro should free the item if the call is a write call and the result is poison*/
 //A convenience macro for ensuring the result of a csp function call

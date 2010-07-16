@@ -26,6 +26,7 @@
 #include <dsmcbe_csp_initializers.h>
 #include <SPUEventHandler.h>
 #include <SPUEventHandler_shared.h>
+#include <SPUEventHandler_extrapackages.h>
 #include <glib.h>
 #include <stdlib.h>
 #include <debug.h>
@@ -393,4 +394,27 @@ void dsmcbe_spu_csp_HandleChannelPoisonNACKorSkipResponse(struct dsmcbe_spu_stat
 
 	dsmcbe_spu_free_PendingRequest(preq);
 }
+#ifdef SPU_STOP_AND_WAIT
+int dsmcbe_spu_csp_callback(void* ls_base, unsigned int data_ptr)
+{
+	data_ptr += 0; //Remove compiler warning
 
+	size_t i;
+	for(i = 0; i < dsmcbe_spu_thread_count; i++)
+		if (spe_ls_area_get(dsmcbe_spu_states[i].context) == ls_base)
+		{
+			pthread_mutex_lock(&dsmcbe_spu_states[i].csp_sleep_mutex);
+
+			while(&dsmcbe_spu_states[i].csp_sleep_flag == 0)
+				pthread_cond_wait(&dsmcbe_spu_states[i].csp_sleep_cond, &dsmcbe_spu_states[i].csp_sleep_mutex);
+
+			dsmcbe_spu_states[i].csp_sleep_flag = 0;
+
+			pthread_mutex_unlock(&dsmcbe_spu_states[i].csp_sleep_mutex);
+			return 0;
+		}
+
+	printf(WHERESTR "SPE is stopped for request %d, base: %d, unable to find matching process\n", WHEREARG, data_ptr, (unsigned int)ls_base);
+	return 0;
+}
+#endif
