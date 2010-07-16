@@ -18,4 +18,7 @@
 #define PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST 310
 #define PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE 311
 
+//To make the SPU stop each time it awaits external data, activate this flag
+//#define SPU_STOP_AND_WAIT
+
 #endif /* SPUEVENTHANDLER_EXTRAPACKAGES_H_ */

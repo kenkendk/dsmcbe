@@ -1044,7 +1044,7 @@ void dsmcbe_rc_DoRelease(QueueableItem item, struct dsmcbe_releaseRequest* reque
 			    else if (!g_queue_is_empty(q)) //We have a list of barrierRequest's
 			    {
 					//printf(WHERESTR "Barrier had waiting requests: id %i, waiting: %i\n", WHEREARG, request->dataItem, g_queue_get_length(q));
-					
+
 					((unsigned int*)obj->EA)[1] = g_queue_get_length(q);
 					
 			    	//Are there enough to signal the barrier?
@@ -1561,24 +1561,45 @@ void* dsmcbe_rc_ProccessWork(void* data)
 	unsigned int datatype;
 	struct timespec ts;
 	packagehandler_function handler;
+	unsigned int consecutiveTimeouts;
+	unsigned int timedWaitReturnValue;
 
 	while(!dsmcbe_rc_do_terminate)
 	{
 		//Get the next item, or sleep until it arrives	
 		pthread_mutex_lock(&dsmcbe_rc_queue_mutex);
+
+		consecutiveTimeouts = 0;
+
 		while (g_queue_is_empty(dsmcbe_rc_GbagOfTasks) && g_queue_is_empty(dsmcbe_rc_GpriorityResponses) && !dsmcbe_rc_do_terminate)
 		{
 			clock_gettime(CLOCK_REALTIME, &ts);
-			ts.tv_sec += 5;
+			ts.tv_sec += 6;
 
-			pthread_cond_timedwait(&dsmcbe_rc_queue_ready, &dsmcbe_rc_queue_mutex, &ts);
+			timedWaitReturnValue = pthread_cond_timedwait(&dsmcbe_rc_queue_ready, &dsmcbe_rc_queue_mutex, &ts);
 
 			if (g_queue_is_empty(dsmcbe_rc_GpriorityResponses) && g_queue_is_empty(dsmcbe_rc_GbagOfTasks))
 			{
-				//TODO: Should only really get here in DEBUG mode
-				printf("RequestCoordinator got timeout\n");
+				consecutiveTimeouts++;
+
+#ifdef DEBUG
+				printf("RequestCoordinator got timeout %d, return value: %d\n", consecutiveTimeouts, timedWaitReturnValue);
+#endif
+
+				//A full minute with no activity is not good for any HPC app
+				if (consecutiveTimeouts > 10)
+				{
+					REPORT_ERROR("Terminating because RequestCoordinator got 10 consecutive timeouts (60 seconds of waittime)");
+					exit(-1);
+				}
 				continue;
 			}
+#ifdef DEBUG
+			else if (timedWaitReturnValue != 0)
+			{
+				REPORT_ERROR2("pthread_cond_timedwait returned an error: %d, but there was data. This indicates an error in DSMCBE's use of locks", timedWaitReturnValue);
+			}
+#endif
 		}
 		
 		if (dsmcbe_rc_do_terminate)

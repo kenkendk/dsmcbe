@@ -387,10 +387,6 @@ void dsmcbe_ppu_processInvalidates(struct dsmcbe_invalidateRequest* incoming)
 		//Re-insert items
 		while(!g_queue_is_empty(dsmcbe_ppu_Gtemp))
 			g_queue_push_tail(dsmcbe_ppu_GpendingInvalidate, g_queue_pop_head(dsmcbe_ppu_Gtemp));
-		
-		if (g_queue_get_length(dsmcbe_ppu_Gtemp) > 0)
-			g_queue_clear(dsmcbe_ppu_Gtemp);
-			
 	}
 	pthread_mutex_unlock(&dsmcbe_ppu_invalidate_mutex);
 }

@@ -51,4 +51,9 @@ void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, v
 //Handles any nack, poison or skip response
 void dsmcbe_spu_csp_HandleChannelPoisonNACKorSkipResponse(struct dsmcbe_spu_state* state, void* resp);
 
+#ifdef SPU_STOP_AND_WAIT
+//The callback handler used when stopping the SPE while awaiting data
+int dsmcbe_spu_csp_callback(void* ls_base, unsigned int data_ptr);
+#endif
+
 #endif /* SPUEVENTHANDLER_CSP_H_ */

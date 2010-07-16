@@ -160,6 +160,11 @@ struct dsmcbe_spu_state
 	//This is a hashtable of known CSP items, key is the pointer in LS, value is a dataObj
 	GHashTable* csp_items;
 
+#ifdef SPU_STOP_AND_WAIT
+	pthread_mutex_t csp_sleep_mutex;
+	pthread_cond_t csp_sleep_cond;
+	unsigned int csp_sleep_flag;
+#endif
 };
 
 //Warning: Do not change the structure layout as it is used to send data to the SPU's
@@ -189,6 +194,14 @@ struct dsmcbe_spu_internalMboxArgs
 	//The result channelId, only for CSP ALT
 	unsigned int channelId;
 };
+
+
+//This is an array of SPU states
+struct dsmcbe_spu_state* dsmcbe_spu_states;
+
+//This is the number of SPU's allocated
+unsigned int dsmcbe_spu_thread_count;
+
 
 //Declarations for functions that have interdependencies
 void dsmcbe_spu_HandleObjectRelease(struct dsmcbe_spu_state* state, struct dsmcbe_spu_dataObject* obj);

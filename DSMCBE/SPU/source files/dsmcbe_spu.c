@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <SPUEventHandler_extrapackages.h>
 #include <dsmcbe_spu_internal.h>
+#include <spu_mfcio.h>
 
 //#define DEBUG_COMMUNICATION
 //Activating this makes the code use polling rather than just waiting for a mailbox message.
@@ -497,7 +498,7 @@ void* dsmcbe_acquire(GUID id, unsigned long* size, int type) {
 	return spu_dsmcbe_endAsync(spu_dsmcbe_acquire_begin(id, type), size);
 }
 
-void release(void* data) {
+void dsmcbe_release(void* data) {
 	spu_dsmcbe_release_begin(data);
 }
 
@@ -561,5 +562,5 @@ void dsmcbe_createBarrier(GUID id, unsigned int count)
 	
 	tmp[0] = count;
 	tmp[1] = 0;
-	release(tmp);
+	dsmcbe_release(tmp);
 }
