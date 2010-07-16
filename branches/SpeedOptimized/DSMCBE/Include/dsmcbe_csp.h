@@ -58,9 +58,11 @@
 
 //A convinience macro for ensuring the result of a csp function call, will print access information in debug mode
 #define CSP_SAFE_CALL(name, func_call) \
+	{ \
 	printf("Performing %s\n", name); \
 	CSP_SAFE_CALL_INNER(name, func_call) \
-	printf("Completed %s with succes\n", name);
+	printf("Completed %s with succes\n", name); \
+	}
 #else
 
 //A convinience macro for ensuring the result of a csp function call
