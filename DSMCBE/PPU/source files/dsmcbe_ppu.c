@@ -406,6 +406,10 @@ pthread_t* dsmcbe_simpleInitialize(unsigned int id, char* path, unsigned int thr
 
 void dsmcbe_initialize(spe_context_ptr_t* threads, unsigned int thread_count, int* sockets, unsigned int socketsCount)
 {
+#ifdef DEBUG
+	printf(WHERESTR "This run is in DEBUG mode\n", WHEREARG);
+#endif
+
 	//The coordinator needs this
 	dsmcbe_net_remote_hosts = socketsCount;
 	
