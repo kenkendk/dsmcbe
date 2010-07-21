@@ -56,6 +56,7 @@
 
 #define PACKAGE_FREE_REQUEST 60
 #define PACKAGE_TRANSFER_REQUEST 61
+#define PACKAGE_TRANSFER_RESPONSE 62
 
 #define PACKAGE_DMA_COMPLETE 70
 
@@ -401,10 +402,21 @@ struct dsmcbe_transferRequest
     unsigned int requestID;
     GUID dataItem;
 
-    unsigned int isTransfered;
     void* mutex;
     void* cond;
-    void* data;
+    void* queue;
+    void* from;
+    void* to;
+};
+
+struct dsmcbe_transferResponse
+{
+    unsigned int packageCode; // = 62
+    unsigned int requestID;
+    GUID dataItem;
+
+    void* from;
+    void* to;
 };
 
 #ifndef MAX
@@ -447,8 +459,9 @@ struct dsmcbe_transferRequest
 		0))))))))))))
 #define MAX_PACKAGE_SIZE_C \
 		MAX(sizeof(struct dsmcbe_transferRequest), \
+		MAX(sizeof(struct dsmcbe_transferResponse), \
 		MAX(sizeof(struct dsmcbe_freeRequest), \
-			0))
+			0)))
 
 #define MAX_PACKAGE_SIZE MAX(MAX(MAX_PACKAGE_SIZE_A, MAX_PACKAGE_SIZE_B), MAX_PACKAGE_SIZE_C)
 
@@ -480,8 +493,9 @@ struct dsmcbe_transferRequest
 		( x == PACKAGE_CSP_CHANNEL_WRITE_RESPONSE ? sizeof(struct dsmcbe_cspChannelWriteResponse) : \
 		( x == PACKAGE_CSP_CHANNEL_SKIP_RESPONSE ? sizeof(struct dsmcbe_cspChannelSkipResponse) : \
 		( x == PACKAGE_TRANSFER_REQUEST ? sizeof(struct dsmcbe_transferRequest) : \
+		( x == PACKAGE_TRANSFER_RESPONSE ? sizeof(struct dsmcbe_transferResponse) : \
 		( x == PACKAGE_FREE_REQUEST ? sizeof(struct dsmcbe_freeRequest) : \
-				0))))) ))))) ))))) ))))) ))))) ))
+				0))))) ))))) ))))) ))))) ))))) )))
 
 struct packageBuffer
 {

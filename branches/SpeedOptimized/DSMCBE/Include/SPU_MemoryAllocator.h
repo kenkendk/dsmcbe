@@ -45,4 +45,6 @@ void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, unsigned int size);
 
 void dsmcbe_spu_memory_free(SPU_Memory_Map* map, void* data);
 
+void dsmcbe_spu_memory_printMap(SPU_Memory_Map* map);
+
 #endif /* SPU_MEMORYALLOCATOR_H_ */

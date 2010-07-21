@@ -18,6 +18,13 @@
 #define PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST 310
 #define PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE 311
 
+#define PACKAGE_SPU_CSP_FLUSH_ITEM 400
+
+#define CSP_ITEM_MODE_IN_USE 1
+#define CSP_ITEM_MODE_READY_FOR_TRANSFER 2
+#define CSP_ITEM_MODE_IN_TRANSIT 3
+#define CSP_ITEM_MODE_TRANSFERED 4
+
 //To make the SPU stop each time it awaits external data, activate this flag
 //#define SPU_STOP_AND_WAIT
 

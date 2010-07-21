@@ -23,9 +23,9 @@ void* dsmcbe_ppu_forwardRequest(void* data);
 #define CSP_CALL_SKIP -20
 
 //This table contains all allocated pointers created by csp_item_create, key is the pointer, value is the size of the item
-GHashTable* csp_ppu_allocatedPointers;
+GHashTable* dsmcbe_ppu_csp_allocatedPointers;
 //This mutex protects the hashtable
-pthread_mutex_t csp_ppu_allocatedPointersMutex;
+pthread_mutex_t dsmcbe_ppu_csp_allocatedPointersMutex;
 
 int dsmcbe_csp_item_create(void** data, size_t size)
 {
@@ -43,9 +43,9 @@ int dsmcbe_csp_item_create(void** data, size_t size)
 
 	*data = MALLOC_ALIGN(ALIGNED_SIZE(size), 7);
 
-	pthread_mutex_lock(&csp_ppu_allocatedPointersMutex);
-	g_hash_table_insert(csp_ppu_allocatedPointers, *data, (void*)size);
-	pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+	pthread_mutex_lock(&dsmcbe_ppu_csp_allocatedPointersMutex);
+	g_hash_table_insert(dsmcbe_ppu_csp_allocatedPointers, *data, (void*)size);
+	pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 
 	return CSP_CALL_SUCCESS;
 }
@@ -107,16 +107,16 @@ int dsmcbe_csp_item_free(void* data)
 		return CSP_CALL_ERROR;
 	}
 
-	pthread_mutex_lock(&csp_ppu_allocatedPointersMutex);
-	if (g_hash_table_lookup(csp_ppu_allocatedPointers, data) == NULL)
+	pthread_mutex_lock(&dsmcbe_ppu_csp_allocatedPointersMutex);
+	if (g_hash_table_lookup(dsmcbe_ppu_csp_allocatedPointers, data) == NULL)
 	{
-		pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+		pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 		REPORT_ERROR2("Pointer to free was not known %d", (int)data);
 		return CSP_CALL_ERROR;
 	}
 
-	g_hash_table_remove(csp_ppu_allocatedPointers, data);
-	pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+	g_hash_table_remove(dsmcbe_ppu_csp_allocatedPointers, data);
+	pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 
 	FREE_ALIGN(data);
 	return CSP_CALL_SUCCESS;
@@ -130,17 +130,17 @@ int dsmcbe_csp_channel_write(GUID channelid, void* data)
 		return CSP_CALL_ERROR;
 	}
 
-	pthread_mutex_lock(&csp_ppu_allocatedPointersMutex);
-	size_t size = (size_t)g_hash_table_lookup(csp_ppu_allocatedPointers, data);
+	pthread_mutex_lock(&dsmcbe_ppu_csp_allocatedPointersMutex);
+	size_t size = (size_t)g_hash_table_lookup(dsmcbe_ppu_csp_allocatedPointers, data);
 	if (size == 0)
 	{
-		pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+		pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 		REPORT_ERROR2("Unable to locate the pointer %d, please use the csp_item_create function to register objects before writing them to the channel", (int)data);
 		return CSP_CALL_ERROR;
 	}
 
-	g_hash_table_remove(csp_ppu_allocatedPointers, data);
-	pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+	g_hash_table_remove(dsmcbe_ppu_csp_allocatedPointers, data);
+	pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
 	int res = dsmcbe_new_cspChannelWriteRequest_single(&req, channelid, 0, data, size, FALSE, NULL);
@@ -175,12 +175,14 @@ void dsmcbe_csp_request_spe_transfer(struct dsmcbe_cspChannelReadResponse* resp)
 	//TODO: Bad for performance to keep creating and destroying these
 	pthread_mutex_t tmpMutex;
 	pthread_cond_t tmpCond;
+	GQueue* queue;
 
 	pthread_mutex_init(&tmpMutex, NULL);
 	pthread_cond_init(&tmpCond, NULL);
+	queue = g_queue_new();
 
 	//Prepare the request
-	struct dsmcbe_transferRequest* req = dsmcbe_new_transferRequest(&tmpMutex, &tmpCond, resp->data);
+	struct dsmcbe_transferRequest* req = dsmcbe_new_transferRequest(0, &tmpMutex, &tmpCond, &queue, resp->data, NULL);
 	QueueableItem q = resp->transferManager;
 	q->dataRequest = NULL;
 
@@ -189,17 +191,21 @@ void dsmcbe_csp_request_spe_transfer(struct dsmcbe_cspChannelReadResponse* resp)
 	//Wait for response, blocking
 	pthread_mutex_lock(&tmpMutex);
 
-	while(req->isTransfered == FALSE)
+	while(g_queue_is_empty(queue))
 		pthread_cond_wait(&tmpCond, &tmpMutex);
 
-	resp->data = req->data;
+	struct dsmcbe_transferResponse* tresp = (struct dsmcbe_transferResponse*)g_queue_pop_head(queue);
+
+	resp->data = tresp->to;
+	FREE(tresp);
+	tresp = NULL;
+
 	pthread_mutex_unlock(&tmpMutex);
 
 	//Clean up
 	pthread_mutex_destroy(&tmpMutex);
 	pthread_cond_destroy(&tmpCond);
-
-	FREE(req);
+	g_queue_free(queue);
 }
 
 int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
@@ -244,17 +250,17 @@ int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 		}
 		else
 		{
-			pthread_mutex_lock(&csp_ppu_allocatedPointersMutex);
-			if (g_hash_table_lookup(csp_ppu_allocatedPointers, data) != NULL)
+			pthread_mutex_lock(&dsmcbe_ppu_csp_allocatedPointersMutex);
+			if (g_hash_table_lookup(dsmcbe_ppu_csp_allocatedPointers, data) != NULL)
 			{
 				REPORT_ERROR2("Pointer %d, was already registered?", (int)data);
 				result = CSP_CALL_ERROR;
 			}
 			else
 			{
-				g_hash_table_insert(csp_ppu_allocatedPointers, resp->data, (void*)resp->size);
+				g_hash_table_insert(dsmcbe_ppu_csp_allocatedPointers, resp->data, (void*)resp->size);
 			}
-			pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+			pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 		}
 	}
 
@@ -277,17 +283,17 @@ int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t chann
 		return CSP_CALL_ERROR;
 	}
 
-	pthread_mutex_lock(&csp_ppu_allocatedPointersMutex);
-	size_t size = (size_t)g_hash_table_lookup(csp_ppu_allocatedPointers, data);
+	pthread_mutex_lock(&dsmcbe_ppu_csp_allocatedPointersMutex);
+	size_t size = (size_t)g_hash_table_lookup(dsmcbe_ppu_csp_allocatedPointers, data);
 	if (size == 0)
 	{
-		pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+		pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 		REPORT_ERROR2("Unable to locate the pointer %d, please use the csp_item_create function to register objects before writing them to the channel", (int)data);
 		return CSP_CALL_ERROR;
 	}
 
-	g_hash_table_remove(csp_ppu_allocatedPointers, data);
-	pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+	g_hash_table_remove(dsmcbe_ppu_csp_allocatedPointers, data);
+	pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
 	int res = dsmcbe_new_cspChannelWriteRequest_multiple(&req, 0, mode, channels, channelcount, size, data, FALSE, NULL);
@@ -313,15 +319,15 @@ int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t chann
 	if (result != CSP_CALL_SUCCESS)
 	{
 		//Re-insert the pointer so it is still avalible
-		pthread_mutex_lock(&csp_ppu_allocatedPointersMutex);
-		if (g_hash_table_lookup(csp_ppu_allocatedPointers, data) != NULL)
+		pthread_mutex_lock(&dsmcbe_ppu_csp_allocatedPointersMutex);
+		if (g_hash_table_lookup(dsmcbe_ppu_csp_allocatedPointers, data) != NULL)
 		{
-			pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+			pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 			REPORT_ERROR2("Pointer %d was somehow re-used while awating response to an earlier call, this indicates a mis-use of the pointer", (int)data);
 			exit(-1);
 		}
-		g_hash_table_insert(csp_ppu_allocatedPointers, data, (void*)size);
-		pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+		g_hash_table_insert(dsmcbe_ppu_csp_allocatedPointers, data, (void*)size);
+		pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 	}
 
 	if (result == CSP_CALL_SKIP)
@@ -404,17 +410,17 @@ int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channe
 		}
 		else
 		{
-			pthread_mutex_lock(&csp_ppu_allocatedPointersMutex);
-			if (g_hash_table_lookup(csp_ppu_allocatedPointers, data) != NULL)
+			pthread_mutex_lock(&dsmcbe_ppu_csp_allocatedPointersMutex);
+			if (g_hash_table_lookup(dsmcbe_ppu_csp_allocatedPointers, data) != NULL)
 			{
 				REPORT_ERROR2("Pointer %d, was already registered?", (int)data);
 				result = CSP_CALL_ERROR;
 			}
 			else
 			{
-				g_hash_table_insert(csp_ppu_allocatedPointers, resp->data, (void*)resp->size);
+				g_hash_table_insert(dsmcbe_ppu_csp_allocatedPointers, resp->data, (void*)resp->size);
 			}
-			pthread_mutex_unlock(&csp_ppu_allocatedPointersMutex);
+			pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 		}
 	}
 

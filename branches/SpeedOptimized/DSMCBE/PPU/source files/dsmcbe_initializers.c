@@ -230,7 +230,7 @@ struct dsmcbe_migrationResponse* dsmcbe_new_migrationResponse(GUID id, unsigned 
 	return res;
 }
 
-struct dsmcbe_transferRequest* dsmcbe_new_transferRequest(pthread_mutex_t* mutex, pthread_cond_t* cond, void* data)
+struct dsmcbe_transferRequest* dsmcbe_new_transferRequest(unsigned int requestId, pthread_mutex_t* mutex, pthread_cond_t* cond, GQueue** queue, void* from, void* to)
 {
 	struct dsmcbe_transferRequest* res = (struct dsmcbe_transferRequest*)MALLOC(sizeof(struct dsmcbe_transferRequest));
 
@@ -238,16 +238,32 @@ struct dsmcbe_transferRequest* dsmcbe_new_transferRequest(pthread_mutex_t* mutex
 		return NULL;
 
 	GUID id = 0;
-	unsigned int requestId = 0;
 	COMMON_SETUP(res, PACKAGE_TRANSFER_REQUEST);
 
 	res->mutex = mutex;
 	res->cond = cond;
-	res->data = data;
-	res->isTransfered = FALSE;
+	res->from = from;
+	res->to = to;
+	res->queue = queue;
 
 	return res;
 
+}
+
+struct dsmcbe_transferResponse* dsmcbe_new_transferResponse(unsigned int requestId, void* from, void* to)
+{
+	struct dsmcbe_transferResponse* res = (struct dsmcbe_transferResponse*)MALLOC(sizeof(struct dsmcbe_transferResponse));
+
+	if (res == NULL)
+		return NULL;
+
+	GUID id = 0;
+	COMMON_SETUP(res, PACKAGE_TRANSFER_RESPONSE);
+
+	res->from = from;
+	res->to = to;
+
+	return res;
 }
 
 struct dsmcbe_freeRequest* dsmcbe_new_freeRequest(void* data)

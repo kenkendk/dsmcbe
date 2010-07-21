@@ -206,19 +206,36 @@ void dsmcbe_rc_csp_MatchedReaderAndWriter(cspChannel chan, QueueableItem reader,
 	}
 	else
 	{
-		dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->onSPE, wrq->transferManager);
 		if (writer->Gqueue == NULL)
 		{
-			//The request is buffered, so we have already responded, just clean up
+			dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->onSPE, wrq->transferManager);
+
+			//The write request was buffered, so we have already responded, just clean up
 			FREE(writer->dataRequest);
 			writer->dataRequest = NULL;
 			FREE(writer);
 			writer = NULL;
 		}
-		else //Respond as normal
+		else
+		{
+			//Respond as normal, we must respond to the write first, then the read,
+			// otherwise there is a race with the transferRequest and the writeResponse
+			//Unfortunately, when responding to the write request, the request gets
+			// free'd, so we need to copy some stuff before we can respond
+			void* data = wrq->data;
+			size_t size = wrq->size;
+			unsigned int onSPE = wrq->onSPE;
+			QueueableItem transferManager = wrq->transferManager;
+
+			//printf(WHERESTR "Responding to write with pointer @%u\n", WHEREARG, (unsigned int)data);
 			dsmcbe_rc_csp_RespondChannelWrite(writer, chan->id);
+
+			//printf(WHERESTR "Responding to read with pointer @%u\n", WHEREARG, (unsigned int)data);
+			dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, data, size, onSPE, transferManager);
+		}
 	}
 }
+
 
 void dsmcbe_rc_csp_RespondWriteChannelWithCopy(cspChannel chan, QueueableItem item)
 {
