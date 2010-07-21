@@ -2219,6 +2219,12 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 
 	dsmcbe_spu_do_terminate = FALSE;
 
+#ifdef SPE_CSP_CHANNEL_EAGER_TRANSFER
+	printf(WHERESTR "This run is using EAGER TRANSFER\n", WHEREARG);
+#else
+	printf(WHERESTR "This run is using LAZY TRANSFER\n", WHEREARG);
+#endif
+
 #ifdef SPU_STOP_AND_WAIT
 	if (spe_callback_handler_register(dsmcbe_spu_csp_callback, CSP_STOP_FUNCTION_CODE, SPE_CALLBACK_NEW) != 0)
 		REPORT_ERROR("Failed to register callback handler");
