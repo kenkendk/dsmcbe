@@ -32,12 +32,22 @@
 		(x == 59 ? "CspChannelSkipResponse" : \
 		(x == 60 ? "FreeRequest" : \
 		(x == 61 ? "TransferRequest" : \
+		(x == 62 ? "TransferResponse" : \
 		(x == 70 ? "DMAComplete" : \
-		(x == 20 ? "SPUMallocSetup" : \
-		(x == 21 ? "SPUMallocRequest" : \
-		(x == 22 ? "SPUMallocResponse" : \
-		(x == 23 ? "SPUMallocFree" : \
-				"Unknown")))))))))))))))))))))))))))))))
+		(x == 300 ? "SPU MallocSetup" : \
+		(x == 301 ? "SPU MallocRequest" : \
+		(x == 302 ? "SPU MallocResponse" : \
+		(x == 303 ? "SPU MallocFree" : \
+		(x == 304 ? "SPU CSP ItemCreateRequest" : \
+		(x == 305 ? "SPU CSP ItemCreateResponse" : \
+		(x == 306 ? "SPU CSP ItemFreeRequest" : \
+		(x == 307 ? "SPU CSP ItemFreeResponse" : \
+		(x == 308 ? "SPU CSP ReadAltRequest" : \
+		(x == 309 ? "SPU CSP ReadAltResponse" : \
+		(x == 310 ? "SPU CSP WriteAltRequest" : \
+		(x == 311 ? "SPU CSP WriteAltResponse" : \
+		(x == 400 ? "SPU CSP FlushItem" : \
+				"Unknown")))))))))))))))))))))))))))))))))))))))))
 
 //#define DEBUG_COMMUNICATION
 //#define EVENT_BASED

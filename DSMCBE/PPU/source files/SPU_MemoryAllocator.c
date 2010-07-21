@@ -22,19 +22,29 @@ typedef struct dsmcbe_spu_memory_object_struct SPU_Memory_Object;
 #define BITS_PR_BYTE 8
 #define SIZE_TO_BITS(x) (ALIGNED_SIZE(size) / ALIGN_SIZE_COUNT)
 
-void dsmcbe_spu_printMap(SPU_Memory_Map* map)
+void dsmcbe_spu_memory_printMap(SPU_Memory_Map* map)
 {
 	unsigned int i;
 	SPU_Memory_Object* this = NULL;
 
-	printf("\nPrinting list\n");
+	printf("\nPrinting list of free blocks\n");
 
 	for(i = 0; i < g_list_length(map->bitmap); i++)
 	{
 		this = g_list_nth_data(map->bitmap, i);
 		printf("Pointer: %i Size: %i\n", this->pointer, this->size);
 	}
+
+	printf("\nPrinting list of used blocks\n");
+
+	GHashTableIter iter;
+	void* data;
+	unsigned int size;
 	
+	g_hash_table_iter_init(&iter, map->allocated);
+	while(g_hash_table_iter_next(&iter, &data, (void**)&size))
+		printf("Pointer: %u, size: %u\n", (unsigned int)data, size * ALIGN_SIZE_COUNT);
+
 	printf("List printed\n\n");
 	//sleep(1);
 }
@@ -138,7 +148,7 @@ void dsmcbe_spu_memory_update_bitmap(SPU_Memory_Map* map, void* offset, unsigned
 		return;
 	}
 	 
-	dsmcbe_spu_printMap(map);
+	dsmcbe_spu_memory_printMap(map);
 	printf(WHERESTR "Tried to free offset %i with size %i - mapOffset %i, mapSize %i\n", WHEREARG, (unsigned int)offset, size, map->offset, map->size);	
 	REPORT_ERROR("Could not free memory\n");
 }

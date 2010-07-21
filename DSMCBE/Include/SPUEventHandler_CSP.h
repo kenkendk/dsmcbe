@@ -51,6 +51,12 @@ void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, v
 //Handles any nack, poison or skip response
 void dsmcbe_spu_csp_HandleChannelPoisonNACKorSkipResponse(struct dsmcbe_spu_state* state, void* resp);
 
+//Attempts to flush enough CSP items to get the requested avalible space
+unsigned int dsmcbe_spu_csp_FlushItems(struct dsmcbe_spu_state* state, unsigned int requested_size);
+
+//Initiates a transfer request on another SPE
+void dsmcbe_spu_csp_RequestTransfer(struct dsmcbe_spu_state* state, struct dsmcbe_spu_pendingRequest* preq);
+
 #ifdef SPU_STOP_AND_WAIT
 //The callback handler used when stopping the SPE while awaiting data
 int dsmcbe_spu_csp_callback(void* ls_base, unsigned int data_ptr);

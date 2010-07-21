@@ -12,9 +12,16 @@
 #include "SPUEventHandler_extrapackages.h"
 #include <RequestCoordinator.h>
 
+//This is the lowest number a release request can have.
+//Make sure that this is larger than the MAX_PENDING_REQUESTS number defined on the SPU
+#define RELEASE_NUMBER_BASE (2000)
+
+//The number of pending release requests allowed
+#define MAX_PENDING_RELEASE_REQUESTS (500)
+
 //The number of available DMA group ID's
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU!
-#define MAX_DMA_GROUPID 16
+#define MAX_DMA_GROUPID (16)
 
 //This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
 //Set to zero to disable alternate transfer methods
@@ -53,6 +60,12 @@ struct dsmcbe_spu_dataObject
 
 	//The pending request currently assigned to the object
 	struct dsmcbe_spu_pendingRequest* preq;
+
+#ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
+	//The current csp sequence number, used to track inactive items
+	unsigned int csp_seq_no;
+#endif
+
 };
 
 //This structure represents a request that is not yet completed
@@ -157,8 +170,13 @@ struct dsmcbe_spu_state
 	struct dsmcbe_spu_pendingRequest* pendingRequestsPointer[MAX_DMA_GROUPID];
 	unsigned int currentPendingRequest;
 
-	//This is a hashtable of known CSP items, key is the pointer in LS, value is a dataObj
-	GHashTable* csp_items;
+	//This is a hashtable of active CSP items, key is the pointer in LS, value is a dataObj
+	GHashTable* csp_active_items;
+
+#ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
+	//This is a hashtable of inactive CSP items, key is a sequence number, value is a dataObj
+	GHashTable* csp_inactive_items;
+#endif
 
 #ifdef SPU_STOP_AND_WAIT
 	pthread_mutex_t csp_sleep_mutex;
@@ -220,5 +238,9 @@ void dsmcbe_spu_free_PendingRequest(struct dsmcbe_spu_pendingRequest* preq);
 struct dsmcbe_spu_pendingRequest* dsmcbe_spu_FindPendingRequest(struct dsmcbe_spu_state* state, unsigned int requestId);
 
 QueueableItem dsmcbe_spu_createTransferManager(struct dsmcbe_spu_state* state);
+
+void dsmcbe_spu_ManageDelayedAllocation(struct dsmcbe_spu_state* state);
+
+void dsmcbe_spu_printMemoryStatus(struct dsmcbe_spu_state* state);
 
 #endif /* SPUEVENTHANDLER_SHARED_H_ */

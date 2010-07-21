@@ -98,8 +98,8 @@ void dsmcbe_ppu_initialize()
 
 	dsmcbe_ppu_Gtemp = g_queue_new();
 
-	csp_ppu_allocatedPointers = g_hash_table_new(NULL, NULL);
-	pthread_mutex_init(&csp_ppu_allocatedPointersMutex, NULL);
+	dsmcbe_ppu_csp_allocatedPointers = g_hash_table_new(NULL, NULL);
+	pthread_mutex_init(&dsmcbe_ppu_csp_allocatedPointersMutex, NULL);
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -171,8 +171,8 @@ void dsmcbe_ppu_terminatePPUHandler()
 	pthread_cond_destroy(&dsmcbe_ppu_queue_cond);
 	g_queue_free(dsmcbe_ppu_Gwork_queue);
 	
-	pthread_mutex_destroy(&csp_ppu_allocatedPointersMutex);
-	g_hash_table_destroy(csp_ppu_allocatedPointers);
+	pthread_mutex_destroy(&dsmcbe_ppu_csp_allocatedPointersMutex);
+	g_hash_table_destroy(dsmcbe_ppu_csp_allocatedPointers);
 
 	g_queue_free(dsmcbe_ppu_Gtemp);
 }

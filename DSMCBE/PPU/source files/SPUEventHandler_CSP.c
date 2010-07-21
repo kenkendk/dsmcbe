@@ -24,7 +24,9 @@
 
 #include <dsmcbe_csp.h>
 #include <dsmcbe_csp_initializers.h>
+#include <dsmcbe_initializers.h>
 #include <SPUEventHandler.h>
+#include <SPUEventHandler_CSP.h>
 #include <SPUEventHandler_shared.h>
 #include <SPUEventHandler_extrapackages.h>
 #include <glib.h>
@@ -89,6 +91,48 @@ void dsmcbe_spu_csp_HandleChannelPoisonResponse(struct dsmcbe_spu_state* state, 
 	dsmcbe_spu_SendMessagesToSPU(state, packagecode, requestId, 0, 0);
 }
 
+unsigned int dsmcbe_spu_csp_FlushItems(struct dsmcbe_spu_state* state, unsigned int requested_size)
+{
+#ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
+	unsigned int freed;
+	GHashTableIter it;
+	void* key;
+	struct dsmcbe_spu_dataObject* value;
+
+	freed = 0;
+	g_hash_table_iter_init(&it, state->csp_inactive_items);
+
+	while(g_hash_table_iter_next(&it, &key, (void**)&value))
+	{
+		if (value->mode == CSP_ITEM_MODE_IN_TRANSIT)
+			freed += value->size;
+		else if (value->mode == CSP_ITEM_MODE_READY_FOR_TRANSFER)
+		{
+			if (value->EA == NULL)
+				value->EA = MALLOC_ALIGN(ALIGNED_SIZE(value->size), 7);
+
+			value->isDMAToSPU = FALSE;
+
+			freed += value->size;
+
+			//printf(WHERESTR "Delayed free of %d bytes @%u\n", WHEREARG, (unsigned int)value->size, (unsigned int)value->LS);
+
+			value->mode = CSP_ITEM_MODE_IN_TRANSIT;
+			struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_new_PendingRequest(state, NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE, PACKAGE_SPU_CSP_FLUSH_ITEM, value->id, NULL, 0, TRUE);
+			dsmcbe_spu_TransferObject(state, preq, value);
+		}
+
+		if (freed >= requested_size)
+			break;
+	}
+
+	return freed;
+#else
+	requested_size += state->dmaSeqNo; //Remove compiler warning
+	return 0;
+#endif
+}
+
 //Attempts to allocate the required amount of memory on the SPU
 //If there is not enough memory left, but objects to remove,
 // the request is delayed, otherwise a NACK message is sent
@@ -100,26 +144,34 @@ void* dsmcbe_spu_csp_attempt_get_pointer(struct dsmcbe_spu_state* state, struct 
 
 	if (ls == NULL)
 	{
-		if (dsmcbe_spu_EstimatePendingReleaseSize(state) == 0)
+		//No more space, wait until we get some
+		if (g_queue_find(state->releaseWaiters, preq) == NULL)
+			g_queue_push_tail(state->releaseWaiters, preq);
+
+		//If we are all out, don't wait but respond with error
+		if (dsmcbe_spu_EstimatePendingReleaseSize(state) == 0 && dsmcbe_spu_csp_FlushItems(state, size) == 0)
 		{
+			//Remove the mark
+			g_queue_remove_all(state->releaseWaiters, preq);
+
 			REPORT_ERROR2("Out of memory on SPU, requested size: %d", size);
+
+			dsmcbe_spu_printMemoryStatus(state);
+
+			printf("\n\n");
+
 			dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, preq->requestId, 0, 0);
-			if (preq->dataObj->LS != NULL)
-				g_hash_table_remove(state->csp_items, preq->dataObj->LS);
 			FREE(preq->dataObj);
 			dsmcbe_spu_free_PendingRequest(preq);
-
 		}
 		else
 		{
-			//No more space, wait until we get some
-			if (g_queue_find(state->releaseWaiters, preq) == NULL)
-				g_queue_push_tail(state->releaseWaiters, preq);
+			//printf(WHERESTR "Delayed request for %d bytes\n", WHEREARG, size);
 		}
 	}
 	else
 	{
-		if (g_hash_table_lookup(state->csp_items, ls) != NULL)
+		if (g_hash_table_lookup(state->csp_active_items, ls) != NULL)
 		{
 			REPORT_ERROR("Newly allocated pointer was found in csp table");
 			exit(-1);
@@ -133,15 +185,15 @@ void* dsmcbe_spu_csp_attempt_get_pointer(struct dsmcbe_spu_state* state, struct 
 void dsmcbe_spu_csp_HandleItemCreateRequest(struct dsmcbe_spu_state* state, unsigned int requestId, unsigned int size)
 {
 	GUID id = 0;
-	struct dsmcbe_spu_pendingRequest*  preq = CREATE_PENDING_REQUEST(PACKAGE_CREATE_REQUEST)
-	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(0, TRUE, 0, 0, UINT_MAX, NULL, NULL, UINT_MAX, size, TRUE, FALSE, preq);
+	struct dsmcbe_spu_pendingRequest*  preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_ITEM_CREATE_REQUEST);
+	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(0, TRUE, CSP_ITEM_MODE_IN_USE, 0, UINT_MAX, NULL, NULL, UINT_MAX, size, TRUE, FALSE, preq);
 	preq->dataObj = obj;
 
 	obj->LS = dsmcbe_spu_csp_attempt_get_pointer(state, preq, size);
 
 	if (obj->LS != NULL)
 	{
-		g_hash_table_insert(state->csp_items, obj->LS, obj);
+		g_hash_table_insert(state->csp_active_items, obj->LS, obj);
 
 		dsmcbe_spu_free_PendingRequest(preq);
 		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE, requestId, (unsigned int)obj->LS, size);
@@ -151,7 +203,7 @@ void dsmcbe_spu_csp_HandleItemCreateRequest(struct dsmcbe_spu_state* state, unsi
 //This function handles incoming free item requests from an SPU
 void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, unsigned int requestId, void* data)
 {
-	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_items, data);
+	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, data);
 	if (obj == NULL)
 	{
 		REPORT_ERROR2("Attempted to release unknown pointer: %d", (unsigned int)data);
@@ -159,12 +211,19 @@ void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, unsign
 		return;
 	}
 
+	if (obj->mode != CSP_ITEM_MODE_IN_USE)
+	{
+		REPORT_ERROR("Unable to free item, as it is in an invalid state");
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
+		return;
+	}
+
 	FREE(obj);
-	g_hash_table_remove(state->csp_items, data);
+	g_hash_table_remove(state->csp_active_items, data);
 	dsmcbe_spu_memory_free(state->map, data);
 	dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_FREE_RESPONSE, requestId, 0, 0);
 
-	//TODO: Handling releaseWaiters
+	dsmcbe_spu_ManageDelayedAllocation(state);
 }
 
 //This function handles incoming channel read requests from an SPU
@@ -217,33 +276,69 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 	}
 
 	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_FindPendingRequest(state, requestId);
-	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(resp->channelId, TRUE, 0, 0, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->data, NULL, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->size, TRUE, TRUE, preq);
+	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(resp->channelId, TRUE, CSP_ITEM_MODE_IN_USE, 0, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->data, NULL, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->size, TRUE, TRUE, preq);
 
+	obj->mode = CSP_ITEM_MODE_IN_USE;
 	preq->dataObj = obj;
 	preq->objId = resp->channelId;
 	if (resp->onSPE)
 	{
-		preq->transferHandler = resp->transferManager;
+		preq->transferHandler = resp;
+		obj->EA = NULL; //This is not a valid pointer
 	}
-	else if (resp->transferManager != NULL)
+	else
 	{
-		FREE(resp->transferManager);
-		resp->transferManager = NULL;
+		preq->transferHandler = NULL;
 	}
 
+	obj->isDMAToSPU = TRUE;
 	obj->LS = dsmcbe_spu_csp_attempt_get_pointer(state, preq, obj->size);
+	if (preq->dataObj == NULL)
+	{
+		REPORT_ERROR("Out of memory on SPU");
+		exit(-1);
+	}
 
 	if (obj->LS != NULL)
 	{
-		g_hash_table_insert(state->csp_items, obj->LS, obj);
-		dsmcbe_spu_TransferObject(state, preq, obj);
+		g_hash_table_insert(state->csp_active_items, obj->LS, obj);
+		if (preq->transferHandler != NULL)
+		{
+			//printf(WHERESTR "Transfer was from SPU, handling by remote transfer, %u\n", WHEREARG, (unsigned int)preq);
+			dsmcbe_spu_csp_RequestTransfer(state, preq);
+		}
+		else
+		{
+			//printf(WHERESTR "Transfer was from PPU, handling by local transfer\n", WHEREARG);
+			dsmcbe_spu_TransferObject(state, preq, obj);
+			FREE(resp);
+		}
 	}
+}
+
+//Initiates a transfer request on another SPE
+void dsmcbe_spu_csp_RequestTransfer(struct dsmcbe_spu_state* state, struct dsmcbe_spu_pendingRequest* preq)
+{
+	//printf(WHERESTR "Transfer was from SPU, requesting transfer, local EA is %u, preq @%u, handler @%u\n", WHEREARG, (unsigned int)preq->dataObj->EA, (unsigned int)preq, (unsigned int)preq->transferHandler);
+
+	struct dsmcbe_cspChannelReadResponse* resp = (struct dsmcbe_cspChannelReadResponse*)preq->transferHandler;
+#ifdef USE_EVENTS
+	pthread_cond_t* cond = &state->inCond;
+#else
+	pthread_cond_t* cond = NULL;
+#endif
+
+	struct dsmcbe_transferRequest* req = dsmcbe_new_transferRequest(resp->requestID, &state->inMutex, cond, &state->inQueue, resp->data, spe_ls_area_get(state->context)  + (unsigned int)preq->dataObj->LS);
+	dsmcbe_rc_SendMessage(resp->transferManager, req);
+	FREE(resp);
+
+	preq->transferHandler = NULL;
 }
 
 //This function handles incoming channel write requests from an SPU
 void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id, void* data)
 {
-	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_items, data);
+	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, data);
 	if (obj == NULL)
 	{
 		REPORT_ERROR2("Attempted to use unknown pointer for write: %d", (unsigned int)data);
@@ -254,7 +349,7 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 #ifdef SPE_CSP_CHANNEL_EAGER_TRANSFER
 
 	if (obj->EA == NULL)
-		obj->EA = MALLOC_ALIGN(obj->size, 7);
+		obj->EA = MALLOC_ALIGN(ALIGNED_SIZE(obj->size), 7);
 
 	//Record the ongoing request
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_WRITE_REQUEST);
@@ -266,13 +361,16 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 
 #else
 
+	obj->csp_seq_no = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
+
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_WRITE_REQUEST);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	if(dsmcbe_new_cspChannelWriteRequest_single(&req, id, requestId, spe_ls_area_get(state->context) + (unsigned int)obj->LS, obj->size, TRUE, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
+	if(dsmcbe_new_cspChannelWriteRequest_single(&req, id, requestId, (void*)obj->csp_seq_no, obj->size, TRUE, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	preq->transferHandler = req->transferManager;
+	preq->dataObj = obj;
 
 	dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
 
@@ -284,7 +382,7 @@ void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state,
 {
 	GUID id = CSP_SKIP_GUARD;
 
-	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_items, data);
+	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, data);
 	if (obj == NULL)
 	{
 		REPORT_ERROR2("Attempted to use unknown pointer for write: %d", (unsigned int)data);
@@ -300,7 +398,7 @@ void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state,
 	obj->isDMAToSPU = FALSE;
 
 	if (obj->EA == NULL)
-		obj->EA = MALLOC_ALIGN(obj->size, 7);
+		obj->EA = MALLOC_ALIGN(ALIGNED_SIZE(obj->size), 7);
 
 	if (dsmcbe_new_cspChannelWriteRequest_multiple((struct dsmcbe_cspChannelWriteRequest**)&(preq->channelPointer), requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, obj->EA, FALSE, NULL) != CSP_CALL_SUCCESS)
 		exit(-1);
@@ -309,13 +407,16 @@ void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state,
 
 #else
 
+	obj->csp_seq_no = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
+
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	if (dsmcbe_new_cspChannelWriteRequest_multiple(&req, requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, spe_ls_area_get(state->context) + (unsigned int)obj->LS, TRUE, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelWriteRequest_multiple(&req, requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, (void*)obj->csp_seq_no, TRUE, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	preq->transferHandler = req->transferManager;
+	preq->dataObj = obj;
 
 	dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
 
@@ -351,7 +452,7 @@ void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, v
 		//Data is now delivered correctly, free the local space
 		if (preq->dataObj->LS != NULL)
 		{
-			g_hash_table_remove(state->csp_items, preq->dataObj->LS);
+			g_hash_table_remove(state->csp_active_items, preq->dataObj->LS);
 			dsmcbe_spu_memory_free(state->map, preq->dataObj->LS);
 			preq->dataObj->LS = NULL;
 		}
@@ -360,11 +461,22 @@ void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, v
 		FREE(preq->dataObj);
 		preq->dataObj = NULL;
 	}
+#else
+	preq->dataObj->mode = CSP_ITEM_MODE_READY_FOR_TRANSFER;
+	//printf(WHERESTR "Moving item to inactive, %d\n", WHEREARG, (unsigned int)preq->dataObj->LS);
+	g_hash_table_remove(state->csp_active_items, preq->dataObj->LS);
+
+	if (g_hash_table_lookup(state->csp_inactive_items, (void*)preq->dataObj->csp_seq_no) != NULL)
+		REPORT_ERROR2("Attempting to re-use entry %u", preq->dataObj->csp_seq_no);
+
+	g_hash_table_insert(state->csp_inactive_items, (void*)preq->dataObj->csp_seq_no, preq->dataObj);
 #endif
 
 	dsmcbe_spu_SendMessagesToSPU(state, preq->operation == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST ? PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE : PACKAGE_CSP_CHANNEL_WRITE_RESPONSE, requestId, ((struct dsmcbe_cspChannelWriteResponse*)resp)->channelId, 0);
 
 	dsmcbe_spu_free_PendingRequest(preq);
+
+	dsmcbe_spu_ManageDelayedAllocation(state);
 }
 
 //Handles any nack, poison or skip response
