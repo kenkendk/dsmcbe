@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
 	//Processes forward the required data into the other SPU's
 	for(i = 0; i < forwardCount; i++)
 	{
-		CSP_SAFE_CALL("read-forward initial data", dsmcbe_csp_channel_read(readerChannel, NULL, &tempData));
+		CSP_SAFE_CALL("read-forward initial data", dsmcbe_csp_channel_read(args->ProcessId == 0 ? STARTUP_CHANNEL : readerChannel, NULL, &tempData));
 		CSP_SAFE_CALL("write-forward initial data", dsmcbe_csp_channel_write(writerChannel, tempData));
 	}
 
@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
 			memcpy(tempParticles, initialParticles, sizeof(struct Particle) * initialSize);
 		}
 
-		//printf("SPU %d is forwarding package %d to channel %d\n", args->ProcessId, tempPackageId, writerChannel);
+		//printf("SPU %d is forwarding package %d to channel %d, roundCounter %d\n", args->ProcessId, tempPackageId, writerChannel, roundCounter);
 
 		if (args->ProcessId != 0)
 		{
@@ -203,6 +203,8 @@ int main(int argc, char** argv) {
 
 			putBuffer = tempData;
 		}
+
+		//printf("SPU %d has forwarded package %d to channel %d, roundCounter %d\n", args->ProcessId, tempPackageId, writerChannel, roundCounter);
 
 		if (isInitialDataInTemp)
 		{

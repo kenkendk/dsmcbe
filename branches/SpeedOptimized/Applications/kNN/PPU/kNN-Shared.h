@@ -19,7 +19,7 @@
 
 #define PROBLEM_TYPE float
 
-#define DESIRED_PROBLEM_SIZE (64 * 1024)
+#define DESIRED_PROBLEM_SIZE (40 * 1024)
 
 #define DATA_BLOCK_SIZE(dimensions, elements) (sizeof(PROBLEM_TYPE) * dimensions * elements)
 

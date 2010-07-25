@@ -13,7 +13,7 @@
 
 #define CHANNEL_START_GUID 1000
 
-#define REPETITIONS 10
+#define REPETITIONS 10000
 
 #define DATA_BLOCK_SIZE (sizeof(unsigned int))
 
