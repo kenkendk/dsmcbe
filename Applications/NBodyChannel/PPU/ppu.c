@@ -9,9 +9,13 @@
 #include "guids.h"
 #include "StopWatch.h"
 #include <math.h>
-#include <graphicsScreen.h>
 
-#define GRAPHICS
+
+//#define GRAPHICS
+
+#ifdef GRAPHICS
+#include <graphicsScreen.h>
+#endif
 
 #ifndef MAX
 #define MAX(x,y) ((x > y) ? (x) : (y))
@@ -108,6 +112,7 @@ int main(int argc, char **argv)
 
     	CSP_SAFE_CALL("create simulation channel", dsmcbe_csp_channel_create(SIMULATION_SETUP, 0, CSP_CHANNEL_TYPE_ONE2ANY));
     	CSP_SAFE_CALL("create feedback channel", dsmcbe_csp_channel_create(FEEDBACK_CHANNEL, 0, CSP_CHANNEL_TYPE_ONE2ONE));
+    	CSP_SAFE_CALL("create startup channel", dsmcbe_csp_channel_create(STARTUP_CHANNEL, 2, CSP_CHANNEL_TYPE_ONE2ANY));
 
     	for(i = 0; i < processes; i++)
     	{
@@ -153,7 +158,7 @@ int main(int argc, char **argv)
 			InitializeBigBangParticles(elementCount, tmp + (sizeof(unsigned int) * 2));
 
     		//printf("PPU is sending package %d with %d particles\n", i, elementCount);
-			CSP_SAFE_CALL("write particle package", dsmcbe_csp_channel_write(CHANNEL_START_GUID, tmp));
+			CSP_SAFE_CALL("write particle package", dsmcbe_csp_channel_write(STARTUP_CHANNEL, tmp));
 
 			startIndex = endIndex;
 		}
@@ -193,7 +198,9 @@ int main(int argc, char **argv)
 
 				CSP_SAFE_CALL("free particle update", dsmcbe_csp_item_free(resData));
 			}
+#ifdef DEBUG
 			printf("Updating screen, remaining count: %d\n", updates);
+#endif
 
 #ifdef GRAPHICS
 			gs_clear(WHITE);
@@ -251,7 +258,7 @@ int main(int argc, char **argv)
 	for(i = 0; i < spu_threads; i++)
 	{
 		//printf(WHERESTR "waiting for SPU %i\n", WHEREARG, i);
-		pthread_join(threads[i], NULL);
+		//pthread_join(threads[i], NULL);
 	}
 
 	printf("PPU is terminating\n");
