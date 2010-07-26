@@ -327,7 +327,7 @@ struct dsmcbe_cspChannelReadResponse
 
 	struct dsmcbe_QueueableItemStruct* transferManager;
 
-	unsigned int onSPE;
+	unsigned int speId;
 	unsigned long size;
 	void* data;
 };
@@ -349,7 +349,7 @@ struct dsmcbe_cspChannelWriteRequest
 	unsigned int channelcount;
 	GUID* channels;
 
-	unsigned int onSPE;
+	unsigned int speId;
 	unsigned long size;
 	void* data;
 };

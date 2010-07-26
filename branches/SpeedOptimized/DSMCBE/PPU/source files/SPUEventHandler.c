@@ -1074,7 +1074,12 @@ void dsmcbe_spu_ManageDelayedAllocation(struct dsmcbe_spu_state* state)
 				dsmcbe_spu_free_PendingRequest(preq);
 			}
 			else if (preq->operation == PACKAGE_CSP_CHANNEL_READ_REQUEST || preq->operation == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST)
-				dsmcbe_spu_csp_RequestTransfer(state, preq);
+			{
+				if (preq->transferHandler != NULL)
+					dsmcbe_spu_csp_RequestTransfer(state, preq); //Remote object
+				else
+					dsmcbe_spu_TransferObject(state, preq, obj); //Local object
+			}
 			else if (preq->operation == PACKAGE_SPU_MEMORY_MALLOC_REQUEST)
 			{
 				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_MEMORY_MALLOC_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
@@ -1442,8 +1447,7 @@ void dsmcbe_spu_HandleTransferRequest(struct dsmcbe_spu_state* state, void* pack
 	}
 
 	//printf(WHERESTR "Context %u, Got transfer request %u, obj is @%u\n", WHEREARG, (unsigned int)state->context, req->requestID, (unsigned int)obj);
-
-	g_hash_table_remove(state->csp_inactive_items, req->from);
+	g_hash_table_remove(state->csp_inactive_items, (void*)req->from);
 
 	if (obj->mode == CSP_ITEM_MODE_TRANSFERED)
 	{
@@ -2255,6 +2259,7 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 		dsmcbe_spu_states[i].csp_active_items = g_hash_table_new(NULL, NULL);
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 		dsmcbe_spu_states[i].csp_inactive_items = g_hash_table_new(NULL, NULL);
+		dsmcbe_spu_states[i].cspSeqNo = 0;
 #endif
 
 		pthread_mutex_init(&dsmcbe_spu_states[i].inMutex, NULL);

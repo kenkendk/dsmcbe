@@ -143,7 +143,7 @@ int dsmcbe_csp_channel_write(GUID channelid, void* data)
 	pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	int res = dsmcbe_new_cspChannelWriteRequest_single(&req, channelid, 0, data, size, FALSE, NULL);
+	int res = dsmcbe_new_cspChannelWriteRequest_single(&req, channelid, 0, data, size, 0, NULL);
 	if (res != CSP_CALL_SUCCESS)
 		return res;
 
@@ -236,7 +236,7 @@ int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 
 	if (result == CSP_CALL_SUCCESS)
 	{
-		if (resp->onSPE)
+		if (resp->speId != 0)
 			dsmcbe_csp_request_spe_transfer(resp);
 
 		if (size != NULL)
@@ -296,7 +296,7 @@ int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t chann
 	pthread_mutex_unlock(&dsmcbe_ppu_csp_allocatedPointersMutex);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	int res = dsmcbe_new_cspChannelWriteRequest_multiple(&req, 0, mode, channels, channelcount, size, data, FALSE, NULL);
+	int res = dsmcbe_new_cspChannelWriteRequest_multiple(&req, 0, mode, channels, channelcount, size, data, 0, NULL);
 	if (res != CSP_CALL_SUCCESS)
 		return res;
 
@@ -394,7 +394,7 @@ int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channe
 	}
 	else if (result == CSP_CALL_SUCCESS)
 	{
-		if (resp->onSPE)
+		if (resp->speId != 0)
 			dsmcbe_csp_request_spe_transfer(resp);
 
 		if (size != NULL)

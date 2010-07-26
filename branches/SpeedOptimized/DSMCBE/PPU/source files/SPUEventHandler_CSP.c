@@ -118,7 +118,7 @@ unsigned int dsmcbe_spu_csp_FlushItems(struct dsmcbe_spu_state* state, unsigned 
 			//printf(WHERESTR "Delayed free of %d bytes @%u\n", WHEREARG, (unsigned int)value->size, (unsigned int)value->LS);
 
 			value->mode = CSP_ITEM_MODE_IN_TRANSIT;
-			struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_new_PendingRequest(state, NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE, PACKAGE_SPU_CSP_FLUSH_ITEM, value->id, NULL, 0, TRUE);
+			struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_new_PendingRequest(state, NEXT_SEQ_NO(state->cspSeqNo, MAX_CSP_INACTIVE_ITEMS) + CSP_INACTIVE_BASE, PACKAGE_SPU_CSP_FLUSH_ITEM, value->id, NULL, 0, TRUE);
 			dsmcbe_spu_TransferObject(state, preq, value);
 		}
 
@@ -213,7 +213,7 @@ void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, unsign
 
 	if (obj->mode != CSP_ITEM_MODE_IN_USE)
 	{
-		REPORT_ERROR("Unable to free item, as it is in an invalid state");
+		REPORT_ERROR2("Unable to free item, as it is in an invalid state, %d", obj->mode);
 		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
 		return;
 	}
@@ -276,12 +276,66 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 	}
 
 	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_FindPendingRequest(state, requestId);
+
+	if (resp->speId == (unsigned int)state)
+	{
+		//Special case, we have communicated with ourselves
+		struct dsmcbe_spu_dataObject* oldObj = g_hash_table_lookup(state->csp_inactive_items, resp->data);
+		if (oldObj == NULL)
+		{
+			REPORT_ERROR("Broḱen self-transfer");
+			exit(-1);
+		}
+
+		if (oldObj->mode == CSP_ITEM_MODE_TRANSFERED)
+		{
+			//The transfer is for this SPE, but the item was flushed out, so we move it back in
+			g_hash_table_remove(state->csp_inactive_items, resp->data);
+			resp->speId = 0;
+			resp->data = oldObj->EA;
+			FREE(oldObj);
+		}
+		else if (oldObj->mode == CSP_ITEM_MODE_READY_FOR_TRANSFER)
+		{
+			//The transfer is for this SPE and the item is already on the SPE
+			g_hash_table_remove(state->csp_inactive_items, resp->data);
+			g_hash_table_insert(state->csp_active_items, oldObj->LS, oldObj);
+			oldObj->mode = CSP_ITEM_MODE_IN_USE;
+
+			if (preq->operation == PACKAGE_CSP_CHANNEL_READ_REQUEST)
+			{
+				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_CSP_CHANNEL_READ_RESPONSE, preq->requestId, (unsigned int)oldObj->LS, oldObj->size);
+				dsmcbe_spu_free_PendingRequest(preq);
+			}
+			else if (preq->operation == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST)
+			{
+				if (preq->channelPointer != NULL)
+					*((unsigned int*)preq->channelPointer) = preq->objId;
+				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE, preq->requestId, (unsigned int)oldObj->LS, oldObj->size);
+				dsmcbe_spu_free_PendingRequest(preq);
+			}
+			else
+			{
+				REPORT_ERROR2("Unexpected csp package code %d", preq->operation);
+			}
+
+			FREE(resp);
+			return;
+		}
+		else
+		{
+			REPORT_ERROR2("Unsupported mode for item: %d, likely an unsupported race situation", oldObj->mode);
+			exit(-1);
+		}
+
+	}
+
 	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(resp->channelId, TRUE, CSP_ITEM_MODE_IN_USE, 0, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->data, NULL, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->size, TRUE, TRUE, preq);
 
 	obj->mode = CSP_ITEM_MODE_IN_USE;
 	preq->dataObj = obj;
 	preq->objId = resp->channelId;
-	if (resp->onSPE)
+	if (resp->speId != 0)
 	{
 		preq->transferHandler = resp;
 		obj->EA = NULL; //This is not a valid pointer
@@ -311,9 +365,11 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 		{
 			//printf(WHERESTR "Transfer was from PPU, handling by local transfer\n", WHEREARG);
 			dsmcbe_spu_TransferObject(state, preq, obj);
-			FREE(resp);
 		}
 	}
+
+	if (preq->transferHandler == NULL)
+		FREE(resp);
 }
 
 //Initiates a transfer request on another SPE
@@ -322,6 +378,9 @@ void dsmcbe_spu_csp_RequestTransfer(struct dsmcbe_spu_state* state, struct dsmcb
 	//printf(WHERESTR "Transfer was from SPU, requesting transfer, local EA is %u, preq @%u, handler @%u\n", WHEREARG, (unsigned int)preq->dataObj->EA, (unsigned int)preq, (unsigned int)preq->transferHandler);
 
 	struct dsmcbe_cspChannelReadResponse* resp = (struct dsmcbe_cspChannelReadResponse*)preq->transferHandler;
+
+
+
 #ifdef USE_EVENTS
 	pthread_cond_t* cond = &state->inCond;
 #else
@@ -361,12 +420,27 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 
 #else
 
-	obj->csp_seq_no = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
+	obj->csp_seq_no = NEXT_SEQ_NO(state->cspSeqNo, MAX_CSP_INACTIVE_ITEMS) + CSP_INACTIVE_BASE;
+
+	int max_tries = CSP_INACTIVE_BASE + 1;
+	while (max_tries-- > 0 && g_hash_table_lookup(state->csp_inactive_items, (void*)obj->csp_seq_no) != NULL)
+	{
+#ifdef DEBUG
+		printf(WHERESTR "Retry set id, seq_no=%d, tries left=%d, current pending count=%d, to avoid this increase MAX_CSP_INACTIVE_ITEMS which is currently %d\n", WHEREARG, obj->csp_seq_no, max_tries, g_hash_table_size(state->csp_inactive_items), MAX_CSP_INACTIVE_ITEMS);
+#endif
+		obj->csp_seq_no = NEXT_SEQ_NO(state->cspSeqNo, CSP_INACTIVE_BASE) + CSP_INACTIVE_BASE;
+	}
+
+	if (max_tries == 0)
+	{
+		REPORT_ERROR("Ran out of pending csp id's");
+		exit(-1);
+	}
 
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_WRITE_REQUEST);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	if(dsmcbe_new_cspChannelWriteRequest_single(&req, id, requestId, (void*)obj->csp_seq_no, obj->size, TRUE, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
+	if(dsmcbe_new_cspChannelWriteRequest_single(&req, id, requestId, (void*)obj->csp_seq_no, obj->size, (unsigned int)state, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	preq->transferHandler = req->transferManager;
@@ -400,19 +474,34 @@ void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state,
 	if (obj->EA == NULL)
 		obj->EA = MALLOC_ALIGN(ALIGNED_SIZE(obj->size), 7);
 
-	if (dsmcbe_new_cspChannelWriteRequest_multiple((struct dsmcbe_cspChannelWriteRequest**)&(preq->channelPointer), requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, obj->EA, FALSE, NULL) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelWriteRequest_multiple((struct dsmcbe_cspChannelWriteRequest**)&(preq->channelPointer), requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, obj->EA, 0, NULL) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	dsmcbe_spu_TransferObject(state, preq, obj);
 
 #else
 
-	obj->csp_seq_no = NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE;
+	obj->csp_seq_no = NEXT_SEQ_NO(state->cspSeqNo, MAX_CSP_INACTIVE_ITEMS) + CSP_INACTIVE_BASE;
+
+	int max_tries = CSP_INACTIVE_BASE + 1;
+	while (max_tries-- > 0 && g_hash_table_lookup(state->csp_inactive_items, (void*)obj->csp_seq_no) != NULL)
+	{
+#ifdef DEBUG
+		printf(WHERESTR "Retry set id, seq_no=%d, tries left=%d, current pending count=%d, to avoid this increase MAX_CSP_INACTIVE_ITEMS which is currently %d\n", WHEREARG, obj->csp_seq_no, max_tries, g_hash_table_size(state->csp_inactive_items), MAX_CSP_INACTIVE_ITEMS);
+#endif
+		obj->csp_seq_no = NEXT_SEQ_NO(state->cspSeqNo, CSP_INACTIVE_BASE) + CSP_INACTIVE_BASE;
+	}
+
+	if (max_tries == 0)
+	{
+		REPORT_ERROR("Ran out of pending csp id's");
+		exit(-1);
+	}
 
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	if (dsmcbe_new_cspChannelWriteRequest_multiple(&req, requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, (void*)obj->csp_seq_no, TRUE, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelWriteRequest_multiple(&req, requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, (void*)obj->csp_seq_no, (unsigned int)state, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	preq->transferHandler = req->transferManager;
@@ -467,7 +556,10 @@ void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, v
 	g_hash_table_remove(state->csp_active_items, preq->dataObj->LS);
 
 	if (g_hash_table_lookup(state->csp_inactive_items, (void*)preq->dataObj->csp_seq_no) != NULL)
+	{
 		REPORT_ERROR2("Attempting to re-use entry %u", preq->dataObj->csp_seq_no);
+		REPORT_ERROR2("The table has %d entries", g_hash_table_size(state->csp_inactive_items));
+	}
 
 	g_hash_table_insert(state->csp_inactive_items, (void*)preq->dataObj->csp_seq_no, preq->dataObj);
 #endif

@@ -137,11 +137,11 @@ void dsmcbe_rc_csp_RespondChannelWrite(QueueableItem item, GUID channelId)
 }
 
 //Sends a read notification
-void dsmcbe_rc_csp_RespondChannelRead(QueueableItem item, GUID channelId, void* data, unsigned int size, unsigned int onSPE, QueueableItem transferManager)
+void dsmcbe_rc_csp_RespondChannelRead(QueueableItem item, GUID channelId, void* data, unsigned int size, unsigned int speId, QueueableItem transferManager)
 {
 	//The used field in both read and write have the same layout
 	struct dsmcbe_cspChannelReadResponse* resp;
-	if (dsmcbe_new_cspChannelReadResponse(&resp, channelId, ((struct dsmcbe_createRequest*)item->dataRequest)->requestID, data, size, onSPE, transferManager) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelReadResponse(&resp, channelId, ((struct dsmcbe_createRequest*)item->dataRequest)->requestID, data, size, speId, transferManager) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	dsmcbe_rc_RespondAny(item, resp);
@@ -208,7 +208,7 @@ void dsmcbe_rc_csp_MatchedReaderAndWriter(cspChannel chan, QueueableItem reader,
 	{
 		if (writer->Gqueue == NULL)
 		{
-			dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->onSPE, wrq->transferManager);
+			dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->speId, wrq->transferManager);
 
 			//The write request was buffered, so we have already responded, just clean up
 			FREE(writer->dataRequest);
@@ -224,14 +224,14 @@ void dsmcbe_rc_csp_MatchedReaderAndWriter(cspChannel chan, QueueableItem reader,
 			// free'd, so we need to copy some stuff before we can respond
 			void* data = wrq->data;
 			size_t size = wrq->size;
-			unsigned int onSPE = wrq->onSPE;
+			unsigned int speId = wrq->speId;
 			QueueableItem transferManager = wrq->transferManager;
 
 			//printf(WHERESTR "Responding to write with pointer @%u\n", WHEREARG, (unsigned int)data);
 			dsmcbe_rc_csp_RespondChannelWrite(writer, chan->id);
 
 			//printf(WHERESTR "Responding to read with pointer @%u\n", WHEREARG, (unsigned int)data);
-			dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, data, size, onSPE, transferManager);
+			dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, data, size, speId, transferManager);
 		}
 	}
 }
