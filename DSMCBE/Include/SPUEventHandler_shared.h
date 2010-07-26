@@ -19,6 +19,12 @@
 //The number of pending release requests allowed
 #define MAX_PENDING_RELEASE_REQUESTS (500)
 
+//The base id for request'ids for inactive items, must be larger than RELEASE_NUMBER_BASE + MAX_PENDING_RELEASE_REQUESTS
+#define CSP_INACTIVE_BASE (4000)
+
+//The max number of inactive items
+#define MAX_CSP_INACTIVE_ITEMS (500)
+
 //The number of available DMA group ID's
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU!
 #define MAX_DMA_GROUPID (16)
@@ -176,6 +182,9 @@ struct dsmcbe_spu_state
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 	//This is a hashtable of inactive CSP items, key is a sequence number, value is a dataObj
 	GHashTable* csp_inactive_items;
+
+	//The sequence numbers used to keep track of inactive items
+	unsigned int cspSeqNo;
 #endif
 
 #ifdef SPU_STOP_AND_WAIT
