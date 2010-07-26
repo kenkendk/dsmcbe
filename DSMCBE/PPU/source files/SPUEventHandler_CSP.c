@@ -277,6 +277,7 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 
 	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_FindPendingRequest(state, requestId);
 
+#ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 	if (resp->speId == (unsigned int)state)
 	{
 		//Special case, we have communicated with ourselves
@@ -329,6 +330,7 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 		}
 
 	}
+#endif
 
 	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(resp->channelId, TRUE, CSP_ITEM_MODE_IN_USE, 0, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->data, NULL, UINT_MAX, ((struct dsmcbe_cspChannelReadResponse*)resp)->size, TRUE, TRUE, preq);
 
@@ -343,6 +345,8 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 	else
 	{
 		preq->transferHandler = NULL;
+		FREE(resp);
+		resp = NULL;
 	}
 
 	obj->isDMAToSPU = TRUE;
@@ -367,9 +371,6 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 			dsmcbe_spu_TransferObject(state, preq, obj);
 		}
 	}
-
-	if (preq->transferHandler == NULL)
-		FREE(resp);
 }
 
 //Initiates a transfer request on another SPE
@@ -378,9 +379,6 @@ void dsmcbe_spu_csp_RequestTransfer(struct dsmcbe_spu_state* state, struct dsmcb
 	//printf(WHERESTR "Transfer was from SPU, requesting transfer, local EA is %u, preq @%u, handler @%u\n", WHEREARG, (unsigned int)preq->dataObj->EA, (unsigned int)preq, (unsigned int)preq->transferHandler);
 
 	struct dsmcbe_cspChannelReadResponse* resp = (struct dsmcbe_cspChannelReadResponse*)preq->transferHandler;
-
-
-
 #ifdef USE_EVENTS
 	pthread_cond_t* cond = &state->inCond;
 #else
