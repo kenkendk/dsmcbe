@@ -240,7 +240,7 @@ int main(int argc, char **argv)
 		sw_stop();
 		sw_timeString(buf);
 
-		printf("Simulation parameters:\nParticles: \t%d\nRounds: \t%d\nUpdate freq.: \t%d\n\n", SIMULATION_PARTICLE_COUNT, REPETITIONS, SIMULATION_UPDATE_FREQUENCY);
+		printf("Simulation parameters:\nParticles: \t%d\nRounds: \t%d\nUpdate freq.: \t%d\nBlocksize: %d\n\n", SIMULATION_PARTICLE_COUNT, REPETITIONS, SIMULATION_UPDATE_FREQUENCY, blockSize);
 		printf("Elapsed time with %d SPU's: %s\n", processes, buf);
 
 		CSP_SAFE_CALL("create termination channel", dsmcbe_csp_channel_create(MASTER_COMPLETION_LOCK, 0, CSP_CHANNEL_TYPE_ONE2ANY));

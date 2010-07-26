@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
 	//printf("SPU %d has forwarded all copies\n", args->ProcessId);
 
 	//Extract the initial package
-	CSP_SAFE_CALL("read initial package", dsmcbe_csp_channel_read(readerChannel, &size, &initialPackage));
+	CSP_SAFE_CALL("read initial package", dsmcbe_csp_channel_read(args->ProcessId == 0 ? STARTUP_CHANNEL : readerChannel, &size, &initialPackage));
 	initialSize = ((unsigned int*)initialPackage)[0];
 	initialPackageId = ((unsigned int*)initialPackage)[1];
 	initialParticles = initialPackage + (sizeof(unsigned int) * 2);
@@ -154,13 +154,13 @@ int main(int argc, char** argv) {
 	//printf("SPU %d is in ApplyForces, size: %d\n", args->ProcessId, initialSize);
 	ApplyForce(initialParticles, tempParticles, initialSize, initialSize, TRUE, args);
 
-	//printf("SPU %d is writing initial package %d to channel %d\n", args->ProcessId, initialPackageId, writerChannel);
 	if (args->ProcessId == 0)
 	{
 		putBuffer = tempData;
 	}
 	else
 	{
+		//printf("SPU %d is writing initial package %d to channel %d\n", args->ProcessId, initialPackageId, writerChannel);
 		CSP_SAFE_CALL("forwardning initial data", dsmcbe_csp_channel_write(writerChannel, tempData));
 	}
 
