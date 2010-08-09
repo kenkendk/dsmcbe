@@ -7,53 +7,48 @@
 
 #include <pthread.h>
 #include <stdio.h>
-#include <glib.h>
 
-#include "../header files/datapackages.h"
-#include "../header files/PPUEventHandler.h"
-#include "../header files/RequestCoordinator.h"
-#include "../header files/NetworkHandler.h"
-
-#include "../../common/debug.h"
+#include <PPUEventHandler.h>
+#include <RequestCoordinator.h>
+#include <NetworkHandler.h>
+#include <debug.h>
+#include <PPUEventHandler_CSP.h>
+#include <dsmcbe_initializers.h>
+#include <stdlib.h>
 
 //This mutex protects the pointer list
-pthread_mutex_t ppu_pointer_mutex;
+pthread_mutex_t dsmcbe_ppu_pointer_mutex;
 //This mutex protects the old pointer list
-pthread_mutex_t ppu_pointerOld_mutex;
+pthread_mutex_t dsmcbe_ppu_pointerOld_mutex;
 //This mutex protects the invalidate queue
-pthread_mutex_t ppu_invalidate_mutex;
+pthread_mutex_t dsmcbe_ppu_invalidate_mutex;
 //This signals when an item has been released
-pthread_cond_t ppu_pointerOld_cond;
+pthread_cond_t dsmcbe_ppu_pointerOld_cond;
 
 //These two tables contains the registered pointers, either active or retired
-GHashTable* Gppu_pointers;
-GHashTable* Gppu_pointersOld;
-
-//This mutex/table contains the size of malloc'ed pointers
-pthread_mutex_t ppu_allocatedPointers_mutex;
-GHashTable* Gppu_allocatedPointers;
+GHashTable* dsmcbe_ppu_Gpointers;
+GHashTable* dsmcbe_ppu_GpointersOld;
 
 //This is the queue of pending invalidates
-GQueue* Gppu_pendingInvalidate;
+GQueue* dsmcbe_ppu_GpendingInvalidate;
 
-volatile unsigned int ppu_terminate;
+volatile unsigned int dsmcbe_ppu_terminate;
 
 #define MAX_SEQUENCE_NUMBER 1000000
-unsigned int ppu_request_sequence_number = 0;
+unsigned int dsmcbe_ppu_request_sequence_number = 0;
 
-GHashTable* ppuhandler_pendingRequests;
+GHashTable* dsmcbe_ppu_GpendingRequests;
 
-pthread_mutex_t ppu_queue_mutex;
-pthread_cond_t ppu_queue_cond;
-GQueue* Gppu_work_queue;
-pthread_t ppu_dispatchthread;
+pthread_mutex_t dsmcbe_ppu_queue_mutex;
+pthread_cond_t dsmcbe_ppu_queue_cond;
+GQueue* dsmcbe_ppu_Gwork_queue;
+pthread_t dsmcbe_ppu_dispatchthread;
 
-GQueue* Gppu_temp;
-pthread_mutex_t ppu_dummy_mutex;
-pthread_cond_t ppu_dummy_cond;
+GQueue* dsmcbe_ppu_Gtemp;
 
-typedef struct PointerEntryStruct *PointerEntry;
-struct PointerEntryStruct
+
+typedef struct dsmcbe_ppu_PointerEntryStruct* PointerEntry;
+struct dsmcbe_ppu_PointerEntryStruct
 {
 	GUID id;
 	void* data;
@@ -64,211 +59,219 @@ struct PointerEntryStruct
 };
 
 
-void* ppu_requestDispatcher(void* data);
+void* dsmcbe_ppu_requestDispatcher(void* data);
+
+PointerEntry dsmcbe_ppu_new_PointerEntry(GUID id, void* data, unsigned long offset, unsigned long size, int mode, unsigned int count)
+{
+	PointerEntry res = (PointerEntry)MALLOC(sizeof(struct dsmcbe_ppu_PointerEntryStruct));
+
+	res->id = id;
+	res->data = data;
+	res->offset = offset;
+	res->size = size;
+	res->mode = mode;
+	res->count = count;
+
+	return res;
+}
 
 //Setup the PPUHandler
-void InitializePPUHandler()
+void dsmcbe_ppu_initialize()
 {
-	
 	pthread_attr_t attr;
 	
-	Gppu_pointers = g_hash_table_new(NULL, NULL);
-	pthread_mutex_init(&ppu_pointer_mutex, NULL);
+	dsmcbe_ppu_Gpointers = g_hash_table_new(NULL, NULL);
+	pthread_mutex_init(&dsmcbe_ppu_pointer_mutex, NULL);
 	
-	Gppu_pointersOld = g_hash_table_new(NULL, NULL);
-	pthread_mutex_init(&ppu_pointerOld_mutex, NULL);
-	pthread_cond_init(&ppu_pointerOld_cond, NULL);
+	dsmcbe_ppu_GpointersOld = g_hash_table_new(NULL, NULL);
+	pthread_mutex_init(&dsmcbe_ppu_pointerOld_mutex, NULL);
+	pthread_cond_init(&dsmcbe_ppu_pointerOld_cond, NULL);
 
-	Gppu_pendingInvalidate = g_queue_new();
-	pthread_mutex_init(&ppu_invalidate_mutex, NULL);
+	dsmcbe_ppu_GpendingInvalidate = g_queue_new();
+	pthread_mutex_init(&dsmcbe_ppu_invalidate_mutex, NULL);
 
-	ppuhandler_pendingRequests = g_hash_table_new(NULL, NULL);
-	pthread_mutex_init(&ppu_queue_mutex, NULL);
-	pthread_cond_init(&ppu_queue_cond, NULL);	
+	dsmcbe_ppu_GpendingRequests = g_hash_table_new(NULL, NULL);
+	pthread_mutex_init(&dsmcbe_ppu_queue_mutex, NULL);
+	pthread_cond_init(&dsmcbe_ppu_queue_cond, NULL);
 
-	Gppu_allocatedPointers = g_hash_table_new(NULL, NULL);
-	pthread_mutex_init(&ppu_allocatedPointers_mutex, NULL);
+	dsmcbe_ppu_Gwork_queue = g_queue_new();
 
-	Gppu_work_queue = g_queue_new();	
+	dsmcbe_ppu_Gtemp = g_queue_new();
 
-	Gppu_temp = g_queue_new();
-
-	pthread_mutex_init(&ppu_dummy_mutex, NULL);
-	pthread_cond_init(&ppu_dummy_cond, NULL);
+	dsmcbe_ppu_csp_allocatedPointers = g_hash_table_new(NULL, NULL);
+	pthread_mutex_init(&dsmcbe_ppu_csp_allocatedPointersMutex, NULL);
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-	pthread_create(&ppu_dispatchthread, &attr, ppu_requestDispatcher, NULL);
+	pthread_create(&dsmcbe_ppu_dispatchthread, &attr, dsmcbe_ppu_requestDispatcher, NULL);
 	pthread_attr_destroy(&attr);
 	
-	RegisterInvalidateSubscriber(&ppu_queue_mutex, &ppu_queue_cond, &Gppu_work_queue, -1);
+	dsmcbe_rc_RegisterInvalidateSubscriber(&dsmcbe_ppu_queue_mutex, &dsmcbe_ppu_queue_cond, &dsmcbe_ppu_Gwork_queue, -1);
 }
 
-//ppu_terminate the PPUHandler and release all resources
-void ppu_terminatePPUHandler()
+//dsmcbe_ppu_terminate the PPUHandler and release all resources
+void dsmcbe_ppu_terminatePPUHandler()
 {
-	ppu_terminate = 1;
+	dsmcbe_ppu_terminate = 1;
 	
-	pthread_join(ppu_dispatchthread, NULL);
+	pthread_join(dsmcbe_ppu_dispatchthread, NULL);
 	
+	g_hash_table_destroy(dsmcbe_ppu_Gpointers);
+	g_hash_table_destroy(dsmcbe_ppu_GpointersOld);
 	
-	UnregisterInvalidateSubscriber(&Gppu_pendingInvalidate);
+/*
+	it = ht_iter_create(pointers);
+	keys = queue_create();
+	while(ht_iter_next(it))
+	{
+		pe = ht_iter_get_value(it);
+		queue_enq(keys, ht_iter_get_key(it)); 
+		FREE_ALIGN(pe->data);
+		pe->data = NULL;
+		FREE(pe);
+		pe = NULL;
+	}
+	ht_iter_destroy(it);
 	
-	pthread_mutex_destroy(&ppu_pointer_mutex);
-	pthread_mutex_destroy(&ppu_pointerOld_mutex);
-	pthread_mutex_destroy(&ppu_invalidate_mutex);
-	pthread_mutex_destroy(&ppu_allocatedPointers_mutex);
-	pthread_cond_destroy(&ppu_pointerOld_cond);
-	g_queue_free(Gppu_pendingInvalidate);
-
-	g_hash_table_destroy(ppuhandler_pendingRequests);
-	pthread_mutex_destroy(&ppu_queue_mutex);
-	pthread_cond_destroy(&ppu_queue_cond);	
-	g_queue_free(Gppu_work_queue);
+	while(!queue_empty(keys))
+		ht_delete(pointers, queue_deq(keys));
 	
-	g_queue_free(Gppu_temp);	
+	ht_destroy(pointers);
+	queue_destroy(keys);
 
-	g_hash_table_destroy(Gppu_pointers);
-	g_hash_table_destroy(Gppu_pointersOld);
-	g_hash_table_destroy(Gppu_allocatedPointers);
+	it = ht_iter_create(pointersOld);
+	keys = queue_create();
+	while(ht_iter_next(it))
+	{
+		pe = ht_iter_get_value(it);
+		queue_enq(keys, ht_iter_get_key(it)); 
+		FREE_ALIGN(pe->data);
+		pe->data = NULL;
+		FREE(pe);
+		pe = NULL;
+	}
+	ht_iter_destroy(it);
+	
+	while(!queue_empty(keys))
+		ht_delete(pointersOld, queue_deq(keys));
+	
+	ht_destroy(pointers);
+	queue_destroy(keys);
+*/	
+	dsmcbe_rc_UnregisterInvalidateSubscriber(&dsmcbe_ppu_GpendingInvalidate);
+	
+	pthread_mutex_destroy(&dsmcbe_ppu_pointer_mutex);
+	pthread_mutex_destroy(&dsmcbe_ppu_pointerOld_mutex);
+	pthread_mutex_destroy(&dsmcbe_ppu_invalidate_mutex);
+	pthread_cond_destroy(&dsmcbe_ppu_pointerOld_cond);
+	g_queue_free(dsmcbe_ppu_GpendingInvalidate);
 
-	pthread_mutex_destroy(&ppu_dummy_mutex);
-	pthread_cond_destroy(&ppu_dummy_cond);
+	g_hash_table_destroy(dsmcbe_ppu_GpendingRequests);
+	pthread_mutex_destroy(&dsmcbe_ppu_queue_mutex);
+	pthread_cond_destroy(&dsmcbe_ppu_queue_cond);
+	g_queue_free(dsmcbe_ppu_Gwork_queue);
+	
+	pthread_mutex_destroy(&dsmcbe_ppu_csp_allocatedPointersMutex);
+	g_hash_table_destroy(dsmcbe_ppu_csp_allocatedPointers);
 
-
+	g_queue_free(dsmcbe_ppu_Gtemp);
 }
 
-void RelayEnqueItem(QueueableItem q)
+void dsmcbe_ppu_RelayEnqueItem(QueueableItem q)
 {
-	
-	QueueableItem relay = MALLOC(sizeof(struct QueueableItemStruct));
-		
-	relay->dataRequest = q->dataRequest;
-	relay->event = &ppu_queue_cond;
-	relay->mutex= &ppu_queue_mutex;
-	relay->Gqueue = &Gppu_work_queue;
-	relay->callback = NULL;
+	QueueableItem relay = dsmcbe_rc_new_QueueableItem(&dsmcbe_ppu_queue_mutex, &dsmcbe_ppu_queue_cond, &dsmcbe_ppu_Gwork_queue, q->dataRequest, NULL);
 	
 	q->dataRequest = NULL;
 	
-	pthread_mutex_lock(&ppu_queue_mutex);
-	((struct createRequest*)relay->dataRequest)->requestID = NEXT_SEQ_NO(ppu_request_sequence_number, MAX_SEQUENCE_NUMBER);
-	g_hash_table_insert(ppuhandler_pendingRequests, (void*)(((struct createRequest*)relay->dataRequest)->requestID), q);
-	//printf(WHERESTR "Sending request with type %d, and reqId: %d\n", WHEREARG, ((struct createRequest*)relay->dataRequest)->packageCode, ((struct createRequest*)relay->dataRequest)->requestID);
-	pthread_mutex_unlock(&ppu_queue_mutex);
+	pthread_mutex_lock(relay->mutex);
+	((struct dsmcbe_createRequest*)relay->dataRequest)->requestID = NEXT_SEQ_NO(dsmcbe_ppu_request_sequence_number, MAX_SEQUENCE_NUMBER);
+	g_hash_table_insert(dsmcbe_ppu_GpendingRequests, (void*)(((struct dsmcbe_createRequest*)relay->dataRequest)->requestID), q);
+	pthread_mutex_unlock(relay->mutex);
 	
-	//printf(WHERESTR "Sending item %d\n", WHEREARG, (unsigned int)relay);
-	EnqueItem(relay);
+	dsmcbe_rc_EnqueItem(relay);
 }
 
 //Sends a request into the coordinator, and awaits the response (blocking)
-void* forwardRequest(void* data)
+void* dsmcbe_ppu_forwardRequest(void* data)
 {	
-	//TODO: Bad for performance to declare GQueue inside function!!	
-	GQueue* dummy;
+	//TODO: Bad for performance to create items here, should be created per thread!!
+	GQueue* local_queue = g_queue_new();
+	pthread_mutex_t local_mutex;
+	pthread_cond_t local_cond;
+
+	pthread_mutex_init(&local_mutex, NULL);
+	pthread_cond_init(&local_cond, NULL);
 
 	//Create the entry, this will be released by the coordinator
-	QueueableItem q = MALLOC(sizeof(struct QueueableItemStruct));
+	QueueableItem q = dsmcbe_rc_new_QueueableItem(&local_mutex, &local_cond, &local_queue, data, NULL);
 	
-	dummy = g_queue_new();
-	q->dataRequest = data;
-	q->event = &ppu_dummy_cond;
-	q->mutex = &ppu_dummy_mutex;
-	q->Gqueue = &dummy;
-	q->callback = NULL;
+	dsmcbe_ppu_RelayEnqueItem(q);
 	
-	//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i\n", WHEREARG, (int)q->event, (int)q->mutex, (int)q->queue);
-	
-	//printf(WHERESTR "adding item to queue\n", WHEREARG);
-	RelayEnqueItem(q);
-	//printf(WHERESTR "item added to queue %i\n", WHEREARG, (int)q);
-	
-	pthread_mutex_lock(&ppu_dummy_mutex);
-	//printf(WHERESTR "locked %i\n", WHEREARG, (int)&m);
+	pthread_mutex_lock(&local_mutex);
 
-
-	while (g_queue_is_empty(dummy)) {
-		//printf(WHERESTR "waiting for queue %i\n", WHEREARG, (int)&dummy);
-		pthread_cond_wait(&ppu_dummy_cond, &ppu_dummy_mutex);
-		//printf(WHERESTR "queue filled\n", WHEREARG);
+	while (g_queue_is_empty(local_queue)) {
+		pthread_cond_wait(&local_cond, &local_mutex);
 	}
 	
-	data = g_queue_pop_head(dummy);
-	pthread_mutex_unlock(&ppu_dummy_mutex);
-	
-	int waitForWbr = ((struct acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && (((struct acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE || ((struct acquireResponse*)data)->mode == ACQUIRE_MODE_DELETE);
+	data = g_queue_pop_head(local_queue);
+	pthread_mutex_unlock(&local_mutex);
 
-	if (waitForWbr)
-	{
-		if (((struct acquireResponse*)data)->writeBufferReady != TRUE)
+	if (((struct dsmcbe_acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct dsmcbe_acquireResponse*)data)->mode == ACQUIRE_MODE_WRITE) {
+		
+		if (((struct dsmcbe_acquireResponse*)data)->writeBufferReady != TRUE)
 		{
-			//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
-	
-			pthread_mutex_lock(&ppu_dummy_mutex);
-			while (g_queue_is_empty(dummy)) {
-				//printf(WHERESTR "waiting for writebuffer signal\n", WHEREARG);
-				pthread_cond_wait(&ppu_dummy_cond, &ppu_dummy_mutex);
-				//printf(WHERESTR "got for writebuffer signal\n", WHEREARG);
+			pthread_mutex_lock(&local_mutex);
+			while (g_queue_is_empty(local_queue)) {
+				pthread_cond_wait(&local_cond, &local_mutex);
 			}
 			
-			struct writebufferReady* data2 = g_queue_pop_head(dummy);
-			pthread_mutex_unlock(&ppu_dummy_mutex);
+			struct dsmcbe_writebufferReady* data2 = g_queue_pop_head(local_queue);
+			pthread_mutex_unlock(&local_mutex);
 			if (data2->packageCode != PACKAGE_WRITEBUFFER_READY)
 				REPORT_ERROR("Expected PACKAGE_WRITEBUFFER_READY");
 			
 			FREE(data2);
 			data2 = NULL;
-		
-			pthread_mutex_unlock(&ppu_dummy_mutex);
 		}
 	}
 	
-	//printf(WHERESTR "returning response (%d)\n", WHEREARG, (int)data);
-	g_queue_free(dummy);
+	g_queue_free(local_queue);
+	pthread_mutex_destroy(&local_mutex);
+	pthread_cond_destroy(&local_cond);
+
+	local_queue = NULL;
 	
 	return data;
 }
 
 //Record information about the returned pointer
-void recordPointer(void* retval, GUID id, unsigned long size, unsigned long offset, int type)
+void dsmcbe_ppu_recordPointer(void* retval, GUID id, unsigned long size, unsigned long offset, int type)
 {
 	PointerEntry ent;
 	
-	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_DELETE && type != ACQUIRE_MODE_GET)
+	if (type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_WRITE)
 		REPORT_ERROR("pointer was neither READ nor WRITE");
 	
 	//If the response was valid, record the item data
 	if (retval != NULL)
 	{		
-		pthread_mutex_lock(&ppu_pointer_mutex);
+		pthread_mutex_lock(&dsmcbe_ppu_pointer_mutex);
 		
-		if ((ent = g_hash_table_lookup(Gppu_pointers, retval)) != NULL)
-		{
+		if ((ent = g_hash_table_lookup(dsmcbe_ppu_Gpointers, retval)) != NULL)
 			ent->count++;
-		}
 		else
-		{
-			//printf(WHERESTR "recording entry for %d, EA: %d\n", WHEREARG, id, (int)retval);
-			ent = MALLOC(sizeof(struct PointerEntryStruct));
-
-			ent->data = retval;
-			ent->id = id;
-			ent->offset = offset;
-			ent->size = size;
-			ent->mode = type;
-			ent->count = 1;
-		}
+			ent = dsmcbe_ppu_new_PointerEntry(id, retval, offset, size, type, 1);
 		
-		g_hash_table_insert(Gppu_pointers, retval, ent);
-		pthread_mutex_unlock(&ppu_pointer_mutex);
+		g_hash_table_insert(dsmcbe_ppu_Gpointers, retval, ent);
+		pthread_mutex_unlock(&dsmcbe_ppu_pointer_mutex);
 	}	
 }
 
 //Perform a create in the current thread
-void* threadCreate(GUID id, unsigned long size, int mode)
+void* dsmcbe_ppu_create(GUID id, unsigned long size)
 {
-	struct createRequest* cr;
-	struct acquireResponse* ar;
+	struct dsmcbe_createRequest* cr;
+	struct dsmcbe_acquireResponse* ar;
 	void* retval;
 	
 	if (id == OBJECT_TABLE_ID)
@@ -279,127 +282,102 @@ void* threadCreate(GUID id, unsigned long size, int mode)
 	
 	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
+		REPORT_ERROR("requested ID exceeds PAGE_TABLE_SIZE");
 		return NULL;
 	}
 	
-	//printf(WHERESTR "creating structure\n", WHEREARG);
 	//Create the request, this will be released by the coordinator
-	cr = MALLOC(sizeof(struct createRequest));
-	
-	cr->packageCode = PACKAGE_CREATE_REQUEST;
-	cr->requestID = 0;
-	cr->dataItem = id;
-	cr->dataSize = size == 0 ? 1 : size;
-	cr->originator = dsmcbe_host_number;
-	cr->originalRecipient = UINT_MAX;
-	cr->originalRequestID = UINT_MAX;
-	cr->mode = mode;
+	cr = dsmcbe_new_createRequest(id, 0, size == 0 ? 1 : size);
 	
 	retval = NULL;
 	
 	//Perform the request and await the response
-	ar = (struct acquireResponse*)forwardRequest(cr);
+	ar = (struct dsmcbe_acquireResponse*)dsmcbe_ppu_forwardRequest(cr);
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
-		//printf(WHERESTR "response was negative\n", WHEREARG);
 		if (ar->packageCode != PACKAGE_NACK)
 			REPORT_ERROR("Unexcepted response for a Create request");
 	}
 	else
 	{
-		//printf(WHERESTR "response was positive\n", WHEREARG);
 		//The response was positive
 		retval = ar->data;
-		#if DEBUG
+#ifdef DEBUG
 		if (ar->dataSize != size)
 			REPORT_ERROR("Bad size returned in create");
 		if (ar->requestID != 0)
 			REPORT_ERROR("Bad request ID returned in create");
-		#endif
+#endif
 	}
 
-	//recordPointer(retval, id, size, 0, ACQUIRE_MODE_WRITE);	
-	
 	FREE(ar);
 	ar = NULL;
 	return retval;	
 }
 
-void processInvalidates(struct invalidateRequest* incoming)
+void dsmcbe_ppu_processInvalidates(struct dsmcbe_invalidateRequest* incoming)
 {
-	
-	struct invalidateRequest* req;
+	struct dsmcbe_invalidateRequest* req;
 	PointerEntry pe;
 	
-	//printf(WHERESTR "In processInvalidates\n", WHEREARG);
-	pthread_mutex_lock(&ppu_invalidate_mutex);
+	pthread_mutex_lock(&dsmcbe_ppu_invalidate_mutex);
 	
 	if (incoming != NULL)
-	{
-		//printf(WHERESTR "Inserted item in queue: %d, reqId: %d\n", WHEREARG, incoming->dataItem, incoming->requestID);
-		g_queue_push_tail(Gppu_pendingInvalidate, incoming);
-	}
+		g_queue_push_tail(dsmcbe_ppu_GpendingInvalidate, incoming);
 
-	if (!g_queue_is_empty(Gppu_pendingInvalidate))
+	if (!g_queue_is_empty(dsmcbe_ppu_GpendingInvalidate))
 	{
-		//Gppu_temp = g_queue_new();
-		while(!g_queue_is_empty(Gppu_pendingInvalidate))
+		while(!g_queue_is_empty(dsmcbe_ppu_GpendingInvalidate))
 		{
-			req = g_queue_pop_head(Gppu_pendingInvalidate);
+			req = g_queue_pop_head(dsmcbe_ppu_GpendingInvalidate);
 			//printf(WHERESTR "Processing request for %d with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
 
-			pthread_mutex_lock(&ppu_pointerOld_mutex);
+			pthread_mutex_lock(&dsmcbe_ppu_pointerOld_mutex);
 
-			if ((pe = g_hash_table_lookup(Gppu_pointersOld, (void*)req->dataItem)) != NULL)
+			if ((pe = g_hash_table_lookup(dsmcbe_ppu_GpointersOld, (void*)req->dataItem)) != NULL)
 			{
 				if (pe->count == 0 && pe->mode != ACQUIRE_MODE_BLOCKED )
 				{
-					g_hash_table_remove(Gppu_pointersOld, (void*)req->dataItem);
+					g_hash_table_remove(dsmcbe_ppu_GpointersOld, (void*)req->dataItem);
 					
 					FREE(pe);
 					pe = NULL;
-			
-					//printf(WHERESTR "Item was correctly freed: %d\n", WHEREARG, req->dataItem);
-					
 				}
 				else
 				{
-					//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
-					g_queue_push_tail(Gppu_temp, req);
+					//Item is still in use :(
+					g_queue_push_tail(dsmcbe_ppu_Gtemp, req);
 					req = NULL;
 				}
 				
-				pthread_mutex_unlock(&ppu_pointerOld_mutex);
+				pthread_mutex_unlock(&dsmcbe_ppu_pointerOld_mutex);
 			}
 			else
 			{
-				pthread_mutex_unlock(&ppu_pointerOld_mutex);
+				pthread_mutex_unlock(&dsmcbe_ppu_pointerOld_mutex);
 				
-				pthread_mutex_lock(&ppu_pointer_mutex);
+				pthread_mutex_lock(&dsmcbe_ppu_pointer_mutex);
 				
 				GHashTableIter iter;
 				gpointer key, value;
-				g_hash_table_iter_init (&iter, Gppu_pointers);
+				g_hash_table_iter_init (&iter, dsmcbe_ppu_Gpointers);
 
 				while (g_hash_table_iter_next (&iter, &key, &value)) 
 				{
 					pe = value;
-					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE && pe->mode != ACQUIRE_MODE_DELETE)
+					if (pe->id == req->dataItem && pe->mode != ACQUIRE_MODE_WRITE)
 					{
-						//printf(WHERESTR "Item is still in use: %d\n", WHEREARG, req->dataItem);
-						g_queue_push_tail(Gppu_temp, req);
+						//Item is still in use :(
+						g_queue_push_tail(dsmcbe_ppu_Gtemp, req);
 						req = NULL;
 						break;
 					}
 				}
-				pthread_mutex_unlock(&ppu_pointer_mutex);
+				pthread_mutex_unlock(&dsmcbe_ppu_pointer_mutex);
 			}
 			
 			if (req != NULL) {
-				//printf(WHERESTR "Responding to invalidate for %d, with reqId: %d\n", WHEREARG, req->dataItem, req->requestID);
-				
-				EnqueInvalidateResponse(req->requestID);
+				dsmcbe_rc_EnqueInvalidateResponse(req->dataItem, req->requestID);
 				
 				FREE(req);
 				req = NULL;
@@ -407,25 +385,20 @@ void processInvalidates(struct invalidateRequest* incoming)
 		}
 
 		//Re-insert items
-		while(!g_queue_is_empty(Gppu_temp))
-			g_queue_push_tail(Gppu_pendingInvalidate, g_queue_pop_head(Gppu_temp));
-		
-		if (g_queue_get_length(Gppu_temp) > 0)
-			g_queue_clear(Gppu_temp);	
-			
+		while(!g_queue_is_empty(dsmcbe_ppu_Gtemp))
+			g_queue_push_tail(dsmcbe_ppu_GpendingInvalidate, g_queue_pop_head(dsmcbe_ppu_Gtemp));
 	}
-
-	pthread_mutex_unlock(&ppu_invalidate_mutex);
+	pthread_mutex_unlock(&dsmcbe_ppu_invalidate_mutex);
 }
 
-int isPendingInvalidate(GUID id)
+int dsmcbe_ppu_isPendingInvalidate(GUID id)
 {
 	GList* l;
 	
-	if (g_queue_is_empty(Gppu_pendingInvalidate))
+	if (g_queue_is_empty(dsmcbe_ppu_GpendingInvalidate))
 		return 0;
 	
-	l = Gppu_pendingInvalidate->head;
+	l = dsmcbe_ppu_GpendingInvalidate->head;
 	
 	//TODO: Is this right compared to
 	
@@ -446,11 +419,10 @@ int isPendingInvalidate(GUID id)
 	
 }
 
-void threadAcquireBarrier(GUID id)
+void dsmcbe_ppu_acquireBarrier(GUID id)
 {
-	
-	struct acquireBarrierRequest* cr;
-	struct acquireBarrierResponse* ar;
+	struct dsmcbe_acquireBarrierRequest* cr;
+	struct dsmcbe_acquireBarrierResponse* ar;
 	
 	if (id == OBJECT_TABLE_ID)
 	{
@@ -460,103 +432,78 @@ void threadAcquireBarrier(GUID id)
 	
 	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
+		REPORT_ERROR("requested ID exceeds PAGE_TABLE_SIZE");
 		return;
 	}
 	
 	//Create the request, this will be released by the coordinator	
-	cr = MALLOC(sizeof(struct acquireBarrierRequest));
-
-	cr->packageCode = PACKAGE_ACQUIRE_BARRIER_REQUEST;
-	cr->requestID = 0;
-	cr->dataItem = id;
-	cr->originator = dsmcbe_host_number;
-	cr->originalRecipient = UINT_MAX;
-	cr->originalRequestID = UINT_MAX;
+	cr = dsmcbe_new_acquireBarrierRequest(id, 0);
 
 	//Perform the request and await the response
-	//printf(WHERESTR "Acquire barrier on id %i\n", WHEREARG, id);
-	ar = (struct acquireBarrierResponse*)forwardRequest(cr);
+	ar = (struct dsmcbe_acquireBarrierResponse*)dsmcbe_ppu_forwardRequest(cr);
 	if (ar->packageCode != PACKAGE_ACQUIRE_BARRIER_RESPONSE)
 	{
 		REPORT_ERROR("Unexcepted response for an Acquire Barrier request");
 	}
 	
-	//printf(WHERESTR "Acquired barrier on id %i\n", WHEREARG, id);
 	FREE(ar);
 	ar = NULL;
 	return;
 }
 
 //Perform an acquire in the current thread
-void* threadAcquire(GUID id, unsigned long* size, int type)
+void* dsmcbe_ppu_acquire(GUID id, unsigned long* size, int type)
 {
 	void* retval;
-	struct acquireRequest* cr;
-	struct acquireResponse* ar;
+	struct dsmcbe_acquireRequest* cr;
+	struct dsmcbe_acquireResponse* ar;
 	PointerEntry pe;
 	
 	if (id == OBJECT_TABLE_ID)
 	{
-		REPORT_ERROR("cannot request objecttable");
+		REPORT_ERROR("cannot request object table");
 		return NULL;
 	}
 	
 	if (id >= OBJECT_TABLE_SIZE)
 	{
-		REPORT_ERROR("requested ID exeeds OBJECT_TABLE_SIZE");
+		REPORT_ERROR("requested ID exceeds OBJECT_TABLE_SIZE");
 		return NULL;
 	}
 	
-	if (type != ACQUIRE_MODE_WRITE && type != ACQUIRE_MODE_READ && type != ACQUIRE_MODE_DELETE) {
-		REPORT_ERROR("Cannot start acquiring. Mode is unknown");
-	}
-
 	// If acquire is of type read and id is in pointerOld, then we
 	// reacquire, without notifying system.
 	
-	processInvalidates(NULL);
+	dsmcbe_ppu_processInvalidates(NULL);
 	
-	pthread_mutex_lock(&ppu_pointerOld_mutex);
+	pthread_mutex_lock(&dsmcbe_ppu_pointerOld_mutex);
 
-	if ((pe = g_hash_table_lookup(Gppu_pointersOld, (void*)id)) != NULL) {
-		//printf(WHERESTR "Starting reacquire on id: %i\n", WHEREARG, id);
-		if (type == ACQUIRE_MODE_READ && (pe->count == 0 || pe->mode == ACQUIRE_MODE_READ) && !isPendingInvalidate(id))
+	if ((pe = g_hash_table_lookup(dsmcbe_ppu_GpointersOld, (void*)id)) != NULL) {
+		//Starting local reacquire
+		if (type == ACQUIRE_MODE_READ && (pe->count == 0 || pe->mode == ACQUIRE_MODE_READ) && !dsmcbe_ppu_isPendingInvalidate(id))
 		{
 			pe->mode = type;
 			pe->count++;
-			pthread_mutex_unlock(&ppu_pointerOld_mutex);	
+			pthread_mutex_unlock(&dsmcbe_ppu_pointerOld_mutex);
 
-			pthread_mutex_lock(&ppu_pointer_mutex);
-			if (g_hash_table_lookup(Gppu_pointers, pe->data) == NULL)
-				g_hash_table_insert(Gppu_pointers, pe->data, pe);
-			pthread_mutex_unlock(&ppu_pointer_mutex);
+			pthread_mutex_lock(&dsmcbe_ppu_pointer_mutex);
+			if (g_hash_table_lookup(dsmcbe_ppu_Gpointers, pe->data) == NULL)
+				g_hash_table_insert(dsmcbe_ppu_Gpointers, pe->data, pe);
+			pthread_mutex_unlock(&dsmcbe_ppu_pointer_mutex);
 			
 			return pe->data;
 		}
 	}
 
-	pthread_mutex_unlock(&ppu_pointerOld_mutex);
+	pthread_mutex_unlock(&dsmcbe_ppu_pointerOld_mutex);
 		
 	//Create the request, this will be released by the coordinator	
-	cr = MALLOC(sizeof(struct acquireRequest));
-
-	cr->packageCode = PACKAGE_ACQUIRE_REQUEST;
-	cr->mode = type;
-	cr->requestID = 0;
-	cr->dataItem = id;
-	cr->originator = dsmcbe_host_number;
-	cr->originalRecipient = UINT_MAX;
-	cr->originalRequestID = UINT_MAX;
+	cr = dsmcbe_new_acquireRequest(id, 0, type);
 
 	retval = NULL;
-
-	//printf(WHERESTR "Forwarding request %i\n", WHEREARG, cr->packageCode);
-
+		
 	//Perform the request and await the response
-	ar = (struct acquireResponse*)forwardRequest(cr);
-	
-	//printf(WHERESTR "Received response %i\n", WHEREARG, ar->packageCode);
+	ar = (struct dsmcbe_acquireResponse*)dsmcbe_ppu_forwardRequest(cr);
 	
 	if (ar->packageCode != PACKAGE_ACQUIRE_RESPONSE)
 	{
@@ -565,159 +512,42 @@ void* threadAcquire(GUID id, unsigned long* size, int type)
 	}
 	else
 	{
-		//printf(WHERESTR "Done acquiring id: %i\n", WHEREARG, id);
 		//The request was positive
 		retval = ar->data;
-		(*size) = ar->dataSize;
+		if (size != NULL)
+			(*size) = ar->dataSize;
 		
-		if (type == ACQUIRE_MODE_WRITE || type == ACQUIRE_MODE_DELETE)
+		if (type == ACQUIRE_MODE_WRITE)
 		{
-			pthread_mutex_lock(&ppu_pointerOld_mutex);
-			if ((pe = g_hash_table_lookup(Gppu_pointersOld, (void*)id)) != NULL)
+			pthread_mutex_lock(&dsmcbe_ppu_pointerOld_mutex);
+			if ((pe = g_hash_table_lookup(dsmcbe_ppu_GpointersOld, (void*)id)) != NULL)
 			{
 				pe->mode = ACQUIRE_MODE_BLOCKED;
 				
 				while(pe->count != 0)
-					pthread_cond_wait(&ppu_pointerOld_cond, &ppu_pointerOld_mutex);
+					pthread_cond_wait(&dsmcbe_ppu_pointerOld_cond, &dsmcbe_ppu_pointerOld_mutex);
 			}
-			pthread_mutex_unlock(&ppu_pointerOld_mutex);
+			pthread_mutex_unlock(&dsmcbe_ppu_pointerOld_mutex);
 		}	
-	
-		//recordPointer(retval, id, *size, 0, type);
 	}
 	
 	FREE(ar);
 	ar = NULL;
-
-	//printf(WHERESTR "Acquire return\n", WHEREARG, id);
 	return retval;	
 }
 
-void* threadMalloc(unsigned long size)
-{
-	unsigned long transfersize = ALIGNED_SIZE(size);
-	void* data = MALLOC_ALIGN(transfersize, 7);
-
-	pthread_mutex_lock(&ppu_allocatedPointers_mutex);
-
-	g_hash_table_insert(Gppu_allocatedPointers, data, (void*)size);
-
-	pthread_mutex_unlock(&ppu_allocatedPointers_mutex);
-
-	return data;
-}
-
-void threadPut(GUID id, void* data)
-{
-	pthread_mutex_lock(&ppu_allocatedPointers_mutex);
-	unsigned long size = (unsigned long)g_hash_table_lookup(Gppu_allocatedPointers, data);
-	if (size != 0)
-		g_hash_table_remove(Gppu_allocatedPointers, data);
-	pthread_mutex_unlock(&ppu_allocatedPointers_mutex);
-
-	if (size == 0)
-	{
-		REPORT_ERROR("Size of the pointer was zero, this usually means that the pointer was not correct");
-		return;
-	}
-
-	if (id == OBJECT_TABLE_ID)
-	{
-		REPORT_ERROR("cannot request pagetable");
-		return;
-	}
-
-	if (id >= OBJECT_TABLE_SIZE)
-	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
-		return;
-	}
-
-	//Create the request, this will be released by the coordinator
-	struct putRequest* req = MALLOC(sizeof(struct putRequest));
-
-	req->packageCode = PACKAGE_PUT_REQUEST;
-	req->requestID = 0;
-	req->dataItem = id;
-	req->dataSize = size;
-	req->data = data;
-	req->isLS = FALSE;
-	req->originator = dsmcbe_host_number;
-	req->originalRecipient = UINT_MAX;
-	req->originalRequestID = UINT_MAX;
-
-	//Perform the request and await the response
-	struct putResponse* resp = (struct putResponse*)forwardRequest(req);
-	if (resp->packageCode != PACKAGE_PUT_RESPONSE)
-		REPORT_ERROR("Unexcepted response for a PUT request");
-
-	FREE(resp);
-	resp = NULL;
-}
-
-void* threadGet(GUID id, unsigned long* size)
-{
-	void* res = NULL;
-
-	if (id == OBJECT_TABLE_ID)
-	{
-		REPORT_ERROR("cannot request pagetable");
-		return NULL;
-	}
-
-	if (id >= OBJECT_TABLE_SIZE)
-	{
-		REPORT_ERROR("requested ID exeeds PAGE_TABLE_SIZE");
-		return NULL;
-	}
-
-	//Create the request, this will be released by the coordinator
-	struct getRequest* req = MALLOC(sizeof(struct getRequest));
-
-	req->packageCode = PACKAGE_GET_REQUEST;
-	req->requestID = 0;
-	req->dataItem = id;
-	req->originator = dsmcbe_host_number;
-	req->originalRecipient = UINT_MAX;
-	req->originalRequestID = UINT_MAX;
-
-	//Perform the request and await the response
-	struct getResponse* resp = (struct getResponse*)forwardRequest(req);
-	if (resp->packageCode != PACKAGE_GET_RESPONSE)
-	{
-		REPORT_ERROR("Unexcepted response for a GET request");
-		return NULL;
-	}
-	else
-	{
-		if (size != NULL)
-			*size = resp->size;
-
-		res = resp->target;
-		if (!resp->isTransfered)
-			REPORT_ERROR("Transfer was not completed, but we can't fix it!");
-	}
-
-
-	FREE(resp);
-	resp = NULL;
-
-	return res;
-}
-
 //Perform a release on the current thread
-void threadRelease(void* data)
+void dsmcbe_ppu_release(void* data)
 {
-	
 	PointerEntry pe;
-	struct releaseRequest* re;
+	struct dsmcbe_releaseRequest* re;
 	
 	//Verify that the pointer is registered
-	pthread_mutex_lock(&ppu_pointer_mutex);
-	if ((pe = g_hash_table_lookup(Gppu_pointers, data)) != NULL)
+	pthread_mutex_lock(&dsmcbe_ppu_pointer_mutex);
+	if ((pe = g_hash_table_lookup(dsmcbe_ppu_Gpointers, data)) != NULL)
 	{
 		//Extract the pointer, and release the mutex fast
-		pthread_mutex_unlock(&ppu_pointer_mutex);
+		pthread_mutex_unlock(&dsmcbe_ppu_pointer_mutex);
 		
 		if (pe->id == OBJECT_TABLE_ID)
 		{
@@ -725,203 +555,97 @@ void threadRelease(void* data)
 			return;
 		}
 		
-		pthread_mutex_lock(&ppu_pointerOld_mutex);
+		pthread_mutex_lock(&dsmcbe_ppu_pointerOld_mutex);
 		pe->count--;
 					
 		if (pe->count == 0)
 		{
-			pthread_mutex_unlock(&ppu_pointerOld_mutex);
+			pthread_mutex_unlock(&dsmcbe_ppu_pointerOld_mutex);
 			
-			pthread_mutex_lock(&ppu_pointer_mutex);			
-			g_hash_table_remove(Gppu_pointers, data);
-			pthread_mutex_unlock(&ppu_pointer_mutex);
+			pthread_mutex_lock(&dsmcbe_ppu_pointer_mutex);
+			g_hash_table_remove(dsmcbe_ppu_Gpointers, data);
+			pthread_mutex_unlock(&dsmcbe_ppu_pointer_mutex);
 		}
 		else
-			pthread_mutex_unlock(&ppu_pointerOld_mutex);
+			pthread_mutex_unlock(&dsmcbe_ppu_pointerOld_mutex);
 		
-		if (pe->mode == ACQUIRE_MODE_GET)
-		{
-#ifdef DEBUG
-			pthread_mutex_lock(&ppu_pointerOld_mutex);
-			if (pe->count != 0)
-				REPORT_ERROR2("The counter for GET with id %d was not 0", pe->id);
-			pthread_mutex_unlock(&ppu_pointerOld_mutex);
-#endif
-			FREE_ALIGN(pe->data);
-			pe->data = NULL;
-		}
-		else if (pe->mode == ACQUIRE_MODE_WRITE || pe->mode == ACQUIRE_MODE_DELETE)
+		if (pe->mode == ACQUIRE_MODE_WRITE)
 		{
 			//Create a request, this will be released by the coordinator
-			re = MALLOC(sizeof(struct releaseRequest));
+			re = dsmcbe_new_releaseRequest(pe->id, 0, pe->mode, pe->size, pe->offset, data);
 
-			re->packageCode = PACKAGE_RELEASE_REQUEST;
-			re->requestID = 0;
-			re->dataItem = pe->id;
-			re->dataSize = pe->size;
-			re->offset = pe->offset;
-			re->data = data;
-			re->mode = pe->mode;
-
-			QueueableItem q = MALLOC(sizeof(struct QueueableItemStruct));
+			QueueableItem q = dsmcbe_rc_new_QueueableItem(NULL, NULL, NULL, re, NULL);
 	
-			q->dataRequest = re;
-			q->event = NULL;
-			q->mutex = NULL;
-			q->Gqueue = NULL;
-			q->callback = NULL;
-	
-			//printf(WHERESTR "adding item to queue\n", WHEREARG);
-			RelayEnqueItem(q);
+			dsmcbe_ppu_RelayEnqueItem(q);
 		}
 
-		pthread_mutex_lock(&ppu_pointerOld_mutex);
-		if (pe->count == 0 && g_hash_table_lookup(Gppu_pointersOld, data) == NULL)
+		pthread_mutex_lock(&dsmcbe_ppu_pointerOld_mutex);
+		if (pe->count == 0 && g_hash_table_lookup(dsmcbe_ppu_GpointersOld, data) == NULL)
 			FREE(pe);
-		pthread_cond_broadcast(&ppu_pointerOld_cond);
-		pthread_mutex_unlock(&ppu_pointerOld_mutex);
+		pthread_cond_broadcast(&dsmcbe_ppu_pointerOld_cond);
+		pthread_mutex_unlock(&dsmcbe_ppu_pointerOld_mutex);
 
-		//printf(WHERESTR "processInvalidates\n", WHEREARG);
-		processInvalidates(NULL);
+		dsmcbe_ppu_processInvalidates(NULL);
 	}
 	else
 	{
-		pthread_mutex_unlock(&ppu_pointer_mutex);
+		pthread_mutex_unlock(&dsmcbe_ppu_pointer_mutex);
 		REPORT_ERROR("Pointer given to release was not registered");
 	}
 }
 
+
 //This is a very simple thread that exists to remove race conditions
 //It ensures that no two requests are overlapping, and processes invalidate requests
-void* ppu_requestDispatcher(void* dummy)
+void* dsmcbe_ppu_requestDispatcher(void* dummy)
 {
-	
 	void* data;
-	struct acquireResponse* resp;
-	struct putRequest* putReq;
+	struct dsmcbe_acquireResponse* resp;
 	unsigned int reqId;
 	QueueableItem ui;
 	
-	while(!ppu_terminate)
+	while(!dsmcbe_ppu_terminate)
 	{
-		pthread_mutex_lock(&ppu_queue_mutex);
+		pthread_mutex_lock(&dsmcbe_ppu_queue_mutex);
 		data = NULL;
-		while(!ppu_terminate && g_queue_is_empty(Gppu_work_queue))
-			pthread_cond_wait(&ppu_queue_cond, &ppu_queue_mutex);
+		while(!dsmcbe_ppu_terminate && g_queue_is_empty(dsmcbe_ppu_Gwork_queue))
+			pthread_cond_wait(&dsmcbe_ppu_queue_cond, &dsmcbe_ppu_queue_mutex);
 		
-		if (ppu_terminate)
+		if (dsmcbe_ppu_terminate)
 		{
-			pthread_mutex_unlock(&ppu_queue_mutex);
+			pthread_mutex_unlock(&dsmcbe_ppu_queue_mutex);
 			return dummy;
 		}	
 		
-		data = g_queue_pop_head(Gppu_work_queue);
+		data = g_queue_pop_head(dsmcbe_ppu_Gwork_queue);
 		
-		pthread_mutex_unlock(&ppu_queue_mutex);
+		pthread_mutex_unlock(&dsmcbe_ppu_queue_mutex);
 		
 		if (data != NULL)
 		{
-			//printf(WHERESTR "Processing package with type: %d, reqId: %d\n", WHEREARG, ((struct createRequest*)data)->packageCode, ((struct createRequest*)data)->requestID);
-
-			switch (((struct createRequest*)data)->packageCode)
+			switch (((struct dsmcbe_createRequest*)data)->packageCode)
 			{
 				case PACKAGE_INVALIDATE_REQUEST:
-					//printf(WHERESTR "Processing invalidate\n", WHEREARG);
-					processInvalidates((struct invalidateRequest*)data);
+					dsmcbe_ppu_processInvalidates((struct dsmcbe_invalidateRequest*)data);
 					data = NULL;
 					break;
-				case PACKAGE_GET_RESPONSE:
-					recordPointer(((struct getResponse*)data)->target, ((struct getResponse*)data)->dataItem, ((struct getResponse*)data)->size, 0, ACQUIRE_MODE_GET);
-					break;
 				case PACKAGE_ACQUIRE_RESPONSE:
-					resp = (struct acquireResponse*)data;
-					//printf(WHERESTR "Processing acquire response - mode = %d\n", WHEREARG, resp->mode);
-					recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode == ACQUIRE_MODE_CREATE ? ACQUIRE_MODE_WRITE : resp->mode);
-					break;
-				case PACKAGE_MALLOC_REQUEST:
-					putReq = (struct putRequest*) ((QueueableItem)((struct mallocRequest*)data)->callback)->dataRequest;
-
-					if (!(putReq->isLS))
-					{
-						//Easy, create a response
-
-						struct getResponse* getResp = MALLOC(sizeof(struct getResponse));
-						getResp->packageCode = PACKAGE_GET_RESPONSE;
-						getResp->dataItem = putReq->dataItem;
-						getResp->isTransfered = TRUE;
-						getResp->requestID = ((struct mallocRequest*)data)->requestID;
-						getResp->size = putReq->dataSize;
-						getResp->source = putReq->data;
-						getResp->target = putReq->data;
-
-						//Free everything
-						FREE(putReq);
-						putReq = NULL;
-						((QueueableItem)((struct mallocRequest*)data)->callback)->dataRequest = NULL;
-						FREE(((struct mallocRequest*)data)->callback);
-						((struct mallocRequest*)data)->callback = NULL;
-						FREE(data);
-
-						//Send the response
-						data = getResp;
-					}
-					else
-					{
-						unsigned long transfersize = ALIGNED_SIZE(putReq->dataSize);
-						void* dataTarget = MALLOC_ALIGN(transfersize, 7);
-
-						//Send transferrequest
-						struct transferRequest* transReq = MALLOC(sizeof(struct transferRequest));
-						transReq->packageCode = PACKAGE_TRANSFER_REQUEST;
-						transReq->size = putReq->dataSize;
-						transReq->source = putReq->data;
-						transReq->target = dataTarget;
-						transReq->dataItem = putReq->dataItem;
-
-						QueueableItem callback = MALLOC(sizeof(struct QueueableItemStruct));
-						callback->Gqueue = &Gppu_work_queue;
-						callback->callback = NULL;
-						callback->dataRequest = transReq;
-						callback->mutex = &ppu_queue_mutex;
-						callback->event = &ppu_queue_cond;
-
-						transReq->callback = callback;
-
-						//We don't need the requestId any more, so we change it to fit the new sequence
-						putReq->requestID = ((struct mallocRequest*)data)->requestID;
-
-						DSMCBE_RespondDirect((QueueableItem)((struct mallocRequest*)data)->callback, transReq);
-
-						FREE(data);
-						data = NULL;
-					}
-					putReq = NULL;
+					resp = (struct dsmcbe_acquireResponse*)data;
+					dsmcbe_ppu_recordPointer(resp->data, resp->dataItem, resp->dataSize, 0, resp->mode != ACQUIRE_MODE_READ ? ACQUIRE_MODE_WRITE : ACQUIRE_MODE_READ);
 					break;
 			}
 		}
 		
 		if (data != NULL)
 		{
-			if (((struct createRequest*)data)->packageCode == PACKAGE_GET_RESPONSE)
-				recordPointer(((struct getResponse*)data)->target, ((struct getResponse*)data)->dataItem, ((struct getResponse*)data)->size, 0, ACQUIRE_MODE_GET);
-
-			reqId = ((struct createRequest*)data)->requestID;
+			reqId = ((struct dsmcbe_createRequest*)data)->requestID;
 		
-			pthread_mutex_lock(&ppu_queue_mutex);
+			pthread_mutex_lock(&dsmcbe_ppu_queue_mutex);
 			
-			if ((ui = g_hash_table_lookup(ppuhandler_pendingRequests, (void*)reqId)) == NULL) {
-				//printf(WHERESTR "* ERROR * Response was for ID: %d, package type: %d\n", WHEREARG, reqId, ((struct createRequest*)data)->packageCode);
-				
+			if ((ui = g_hash_table_lookup(dsmcbe_ppu_GpendingRequests, (void*)reqId)) == NULL) {
 				REPORT_ERROR("Recieved unexpected request");				
 			} else {		
-				//printf(WHERESTR "Event: %i, Mutex: %i, Queue: %i \n", WHEREARG, (int)ui->event, (int)ui->mutex, (int)ui->queue);
-				
-				int freeReq = FALSE;
-
-				if (((struct acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE)
-					freeReq = TRUE;
-				else if (((struct acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE && ((struct acquireResponse*)data)->mode != ACQUIRE_MODE_DELETE)
-					freeReq = TRUE;
+				int freeReq = (((struct dsmcbe_acquireResponse*)data)->packageCode == PACKAGE_ACQUIRE_RESPONSE && ((struct dsmcbe_acquireResponse*)data)->mode != ACQUIRE_MODE_WRITE) || ((struct dsmcbe_acquireResponse*)data)->packageCode != PACKAGE_ACQUIRE_RESPONSE;
 				
 				if (ui->mutex != NULL)
 					pthread_mutex_lock(ui->mutex);
@@ -937,14 +661,13 @@ void* ppu_requestDispatcher(void* dummy)
 				
 				if (freeReq)
 				{
-					//printf(WHERESTR "Removing reqId %d\n", WHEREARG, reqId);
-					g_hash_table_remove(ppuhandler_pendingRequests, (void*)reqId);
+					g_hash_table_remove(dsmcbe_ppu_GpendingRequests, (void*)reqId);
 					FREE(ui);
 					ui = NULL;
 				}
 			}
 
-			pthread_mutex_unlock(&ppu_queue_mutex);			
+			pthread_mutex_unlock(&dsmcbe_ppu_queue_mutex);
 		}
 	}	
 	return dummy;

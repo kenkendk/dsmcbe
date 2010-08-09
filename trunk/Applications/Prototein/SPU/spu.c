@@ -13,7 +13,5 @@ int main(unsigned long long id) {
 	
 	//prof_stop();
 	return res;
-
-	
 }
 

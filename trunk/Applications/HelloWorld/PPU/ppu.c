@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <dsmcbe_ppu.h>
+#include <unistd.h>
 
 #include "guids.h"
 
@@ -28,13 +29,13 @@ int main(int argc, char* argv[])
 	else
 		printf("Wrong number of inputs\n");
 		
-	pthread_t* threads = simpleInitialize(PPEid, file, SPU_THREADS);
+	pthread_t* threads = dsmcbe_simpleInitialize(PPEid, file, SPU_THREADS);
 
 	if(PPEid == 0)
 	{
-		unsigned int* count = create(COUNT, sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
-		*count = SPU_THREADS * MAX(DSMCBE_MachineCount(), 1);
-		release(count);
+		unsigned int* count = dsmcbe_create(COUNT, sizeof(unsigned int));
+		*count = SPU_THREADS * MAX(dsmcbe_MachineCount(), 1);
+		dsmcbe_release(count);
 	}
 	
 	for(i = 0; i < SPU_THREADS; i++)

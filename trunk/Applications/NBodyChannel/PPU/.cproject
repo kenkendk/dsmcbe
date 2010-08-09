@@ -33,14 +33,12 @@
 <listOptionValue builtIn="false" value="m"/>
 <listOptionValue builtIn="false" value="tinyptc"/>
 <listOptionValue builtIn="false" value="Xext"/>
+<listOptionValue builtIn="false" value="Xxf86dga"/>
+<listOptionValue builtIn="false" value="Xxf86vm"/>
 <listOptionValue builtIn="false" value="Xv"/>
 <listOptionValue builtIn="false" value="X11"/>
 <listOptionValue builtIn="false" value="Xau"/>
 <listOptionValue builtIn="false" value="Xdmcp"/>
-<listOptionValue builtIn="false" value="dl"/>
-<listOptionValue builtIn="false" value="Xxf86misc"/>
-<listOptionValue builtIn="false" value="Xxf86dga"/>
-<listOptionValue builtIn="false" value="Xxf86vm"/>
 <listOptionValue builtIn="false" value="spe2"/>
 <listOptionValue builtIn="false" value="glib-2.0"/>
 <listOptionValue builtIn="false" value="gthread-2.0"/>
@@ -51,8 +49,8 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1575743146" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.325155881" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-debug}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HeatEquation PPU}/../TinyPTC&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NBodyChannel_PPU}/../TinyPTC&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib/"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lm.138368026" name="Math library (-lm)" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
@@ -62,9 +60,8 @@
 <option id="gnu.c.compiler.option.include.paths.757352447" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HeatEquation PPU}/../TinyPTC&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NBodyChannel_PPU}/../TinyPTC&quot;"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.ppu.gnu32.c.compiler.debug.option.optimization.level.919278593" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.debug.option.debugging.level.681516906" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.debugging.level"/>
@@ -234,6 +231,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.883104431" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1187743557" name="Pthread library (-lpthread)" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.361979008" name="Libraries (-l)" superClass="cell.ppu.gnu.c.linker.option.libs" valueType="libs">
+<listOptionValue builtIn="false" value="m"/>
 <listOptionValue builtIn="false" value="spe2"/>
 <listOptionValue builtIn="false" value="glib-2.0"/>
 <listOptionValue builtIn="false" value="gthread-2.0"/>
@@ -243,9 +241,11 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1360020526" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1354936909" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-release}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NBodyChannel_PPU}/../TinyPTC&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib/"/>
 </option>
+<option id="cell.ppu.gnu.c.linker.option.libs.lm.562222639" name="Math library (-lm)" superClass="cell.ppu.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <inputType id="cdt.managedbuild.tool.gnu.c.linker.input.605095176" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 <additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 <additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -258,8 +258,8 @@
 <option id="gnu.c.compiler.option.include.paths.1390338151" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NBodyChannel_PPU}/../TinyPTC&quot;"/>
 </option>
 <inputType id="celldt.managedbuild.tool.cell.ppu.gnu.c.compiler.input.1246344379" superClass="celldt.managedbuild.tool.cell.ppu.gnu.c.compiler.input"/>
 </tool>

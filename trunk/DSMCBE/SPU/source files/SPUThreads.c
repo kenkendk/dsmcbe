@@ -1,14 +1,11 @@
-#include <malloc.h>
 #include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include "../header files/SPUThreads.h"
-#include "../../common/debug.h"
-#include "../../common/dsmcbe_spu.h"
+#include <string.h>
+
+#include <SPUThreads.h>
+#include <debug.h>
 #include <malloc_align.h>
 #include <free_align.h>
-#include <string.h>
+
 
 //** If you are using this file in another project (other than DSMCBE),
 //** be aware that the threads cannot call malloc.
@@ -105,7 +102,7 @@ void TerminateThread(void) {
 	temp = (unsigned int *)(((unsigned int*)env)[SP * INTS_PR_REGISTER]);
 	while(temp != NULL)
 	{
-		printf(WHERESTR "Backtracing stack, SP is %d, avalible space is %d \n", WHEREARG, temp[0], temp[1]);
+		printf(WHERESTR "Backtracing stack, SP is %d, available space is %d \n", WHEREARG, temp[0], temp[1]);
 		temp = (unsigned int*)temp[0];
 	}
 	printf("\n");

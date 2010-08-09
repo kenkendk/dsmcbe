@@ -39,7 +39,7 @@
 <option id="gnu.c.compiler.option.include.paths.1636201903" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/CommsTime PPU}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/header files}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.spu.gnu.c.compiler.debug.option.optimization.level.456480307" name="Optimization Level" superClass="cell.spu.gnu.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
@@ -203,12 +203,14 @@
 </tool>
 <tool commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG}${OUTPUT_PREFIX}${OUTPUT} ${INPUTS} -B/opt/cell/sysroot/usr/spu/lib" id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.1236805491" name="SPU GNU C Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe">
 <option id="cell.gnu.c.linker.option.libs.802855410" name="Libraries (-l)" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
+<listOptionValue builtIn="false" value="m"/>
 <listOptionValue builtIn="false" value="dsmcbe_spu"/>
 </option>
 <option id="gnu.c.link.option.paths.171067555" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/lib"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/spu-gnu-release}&quot;"/>
 </option>
+<option id="cell.gnu.c.linker.option.libs.lm.1710941809" superClass="cell.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <inputType id="cdt.managedbuild.tool.gnu.c.linker.input.367449230" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 <additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 <additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -221,7 +223,7 @@
 <option id="cell.spu.gnu.c.compiler.option.include.paths.1558281502" name="Include paths (-I)" superClass="cell.spu.gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/CommsTime PPU}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/header files}&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 </option>
 <inputType id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.input.1161210532" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.input"/>

@@ -32,7 +32,7 @@ extern spe_program_handle_t SPU;
 
 int WIDTH;
 int HEIGTH;
-int SPU_THREADS;
+unsigned int SPU_THREADS;
 unsigned int PPEid;
 char* file;
 
@@ -56,9 +56,9 @@ void* malloc_align7(unsigned int size)
 	return _malloc_align(size, 7);
 }
 
-void collectResults(int id, int shots, int shots_spu, unsigned char* energy)
+void collectResults(int id, int shots, unsigned int shots_spu, unsigned char* energy)
 {
-	size_t i, j, k;
+	size_t i, j;
 	unsigned long size;
 	
 	//printf("SPU_THREADS is %i - COUNT is %i - ROUNDS is %i\n", SPU_THREADS, MAX(DSMCBE_MachineCount(),1), ROUNDS);
@@ -66,16 +66,16 @@ void collectResults(int id, int shots, int shots_spu, unsigned char* energy)
 	for(i = 0; i < SPU_THREADS; i++)
 	{
 		//printf("Reading FINISH package with id %i\n", FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)));
-		release(acquire(FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)), &size, ACQUIRE_MODE_READ));
+		dsmcbe_release(dsmcbe_acquire(FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)), &size, ACQUIRE_MODE_READ));
 		//printf("Read FINISH package with id %i\n", FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)));		
 	}
 		 				
 	//printf("\n\nStart working on results\n\n");
 	
-	for(i = 0; i < ROUNDS / MAX(DSMCBE_MachineCount(), 1); i++) {
+	for(i = 0; i < ROUNDS / MAX(dsmcbe_MachineCount(), 1); i++) {
 		unsigned long size;
 		//printf("Acquire Result with id %i\n", RESULT+i + (PPEid * ROUNDS / MAX(DSMCBE_MachineCount(), 1)));
-		struct POINTS* points = acquire(RESULT + i + (PPEid * ROUNDS / MAX(DSMCBE_MachineCount(), 1)), &size, ACQUIRE_MODE_READ);
+		struct POINTS* points = dsmcbe_acquire(RESULT + i + (PPEid * ROUNDS / MAX(dsmcbe_MachineCount(), 1)), &size, ACQUIRE_MODE_READ);
 			
 		// Save results to energy
 		for(j = 0; j < shots_spu; j++) 
@@ -83,27 +83,31 @@ void collectResults(int id, int shots, int shots_spu, unsigned char* energy)
 			if(points[j].alive == FALSE)
 				energy[MAPOFFSET((int)(points[j].x), (int)(points[j].y))] =  MIN(energy[MAPOFFSET((int)(points[j].x),(int)(points[j].y))] + 1, 255);
 		}
-		release(points);
+		dsmcbe_release(points);
 	}
 #else
+	size_t k;
+
 	for(i = 0; i < SPU_THREADS; i++)
 	{
-		unsigned int* ptr = acquire(FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)), &size, ACQUIRE_MODE_READ);
+		unsigned int* ptr = dsmcbe_acquire(FINISHED+(id*100)+(i+(SPU_THREADS*PPEid)), &size, ACQUIRE_MODE_READ);
 		//printf("PPE: First %u, last %u\n", ptr[0], ptr[1]);
 		for(j = ptr[0]; j < ptr[1]; j++) {
-			struct POINTS* points = acquire(j, &size, ACQUIRE_MODE_READ);
+			struct POINTS* points = dsmcbe_acquire(j, &size, ACQUIRE_MODE_READ);
 
 			for(k = 0; k < shots_spu; k++) 
 			{
 				if(points[k].alive == FALSE)
 					energy[MAPOFFSET((int)(points[k].x), (int)(points[k].y))] =  MIN(energy[MAPOFFSET((int)(points[k].x),(int)(points[k].y))] + 1, 255);
 			}
-			release(points);			
+			dsmcbe_release(points);
 		}
-		release(ptr);
+		dsmcbe_release(ptr);
 	}
 #endif	
 	//printf("\n\nEnd working on results\n\n");	
+
+	shots = 0; //Remove compiler warning
 }
 
 void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canonAX, float canonAY, unsigned char* energy)
@@ -113,7 +117,7 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	unsigned long size;
 
 	struct PACKAGE* package;
-	package = create(JOB+id, sizeof(struct PACKAGE), CREATE_MODE_NONBLOCKING);
+	package = dsmcbe_create(JOB+id, sizeof(struct PACKAGE));
 	package->id = 0;
 	package->maxid = (shots / shots_spu);
 	package->heigth = HEIGTH;
@@ -121,23 +125,23 @@ void canon(int id, int shots, int shots_spu, int canonX, int canonY, float canon
 	package->shots_spu = shotsspu;
 
 #ifdef STATIC	
-	package->tot_shots_spu =  ceil((SHOTS / SHOTS_SPU) / (double)(SPU_THREADS * MAX(DSMCBE_MachineCount(), 1)));
+	package->tot_shots_spu =  ceil((SHOTS / SHOTS_SPU) / (double)(SPU_THREADS * MAX(dsmcbe_MachineCount(), 1)));
 #else
-	package->tot_shots_spu =  SPU_THREADS * MAX(DSMCBE_MachineCount(), 1);
+	package->tot_shots_spu =  SPU_THREADS * MAX(dsmcbe_MachineCount(), 1);
 #endif	
 
 	package->canonX = canonX;
 	package->canonY = canonY;
 	package->canonAX = canonAX;
 	package->canonAY = canonAY;
-	release(package);
+	dsmcbe_release(package);
 	
 	collectResults(id, shots, shots_spu, energy);	
 
-	for(i = 0; i < SPU_THREADS * MAX(DSMCBE_MachineCount(), 1); i++)
+	for(i = 0; i < SPU_THREADS * MAX(dsmcbe_MachineCount(), 1); i++)
 	{
 		//printf("Reading FINISH package with id %i\n", FINISHED + (id * 100) + i);
-		release(acquire(FINISHED+(id*100)+i, &size, ACQUIRE_MODE_READ));
+		dsmcbe_release(dsmcbe_acquire(FINISHED+(id*100)+i, &size, ACQUIRE_MODE_READ));
 		//printf("Read FINISH package with id %i\n", FINISHED + (id * 100) + i);		
 	}
 
@@ -158,134 +162,134 @@ void calc(int id, struct IMAGE_FORMAT_GREY* grid) {
 
 void loadImageNormal()
 {
-	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid00 = dsmcbe_create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT00.ppm", grid00, GRID00IMAGE);
-	release(grid00);			
-	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid00);
+	struct IMAGE_FORMAT_GREY* grid01 = dsmcbe_create(GRID01, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT01.ppm", grid01, GRID01IMAGE);
-	release(grid01);			
-	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid01);
+	struct IMAGE_FORMAT_GREY* grid02 = dsmcbe_create(GRID02, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT02.ppm", grid02, GRID02IMAGE);
-	release(grid02);			
+	dsmcbe_release(grid02);
 
-	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid10 = dsmcbe_create(GRID10, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT10.ppm", grid10, GRID10IMAGE);
-	release(grid10);			
-	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid10);
+	struct IMAGE_FORMAT_GREY* grid11 = dsmcbe_create(GRID11, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT11.ppm", grid11, GRID11IMAGE);
-	release(grid11);			
-	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid11);
+	struct IMAGE_FORMAT_GREY* grid12 = dsmcbe_create(GRID12, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT12.ppm", grid12, GRID12IMAGE);
-	release(grid12);
+	dsmcbe_release(grid12);
 	
-	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid20 = dsmcbe_create(GRID20, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT20.ppm", grid20, GRID20IMAGE);
-	release(grid20);			
-	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid20);
+	struct IMAGE_FORMAT_GREY* grid21 = dsmcbe_create(GRID21, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT21.ppm", grid21, GRID21IMAGE);
-	release(grid21);			
-	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid21);
+	struct IMAGE_FORMAT_GREY* grid22 = dsmcbe_create(GRID22, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
-	release(grid22);			
+	dsmcbe_release(grid22);
 }
 
 void loadImageSmall()
 {
-	struct IMAGE_FORMAT_GREY* grid00 = create(GRID00, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid00 = dsmcbe_create(GRID00, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT00.ppm", grid00, GRID00IMAGE);
-	release(grid00);			
-	struct IMAGE_FORMAT_GREY* grid01 = create(GRID01, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid00);
+	struct IMAGE_FORMAT_GREY* grid01 = dsmcbe_create(GRID01, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT01.ppm", grid01, GRID01IMAGE);
-	release(grid01);			
-	struct IMAGE_FORMAT_GREY* grid02 = create(GRID02, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid01);
+	struct IMAGE_FORMAT_GREY* grid02 = dsmcbe_create(GRID02, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT02.ppm", grid02, GRID02IMAGE);
-	release(grid02);			
-	struct IMAGE_FORMAT_GREY* grid03 = create(GRID03, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid02);
+	struct IMAGE_FORMAT_GREY* grid03 = dsmcbe_create(GRID03, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT03.ppm", grid03, GRID03IMAGE);
-	release(grid03);			
-	struct IMAGE_FORMAT_GREY* grid04 = create(GRID04, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid03);
+	struct IMAGE_FORMAT_GREY* grid04 = dsmcbe_create(GRID04, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT04.ppm", grid04, GRID04IMAGE);
-	release(grid04);			
+	dsmcbe_release(grid04);
 	
-	struct IMAGE_FORMAT_GREY* grid10 = create(GRID10, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid10 = dsmcbe_create(GRID10, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT10.ppm", grid10, GRID10IMAGE);
-	release(grid10);			
-	struct IMAGE_FORMAT_GREY* grid11 = create(GRID11, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid10);
+	struct IMAGE_FORMAT_GREY* grid11 = dsmcbe_create(GRID11, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT11.ppm", grid11, GRID11IMAGE);
-	release(grid11);			
-	struct IMAGE_FORMAT_GREY* grid12 = create(GRID12, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid11);
+	struct IMAGE_FORMAT_GREY* grid12 = dsmcbe_create(GRID12, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT12.ppm", grid12, GRID12IMAGE);
-	release(grid12);			
-	struct IMAGE_FORMAT_GREY* grid13 = create(GRID13, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid12);
+	struct IMAGE_FORMAT_GREY* grid13 = dsmcbe_create(GRID13, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT13.ppm", grid13, GRID13IMAGE);
-	release(grid13);			
-	struct IMAGE_FORMAT_GREY* grid14 = create(GRID14, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid13);
+	struct IMAGE_FORMAT_GREY* grid14 = dsmcbe_create(GRID14, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT14.ppm", grid14, GRID14IMAGE);
-	release(grid14);			
+	dsmcbe_release(grid14);
 	
-	struct IMAGE_FORMAT_GREY* grid20 = create(GRID20, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid20 = dsmcbe_create(GRID20, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT20.ppm", grid20, GRID20IMAGE);
-	release(grid20);			
-	struct IMAGE_FORMAT_GREY* grid21 = create(GRID21, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid20);
+	struct IMAGE_FORMAT_GREY* grid21 = dsmcbe_create(GRID21, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT21.ppm", grid21, GRID21IMAGE);
-	release(grid21);			
-	struct IMAGE_FORMAT_GREY* grid22 = create(GRID22, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid21);
+	struct IMAGE_FORMAT_GREY* grid22 = dsmcbe_create(GRID22, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT22.ppm", grid22, GRID22IMAGE);
-	release(grid22);			
-	struct IMAGE_FORMAT_GREY* grid23 = create(GRID23, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid22);
+	struct IMAGE_FORMAT_GREY* grid23 = dsmcbe_create(GRID23, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT23.ppm", grid23, GRID23IMAGE);
-	release(grid23);			
-	struct IMAGE_FORMAT_GREY* grid24 = create(GRID24, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid23);
+	struct IMAGE_FORMAT_GREY* grid24 = dsmcbe_create(GRID24, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT24.ppm", grid24, GRID24IMAGE);
-	release(grid24);			
+	dsmcbe_release(grid24);
 	
-	struct IMAGE_FORMAT_GREY* grid30 = create(GRID30, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid30 = dsmcbe_create(GRID30, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT30.ppm", grid30, GRID30IMAGE);
-	release(grid30);			
-	struct IMAGE_FORMAT_GREY* grid31 = create(GRID31, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid30);
+	struct IMAGE_FORMAT_GREY* grid31 = dsmcbe_create(GRID31, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT31.ppm", grid31, GRID31IMAGE);
-	release(grid31);			
-	struct IMAGE_FORMAT_GREY* grid32 = create(GRID32, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid31);
+	struct IMAGE_FORMAT_GREY* grid32 = dsmcbe_create(GRID32, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT32.ppm", grid32, GRID32IMAGE);
-	release(grid32);			
-	struct IMAGE_FORMAT_GREY* grid33 = create(GRID33, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid32);
+	struct IMAGE_FORMAT_GREY* grid33 = dsmcbe_create(GRID33, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT33.ppm", grid33, GRID33IMAGE);
-	release(grid33);			
-	struct IMAGE_FORMAT_GREY* grid34 = create(GRID34, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid33);
+	struct IMAGE_FORMAT_GREY* grid34 = dsmcbe_create(GRID34, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT34.ppm", grid34, GRID34IMAGE);
-	release(grid34);			
+	dsmcbe_release(grid34);
 	
-	struct IMAGE_FORMAT_GREY* grid40 = create(GRID40, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid40 = dsmcbe_create(GRID40, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT40.ppm", grid40, GRID40IMAGE);
-	release(grid40);			
-	struct IMAGE_FORMAT_GREY* grid41 = create(GRID41, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid40);
+	struct IMAGE_FORMAT_GREY* grid41 = dsmcbe_create(GRID41, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT41.ppm", grid41, GRID41IMAGE);
-	release(grid41);			
-	struct IMAGE_FORMAT_GREY* grid42 = create(GRID42, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid41);
+	struct IMAGE_FORMAT_GREY* grid42 = dsmcbe_create(GRID42, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT42.ppm", grid42, GRID42IMAGE);
-	release(grid42);			
-	struct IMAGE_FORMAT_GREY* grid43 = create(GRID43, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid42);
+	struct IMAGE_FORMAT_GREY* grid43 = dsmcbe_create(GRID43, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT43.ppm", grid43, GRID43IMAGE);
-	release(grid43);			
-	struct IMAGE_FORMAT_GREY* grid44 = create(GRID44, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid43);
+	struct IMAGE_FORMAT_GREY* grid44 = dsmcbe_create(GRID44, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT44.ppm", grid44, GRID44IMAGE);
-	release(grid44);			
+	dsmcbe_release(grid44);
 	
-	struct IMAGE_FORMAT_GREY* grid50 = create(GRID50, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	struct IMAGE_FORMAT_GREY* grid50 = dsmcbe_create(GRID50, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT50.ppm", grid50, GRID50IMAGE);
-	release(grid50);			
-	struct IMAGE_FORMAT_GREY* grid51 = create(GRID51, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid50);
+	struct IMAGE_FORMAT_GREY* grid51 = dsmcbe_create(GRID51, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT51.ppm", grid51, GRID51IMAGE);
-	release(grid51);			
-	struct IMAGE_FORMAT_GREY* grid52 = create(GRID52, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid51);
+	struct IMAGE_FORMAT_GREY* grid52 = dsmcbe_create(GRID52, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT52.ppm", grid52, GRID52IMAGE);
-	release(grid52);			
-	struct IMAGE_FORMAT_GREY* grid53 = create(GRID53, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid52);
+	struct IMAGE_FORMAT_GREY* grid53 = dsmcbe_create(GRID53, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT53.ppm", grid53, GRID53IMAGE);
-	release(grid53);			
-	struct IMAGE_FORMAT_GREY* grid54 = create(GRID54, sizeof(struct IMAGE_FORMAT_GREY), CREATE_MODE_NONBLOCKING);
+	dsmcbe_release(grid53);
+	struct IMAGE_FORMAT_GREY* grid54 = dsmcbe_create(GRID54, sizeof(struct IMAGE_FORMAT_GREY));
 	readimage_grey_DSMCBE("CT54.ppm", grid54, GRID54IMAGE);
-	release(grid54);			
+	dsmcbe_release(grid54);
 }
 
 int main(int argc, char* argv[])
@@ -325,17 +329,18 @@ int main(int argc, char* argv[])
 	unsigned char* scale;
 	int scale_size = 9;
 	char timer_buffer[256];
-	int y, x, i;
+	int y, x;
+	size_t i;
 
 	WIDTH = 576;
 	HEIGTH = 708;
 	
-	threads = simpleInitialize(PPEid, file, SPU_THREADS);
+	threads = dsmcbe_simpleInitialize(PPEid, file, SPU_THREADS);
 
 
-	unsigned int* speIDs = create(SPEID + PPEid, 4, CREATE_MODE_NONBLOCKING);
+	unsigned int* speIDs = dsmcbe_create(SPEID + PPEid, 4);
 	*speIDs = PPEid * SPU_THREADS;
-	release(speIDs); 
+	dsmcbe_release(speIDs);
 
 	if (PPEid == 0)
 	{
@@ -353,7 +358,7 @@ int main(int argc, char* argv[])
 		//}
 	
 			
-		energy = create(ENERGY+PPEid, (sizeof(unsigned char) * (HEIGTH * WIDTH)), CREATE_MODE_NONBLOCKING);
+		energy = dsmcbe_create(ENERGY+PPEid, (sizeof(unsigned char) * (HEIGTH * WIDTH)));
 		memset(energy, 0, sizeof(unsigned char) * (HEIGTH * WIDTH));
 	
 		cmap = (unsigned char*)malloc(sizeof(unsigned char)*(9*3));
@@ -409,13 +414,13 @@ int main(int argc, char* argv[])
 		unsigned long size;
 
 		//printf("Starting harvest\n");		
-		for(i=1; i<MAX(DSMCBE_MachineCount(), 1); i++)
+		for(i=1; i<MAX(dsmcbe_MachineCount(), 1); i++)
 		{
 			//printf("START - FINISHJOB %i\n", FINISHJOB+i);
-			release(acquire(FINISHJOB+i, &size, ACQUIRE_MODE_READ));		
+			dsmcbe_release(dsmcbe_acquire(FINISHJOB+i, &size, ACQUIRE_MODE_READ));
 			//printf("END - FINISHJOB %i\n", FINISHJOB+i);
 			//printf("START - ENERGY %i\n", ENERGY+i);
-			unsigned char* temp = acquire(ENERGY+i,&size, ACQUIRE_MODE_READ);
+			unsigned char* temp = dsmcbe_acquire(ENERGY+i,&size, ACQUIRE_MODE_READ);
 
 			for(y=0; y<HEIGTH; y++)
 			{
@@ -424,7 +429,7 @@ int main(int argc, char* argv[])
 					energy[MAPOFFSET(x,y)] = temp[MAPOFFSET(x,y)];
 				}
 			}
-			release(temp);
+			dsmcbe_release(temp);
 			//printf("END - ENERGY %i\n", ENERGY+i);
 		}
 		
@@ -447,7 +452,7 @@ int main(int argc, char* argv[])
 		
 		//printf("Done\n");
 
-		release(energy);
+		dsmcbe_release(energy);
 		writeimage_rgb(output, &result);
 	
 		free(cmap);
@@ -457,7 +462,7 @@ int main(int argc, char* argv[])
 
 	if (PPEid != 0)
 	{	
-		energy = create(ENERGY+PPEid, sizeof(unsigned char) * (708 * 576), CREATE_MODE_NONBLOCKING);
+		energy = dsmcbe_create(ENERGY+PPEid, sizeof(unsigned char) * (708 * 576));
 		memset(energy, 0, sizeof(unsigned char) * (708 * 576));
 		
 		collectResults(0, SHOTS, SHOTS_SPU, energy);
@@ -466,10 +471,10 @@ int main(int argc, char* argv[])
 		collectResults(3, SHOTS, SHOTS_SPU, energy);
 		collectResults(4, SHOTS, SHOTS_SPU, energy);
 		
-		release(energy);
+		dsmcbe_release(energy);
 		
 		//printf("CREATING - FINISHJOB %i\n", FINISHJOB+PPEid);
-		release(create(FINISHJOB+PPEid, sizeof(unsigned int), CREATE_MODE_NONBLOCKING));
+		dsmcbe_release(dsmcbe_create(FINISHJOB+PPEid, sizeof(unsigned int)));
 		//printf("CREATED\n");
 		
 		for(i = 0; i < SPU_THREADS; i++)

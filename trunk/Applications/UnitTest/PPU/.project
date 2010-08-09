@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>Testbench PPU</name>
+	<name>Unittest PPU</name>
 	<comment></comment>
 	<projects>
 		<project>dsmcbe_ppu</project>
-		<project>Testbench SPU</project>
+		<project>Unittest SPU</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

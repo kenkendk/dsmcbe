@@ -1,5 +1,5 @@
 #include "spu.h"
-#include <common/debug.h>
+#include <debug.h>
 #include <unistd.h>
 #include <malloc.h>
 #include <malloc_align.h>
@@ -12,7 +12,7 @@ void TEST();
 
 int main(int argc, char** argv) {
 	
-	initialize();
+	dsmcbe_initialize();
 
 	printf(WHERESTR "Hello World\n", WHEREARG);
 	
@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
 	threadNo = CreateThreads(2);
 	if (threadNo >= 0)
 	{
-		allocation = acquire(ETTAL, &size, READ);
+		allocation = dsmcbe_acquire(ETTAL, &size, READ);
 		printf(WHERESTR "Thread #%d, Value read from acquire is: %i (ls: %d). \n", WHEREARG, threadNo, *allocation, (int)allocation);
 
 		//Force thread 1
@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
 			(*f)++;
 
 		printf(WHERESTR "Thread #%d, release (%d). \n", WHEREARG, threadNo, counter);
-		release(allocation);
+		dsmcbe_release(allocation);
 		printf(WHERESTR "Thread #%d, released (%d). \n", WHEREARG, threadNo, counter);
 		YieldThread();
 		
@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
 		if (threadNo == 0)
 		{
 			printf(WHERESTR "Thread #%d, acquire read (%d). \n", WHEREARG, threadNo, counter);
-			allocation = acquire(ETTAL, &size, READ);
+			allocation = dsmcbe_acquire(ETTAL, &size, READ);
 			printf(WHERESTR "Thread #%d, has read lock (%d). \n", WHEREARG, threadNo, counter);
 			(*f)++;
 		}
@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
 		{		
 			printf(WHERESTR "Thread #%d, is acquire'ing write lock. \n", WHEREARG, threadNo);
 			(*f)++;
-			allocation = acquire(ETTAL, &size, WRITE);
+			allocation = dsmcbe_acquire(ETTAL, &size, WRITE);
 			printf(WHERESTR "Thread #%d, has write lock. \n", WHEREARG, threadNo);
 		}
 		
@@ -87,17 +87,17 @@ int main(int argc, char** argv) {
 		if (threadNo == 0)
 		{
 			printf(WHERESTR "Thread #%d, is releasing read lock. \n", WHEREARG, threadNo);
-			release(allocation);
+			dsmcbe_release(allocation);
 			printf(WHERESTR "Thread #%d, has released read lock. \n", WHEREARG, threadNo);
 
 			(*f)++;
 			printf(WHERESTR "Thread #%d, is getting read lock. \n", WHEREARG, threadNo);
-			acquire(ETTAL, &size, READ);
+			dsmcbe_acquire(ETTAL, &size, READ);
 			printf(WHERESTR "Thread #%d, has read lock. \n", WHEREARG, threadNo);
 		}
 			
 		printf(WHERESTR "Thread #%d, release. \n", WHEREARG, threadNo);
-		release(allocation);
+		dsmcbe_release(allocation);
 		
 		printf(WHERESTR "Thread #%d, terminate. \n", WHEREARG, threadNo);
 		TerminateThread();
@@ -134,25 +134,25 @@ int main(int argc, char** argv) {
 	if (threadNo >= 0)
 	{
 		//printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
-		allocation = acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
+		allocation = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_WRITE);
 				
 		printf(WHERESTR "Thread #%d, Value read from acquire is: %i. The value is supposed to be %d. (ls: %d)\n", WHEREARG, threadNo, *allocation, threadNo == 0 ? 928 : 210, (int)allocation);
 		
 		*allocation = 210;
 		
-		release(allocation);
+		dsmcbe_release(allocation);
 		*allocation = 111;
 
 		printf(WHERESTR "Thread #%d, released, creating SPU lock.\n", WHEREARG, threadNo);
 
-		release(create(LOCK_ITEM_SPU, 0, CREATE_MODE_NONBLOCKING));
+		dsmcbe_release(dsmcbe_create(LOCK_ITEM_SPU, 0));
 		//sleep(2);		
 
 		printf(WHERESTR "Thread #%d, waiting for PPU lock.\n", WHEREARG, threadNo);
-		release(acquire(LOCK_ITEM_PPU, &size, ACQUIRE_MODE_READ));
+		dsmcbe_release(dsmcbe_acquire(LOCK_ITEM_PPU, &size, ACQUIRE_MODE_READ));
 		
 		printf(WHERESTR "Thread #%d, acquire.\n", WHEREARG, threadNo);
-		allocation = acquire(ETTAL, &size, ACQUIRE_MODE_READ);
+		allocation = dsmcbe_acquire(ETTAL, &size, ACQUIRE_MODE_READ);
 
 		/*if (*allocation != 210)
 			printf("Error: %d\n", *allocation);
@@ -162,15 +162,15 @@ int main(int argc, char** argv) {
 		
 		*allocation = 210;
 		
-		release(allocation);
+		dsmcbe_release(allocation);
 		
 /*				
 		printf(WHERESTR "Thread #%d, modified value, relasing.\n", WHEREARG, threadNo);
-		release(allocation);
+		dsmcbe_release(allocation);
 		printf(WHERESTR "Thread #%d, release completed\n", WHEREARG, threadNo);
 		
 		printf(WHERESTR "Thread #%d, reading large value\n", WHEREARG, threadNo);
-		unsigned int* largeblock = acquire(LARGE_ITEM, &size, WRITE);
+		unsigned int* largeblock = dsmcbe_acquire(LARGE_ITEM, &size, WRITE);
 		
 		items = size / sizeof(unsigned int);
 		printf(WHERESTR "Thread #%d, read large value (%d, %d) (ls: %d)\n", WHEREARG, threadNo, (int)size, items, (int)largeblock);
@@ -189,27 +189,27 @@ int main(int argc, char** argv) {
 		counter++;
 		
 		printf(WHERESTR "Thread #%d, releasing large value\n", WHEREARG, threadNo);
-		release(largeblock);
+		dsmcbe_release(largeblock);
 				
 		printf(WHERESTR "Thread #%d, released large value\n", WHEREARG, threadNo);
 
 		printf(WHERESTR "Thread #%d, (read) re-acquire value\n", WHEREARG, threadNo);
-		allocation = acquire(ETTAL, &size, READ);
+		allocation = dsmcbe_acquire(ETTAL, &size, READ);
 		printf(WHERESTR "Thread #%d, re-acquired value (ls: %d)\n", WHEREARG, threadNo, (int)allocation);
-		release(allocation);
+		dsmcbe_release(allocation);
 		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
 
 		printf(WHERESTR "Thread #%d, (write) re-acquire value\n", WHEREARG, threadNo);
-		allocation = acquire(ETTAL, &size, WRITE);
+		allocation = dsmcbe_acquire(ETTAL, &size, WRITE);
 		printf(WHERESTR "Thread #%d, re-acquired value (ls: %d)\n", WHEREARG, threadNo, (int)allocation);
-		release(allocation);
+		dsmcbe_release(allocation);
 		printf(WHERESTR "Thread #%d, released value\n", WHEREARG, threadNo);
 */
 		int j = 0;
 		printf(WHERESTR "Reading large sequence...\n", WHEREARG);
 		for(i = 0; i < SEQUENCE_COUNT; i++)
 		{
-			release(acquire(LARGE_SEQUENCE + i, &size, ACQUIRE_MODE_READ));
+			dsmcbe_release(dsmcbe_acquire(LARGE_SEQUENCE + i, &size, ACQUIRE_MODE_READ));
 			if (i % 1000 == 0)
 				printf(WHERESTR "Read large sequence %d\n", WHEREARG, i);
 			for(j = 0; j < 10; j++)			
@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
 			{
 				printf(WHERESTR "Thread #%d, performing memory test %d of 1000000\n", WHEREARG, threadNo, i);
 			}
-			release(acquire(LARGE_ITEM, &size, ACQUIRE_MODE_WRITE));
+			dsmcbe_release(dsmcbe_acquire(LARGE_ITEM, &size, ACQUIRE_MODE_WRITE));
 		}
 
 		if (SPU_FIBERS > 1)
@@ -243,14 +243,14 @@ int main(int argc, char** argv) {
 	}
 	
 	//printf(WHERESTR "Creating new item\n", WHEREARG);
-	allocation = create(SPUITEM, sizeof(unsigned int), CREATE_MODE_NONBLOCKING);
+	allocation = dsmcbe_create(SPUITEM, sizeof(unsigned int));
 	//printf(WHERESTR "Created new item\n", WHEREARG);
 	*allocation = 4;
 	//printf(WHERESTR "Releasing new item\n", WHEREARG);
-	release(allocation);
+	dsmcbe_release(allocation);
 	//printf(WHERESTR "Released new item\n", WHEREARG);
 	
-	terminate();
+	dsmcbe_terminate();
 	//printf(WHERESTR "Done\n", WHEREARG);
 	
 	
