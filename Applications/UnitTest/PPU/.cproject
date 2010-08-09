@@ -25,7 +25,7 @@
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.2138533893" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.363752971" name="Embed SPU Inputs" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Testbench SPU/spu-gnu-debug/SPU}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Unittest SPU/spu-gnu-debug/SPU}&quot;"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.607878669" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
@@ -40,7 +40,7 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1575743146" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.325155881" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-debug}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib/"/>
 </option>
 </tool>
@@ -49,8 +49,7 @@
 <option id="gnu.c.compiler.option.include.paths.757352447" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.none" id="cell.ppu.gnu32.c.compiler.debug.option.optimization.level.919278593" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.debug.option.debugging.level.681516906" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.debugging.level"/>
@@ -214,7 +213,7 @@
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu.976490687" name="PPU GNU 32 bit Embed SPU" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.embedspu">
 <option id="cell.ppu.gnu.embedspu.option.inputs.1696085679" name="Embed SPU Inputs" superClass="cell.ppu.gnu.embedspu.option.inputs" valueType="stringList">
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Testbench SPU/spu-gnu-release/SPU}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Unittest SPU/spu-gnu-release/SPU}&quot;"/>
 </option>
 </tool>
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe.883104431" name="PPU GNU 32 bit C Linker" superClass="celldt.managedbuild.tool.cell.ppu.gnu32.c.linker.exe">
@@ -229,7 +228,7 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lspe2.1360020526" name="libspe2 (-lspe2)" superClass="cell.ppu.gnu.c.linker.option.libs.lspe2" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1354936909" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-release}&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib/lib&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib/"/>
 </option>
 <inputType id="cdt.managedbuild.tool.gnu.c.linker.input.605095176" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
@@ -244,8 +243,7 @@
 <option id="gnu.c.compiler.option.include.paths.1390338151" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
 </option>
 <inputType id="celldt.managedbuild.tool.cell.ppu.gnu.c.compiler.input.1246344379" superClass="celldt.managedbuild.tool.cell.ppu.gnu.c.compiler.input"/>
 </tool>
@@ -416,7 +414,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu64.c.compiler.exe.debug.1379580369" name="PPU GNU 64 bit C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.c.compiler.exe.debug">
 <option defaultValue="gnu.c.optimization.level.none" id="cell.ppu.gnu32.c.compiler.debug.option.optimization.level.42891906" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.debug.option.debugging.level.634937854" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.debug.option.debugging.level"/>
-<option id="gnu.c.compiler.option.include.paths.226240917" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<option id="gnu.c.compiler.option.include.paths.226240917" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
@@ -591,7 +589,7 @@
 <tool id="celldt.managedbuild.tool.cell.ppu.gnu64.c.compiler.exe.release.1894978593" name="PPU GNU 64 bit C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.ppu.gnu64.c.compiler.exe.release">
 <option defaultValue="gnu.c.optimization.level.most" id="cell.ppu.gnu32.c.compiler.release.option.optimization.level.603676450" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.release.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.release.option.debugging.level.814030380" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.release.option.debugging.level"/>
-<option id="gnu.c.compiler.option.include.paths.484075884" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<option id="gnu.c.compiler.option.include.paths.484075884" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>

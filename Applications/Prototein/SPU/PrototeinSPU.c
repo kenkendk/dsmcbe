@@ -7,6 +7,7 @@
 #include <malloc_align.h>
 #include <string.h>
 #include <dsmcbe_spu.h>
+#include <dsmcbe_csp.h>
 #include <debug.h>
 #include <dsmcbe.h>
 
@@ -53,8 +54,8 @@ int FoldPrototein(unsigned long long id)
     unsigned int* synclock;
     GUID itemno;
 #endif
+
     int threadNo;
-    unsigned int total;
 
 #ifdef DOUBLE_BUFFER
 	unsigned int work2 = UINT_MAX;
@@ -71,12 +72,12 @@ int FoldPrototein(unsigned long long id)
     prototein = NULL;
     
     //printf(WHERESTR "Started SPU\n", WHEREARG);
-    initialize();
+    dsmcbe_initialize();
 
 #ifdef USE_CHANNEL_COMMUNICATION
-    prototein_object = get(PROTOTEIN, &size);
+    CSP_SAFE_CALL("read setup", dsmcbe_csp_channel_read(PROTOTEIN, &size, &prototein_object));
 #else
-    prototein_object = acquire(PROTOTEIN, &size, ACQUIRE_MODE_WRITE);
+    prototein_object = dsmcbe_acquire(PROTOTEIN, &size, ACQUIRE_MODE_WRITE);
 #endif
     //printf(WHERESTR "SPU got prototein @: %d\n", WHEREARG, (unsigned int)prototein_object);
     
@@ -90,11 +91,22 @@ int FoldPrototein(unsigned long long id)
     //printf(WHERESTR "SPU called malloc\n", WHEREARG);
 
     map = (char*) MALLOC(MAP_SIZE);
+#ifdef USE_CHANNEL_COMMUNICATION
+    CSP_SAFE_CALL("allocate winner", dsmcbe_csp_item_create(&winner_object, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2)));
+    winner = (struct coordinate*)(&winner_object + (sizeof(int) * 2));
+#else
     winner = MALLOC((sizeof(struct coordinate) * prototein_length));
+#endif
 
 	places = (struct coordinate*)MALLOC(sizeof(struct coordinate) * prototein_length);
     //printf(WHERESTR "SPU read prototein: %s, and got ID: %d\n", WHEREARG, prototein, thread_id);
-    release(prototein_object);
+#ifdef USE_CHANNEL_COMMUNICATION
+	CSP_SAFE_CALL("forward prototein", dsmcbe_csp_channel_write(PROTOTEIN, prototein_object));
+#else
+	dsmcbe_release(prototein_object);
+#endif
+	prototein_object = NULL;
+
     //printf(WHERESTR "Released GUID 2\n", WHEREARG);
     
     if (places == NULL)
@@ -115,7 +127,7 @@ int FoldPrototein(unsigned long long id)
 		    if (lastOne)
 		    	break;
 
-		    synclock = acquire(PACKAGE_ITEM, &size, ACQUIRE_MODE_WRITE);
+		    synclock = dsmcbe_acquire(PACKAGE_ITEM, &size, ACQUIRE_MODE_WRITE);
 		    	
 		    if (synclock[0] >= synclock[1])
 		    	lastOne = 1;
@@ -125,7 +137,7 @@ int FoldPrototein(unsigned long long id)
 				//printf(WHERESTR "thread %d is pre_reading %d\n", WHEREARG, thread_id,  WORKITEM_OFFSET + synclock[0]);
 				firstOne = 0;
 				item2 = WORKITEM_OFFSET + synclock[0];
-				work2 = beginAcquire(item2, ACQUIRE_MODE_READ);
+				work2 = dsmcbe_beginAcquire(item2, ACQUIRE_MODE_READ);
 				synclock[0]++;
 			}
 
@@ -133,12 +145,12 @@ int FoldPrototein(unsigned long long id)
 		    total = synclock[1];
 		    synclock[0]++;
 #else
-		    synclock = acquire(PACKAGE_ITEM, &size, ACQUIRE_MODE_WRITE);
+		    synclock = dsmcbe_acquire(PACKAGE_ITEM, &size, ACQUIRE_MODE_WRITE);
 
 		    if (synclock[0] >= synclock[1])
 		    {
 			    //printf(WHERESTR "thread %d:%d is terminating\n", WHEREARG, thread_id, threadNo);
-		    	release(synclock);
+		    	dsmcbe_release(synclock);
 		    	break;
 		    }
 		    	
@@ -146,7 +158,7 @@ int FoldPrototein(unsigned long long id)
 		    total = synclock[1];
 		    synclock[0]++;
 #endif 
-	    	release(synclock);
+		    dsmcbe_release(synclock);
 #endif
 	    	//printf("thread %d:%d End - Release write SYNCLOCK\n", thread_id, threadNo);
 	
@@ -157,36 +169,34 @@ int FoldPrototein(unsigned long long id)
 			if (work2 != UINT_MAX)
 			{
 				//printf(WHERESTR "thread %d is finalizing acquire of %d\n", WHEREARG, thread_id,  item2);
-				work = endAsync(work2, &size);
+				work = dsmcbe_endAsync(work2, &size);
 			}
 			if (!lastOne)
 			{
 				//printf(WHERESTR "thread %d is pre_reading %d\n", WHEREARG, thread_id,  itemno);
 				item2 = itemno;
-				work2 = beginAcquire(item2, ACQUIRE_MODE_READ);
+				work2 = dsmcbe_beginAcquire(item2, ACQUIRE_MODE_READ);
 			}
 #else
 #ifdef USE_CHANNEL_COMMUNICATION
 			//printf(WHERESTR "thread %d is reading %d\n", WHEREARG, thread_id,  WORKITEM_CHANNEL);
-			void* tmp_work = (struct workblock*)get(WORKITEM_CHANNEL, &size);
-			if (size == 1) //Size of one means poison
+			if (dsmcbe_csp_channel_read(WORKITEM_CHANNEL, &size, (void**)&work) == CSP_CALL_POISON)
 			{
 				//printf(WHERESTR "thread %d has got poison from %d\n", WHEREARG, thread_id,  WORKITEM_CHANNEL);
-				release(tmp_work);
 				break;
 			}
-			work = MALLOC(size);
-			memcpy(work, tmp_work, size);
-			release(tmp_work); //We need to free this much earlier in channel mode, or we will block the channel
+
 			//printf(WHERESTR "thread %d has read %d, with size: %d\n", WHEREARG, thread_id,  WORKITEM_CHANNEL, size);
 #else
-			work = (struct workblock*)acquire(itemno, &size, ACQUIRE_MODE_READ);
+			work = (struct workblock*)dsmcbe_acquire(itemno, &size, ACQUIRE_MODE_READ);
 #endif
 #endif
 			//printf("thread %d:%d End - Acquire read WORK\n", thread_id, threadNo);	    
 		    thread_no = threadNo;
 		    queue = (struct coordinate*)(((void*)work) + sizeof(struct workblock));
-		   	//printf(WHERESTR "SPU recieved a work block with %d items\n", WHEREARG, (*work).worksize);
+
+		    //printf(WHERESTR "SPU recieved a work block with %d items\n", WHEREARG, (*work).worksize);
+
 		    for(i = 0; i < (*work).worksize; i++)
 		    {
 		    	if (i == (*work).worksize_delta)
@@ -206,11 +216,12 @@ int FoldPrototein(unsigned long long id)
 		        queue += (*work).item_length;
 	    	}
 		    thread_no = threadNo;
+
 		    //printf("thread %d:%d Start - Release read WORK\n", thread_id, threadNo);
 #ifdef USE_CHANNEL_COMMUNICATION
-		    FREE(work);
+		    CSP_SAFE_CALL("release work", dsmcbe_csp_item_free(work));
 #else
-		    release(work);
+		    dsmcbe_release(work);
 #endif
 	    	//printf("thread %d:%d End - Release read WORK\n", thread_id, threadNo);
 		    thread_no = threadNo;
@@ -231,19 +242,19 @@ int FoldPrototein(unsigned long long id)
 
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
 	//sleep((thread_id * 0.5) + 1);
-#ifdef USE_CHANNEL_COMMUNICATION
-    winner_object = createMalloc((sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2));
+#ifndef USE_CHANNEL_COMMUNICATION
 #else
-    winner_object = (struct coordinate*)create(WINNER_OFFSET + thread_id, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2), CREATE_MODE_NONBLOCKING);
+    CSP_SAFE_CALL("create winner object", dsmcbe_csp_item_create(&winner_object, (sizeof(struct coordinate) * prototein_length) + (sizeof(int) * 2)));
+    memcpy(winner_object + (sizeof(int) * 2), winner, sizeof(struct coordinate) * prototein_length);
 #endif
     //printf(WHERESTR "SPU %d is writing back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
-    memcpy(winner_object + (sizeof(int) * 2), winner, sizeof(struct coordinate) * prototein_length);
     ((int*)winner_object)[0] = bestscore;
     ((int*)winner_object)[1] = totalwork;
+
 #ifdef USE_CHANNEL_COMMUNICATION
-    put(WINNER_CHANNEL, winner_object);
+    CSP_SAFE_CALL("write result back", dsmcbe_csp_channel_write(WINNER_CHANNEL, winner_object));
 #else
-    release(winner_object);
+    dsmcbe_release(winner_object);
 #endif
     //printf(WHERESTR "SPU %d has written back results (ls: %d)\n", WHEREARG, thread_id, (int)winner_object);
 	
@@ -252,11 +263,13 @@ int FoldPrototein(unsigned long long id)
     FREE(places);
    	FREE(map);
 	
-    printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
-    return 0;
+    //printf(WHERESTR "thread %d completed\n", WHEREARG, thread_id);
+    dsmcbe_terminate();
+    //printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
 
-    terminate();
-    printf(WHERESTR "thread %d terminating\n", WHEREARG, thread_id);
+    //There seems to be some stack corruption here, so the SPE hangs if we return
+    exit(0);
+
 	return 0;
 }
 

@@ -3,6 +3,7 @@
 	<name>dsmcbe_ppu</name>
 	<comment></comment>
 	<projects>
+		<project>dsmcbe_spu</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

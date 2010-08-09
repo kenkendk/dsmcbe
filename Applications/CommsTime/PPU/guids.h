@@ -6,8 +6,15 @@
 #define COMPLETION_LOCK 102
 #define DELTA_CHANNEL 103
 
+#define UNUSED_CHANNEL_1 106
+#define UNUSED_CHANNEL_2 107
+
+#define BUFFERED_CHANNEL_START 120
+
 #define CHANNEL_START_GUID 1000
 
 #define REPETITIONS 10000
+
+#define DATA_BLOCK_SIZE (sizeof(unsigned int))
 
 #endif /* COMMSTIME_GUIDS_H_ */

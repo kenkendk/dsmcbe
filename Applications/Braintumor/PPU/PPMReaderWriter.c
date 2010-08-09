@@ -57,7 +57,7 @@ void readimage_grey_DSMCBE(char* filename, struct IMAGE_FORMAT_GREY* imageinfo, 
 	image_size = imageinfo->width * imageinfo->height;
 	memory_width = imageinfo->width + ((128 - imageinfo->width) % 128);
 
-	imageinfo->image = create(imageID, memory_width * imageinfo->height * sizeof(unsigned char), CREATE_MODE_NONBLOCKING);
+	imageinfo->image = dsmcbe_create(imageID, memory_width * imageinfo->height * sizeof(unsigned char));
 	
 	for(y = 0; y < imageinfo->height; y++)
 		for(x = 0; x < imageinfo->width; x++)
@@ -78,7 +78,7 @@ void readimage_grey_DSMCBE(char* filename, struct IMAGE_FORMAT_GREY* imageinfo, 
 		}
 
 	fclose(fh);
-	release(imageinfo->image);		
+	dsmcbe_release(imageinfo->image);
 }
 
 void readimage_grey(char* filename, void* allocator(size_t), struct IMAGE_FORMAT_GREY* imageinfo)

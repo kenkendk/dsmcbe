@@ -21,17 +21,17 @@ int main(int argc, char** argv) {
 	int* data;
 	int count = 0;
 
-	initialize();
+	dsmcbe_initialize();
 
 	printf(WHERESTR "Initialized\n", WHEREARG);
 
-	data = acquire(PROCESS_COUNTER, &size, ACQUIRE_MODE_WRITE);
+	data = dsmcbe_acquire(PROCESS_COUNTER, &size, ACQUIRE_MODE_WRITE);
 	spuid = (*data)++;
-	release(data);
+	dsmcbe_release(data);
 
 	srand ( spuid );
 
-	acquireBarrier(START_BARRIER);
+	dsmcbe_acquireBarrier(START_BARRIER);
 
 
 	struct timespec time;
@@ -44,14 +44,14 @@ int main(int argc, char** argv) {
 			time.tv_nsec = rand() / 100;
 			nanosleep(&time, NULL);
 
-			data = create(CONTENTION_ITEM, sizeof(int), CREATE_MODE_BLOCKING);
+			data = dsmcbe_create(CONTENTION_ITEM, sizeof(int));
 			if (data == NULL)
 				printf("NULL pointer recieved ...\n");
 
 			time.tv_nsec = rand() / 100;
 			nanosleep(&time, NULL);
 
-			release(data);
+			dsmcbe_release(data);
 
 			count++;
 
@@ -68,14 +68,16 @@ int main(int argc, char** argv) {
 			time.tv_nsec = rand() / 100;
 			nanosleep(&time, NULL);
 
-			data = acquire(CONTENTION_ITEM, &size, ACQUIRE_MODE_DELETE);
+			//data = dsmcbe_acquire(CONTENTION_ITEM, &size, ACQUIRE_MODE_DELETE);
+			printf("Sample is using unsupported feature\n");
+
 			if (data == NULL)
 				printf("NULL pointer recieved ...\n");
 
 			time.tv_nsec = rand() / 100;
 			nanosleep(&time, NULL);
 
-			release(data);
+			dsmcbe_release(data);
 
 			count++;
 
@@ -84,7 +86,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	
-	terminate();
+	dsmcbe_terminate();
 	printf(WHERESTR "Done\n", WHEREARG);
 	
 	

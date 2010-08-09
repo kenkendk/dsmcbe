@@ -1,4 +1,5 @@
 #include <dsmcbe_ppu.h>
+#include <dsmcbe_csp.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <libspe2.h>
@@ -45,7 +46,7 @@ int main(int argc, char **argv)
 	}
 
 	printf("Initializing\n");
-    pthread_t* threads = simpleInitialize(machineid, file, spu_threads);
+    pthread_t* threads = dsmcbe_simpleInitialize(machineid, file, spu_threads);
 	printf("Initialized\n");
 
     if (machineid == 0)
@@ -55,14 +56,14 @@ int main(int argc, char **argv)
 		printf("Creating process counter\n");
 
 		//Create the ID counter object
-		tmp = create(PROCESS_COUNTER_GUID, sizeof(int), CREATE_MODE_NONBLOCKING);
+		tmp = dsmcbe_create(PROCESS_COUNTER_GUID, sizeof(int));
 		*tmp = 0;
-		release(tmp);
+		dsmcbe_release(tmp);
 
 		printf("Creating barrier object\n");
 
 		//Create the shared barrier object
-		create(BARRIER_GUID, MAX(1, DSMCBE_MachineCount()) * spu_threads, CREATE_MODE_BARRIER);
+		dsmcbe_createBarrier(BARRIER_GUID, MAX(1, dsmcbe_MachineCount()) * spu_threads);
     }
 
 	unsigned long* fibonacci;
@@ -72,16 +73,16 @@ int main(int argc, char **argv)
 
 	while(1)
 	{
-		fibonacci = acquire(CHANNEL_OUT, &size, ACQUIRE_MODE_DELETE);
+		CSP_SAFE_CALL("read fib", dsmcbe_csp_channel_read(CHANNEL_OUT, NULL, (void**)&fibonacci));
 		printf("Next fibonacci is: %lu\n", (unsigned long)(*fibonacci));
-		release(fibonacci);
+		CSP_SAFE_CALL("free fib", dsmcbe_csp_item_free(fibonacci));
 		sleep(1);
 	}
 
 	printf("PPU is waiting for shutdown\n");
 
 	//Just wait for completion
-    release(acquire(COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
+	dsmcbe_release(dsmcbe_acquire(COMPLETION_LOCK, &size, ACQUIRE_MODE_READ));
 
 	printf("PPU is waiting for threads to complete\n");
 
@@ -93,6 +94,6 @@ int main(int argc, char **argv)
 
 	printf("PPU is terminating\n");
 
-	terminate();
+	dsmcbe_terminate();
 	return 0;
 }
