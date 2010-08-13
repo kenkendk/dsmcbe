@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?>
+
+<cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+<storageModule moduleId="org.eclipse.cdt.core.settings">
+<cconfiguration id="celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421">
+<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421" moduleId="org.eclipse.cdt.core.settings" name="spu-gnu-debug">
+<externalSettings/>
+<extensions>
+<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+<extension id="org.eclipse.cdt.core.MakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+</extensions>
+</storageModule>
+<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+<configuration artifactExtension="" artifactName="SPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421" name="spu-gnu-debug" parent="celldt.managedbuild.config.cell.spu.gnu.exe.debug">
+<folderInfo id="celldt.managedbuild.config.cell.spu.gnu.exe.debug.1745427421.970487405" name="/" resourcePath="">
+<toolChain id="celldt.managedbuild.config.cell.spu.gnu.exe.debug.toolchain.2002777172" name="SPU GNU Debug Tool Chain" superClass="celldt.managedbuild.config.cell.spu.gnu.exe.debug.toolchain">
+<targetPlatform archList="ppc64" binaryParser="org.eclipse.cdt.core.ELF" id="celldt.managedbuild.target.cell.gnu.platform.1853822842" name="Cell Platform" osList="linux" superClass="celldt.managedbuild.target.cell.gnu.platform"/>
+<builder buildPath="${workspace_loc:/SPU/spu-gnu-debug}" id="celldt.managedbuild.target.cell.gnu.builder.710693085" keepEnvironmentInBuildfile="false" name="GNU Make" superClass="celldt.managedbuild.target.cell.gnu.builder"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic.1777038663" name="SPU GNU Assembler" superClass="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic">
+<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1577636386" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+</tool>
+<tool commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG}${OUTPUT_PREFIX}${OUTPUT} ${INPUTS} -B/opt/cell/sysroot/usr/spu/lib" id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.689415637" name="SPU GNU C Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe">
+<option id="cell.gnu.c.linker.option.libs.1030184873" name="Libraries (-l)" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
+<listOptionValue builtIn="false" value="dsmcbe_spu"/>
+</option>
+<option id="gnu.c.link.option.paths.762750122" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/lib"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/spu-gnu-debug}&quot;"/>
+</option>
+<option id="cell.gnu.c.linker.option.libs.lm.1827599649" name="Math library (-lm)" superClass="cell.gnu.c.linker.option.libs.lm" value="false" valueType="boolean"/>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.1427043464" name="SPU GNU C++ Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug.1115882960" name="SPU GNU C Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.debug">
+<option id="gnu.c.compiler.option.include.paths.1636201903" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/header files}&quot;"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
+</option>
+<option defaultValue="gnu.c.optimization.level.none" id="cell.spu.gnu.c.compiler.debug.option.optimization.level.456480307" name="Optimization Level" superClass="cell.spu.gnu.c.compiler.debug.option.optimization.level" valueType="enumerated"/>
+<option id="cell.spu.gnu.c.compiler.debug.option.debugging.level.1939709819" name="Debug Level" superClass="cell.spu.gnu.c.compiler.debug.option.debugging.level"/>
+<inputType id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.input.1050860952" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.input"/>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.debug.29730629" name="SPU GNU C++ Compiler with Debug Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.debug">
+<option id="cell.spu.gnu.cpp.compiler.debug.option.optimization.level.1816622262" name="Optimization Level" superClass="cell.spu.gnu.cpp.compiler.debug.option.optimization.level"/>
+<option id="cell.spu.gnu.cpp.compiler.debug.option.debugging.level.575614775" name="Debug Level" superClass="cell.spu.gnu.cpp.compiler.debug.option.debugging.level"/>
+</tool>
+</toolChain>
+</folderInfo>
+</configuration>
+</storageModule>
+<storageModule moduleId="scannerConfiguration">
+<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.make.core.GCCStandardMakePerProjectProfile"/>
+<profile id="org.eclipse.cdt.make.core.GCCStandardMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file}" command="gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="makefileGenerator">
+<runAction arguments="-f ${project_name}_scd.mk" command="make" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file}" command="gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/specs.cpp" command="g++" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/specs.c" command="gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCWinManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-c 'gcc -E -P -v -dD &quot;${plugin_state_location}/${specs_file}&quot;'" command="sh" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCWinManagedMakePerProjectProfileCPP">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-c 'g++ -E -P -v -dD &quot;${plugin_state_location}/specs.cpp&quot;'" command="sh" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCWinManagedMakePerProjectProfileC">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-c 'gcc -E -P -v -dD &quot;${plugin_state_location}/specs.c&quot;'" command="sh" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="com.ibm.celldt.managedbuilder.core.PPUGCCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="false"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile1">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file}" command="ppu-gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="com.ibm.celldt.managedbuilder.core.SPUGCCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="false"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile2">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file}" command="spu-gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="com.ibm.celldt.managedbuilder.core.PPUXLCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="false"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile3">
+<runAction arguments="-E -v ${plugin_state_location}/${specs_file}" command="ppuxlc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="com.ibm.celldt.managedbuilder.core.SPUXLCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="false"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile4">
+<runAction arguments="-E -v ${plugin_state_location}/${specs_file}" command="spuxlc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+</storageModule>
+<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
+<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
+<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+</cconfiguration>
+<cconfiguration id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1836524169">
+<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1836524169" moduleId="org.eclipse.cdt.core.settings" name="spu-gnu-release">
+<externalSettings/>
+<extensions>
+<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+<extension id="org.eclipse.cdt.core.MakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+</extensions>
+</storageModule>
+<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+<configuration artifactExtension="" artifactName="SPU" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -fr" description="" errorParsers="org.eclipse.cdt.core.MakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GASErrorParser" id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1836524169" name="spu-gnu-release" parent="celldt.managedbuild.config.cell.spu.gnu.exe.release">
+<folderInfo id="celldt.managedbuild.config.cell.spu.gnu.exe.release.1836524169.1697995664" name="/" resourcePath="">
+<toolChain id="celldt.managedbuild.config.cell.spu.gnu.exe.release.toolchain.1117373756" name="SPU GNU Release Tool Chain" superClass="celldt.managedbuild.config.cell.spu.gnu.exe.release.toolchain">
+<targetPlatform archList="ppc64" binaryParser="org.eclipse.cdt.core.ELF" id="celldt.managedbuild.target.cell.gnu.platform.842508998" name="Cell Platform" osList="linux" superClass="celldt.managedbuild.target.cell.gnu.platform"/>
+<builder buildPath="${workspace_loc:/SPU/spu-gnu-release}" id="celldt.managedbuild.target.cell.gnu.builder.534697816" keepEnvironmentInBuildfile="false" name="GNU Make" superClass="celldt.managedbuild.target.cell.gnu.builder"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic.2097051794" name="SPU GNU Assembler" superClass="celldt.managedbuild.tool.cell.spu.gnu.assembler.generic">
+<inputType id="cdt.managedbuild.tool.gnu.assembler.input.317592037" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+</tool>
+<tool commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG}${OUTPUT_PREFIX}${OUTPUT} ${INPUTS} -B/opt/cell/sysroot/usr/spu/lib" id="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe.1236805491" name="SPU GNU C Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.linker.exe">
+<option id="cell.gnu.c.linker.option.libs.802855410" name="Libraries (-l)" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
+<listOptionValue builtIn="false" value="dsmcbe_spu"/>
+</option>
+<option id="gnu.c.link.option.paths.171067555" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/lib"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/spu-gnu-release}&quot;"/>
+</option>
+<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.367449230" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
+<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+</inputType>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe.1094292021" name="SPU GNU C++ Linker" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.linker.exe"/>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release.974927820" name="SPU GNU C Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.exe.release">
+<option defaultValue="gnu.c.optimization.level.most" id="cell.spu.gnu.c.compiler.release.option.optimization.level.511525378" name="Optimization Level" superClass="cell.spu.gnu.c.compiler.release.option.optimization.level" valueType="enumerated"/>
+<option id="cell.spu.gnu.c.compiler.release.option.debugging.level.499465649" name="Debug Level" superClass="cell.spu.gnu.c.compiler.release.option.debugging.level"/>
+<option id="cell.spu.gnu.c.compiler.option.include.paths.1558281502" name="Include paths (-I)" superClass="cell.spu.gnu.c.compiler.option.include.paths" valueType="includePath">
+<listOptionValue builtIn="false" value="/opt/ibm/systemsim-cell/include/callthru/spu"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/opt/cell/sdk/usr/include"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_spu/header files}&quot;"/>
+<listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/spu/include"/>
+</option>
+<inputType id="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.input.1161210532" superClass="celldt.managedbuild.tool.cell.spu.gnu.c.compiler.input"/>
+</tool>
+<tool id="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.release.1834861233" name="SPU GNU C++ Compiler with Release Options" superClass="celldt.managedbuild.tool.cell.spu.gnu.cpp.compiler.exe.release">
+<option id="cell.spu.gnu.cpp.compiler.release.option.optimization.level.1370347209" name="Optimization Level" superClass="cell.spu.gnu.cpp.compiler.release.option.optimization.level"/>
+<option id="cell.spu.gnu.cpp.compiler.release.option.debugging.level.603167569" name="Debug Level" superClass="cell.spu.gnu.cpp.compiler.release.option.debugging.level"/>
+</tool>
+</toolChain>
+</folderInfo>
+</configuration>
+</storageModule>
+<storageModule moduleId="scannerConfiguration">
+<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.make.core.GCCStandardMakePerProjectProfile"/>
+<profile id="org.eclipse.cdt.make.core.GCCStandardMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file}" command="gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="makefileGenerator">
+<runAction arguments="-f ${project_name}_scd.mk" command="make" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file}" command="gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/specs.cpp" command="g++" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/specs.c" command="gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCWinManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-c 'gcc -E -P -v -dD &quot;${plugin_state_location}/${specs_file}&quot;'" command="sh" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCWinManagedMakePerProjectProfileCPP">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-c 'g++ -E -P -v -dD &quot;${plugin_state_location}/specs.cpp&quot;'" command="sh" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="org.eclipse.cdt.managedbuilder.core.GCCWinManagedMakePerProjectProfileC">
+<buildOutputProvider>
+<openAction enabled="true" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile">
+<runAction arguments="-c 'gcc -E -P -v -dD &quot;${plugin_state_location}/specs.c&quot;'" command="sh" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="com.ibm.celldt.managedbuilder.core.PPUGCCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="false"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile1">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file}" command="ppu-gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="com.ibm.celldt.managedbuilder.core.SPUGCCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="false"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile2">
+<runAction arguments="-E -P -v -dD ${plugin_state_location}/${specs_file}" command="spu-gcc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="com.ibm.celldt.managedbuilder.core.PPUXLCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="false"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile3">
+<runAction arguments="-E -v ${plugin_state_location}/${specs_file}" command="ppuxlc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+<profile id="com.ibm.celldt.managedbuilder.core.SPUXLCManagedMakePerProjectProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="false"/>
+</buildOutputProvider>
+<scannerInfoProvider id="specsFile4">
+<runAction arguments="-E -v ${plugin_state_location}/${specs_file}" command="spuxlc" useDefault="true"/>
+<parser enabled="true"/>
+</scannerInfoProvider>
+</profile>
+</storageModule>
+<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+<storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
+<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
+<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+</cconfiguration>
+</storageModule>
+<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+<project id="SPU.celldt.managedbuild.target.cell.spu.exe.208357571" name="Cell SPU Executable" projectType="celldt.managedbuild.target.cell.spu.exe"/>
+</storageModule>
+</cproject>

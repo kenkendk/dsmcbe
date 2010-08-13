@@ -1,0 +1,11 @@
+#Wed Sep 03 14:56:58 CEST 2008
+celldt.managedbuild.config.cell.ppu.gnu32.lib.debug.791231839/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu32.lib.debug.791231839/internalBuilder/ignoreErr=true
+celldt.managedbuild.config.cell.ppu.gnu32.lib.release.345700427/internalBuilder/enabled=false
+celldt.managedbuild.config.cell.ppu.gnu32.lib.release.345700427/internalBuilder/ignoreErr=true
+eclipse.preferences.version=1
+environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.ppu.gnu32.lib.debug.791231839=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
+environment/buildEnvironmentInclude/celldt.managedbuild.config.cell.ppu.gnu32.lib.release.345700427=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment>\n<variable name\="CPATH" operation\="remove"/>\n<variable name\="C_INCLUDE_PATH" operation\="remove"/>\n</environment>\n
+environment/project=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
+environment/project/celldt.managedbuild.config.cell.ppu.gnu32.lib.debug.791231839=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
+environment/project/celldt.managedbuild.config.cell.ppu.gnu32.lib.release.345700427=<?xml version\="1.0" encoding\="UTF-8"?>\n<environment/>\n
