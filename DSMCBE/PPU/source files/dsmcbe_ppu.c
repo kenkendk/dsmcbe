@@ -26,16 +26,25 @@ static int mustrelease_spe_id = 0;
 extern spe_program_handle_t SPU;
 OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number = OBJECT_TABLE_RESERVED;
 static int dsmcbe_display_network_startup_value = 0;
+static unsigned int dsmcbe_spu_fibers = 1;
+unsigned int dsmcbe_spu_stacksize = 6 * 1024; //2k default stack
 
 void dsmcbe_display_network_startup(int value) { dsmcbe_display_network_startup_value = value; }
+
+void dsmcbe_set_spu_stacksize(unsigned int size)
+{
+	dsmcbe_spu_stacksize = size;
+}
 
 void* dsmcbe_ppu_pthread_function(void* arg) {
 	spe_context_ptr_t ctx;
 	unsigned int entry = SPE_DEFAULT_ENTRY;
 	ctx = *((spe_context_ptr_t *)arg);
 	
-	//printf(WHERESTR "Starting SPU\n", WHEREARG);
-	if (spe_context_run(ctx, &entry, 0, (void*)((int)dsmcbe_host_number), NULL, NULL) < 0)
+	unsigned int startupdata = dsmcbe_spu_stacksize << 16 | (dsmcbe_spu_fibers & 0xffff);
+
+	//printf(WHERESTR "Starting SPU, fibers: %d\n", WHEREARG, dsmcbe_spu_fibers);
+	if (spe_context_run(ctx, &entry, 0, (void*)((int)dsmcbe_host_number), (void*)startupdata, NULL) < 0)
 	{
 		REPORT_ERROR("Failed running context");
 		return NULL;
@@ -306,7 +315,7 @@ int* dsmcbe_ppu_initializeNetwork(unsigned int id, char* path, unsigned int* cou
 	return sockfd;
 }
 
-pthread_t* dsmcbe_simpleInitialize(unsigned int id, char* path, unsigned int thread_count)
+pthread_t* dsmcbe_simpleInitialize(unsigned int id, char* path, unsigned int thread_count, unsigned int fiber_count)
 {
 	size_t i;
 	spe_context_ptr_t* spe_ids;
@@ -342,6 +351,8 @@ pthread_t* dsmcbe_simpleInitialize(unsigned int id, char* path, unsigned int thr
 		
 	if (thread_count > 0)
 	{
+		//printf(WHERESTR "Setting fiber count to %d\n", WHEREARG, fiber_count);
+		dsmcbe_spu_fibers = fiber_count;
 		spe_ids = MALLOC(thread_count * sizeof(spe_context_ptr_t));
 		spu_threads = MALLOC(thread_count * sizeof(pthread_t));
 	

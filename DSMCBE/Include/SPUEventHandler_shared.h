@@ -29,6 +29,9 @@
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU!
 #define MAX_DMA_GROUPID (16)
 
+//The number of concurrent pending requests
+#define MAX_PENDING_REQUESTS (128)
+
 //This number is the min number of bytes the PPU will transfer over a DMA, smaller requests use an alternate transfer method
 //Set to zero to disable alternate transfer methods
 #define SPE_DMA_MIN_TRANSFERSIZE (32)
@@ -173,7 +176,7 @@ struct dsmcbe_spu_state
 
 	//This is a statically sized list for pending requests,
 	// using a static sized list greatly reduces the number of malloc calls
-	struct dsmcbe_spu_pendingRequest* pendingRequestsPointer[MAX_DMA_GROUPID];
+	struct dsmcbe_spu_pendingRequest* pendingRequestsPointer[MAX_PENDING_REQUESTS];
 	unsigned int currentPendingRequest;
 
 	//This is a hashtable of active CSP items, key is the pointer in LS, value is a dataObj

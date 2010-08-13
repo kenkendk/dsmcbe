@@ -25,6 +25,9 @@ unsigned int job_queue_tree_break;
 int bestscore;
 struct coordinate* winner;
 
+char* prototein;
+unsigned int prototein_length;
+
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
@@ -156,7 +159,7 @@ int DispatchWorkItems_Inner(unsigned int* counter)
 
 	*counter = total_jobcount;
 
-	pthread_exit(0);
+	//printf(WHERESTR "Dispatcher is quitting\n", WHEREARG);
 
 	return 0;
 }
@@ -165,18 +168,19 @@ void* DispatchWorkItems(void* counter)
 {
 	int res = DispatchWorkItems_Inner((unsigned int*) counter);
 
+	//printf(WHERESTR "Dispatcher is quitting\n", WHEREARG);
 	pthread_exit((void*)res);
 
 	return (void*)res;
 }
 
-int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
+int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count, int spu_fibers)
 {
 	size_t i;
 	void* tempobj;
-	unsigned long size;
 	pthread_t* threads;
 	unsigned int winner_count = 0;
+	pthread_attr_t attr;
 	
 	unsigned int reported_jobcount = 0;
 	unsigned int total_jobcount;
@@ -187,14 +191,15 @@ int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 	prototein_length = strlen(proto);
 	prototein = proto;
 	
-	threads = dsmcbe_simpleInitialize(machineid, networkfile, spu_count);
-	
-#ifdef USE_CHANNEL_COMMUNICATION
-	winner_count = MAX(1, dsmcbe_MachineCount()) * spu_count;
-#endif
+	dsmcbe_set_spu_stacksize(8 * 1024);
+	threads = dsmcbe_simpleInitialize(machineid, networkfile, spu_count, spu_fibers);
 	
 	if (machineid == 0)
-		pthread_create( &dispatcher_thread, NULL, DispatchWorkItems, &total_jobcount);
+	{
+		pthread_attr_init(&attr);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+		pthread_create( &dispatcher_thread, &attr, DispatchWorkItems, &total_jobcount);
+	}
 
 	if (machineid == 0)
 	{
@@ -249,8 +254,8 @@ int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 		}
 		
 		//printf("Optimal folding is (%d):\n", bestscore);
-		printmap(winner, prototein_length);
-		printf("Fibers: %d\n", SPU_FIBERS);
+		printmap(prototein, prototein_length, winner, prototein_length);
+		printf("Fibers: %d\n", spu_fibers);
 		
 #ifdef USE_CHANNEL_COMMUNICATION
 		CSP_SAFE_CALL("create termination channel", dsmcbe_csp_channel_create(MASTER_COMPLETION_LOCK, 0, CSP_CHANNEL_TYPE_ONE2ANY));
@@ -280,6 +285,7 @@ int FoldPrototein(char* proto, int machineid, char* networkfile, int spu_count)
 	
 	if (machineid == 0)
 	{
+	    //printf(WHERESTR "waiting for dispatcher\n", WHEREARG);
 		pthread_join(dispatcher_thread, NULL);
 		printf("The %d SPU's reported processing %d jobs out of %d\n", winner_count, reported_jobcount, total_jobcount);
 	}
@@ -325,13 +331,13 @@ void fold_broad(struct coordinate place, unsigned int required_jobs)
 			y = prev_places[(i * (tree_depth)) + (tree_depth - 1)].y;
 			prev_offset = &prev_places[i * (tree_depth)];
 			
-        	if (tree_depth>3 && get_map_char_raw(x - 1, y, prev_offset, tree_depth) == ' ')
+        	if (tree_depth>3 && get_map_char_raw(prototein, x - 1, y, prev_offset, tree_depth) == ' ')
         	    new_place_length++;
-        	if (tree_depth>2 && get_map_char_raw(x, y - 1, prev_offset, tree_depth) == ' ')
+        	if (tree_depth>2 && get_map_char_raw(prototein, x, y - 1, prev_offset, tree_depth) == ' ')
         	    new_place_length++;
-        	if (tree_depth>1 && get_map_char_raw(x + 1, y, prev_offset, tree_depth) == ' ')
+        	if (tree_depth>1 && get_map_char_raw(prototein, x + 1, y, prev_offset, tree_depth) == ' ')
         	    new_place_length++;
-        	if (get_map_char_raw(x, y + 1, prev_offset, tree_depth) == ' ')
+        	if (get_map_char_raw(prototein, x, y + 1, prev_offset, tree_depth) == ' ')
         	    new_place_length++;        	    
 
             if ((prev_place_length - (i+1)) + new_place_length >= required_jobs)
@@ -356,28 +362,28 @@ void fold_broad(struct coordinate place, unsigned int required_jobs)
 			y = prev_places[(i * (tree_depth)) + (tree_depth - 1)].y;
 			prev_offset = &prev_places[i * (tree_depth)];
 			
-        	if (tree_depth>3 && get_map_char_raw(x - 1, y, prev_offset, tree_depth) == ' ')
+        	if (tree_depth>3 && get_map_char_raw(prototein, x - 1, y, prev_offset, tree_depth) == ' ')
         	{
         	    memcpy(&new_places[new_place_length * (tree_depth+1)], prev_offset, sizeof(struct coordinate) * (tree_depth));
         	    new_places[(new_place_length * (tree_depth+1)) + (tree_depth)].x = x - 1;
         	    new_places[(new_place_length * (tree_depth+1)) + (tree_depth)].y = y;
         	    new_place_length++;
         	}
-        	if (tree_depth>2 && get_map_char_raw(x, y - 1, prev_offset, tree_depth) == ' ')
+        	if (tree_depth>2 && get_map_char_raw(prototein, x, y - 1, prev_offset, tree_depth) == ' ')
         	{
         	    memcpy(&new_places[new_place_length * (tree_depth+1)], prev_offset, sizeof(struct coordinate) * (tree_depth));
         	    new_places[(new_place_length * (tree_depth+1)) + (tree_depth)].x = x;
         	    new_places[(new_place_length * (tree_depth+1)) + (tree_depth)].y = y-1;
         	    new_place_length++;
         	}
-        	if (tree_depth>1 && get_map_char_raw(x + 1, y, prev_offset, tree_depth) == ' ')
+        	if (tree_depth>1 && get_map_char_raw(prototein, x + 1, y, prev_offset, tree_depth) == ' ')
         	{
         	    memcpy(&new_places[new_place_length * (tree_depth+1)], prev_offset, sizeof(struct coordinate) * (tree_depth));
         	    new_places[(new_place_length * (tree_depth+1)) + (tree_depth)].x = x + 1;
         	    new_places[(new_place_length * (tree_depth+1)) + (tree_depth)].y = y;
         	    new_place_length++;
         	}
-        	if (get_map_char_raw(x, y + 1, prev_offset, tree_depth) == ' ')
+        	if (get_map_char_raw(prototein, x, y + 1, prev_offset, tree_depth) == ' ')
         	{
         	    memcpy(&new_places[new_place_length * (tree_depth+1)], prev_offset, sizeof(struct coordinate) * (tree_depth));
         	    new_places[(new_place_length * (tree_depth+1)) + (tree_depth)].x = x;

@@ -14,7 +14,7 @@
 #include <dsmcbe_csp.h>
 #include <SPUEventHandler_CSP.h>
 
-//TOTO: Remove ask Morten
+//TODO: Remove ask Morten
 unsigned int doPrint = FALSE;
 
 //Indicate if Events should be used instead of the great spinning lock.
@@ -101,19 +101,19 @@ struct dsmcbe_spu_pendingRequest* dsmcbe_spu_new_PendingRequest(struct dsmcbe_sp
 {
 	struct dsmcbe_spu_pendingRequest* preq;
 
-	preq = state->pendingRequestsPointer[NEXT_SEQ_NO(state->currentPendingRequest, MAX_DMA_GROUPID)];
+	preq = state->pendingRequestsPointer[NEXT_SEQ_NO(state->currentPendingRequest, MAX_PENDING_REQUESTS)];
 
 	//For most cases we simply skip this
 	if (preq->requestId != UINT_MAX)
 	{
-		int i = MAX_DMA_GROUPID;
+		int i = MAX_PENDING_REQUESTS;
 		while(preq->requestId != UINT_MAX && --i >= 0)
-			preq = state->pendingRequestsPointer[NEXT_SEQ_NO(state->currentPendingRequest, MAX_DMA_GROUPID)];
+			preq = state->pendingRequestsPointer[NEXT_SEQ_NO(state->currentPendingRequest, MAX_PENDING_REQUESTS)];
 
 		if (preq->requestId != UINT_MAX)
 		{
 			REPORT_ERROR("Ran out of requestId's, this is likely a bug in DSMCBE, dumping package codes for pending requests");
-			for(i = 0; i < MAX_DMA_GROUPID; i++)
+			for(i = 0; i < MAX_PENDING_REQUESTS; i++)
 				fprintf(stderr, "Package %i has type %s (%i)\n", i, PACKAGE_NAME(state->pendingRequestsPointer[i]->operation), state->pendingRequestsPointer[i]->operation);
 
 			exit(-1);
@@ -178,18 +178,18 @@ struct dsmcbe_spu_pendingRequest* dsmcbe_spu_FindPendingRequest(struct dsmcbe_sp
 
 #ifdef DEBUG
 	size_t j;
-	int count[MAX_DMA_GROUPID];
-	memset(count, 0, sizeof(int) * MAX_DMA_GROUPID);
+	int count[MAX_PENDING_REQUESTS];
+	memset(count, 0, sizeof(int) * MAX_PENDING_REQUESTS);
 
-	for(i = 0; i < MAX_DMA_GROUPID; i++)
-		if (state->pendingRequestsPointer[i]->requestId < MAX_DMA_GROUPID)
+	for(i = 0; i < MAX_PENDING_REQUESTS; i++)
+		if (state->pendingRequestsPointer[i]->requestId < MAX_PENDING_REQUESTS)
 			count[state->pendingRequestsPointer[i]->requestId]++;
 
-	for(i = 0; i < MAX_DMA_GROUPID; i++)
+	for(i = 0; i < MAX_PENDING_REQUESTS; i++)
 		if (count[i] > 1)
 		{
 			REPORT_ERROR2("Found duplicate of request %d", i);
-			for(j = 0; j < MAX_DMA_GROUPID; j++)
+			for(j = 0; j < MAX_PENDING_REQUESTS; j++)
 				if (state->pendingRequestsPointer[j]->requestId == i)
 					REPORT_ERROR2("Package code is %u", state->pendingRequestsPointer[j]->operation);
 		}
@@ -202,10 +202,10 @@ struct dsmcbe_spu_pendingRequest* dsmcbe_spu_FindPendingRequest(struct dsmcbe_sp
 	if (preq->requestId == requestId)
 		return preq;
 
-	for(i = 0; i < MAX_DMA_GROUPID - 1; i++)
+	for(i = 0; i < MAX_PENDING_REQUESTS - 1; i++)
 	{
 		//Look backwards from current, more likely to hit
-		preq = state->pendingRequestsPointer[(state->currentPendingRequest - i) % MAX_DMA_GROUPID];
+		preq = state->pendingRequestsPointer[(state->currentPendingRequest - i) % MAX_PENDING_REQUESTS];
 		if (preq->requestId == requestId)
 			return preq;
 	}
@@ -224,7 +224,7 @@ void dsmcbe_SetHardwareThreads(unsigned int count)
 
 void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int packageCode, unsigned int requestId, unsigned int data, unsigned int size)
 {
-	//TODO: Determine if it is possible to accidentally insert a barrier response because it fits in mbox, but still have messages in queue
+	//TODO: Determine if it is possible to accidentally insert a response because it fits in mbox, but still have messages in queue
 	// this would lead to mixing of package data
 
 #ifdef SPU_STOP_AND_WAIT
@@ -247,6 +247,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 					spe_in_mbox_write(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
 					return;
 				}
+				break;
 			case PACKAGE_TERMINATE_RESPONSE:
 			case PACKAGE_SPU_MEMORY_MALLOC_RESPONSE:
 				if (spe_in_mbox_status(state->context) >= 2)
@@ -255,6 +256,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 					spe_in_mbox_write(state->context, &data, 1, SPE_MBOX_ALL_BLOCKING);
 					return;
 				}
+				break;
 			case PACKAGE_ACQUIRE_RESPONSE:
 				if (spe_in_mbox_status(state->context) >= 3)
 				{
@@ -263,6 +265,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 					spe_in_mbox_write(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
 					return;
 				}
+				break;
 			case PACKAGE_CSP_CHANNEL_CREATE_RESPONSE:
 			case PACKAGE_CSP_CHANNEL_POISON_RESPONSE:
 			case PACKAGE_SPU_CSP_ITEM_FREE_RESPONSE:
@@ -276,6 +279,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 					spe_in_mbox_write(state->context, &packageCode, 1, SPE_MBOX_ALL_BLOCKING);
 					return;
 				}
+				break;
 			case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE:
 				if (spe_in_mbox_status(state->context) >= 3)
 				{
@@ -284,6 +288,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 					spe_in_mbox_write(state->context, &data, 1, SPE_MBOX_ALL_BLOCKING);
 					return;
 				}
+				break;
 			case PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE:
 			case PACKAGE_CSP_CHANNEL_READ_RESPONSE:
 			case PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE:
@@ -295,6 +300,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 					spe_in_mbox_write(state->context, &size, 1, SPE_MBOX_ALL_BLOCKING);
 					return;
 				}
+				break;
 			default:
 				REPORT_ERROR2("Unexpected response code %d", packageCode);
 				break;
@@ -313,6 +319,13 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 	pthread_cond_signal(&state->writerCond);
 	pthread_mutex_unlock(&state->writerMutex);
 #else
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Mailbox is full, delaying response %s (%d) to requestId %d\n", WHEREARG, PACKAGE_NAME(packageCode), packageCode, requestId);
+#endif
+
+	state->writerDirtyReadFlag = 1;
+
 	switch(packageCode)
 	{
 		case PACKAGE_ACQUIRE_BARRIER_RESPONSE:
@@ -866,7 +879,7 @@ unsigned int dsmcbe_spu_EstimatePendingReleaseSize(struct dsmcbe_spu_state* stat
 	struct dsmcbe_spu_dataObject* obj;
 	size_t i;
 
-	for (i = 0; i < MAX_DMA_GROUPID; i++)
+	for (i = 0; i < MAX_PENDING_REQUESTS; i++)
 	{
 		struct dsmcbe_spu_pendingRequest* v = state->pendingRequestsPointer[i];
 		if (v->requestId != UINT_MAX && v->operation == PACKAGE_RELEASE_REQUEST)
@@ -1567,7 +1580,7 @@ void dsmcbe_spu_MailboxHandler(struct dsmcbe_spu_state* state, struct dsmcbe_spu
 	if (args != NULL)
 	{
 #ifdef DEBUG_COMMUNICATION
-				printf(WHERESTR "Context %u, Handling request from SPU with code %d\n", WHEREARG, (unsigned int)state->context, args->packageCode);
+				printf(WHERESTR "Context %u, Handling %s (%d) request from SPU with requestId %d\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(args->packageCode), args->packageCode, args->requestId);
 #endif
 
 		switch(args->packageCode)
@@ -2101,7 +2114,6 @@ void dsmcbe_spu_HandleMessagesFromQueue(struct dsmcbe_spu_state* state, void* pa
 void* dsmcbe_spu_mainthreadSpinning(void* threadranges)
 {
 	size_t i;
-	unsigned int pending_out_data;
 	unsigned int spu_thread_min = ((unsigned int*)threadranges)[0];
 	unsigned int spu_thread_max = ((unsigned int*)threadranges)[1];
 	struct dsmcbe_spu_state* state = NULL;
@@ -2113,9 +2125,6 @@ void* dsmcbe_spu_mainthreadSpinning(void* threadranges)
 	//Event base, keeps the mutex locked, until we wait for events
 	while(!dsmcbe_spu_do_terminate)
 	{
-
-		pending_out_data = 0;
-
 		for(i = spu_thread_min; i < spu_thread_max; i++)
 		{
 			resp = NULL;
@@ -2152,7 +2161,8 @@ void* dsmcbe_spu_mainthreadSpinning(void* threadranges)
 			//For each SPU, just repeat this
 			dsmcbe_spu_SPUMailboxReader(state);
 			dsmcbe_spu_HandleDMAEvent(&dsmcbe_spu_states[i]);
-			pending_out_data |= dsmcbe_spu_SPUMailboxWriter(&dsmcbe_spu_states[i]);
+			if (!dsmcbe_spu_SPUMailboxWriter(&dsmcbe_spu_states[i]))
+				dsmcbe_spu_states[i].writerDirtyReadFlag = 0;
 		}
 	}
 
@@ -2284,12 +2294,14 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 #else
 		dsmcbe_rc_RegisterInvalidateSubscriber(&dsmcbe_spu_states[i].inMutex, NULL, &dsmcbe_spu_states[i].inQueue, -1);
 #endif
-		for(j = 0; j < MAX_DMA_GROUPID; j++)
+		for(j = 0; j < MAX_PENDING_REQUESTS; j++)
 		{
 			dsmcbe_spu_states[i].pendingRequestsPointer[j] = MALLOC(sizeof(struct dsmcbe_spu_pendingRequest));
 			dsmcbe_spu_free_PendingRequest(dsmcbe_spu_states[i].pendingRequestsPointer[j]);
-			dsmcbe_spu_states[i].activeDMATransfers[j] = NULL;
 		}
+
+		for(j = 0; j < MAX_DMA_GROUPID; j++)
+			dsmcbe_spu_states[i].activeDMATransfers[j] = NULL;
 
 		dsmcbe_spu_states[i].currentPendingRequest = 0;
 	}
@@ -2384,7 +2396,7 @@ void dsmcbe_spu_terminate(int force)
 		dsmcbe_spu_states[i].csp_inactive_items = NULL;
 #endif
 
-		for(j = 0; j < MAX_DMA_GROUPID; j++)
+		for(j = 0; j < MAX_PENDING_REQUESTS; j++)
 			FREE(dsmcbe_spu_states[i].pendingRequestsPointer[j]);
 
 		pthread_mutex_destroy(&dsmcbe_spu_states[i].inMutex);

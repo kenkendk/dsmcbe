@@ -6,7 +6,9 @@
 #include <stdlib.h>
 #include <SPUEventHandler_extrapackages.h>
 #include <dsmcbe_spu_internal.h>
+#include <SPUThreads.h>
 #include <spu_mfcio.h>
+#include <malloc_align.h>
 
 //#define DEBUG_COMMUNICATION
 //Activating this makes the code use polling rather than just waiting for a mailbox message.
@@ -14,13 +16,15 @@
 //Disable this if there are long wait periods in the program.
 //#define TIMEOUT_DETECTION
 
+//The stack space allocated for the main thread
+#define MAIN_THREAD_STACKSPACE (1024 * 6)
+
 #include "../header files/dsmcbe_spu.h"
 #include "../header files/datapackages.h"
 #include "../header files/debug.h"
 
 unsigned int spu_dsmcbe_nextRequestNo = 0;
 unsigned int spu_dsmcbe_initialized = FALSE;
-
 
 //This function gets the next available request number, and sets the response flag to "not ready"
 unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
@@ -62,6 +66,12 @@ void spu_dsmcbe_readMailbox() {
 	
 	if (&(spu_dsmcbe_pendingRequests[requestID]) == NULL)
 		REPORT_ERROR("Request not found in PendingRequests")
+
+	dsmcbe_thread_set_ready_by_requestId(requestID);
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Read package %s (%d) with requestId %d\n", WHEREARG, PACKAGE_NAME(spu_dsmcbe_pendingRequests[requestID].requestCode), spu_dsmcbe_pendingRequests[requestID].requestCode, requestID);
+#endif
 
 	switch(spu_dsmcbe_pendingRequests[requestID].requestCode)
 	{
@@ -334,7 +344,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	unsigned int status;
 	
 #ifdef DEBUG_COMMUNICATION	
-	printf(WHERESTR "Reading mailbox\n", WHEREARG);
+	printf(WHERESTR "Thread %d is ending async operation for %s (%d) with request id %d\n", WHEREARG, dsmcbe_thread_current_id(), PACKAGE_NAME(spu_dsmcbe_pendingRequests[requestNo].requestCode), spu_dsmcbe_pendingRequests[requestNo].requestCode, requestNo);
 #endif
 	
 	//Process any pending messages
@@ -371,17 +381,21 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 			i = 0;
 		}
 
-		if (IsThreaded())
+		if (dsmcbe_thread_is_threaded())
 		{
 			printf(WHERESTR "Yielding\n", WHEREARG);
-			YieldThread();
+			dsmcbe_thread_yield();
 		}
 	}
 #else
 	while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
 	{
-		if (IsThreaded())
-			YieldThread();
+		if (dsmcbe_thread_is_threaded())
+		{
+			dsmcbe_thread_set_status(dsmcbe_thread_current_id(), requestNo);
+			if (!dsmcbe_thread_yield_ready())
+				spu_dsmcbe_readMailbox();
+		}
 		else
 			spu_dsmcbe_readMailbox();
 	}
@@ -523,12 +537,12 @@ void spu_dsmcbe_memory_setup(unsigned int reservedMemory)
 	//printf(WHERESTR "SBRK(0): %d, &_end: %d, r1:%d\n", WHEREARG, (unsigned int)sbrk(0), (unsigned int)&_end, *r1);
 
 	size = *r1 - ((unsigned int)sbrk(0));
-	size -= (8 * 1024) + reservedMemory; //Reserve space for stack and user needs
-	start = thread_malloc_align(size, 7);
+	size -= MAIN_THREAD_STACKSPACE + reservedMemory; //Reserve space for stack and user needs
+	start = _malloc_align(size, 7);
 
 	//printf(WHERESTR "SPU Reports having %d bytes free memory, at %d\n", WHEREARG, size, (unsigned int)start);
 	if (start == NULL)
-		REPORT_ERROR("Failed to allocated the desired amount of bytes");
+		REPORT_ERROR("Failed to allocated the desired amount of bytes, consider increasing MAIN_THREAD_STACKSPACE or reservedMemory");
 	
 	spu_write_out_intr_mbox(PACKAGE_SPU_MEMORY_SETUP);
 	spu_write_out_intr_mbox((unsigned int)start);

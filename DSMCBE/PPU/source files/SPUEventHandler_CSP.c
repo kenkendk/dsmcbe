@@ -277,6 +277,9 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 
 	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_FindPendingRequest(state, requestId);
 
+	if (preq == NULL)
+		REPORT_ERROR2("Failed to find pending request with number %d", requestId);
+
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 	if (resp->speId == (unsigned int)state)
 	{

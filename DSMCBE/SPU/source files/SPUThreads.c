@@ -1,392 +1,314 @@
 #include <stdio.h>
 #include <string.h>
+#include <setjmp.h>
 
 #include <SPUThreads.h>
 #include <debug.h>
-#include <malloc_align.h>
-#include <free_align.h>
-
+#include <dsmcbe_spu.h>
+#include <dsmcbe_spu_internal.h>
 
 //** If you are using this file in another project (other than DSMCBE),
 //** be aware that the threads cannot call malloc.
-//** You can either supply your own MALLOC call, 
-//** or your threads have to call thread_malloc
-//** You can map MALLOC to thread_malloc in a header file
 
-//** DO NOT map MALLOC to thread_malloc in this module! **/
+//Indicates that the thread is stopped
+#define THREAD_STATE_STOPPED (0xff)
+//Indicates that the thread is ready to run
+#define THREAD_STATE_READY (0xfe)
 
-//Allow non-DSMCBE programs to call malloc as well
-#ifndef MALLOC
-#define THREAD_MALLOC_REQUIRED
-#define MALLOC(x) malloc(x)
-#endif
+//SP is in register 1
+#define SP 1
 
+//The width of a single register is 128 bits
+#define REGISTER_WIDTH (128 / 8)
 
-static thread_struct* threads = NULL; //The threads
-static thread_struct* current_thread = NULL; //The currently executing thread
-static jmp_buf* main_env = NULL; //The main entry point
-static int no_of_threads; //Keep number of threads on the heap
-static int loop_counter; //Keep the loop counter on the heap
-
-static unsigned int malloc_size;
-static void* malloc_result;
-static unsigned int malloc_base;
-
-#define JMP_MALLOC 3
-#define JMP_MALLOC_ALIGN 4
-#define JMP_FREE 5
-#define JMP_FREE_ALIGN 6
-
-/*
-	Returns the index of the given thread, or -1 if the given thread was invalid
-*/
-int getThreadID(thread_struct* current)
+//The data for a single thread
+typedef struct
 {
-	if (current == NULL)
-		return -1;
+	//The thread state, either THREAD_STATE_STOPPED, THREAD_STATE_READY or the request id that is blocking the thread
+	int state;
+	//The register jump buffer
+	jmp_buf env;
+	//The stack for the thread
+	void* stack;
+} dsmcbe_thread_struct;
+
+
+//The list of active threads
+dsmcbe_thread_struct* dsmcbe_threads = NULL;
+
+//The id of the currently executing thread
+int dsmcbe_current_thread = -1;
+
+//The number of scheduled threads
+int dsmcbe_thread_count = 0;
+
+//The main entry point
+jmp_buf dsmcbe_main_env;
+
+//The id assigned to the SPE by libspe
+unsigned long long dsmcbe_speid;
+
+//The dsmcbe machine id
+unsigned int dsmcbe_machineid;
+
+
+//Returns the index of the current thread, or -1 if the current thread is invalid
+inline int dsmcbe_thread_current_id()
+{
+	return dsmcbe_current_thread;
+}
+
+//Returns the status of the given thread
+inline int dsmcbe_thread_get_status(int id)
+{
+	if (dsmcbe_threads == NULL)
+		return THREAD_STATE_STOPPED;
 	else
-		return current->id;
+		return dsmcbe_threads[id].state;
 }
 
-/*
-	Returns a pointer to the next waiting thread, and NULL if no threads are waiting
-*/
-thread_struct* getNextWaitingThread()
+//Sets the status of the given thread
+inline void dsmcbe_thread_set_status(int id, int status)
 {
-	int threadNo;
+	if (dsmcbe_threads != NULL)
+		dsmcbe_threads[id].state = status;
+}
+
+//Returns the id of the next waiting thread, or -1 if no threads are waiting
+int dsmcbe_thread_nextindex()
+{
 	int i;
-	thread_struct* res;
+	int threadNo = dsmcbe_current_thread;
+	int firstBlocked = -1;
 
-	threadNo = getThreadID(current_thread);
-	if (threadNo < 0 || threads == NULL || threadNo >= no_of_threads)
-		return NULL;
-	else 
-
-	//This simulates a very basic scheduler, that just takes the next processID
-	for(i = 0; i < no_of_threads; i++)
+	//This is the scheduler, it selects the first non-blocked thread,
+	// or the thread with the next id if all are blocked
+	for(i = 0; i < dsmcbe_thread_count - 1; i++)
 	{
-		res = &threads[(threadNo + i + 1) % no_of_threads];
-		if (res->id != -1 && res->id != threadNo)
-			return res;
+		threadNo = (threadNo + 1) % dsmcbe_thread_count;
+		if (dsmcbe_threads[threadNo].state == THREAD_STATE_READY)
+			return threadNo;
+		else if (firstBlocked == -1 && dsmcbe_threads[threadNo].state != THREAD_STATE_STOPPED)
+			firstBlocked = threadNo;
 	}
 
-	return NULL;
+	return firstBlocked;
 }
 
-/*
-	Terminates the current running thread
-*/
-void TerminateThread(void) {
+//Terminates the current running thread
+void dsmcbe_thread_exit() {
 
-	//printf(WHERESTR "In terminate for thread %d, finding next thread\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
-	thread_struct* nextThread = getNextWaitingThread();
-	if (nextThread == NULL) {
+	if (!dsmcbe_thread_is_threaded())
+		return;
+
+	//printf(WHERESTR "Stopping thread %d\n", WHEREARG, dsmcbe_current_thread);
+
+	//printf(WHERESTR "In terminate for thread %d, finding next thread\n", WHEREARG, dsmcbe_current_thread);
+	int nextThread = dsmcbe_thread_nextindex();
+	if (nextThread == -1) {
 		//printf(WHERESTR "In terminate, no more waiting threads, return to main\n", WHEREARG);
-		free(threads);
-		threads = NULL;
-		current_thread = NULL;
-		longjmp(*main_env, 1);
+		dsmcbe_current_thread = -1;
+		longjmp(dsmcbe_main_env, 1);
 	} else {
-		//printf(WHERESTR "In terminate, flagging thread %d, as dead and resuming %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id, nextThread->id);
-		current_thread->id = -1; //Flag it as dead
-		current_thread = nextThread;
-		longjmp(current_thread->env, 1);
+		//printf(WHERESTR "In terminate, flagging thread %d, as dead and resuming %d\n", WHEREARG, dsmcbe_current_thread, nextThread);
+		dsmcbe_threads[dsmcbe_current_thread].state = THREAD_STATE_STOPPED;
+		dsmcbe_current_thread = nextThread;
+		longjmp(dsmcbe_threads[dsmcbe_current_thread].env, 1);
 	}
 }
 
-/*void PrintRegisters(jmp_buf env)
+//Runs a number of threads, returns 0 when all threads are done, non-zero indicates an error
+int dsmcbe_thread_start(unsigned int fibers, unsigned int stacksize)
 {
-	unsigned int* temp;
-	printf("R0: %d, %d, %d, %d\n", ((unsigned int *)env)[0], ((unsigned int *)env)[1], ((unsigned int *)env)[2], ((unsigned int *)env)[3]);
-	printf("R1: %d, %d, %d, %d\n", ((unsigned int *)env)[4], ((unsigned int *)env)[5], ((unsigned int *)env)[6], ((unsigned int *)env)[7]);
-	temp = (unsigned int *)(((unsigned int*)env)[SP * INTS_PR_REGISTER]);
-	while(temp != NULL)
+	//printf(WHERESTR "dsmcbe_thread_start invoked with %u threads and stacksize %u\n", WHEREARG, fibers, stacksize);
+
+	int i;
+
+	if (dsmcbe_threads != NULL)
 	{
-		printf(WHERESTR "Backtracing stack, SP is %d, available space is %d \n", WHEREARG, temp[0], temp[1]);
-		temp = (unsigned int*)temp[0];
+		printf(WHERESTR "Cannot re-enter the dsmcbe_thread_start function\n", WHEREARG);
+		return -1;
 	}
-	printf("\n");
 
-}*/
+	stacksize -= stacksize % REGISTER_WIDTH;
 
-void CopyStack(jmp_buf env, void* newstack)
-{
-	void* begin;
-	void* end;
-	unsigned int* temp;
-	unsigned int* temp2;
-	unsigned int size;
-	unsigned int remainsize;
-	unsigned int extraspace;
-	int offset;
-	void* newsp;
-	
-	begin = (void*)(((unsigned int*)env)[4]);
-	temp = (unsigned int*)begin;
-	extraspace = ((unsigned int*)temp[0])[0]- temp[0];
+	if (fibers == 0)
+		fibers = 1;
 
-	while(temp != NULL)
-	{	
-		if (temp[0] != 0)
-			end = (void*)temp[0];
-		temp = (unsigned int*)temp[0];
-	}
-	
-	size = (end - begin);
-	newsp = (newstack + STACK_SIZE) - size;
-	memcpy(newsp, begin, size);
-	remainsize = STACK_SIZE - size;
-	
-	offset = newsp - begin; 
-	temp = (unsigned int*)(((unsigned int*)env)[4]);
-	temp2 = (unsigned int *)newsp;
-	//temp = (unsigned int*)temp[0]; //Skip the first
-	
-	while(temp != NULL)
+	dsmcbe_initialize();
+
+	dsmcbe_threads = MALLOC(sizeof(dsmcbe_thread_struct) * fibers);
+	if (dsmcbe_threads == NULL)
 	{
-		if (temp[0] != 0)
-		{
-			temp2[0] = temp[0] + offset;
-			temp2[1] = remainsize;
-			temp2[2] = temp[0] + offset;
-			temp2[3] = temp[0] + offset;
-			
-			remainsize += ((unsigned int*)temp[0])[0] - temp[0];
-		}
-		else
-			((int*)temp2)[1] = -3200;
-
-		//printf(WHERESTR "Assignment, SP %d (%d), To SP %d (%d) \n", WHEREARG, temp[0], temp[1], temp2[0], temp2[1]);
-		
-		temp = (unsigned int*)temp[0];
-		temp2 = (unsigned int*)temp2[0];
-	}
-	
-	((unsigned int*)env)[4] = (unsigned int) newsp;
-	((unsigned int*)env)[5] = STACK_SIZE - size - extraspace;
-	((unsigned int*)env)[6] = (unsigned int) newsp;
-	((unsigned int*)env)[7] = (unsigned int) newsp;
-	
-}
-
-/*
-	Spawns a number of threads.
-	A return value -1 means that the main thread is returning
-	A return value less than -1 indicates an error
-	A return value of zero or larger indicates the ID of the process
-*/
-int CreateThreads(int threadCount)
-{
-	if (main_env != NULL)
-	{
-			printf("Cannot re-enter this function\n");
-			return -2;
+		printf(WHERESTR "Out of memory\n", WHEREARG);
+		return -1;
 	}
 
-	if (threadCount <= 1)
-	{
-			printf("Must have at least two threads\n");
-			return -2;
-	}
-
-	main_env = (jmp_buf*)MALLOC(sizeof(jmp_buf));
-	if (main_env == NULL)
-	{
-			printf("Out of memory\n");
-			return -2;
-	}
-
-	current_thread = NULL;
-	no_of_threads = threadCount;
+	dsmcbe_thread_count = fibers;
 
 	//printf(WHERESTR "Before setjmp w/ main\n", WHEREARG);
-	switch(setjmp(*main_env))
+	if (setjmp(dsmcbe_main_env) == 1)
 	{
-		case 1:
-			//printf(WHERESTR "After setjmp w/ main\n", WHEREARG);
-			free(main_env);
-			main_env = NULL;
-			return -1;
-		case JMP_MALLOC:
-			//Special malloc case
-			malloc_result = malloc(malloc_size);
-			longjmp(current_thread->env, 1);
-			break;
-		case JMP_MALLOC_ALIGN:
-			//Special malloc_align case
-			malloc_result = _malloc_align(malloc_size, malloc_base);
-			longjmp(current_thread->env, 1);
-			break;
-		case JMP_FREE:
-			//Special free case
-			free(malloc_result);
-			longjmp(current_thread->env, 1);
-			break;
-		case JMP_FREE_ALIGN:
-			//Special free case
-			_free_align(malloc_result);
-			longjmp(current_thread->env, 1);
-			break;
+		//printf(WHERESTR "All threads done, cleaning up\n", WHEREARG);
+
+		//We are now done, free used resources
+		for(i = 0; i < dsmcbe_thread_count; i++)
+		{
+			FREE_ALIGN(dsmcbe_threads[i].stack);
+			dsmcbe_threads[i].stack = NULL;
+		}
+
+		FREE(dsmcbe_threads);
+		dsmcbe_threads = NULL;
+
+		dsmcbe_terminate();
+		return 0;
 	}
 	
-	//printf(WHERESTR "After setjmp NOT main\n", WHEREARG);
+	//printf(WHERESTR "After setjmp main\n", WHEREARG);
 
-	//Create the treads
-	threads = (thread_struct*) MALLOC(sizeof(thread_struct) * no_of_threads);
-	if (threads == NULL)
-		perror("SPU malloc failed for thread storage");
-
-	//printf(WHERESTR "Creating threads\n", WHEREARG);
-		
-	for(loop_counter = 0; loop_counter < no_of_threads; loop_counter++)
+	for(i = 0; i < dsmcbe_thread_count; i++)
 	{
-		//printf(WHERESTR "Creating thread %d\n", WHEREARG, loop_counter);
-		threads[loop_counter].id = loop_counter;
-		//current_thread = &threads[loop_counter];
-		if (setjmp(threads[loop_counter].env) == 0)
+		if (setjmp(dsmcbe_threads[i].env) == 0)
 		{
-			//printf(WHERESTR "Created thread %d\n", WHEREARG, loop_counter);
-			//PrintRegisters(threads[loop_counter].env);
+			//Initial setjmp call, allocate and initialize stack
 
-			CopyStack(threads[loop_counter].env, threads[loop_counter].stack);				
+			dsmcbe_threads[i].state = THREAD_STATE_READY;
+			dsmcbe_threads[i].stack = MALLOC_ALIGN(stacksize, 7);
 
-			//PrintRegisters(threads[loop_counter].env);
-	
-			//printf(WHERESTR "Assigned stack for %d\n", WHEREARG, loop_counter);
+			if (dsmcbe_threads[i].stack == NULL)
+			{
+				printf(WHERESTR "Out of memory\n", WHEREARG);
+				return -1;
+			}
+
+			//Clear the backpointer
+			unsigned int* bp = (unsigned int*)(dsmcbe_threads[i].stack + (stacksize - REGISTER_WIDTH));
+			bp[0] = 0;
+			bp[1] = 0; //Faster than memset
+			bp[2] = 0;
+			bp[3] = 0;
+
+			//printf(WHERESTR "Bp is %u\n", WHEREARG, (unsigned int)dsmcbe_threads[i].stack + (stacksize - REGISTER_WIDTH));
+
+			//Set the back chain pointer for the new stack
+			unsigned int* sp = dsmcbe_threads[i].stack + (stacksize - (REGISTER_WIDTH * 3));
+			sp[0] = (unsigned int)bp;
+			sp[1] = stacksize - REGISTER_WIDTH;
+			sp[2] = (unsigned int)bp;
+			sp[3] = (unsigned int)bp;
+
+			//Set the new stack pointer for the longjmp
+			unsigned int* newsp = (unsigned int*)(&dsmcbe_threads[i].env[SP]);
+			newsp[0] = (unsigned int)sp;
+			newsp[1] = stacksize - (REGISTER_WIDTH * 3);
+			newsp[2] = (unsigned int)sp;
+			newsp[3] = (unsigned int)sp;
+
+			//printf(WHERESTR "Created stack for %i, stack=%u, sp=%u\n", WHEREARG, i, (unsigned int)dsmcbe_threads[i].stack, (unsigned int)sp);
 		}
 		else
 		{
-			//printf(WHERESTR "Returning from a thread, threadid %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
+			//A thread has started, invoke its main function
+			dsmcbe_main(dsmcbe_speid, dsmcbe_machineid, dsmcbe_thread_current_id());
+
+			//Now the thread has completed, so lets mark it done
+			dsmcbe_thread_exit();
+
+			//We should never get here
 			break;
 		}
 	}
 
-	//printf(WHERESTR "Done creating threads, threadid: %d\n", WHEREARG, current_thread == NULL ? -1 : current_thread->id);
+	//printf(WHERESTR "Done creating threads, threadid: %d\n", WHEREARG, dsmcbe_current_thread);
 
-	if (current_thread == NULL)
+	if (dsmcbe_current_thread == -1)
 	{
 		//printf(WHERESTR "Initial create, setting thread to #0\n", WHEREARG);
-		current_thread = &threads[0];
-		longjmp(current_thread->env, 1);
+		dsmcbe_current_thread = 0;
+		longjmp(dsmcbe_threads[0].env, 1);
 	}
-		
-	if (current_thread == NULL)
-		return -2;
-	else
-	{
-		//printf(WHERESTR "Returning\n", WHEREARG);
-		return current_thread->id;
-	}
+
+	//This should never happen
+	return -1;
 }
 
-void thread_free(void* data)
+//Returns true if the current thread is not main (eg. there are no threads)
+inline int dsmcbe_thread_is_threaded()
 {
-	if (main_env == NULL)
-		free(data);
-	else
-	{
-		if (setjmp(current_thread->env) == 0)
+	return dsmcbe_threads != NULL && dsmcbe_current_thread != -1;
+}
+
+//Marks all threads waiting for the given requestId as ready.
+//If no thread was activated, the function returns false, and otherwise true
+int dsmcbe_thread_set_ready_by_requestId(int requestId)
+{
+	int i;
+	int retval = FALSE;
+
+	if (!dsmcbe_thread_is_threaded())
+		return retval;
+
+	for(i = 0; i < dsmcbe_thread_count; i++)
+		if (dsmcbe_threads[i].state == requestId)
 		{
-			malloc_result = data;
-			longjmp(*main_env, JMP_FREE);
+			dsmcbe_threads[i].state = THREAD_STATE_READY;
+			retval = TRUE;
 		}
-	}
+
+	return retval;
 }
 
-void* thread_malloc(unsigned long size)
+//If another thread is ready to run, it is activated, otherwise false is returned
+int dsmcbe_thread_yield_any(int onlyReady)
 {
-	if (main_env == NULL)
-		return malloc(size);
-	else
+	int nextThread;
+
+	//Ignore this function, if we are not threaded
+	if (!dsmcbe_thread_is_threaded())
+		return FALSE;
+
+	nextThread = dsmcbe_thread_nextindex();
+
+	if (nextThread == -1 || (dsmcbe_threads[nextThread].state != THREAD_STATE_READY && onlyReady))
 	{
-		if (setjmp(current_thread->env) == 0)
-		{
-			malloc_result = NULL;
-			malloc_size = size;
-			longjmp(*main_env, JMP_MALLOC);
-		}
-		return malloc_result;
-	}
-}
-
-void thread_free_align(void* data)
-{
-	if (main_env == NULL)
-		_free_align(data);
-	else
-	{
-		if (setjmp(current_thread->env) == 0)
-		{
-			malloc_result = data;
-			longjmp(*main_env, JMP_FREE_ALIGN);
-		}
-	}
-}
-
-void* thread_malloc_align(unsigned long size, unsigned int base)
-{
-	if (main_env == NULL)
-		return _malloc_align(size, base);
-	else
-	{
-		if (setjmp(current_thread->env) == 0)
-		{
-			malloc_result = NULL;
-			malloc_size = size;
-			malloc_base = base;
-			longjmp(*main_env, JMP_MALLOC_ALIGN);
-		}
-		return malloc_result;
-	}
-}
-
-
-
-/*
-	Returns true if a thread switch is possible
-*/
-int IsThreaded(void)
-{
-	return main_env != NULL;
-}
-
-/*
-	Selects another process to run, if any.
-	A return value of zero indicates success, any other value indicates failure.
-*/
-int YieldThread(void)
-{
-	thread_struct* nextThread;
-
-	if (main_env == NULL || threads == NULL || current_thread == NULL)
-	{
-		//printf("Yield called before mainenv was initialized");
-		return -2;
-	}
-
-	//printf(WHERESTR "In yield, setting return value\n", WHEREARG);
-	if (setjmp(current_thread->env) != 0)
-	{
-		//printf(WHERESTR "In yield, return from longjmp\n", WHEREARG);
-		return 0;
+		return FALSE;
 	}
 	else
 	{
-		//printf(WHERESTR "In yield, selecting next thread\n", WHEREARG);
+		//Save state
+		if (setjmp(dsmcbe_threads[dsmcbe_current_thread].env) != 0)
+			return TRUE; //Return when we are awakened
+
+		//Activate the other thread
+		dsmcbe_current_thread = nextThread;
+		longjmp(dsmcbe_threads[dsmcbe_current_thread].env ,1);
 	}
 
-	//printf(WHERESTR "In yield, getting next thread\n", WHEREARG);
-	nextThread = getNextWaitingThread();
-	//printf(WHERESTR "In yield, next thread is %d\n", WHEREARG, nextThread == NULL ? -1 : nextThread->id);
+	//We should never get here
+}
 
-	if (nextThread == NULL)
-		return 0;
-	else
-	{
-		//printf(WHERESTR "In yield, resuming thread %d from thread %d\n", WHEREARG, nextThread->id, current_thread->id);
-		current_thread = nextThread;
-		longjmp(current_thread->env ,1);
-	}
-	
-	return 0;
+//If another thread can run, it is activated.
+//The return value is true if a yield was performed, false otherwise
+inline int dsmcbe_thread_yield()
+{
+	return dsmcbe_thread_yield_any(FALSE);
+}
+
+//If another thread is ready, it is activated.
+//The return value is true if a yield was performed, false otherwise
+inline int dsmcbe_thread_yield_ready()
+{
+	return dsmcbe_thread_yield_any(TRUE);
+}
+
+//The main entry point for the SPU application
+int main(unsigned long long speid, unsigned long long argp, unsigned long long envp)
+{
+	dsmcbe_speid = speid;
+	dsmcbe_machineid = (unsigned int)argp;
+
+	//printf(WHERESTR "In main, envp=%llu, fibers=%u, stacksize=%u\n", WHEREARG, envp, (unsigned int)(envp & 0xffff), (unsigned int)(envp >> 16));
+
+	return dsmcbe_thread_start((unsigned int)(envp & 0xffff), (unsigned int)(envp >> 16));
 }
