@@ -29,7 +29,7 @@ struct spu_dsmcbe_pendingRequestStruct
 };
 
 //The total number of pending requests possible
-#define MAX_PENDING_REQUESTS 16
+#define MAX_PENDING_REQUESTS 64
 
 //The statically allocated buffer for the pending requests
 struct spu_dsmcbe_pendingRequestStruct spu_dsmcbe_pendingRequests[MAX_PENDING_REQUESTS];
@@ -46,5 +46,9 @@ unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode);
 
 //Ends an async operation. Blocking if the operation is not complete on entry
 void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size);
+
+//Marks all threads waiting for the given requestId as ready.
+//If no thread was activated, the function returns false, and otherwise true
+int dsmcbe_thread_set_ready_by_requestId(int requestId);
 
 #endif /* DSMCBE_SPU_INTERNAL_H_ */

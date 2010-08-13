@@ -4,6 +4,7 @@
 	<comment></comment>
 	<projects>
 		<project>dsmcbe_ppu</project>
+		<project>dsmcbe_spu</project>
 		<project>Prototein SPU</project>
 	</projects>
 	<buildSpec>

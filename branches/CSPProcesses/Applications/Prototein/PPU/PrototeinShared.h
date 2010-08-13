@@ -2,14 +2,12 @@
 #define COORDINATEMACROS_H_
 
 #include <stdio.h>
+#include <stdlib.h>
 
 //This is the initial Prototein info
 #define PROTOTEIN 2 
 //This is the master lock
 #define MASTER_COMPLETION_LOCK 4
-
-//The number of lightweight threads on the SPU
-#define SPU_FIBERS 0
 
 //If this is set, the communication is more channel-like
 #define USE_CHANNEL_COMMUNICATION
@@ -31,14 +29,7 @@
 	#define WINNER_OFFSET 500
 #endif
 
-//remove annoying warnings
-void exit(int);
-
-#define BUFFER_SIZE (16 * 1024) 
-
-char* prototein;
-unsigned int prototein_length;
-
+#define BUFFER_SIZE (8 * 1024)
 
 struct coordinate
 {
@@ -55,31 +46,8 @@ struct workblock
 };
 
 
-inline char get_map_char_raw(int x, int y, struct coordinate* place, int places_length)
-{
-	int i;
-	for (i = 0; i < places_length; i++)
-		if (place[i].x == x && place[i].y == y) 
-			return prototein[i];
-	return ' ';
-}
+char get_map_char_raw(char* prototein, int x, int y, struct coordinate* place, int places_length);
 	
-	
-void printmap(struct coordinate* place, unsigned int places_length)
-{
-	size_t i, j;
-	
-	printf("Map (%i): \n", places_length);
-	for(i = 0; i<prototein_length*2; i++)
-	{
-		printf("'");
-		for(j = 0; j<prototein_length*2;j++)
-			printf("%c", get_map_char_raw(i,j,place, places_length));
-		printf("'\n");
-	}
-	printf("\n\n");
-		
-}	
-
+void printmap(char* prototein, unsigned int prototein_length, struct coordinate* place, unsigned int places_length);
 
 #endif /*COORDINATEMACROS_H_*/

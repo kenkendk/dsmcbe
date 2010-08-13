@@ -283,7 +283,7 @@ void dsmcbe_spu_memory_free(SPU_Memory_Map* map, void* data) {
 	unsigned int bitsize = (unsigned int)g_hash_table_lookup(map->allocated, data);
 	if (bitsize == 0)
 	{
-		REPORT_ERROR("Pointer was not allocated, or double free'd");
+		REPORT_ERROR2("Pointer was not allocated, or double free'd, pointer: %u", (unsigned int)data);
 		return;
 	}
 	
