@@ -21,7 +21,7 @@ int copyItem(void* dataItem, size_t size, GUID targetChannel)
 	return res;
 }
 
-int main(int argc, char** argv) {
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId) {
 	
 	unsigned int i;
 	float a;
@@ -36,9 +36,10 @@ int main(int argc, char** argv) {
 
 	void* data;
 
-	dsmcbe_initialize();
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
 
-	
 	CSP_SAFE_CALL("get setup", dsmcbe_csp_channel_read(SETUP_CHANNEL, NULL, &data));
 	procId = ((int*)data)[0];
 	procCount = ((int*)data)[1];
@@ -80,12 +81,6 @@ int main(int argc, char** argv) {
 		((float*)data)[0] = a;
 	}
 
-	dsmcbe_terminate();
-	
-	//Remove compiler warnings
-	argc = 0;
-	argv = NULL;
-	
 	return 0;
 }
 

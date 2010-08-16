@@ -58,7 +58,7 @@ int Find_kNN(unsigned int spu_count, unsigned int k, unsigned int d, unsigned in
 
 	printf("Finding %d nearest neighbors in %d elements with %d dimensions, running %d blocks on %d SPUs\n", k, n, d, blocks, spu_count);
 	printf("Element size %d, total_size %d, elements_pr_block %d, blocks %d\n", element_size, total_size, elements_pr_block, blocks);
-	spu_threads = dsmcbe_simpleInitialize(0, NULL, spu_count);
+	spu_threads = dsmcbe_simpleInitialize(0, NULL, spu_count, 1);
 
 	buffer_required = MAX((blocks - spu_count) + 1, 1);
 	CSP_SAFE_CALL("create setup channel", dsmcbe_csp_channel_create(SETUP_CHANNEL, buffer_required, CSP_CHANNEL_TYPE_ONE2ANY));

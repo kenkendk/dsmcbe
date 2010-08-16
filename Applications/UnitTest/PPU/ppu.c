@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 	printf(WHERESTR "Starting\n", WHEREARG);
 
 	pthread_t* spu_threads;
-	spu_threads = dsmcbe_simpleInitialize(id, file, SPU_THREADS);
+	spu_threads = dsmcbe_simpleInitialize(id, file, SPU_THREADS, 1);
 
 	/*printf(WHERESTR "Starting\n", WHEREARG);
 	dsmcbe_release(dsmcbe_create(700, 4));

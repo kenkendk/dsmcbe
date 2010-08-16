@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 	else
 		printf("Wrong number of inputs\n");
 		
-	pthread_t* threads = dsmcbe_simpleInitialize(PPEid, file, SPU_THREADS);
+	pthread_t* threads = dsmcbe_simpleInitialize(PPEid, file, SPU_THREADS, 1);
 
 	if(PPEid == 0)
 	{

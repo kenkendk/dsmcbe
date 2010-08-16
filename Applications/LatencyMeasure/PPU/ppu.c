@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
 	char* mode = "DSM";
 
 	int id = atoi(argv[1]);
-	dsmcbe_simpleInitialize(id, "network.txt", 1);
+	dsmcbe_simpleInitialize(id, "network.txt", 1, 1);
 
 	if (id == 0)
 	{

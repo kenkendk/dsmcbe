@@ -9,19 +9,16 @@
 #include <dsmcbe.h>
 #include <time.h>
 
-//We need the counter on the heap so the threads share it
-//static int counter = 0;
-
-void TEST();
-
-int main(int argc, char** argv) {
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId) {
 
 	int spuid;
 	unsigned long size;
 	int* data;
 	int count = 0;
 
-	dsmcbe_initialize();
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
 
 	printf(WHERESTR "Initialized\n", WHEREARG);
 
@@ -86,13 +83,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	
-	dsmcbe_terminate();
 	printf(WHERESTR "Done\n", WHEREARG);
-	
-	
-	//Remove compiler warnings
-	argc = 0;
-	argv = NULL;
 	
 	return 0;
 }

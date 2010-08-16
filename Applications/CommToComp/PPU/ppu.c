@@ -1,7 +1,7 @@
 #include <dsmcbe_ppu.h>
 #include <dsmcbe_csp.h>
 #include <stdio.h>
-#include "../guids.h"
+#include "guids.h"
 #include <debug.h>
 #include <unistd.h>
 #include <libspe2.h>
@@ -24,6 +24,7 @@ int main(int argc, char **argv)
     int machineid;
     int workCount;
     int dataSize;
+    int spu_fibers;
 
     size_t i;
     char buf[256];
@@ -31,10 +32,11 @@ int main(int argc, char **argv)
     machineid = 0;
     spu_threadcount = 6;
 
-	if (argc == 4) {
+	if (argc == 5) {
 		spu_threadcount = atoi(argv[1]);
 		workCount = atoi(argv[2]);
-		dataSize = atoi(argv[3]);
+		spu_fibers = atoi(argv[3]);
+		dataSize = atoi(argv[4]);
 	} else {
 		printf("Wrong number of arguments \"./CommToCompPPU spu-threads work-count data-size\"\n");
 		return -1;
@@ -46,14 +48,20 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	if (spu_fibers < 1)
+	{
+		perror("There must be at least one SPE fiber\n");
+		exit(1);
+	}
 
 
-    pthread_t* spu_threads = dsmcbe_simpleInitialize(0, NULL, spu_threadcount);
+
+    pthread_t* spu_threads = dsmcbe_simpleInitialize(0, NULL, spu_threadcount, spu_fibers);
 
 	CSP_SAFE_CALL("create setup channel", dsmcbe_csp_channel_create(SETUP_CHANNEL, 0, CSP_CHANNEL_TYPE_ONE2ANY));
 	CSP_SAFE_CALL("create delta channel", dsmcbe_csp_channel_create(DELTA_CHANNEL, 0, CSP_CHANNEL_TYPE_ONE2ONE));
 
-	for(i = 0; i < spu_threadcount; i++)
+	for(i = 0; i < (spu_threadcount * spu_fibers); i++)
 	{
 		CSP_SAFE_CALL("create setup item", dsmcbe_csp_item_create(&data, sizeof(unsigned int) * 4));
 		((unsigned int*)data)[0] = i;
@@ -104,8 +112,8 @@ int main(int argc, char **argv)
 
 	printf("PPU is waiting for threads to complete\n");
 
-	/*for(i = 0; i < spu_threadcount; i++)
-		pthread_join(spu_threads[i], NULL);*/
+	for(i = 0; i < spu_threadcount; i++)
+		pthread_join(spu_threads[i], NULL);
 
 	printf("PPU is terminating\n");
 

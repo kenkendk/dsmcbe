@@ -1,5 +1,8 @@
 #include <errno.h>
 #include <string.h>
+
+#define UNUSED(var) var = var
+
 #define WHERESTR "[file %s, line %d]: "
 #define WHEREARG __FILE__,__LINE__
 

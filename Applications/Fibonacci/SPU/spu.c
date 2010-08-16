@@ -17,15 +17,16 @@ void* plus_callback(void* a, size_t size_a, void* b, size_t size_b)
 	return a;
 }
 
-int main(int argc, char** argv) {
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId) {
 	
-	printf("SPU is initializing\n");
-	dsmcbe_initialize();
-
 	unsigned long size;
 	int pid;
 	int processcount;
 	int* tmp;
+
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
 
 	printf("SPU is initialized, waiting for process counter\n");
 
@@ -83,11 +84,5 @@ int main(int argc, char** argv) {
 
 	printf("SPU %d is terminating\n", pid);
 
-	dsmcbe_terminate();
-	
-	//Remove compiler warnings
-	argc = 0;
-	argv = NULL;
-	
 	return 0;
 }

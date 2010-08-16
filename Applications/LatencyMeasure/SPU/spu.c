@@ -12,8 +12,12 @@
 #define DSM_MODE
 #endif
 
-int main(long long id)
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
 {
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
+
 #ifdef MBOX_MODE
 	while(1)
 	{
@@ -24,8 +28,6 @@ int main(long long id)
 #else /*MBOX_MODE*/
 #ifdef DSM_MODE
 
-		dsmcbe_initialize();
-		
 		unsigned int prev = PROBLEM_SIZE - 1;
 		
 		while(prev < PROBLEM_SIZE)
@@ -41,7 +43,6 @@ int main(long long id)
 		}
 		
 		dsmcbe_acquireBarrier(OBJ_BARRIER);
-		dsmcbe_terminate();
 
 #else /*DSM_MODE*/
 	unsigned int* value = _malloc_align(DATA_SIZE, 7);
@@ -68,7 +69,6 @@ int main(long long id)
 #endif /*MBOX_MODE*/
 	
 	
-	id = 0; //Remove compiler warning
 	return 0;
 }
 

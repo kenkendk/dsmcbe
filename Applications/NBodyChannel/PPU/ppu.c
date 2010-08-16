@@ -103,7 +103,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-    pthread_t* threads = dsmcbe_simpleInitialize(machineid, file, spu_threads);
+    pthread_t* threads = dsmcbe_simpleInitialize(machineid, file, spu_threads, 1);
 
     if (machineid == 0)
     {
@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 	for(i = 0; i < spu_threads; i++)
 	{
 		//printf(WHERESTR "waiting for SPU %i\n", WHEREARG, i);
-		//pthread_join(threads[i], NULL);
+		pthread_join(threads[i], NULL);
 	}
 
 	printf("PPU is terminating\n");

@@ -27,8 +27,8 @@
 //This is the wrapper entry function with a pthread signature
 void* csp_thread_entry(void* dummy)
 {
-	dummy = NULL; //Avoid compiler warning
-	return (void*)csp_thread_main();
+	UNUSED(dummy);
+	return (void*)dsmcbe_main(0,0,0);
 }
 
 
@@ -38,6 +38,8 @@ int main(int argc, char **argv)
 
     size_t spu_threadcount;
     size_t ppu_threadcount;
+    unsigned int spu_fibercount;
+
     int machineid;
     char* file;
     size_t i;
@@ -50,51 +52,60 @@ int main(int argc, char **argv)
     file = NULL;
     hw_threads = 1;
 
-	if(argc == 6) {
+	if(argc == 7) {
 		machineid = atoi(argv[1]);
 		file = argv[2];
 		ppu_threadcount = atoi(argv[3]);
 		spu_threadcount = atoi(argv[4]);
-		hw_threads = atoi(argv[5]);
-	} else if(argc == 5) {
+		spu_fibercount =  atoi(argv[5]);
+		hw_threads = atoi(argv[6]);
+	} else if(argc == 6) {
 		machineid = atoi(argv[1]);
 		file = argv[2];
 		ppu_threadcount = atoi(argv[3]);
 		spu_threadcount = atoi(argv[4]);
+		spu_fibercount =  atoi(argv[5]);
+	} else if (argc == 5) {
+		machineid = 0;
+		file = NULL;
+		ppu_threadcount = atoi(argv[1]);
+		spu_threadcount = atoi(argv[2]);
+		spu_fibercount =  atoi(argv[3]);
+		hw_threads = atoi(argv[4]);
 	} else if (argc == 4) {
 		machineid = 0;
 		file = NULL;
 		ppu_threadcount = atoi(argv[1]);
 		spu_threadcount = atoi(argv[2]);
-		hw_threads = atoi(argv[3]);
-	} else if (argc == 3) {
-		machineid = 0;
-		file = NULL;
-		ppu_threadcount = atoi(argv[1]);
-		spu_threadcount = atoi(argv[2]);
+		spu_fibercount =  atoi(argv[3]);
 	} else {
-		printf("Wrong number of arguments \"./PPU ppu-threads spu-threads\"\n");
-		printf("                       or \"./PPU ppu-threads spu-threads ppu-hw-threads\"\n");
-		printf("                       or \"./PPU id network-file ppu-threads spu-threads\"\n");
-		printf("                       or \"./PPU id network-file ppu-threads spu-threads ppu-hw-threads\"\n");
+		printf("Wrong number of arguments \"./PPU ppu-threads spu-threads spu-fibers\"\n");
+		printf("                       or \"./PPU ppu-threads spu-threads spu-fibers ppu-hw-threads\"\n");
+		printf("                       or \"./PPU id network-file ppu-threads spu-threads spu-fibers\"\n");
+		printf("                       or \"./PPU id network-file ppu-threads spu-threads spu-fibers ppu-hw-threads\"\n");
 		return -1;
 	}
 
-/*
-	if (spu_threadcount + ppu_threadcount <= 1)
+	if (spu_threadcount > 0 && spu_fibercount <= 0)
+	{
+		perror("There must be at least one fiber\n");
+		exit(1);
+	}
+
+	if ((spu_threadcount * spu_fibercount) + ppu_threadcount <= 1)
 	{
 		perror("There must be at least two processes\n");
 		exit(1);
 	}
-*/
-    pthread_t* spu_threads = dsmcbe_simpleInitialize(machineid, file, spu_threadcount);
+
+	pthread_t* spu_threads = dsmcbe_simpleInitialize(machineid, file, spu_threadcount, spu_fibercount);
 	pthread_t* ppu_threads = (pthread_t*)malloc(sizeof(pthread_t) * ppu_threadcount);
 
 	for(i = 0; i < ppu_threadcount; i++)
 		pthread_create(&ppu_threads[i], NULL, csp_thread_entry, NULL);
 
 	unsigned int actual_machines = MAX(1, dsmcbe_MachineCount());
-	unsigned int actual_processes = (actual_machines * spu_threadcount) + (actual_machines * ppu_threadcount);
+	unsigned int actual_processes = (actual_machines * spu_threadcount * spu_fibercount) + (actual_machines * ppu_threadcount);
 
 	if (machineid == 0)
 	{

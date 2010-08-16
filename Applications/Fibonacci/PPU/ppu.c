@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 	}
 
 	printf("Initializing\n");
-    pthread_t* threads = dsmcbe_simpleInitialize(machineid, file, spu_threads);
+    pthread_t* threads = dsmcbe_simpleInitialize(machineid, file, spu_threads, 1);
 	printf("Initialized\n");
 
     if (machineid == 0)

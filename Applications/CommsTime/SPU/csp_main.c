@@ -4,6 +4,7 @@
 #include "csp_commons.h"
 #include "../PPU/guids.h"
 #include <stdlib.h>
+#include <debug.h>
 
 int unittest(unsigned int pid)
 {
@@ -57,12 +58,16 @@ int unittest(unsigned int pid)
 
 
 //This is the CommsTime CSP main function
-int csp_thread_main()
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
 {
 	unsigned int pid;
 	unsigned int processcount;
 
 	unsigned int* tmp;
+
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
 
 	CSP_SAFE_CALL("read processid", dsmcbe_csp_channel_read(PROCESS_COUNTER_GUID, NULL, (void**)&tmp));
 

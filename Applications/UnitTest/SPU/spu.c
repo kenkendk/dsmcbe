@@ -10,10 +10,12 @@
 
 void TEST();
 
-int main(int argc, char** argv) {
-	
-	dsmcbe_initialize();
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId) {
 
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
+	
 	printf(WHERESTR "Hello World\n", WHEREARG);
 	
 	unsigned long size;
@@ -249,14 +251,6 @@ int main(int argc, char** argv) {
 	//printf(WHERESTR "Releasing new item\n", WHEREARG);
 	dsmcbe_release(allocation);
 	//printf(WHERESTR "Released new item\n", WHEREARG);
-	
-	dsmcbe_terminate();
-	//printf(WHERESTR "Done\n", WHEREARG);
-	
-	
-	//Remove compiler warnings
-	argc = 0;
-	argv = NULL;
 	
 	return 0;
 }
