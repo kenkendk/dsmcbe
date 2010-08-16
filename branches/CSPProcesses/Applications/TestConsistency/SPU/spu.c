@@ -7,11 +7,11 @@
 #include <unistd.h>
 #include "../PPU/guids.h"
 
-int main(unsigned long long speid, unsigned long long argp, unsigned long long envp)
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
 {
 	dsmcbe_initialize();
 	unsigned long size;
-	printf("SPE %llu saying Hallo World\n", speid);
+	printf("SPE %llu, thread %u on machine %u is saying Hello World\n", speid, threadId, machineId);
 	unsigned int spu_no;
 	unsigned int spu_count;
 	unsigned int it = 0;
@@ -55,10 +55,6 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 	
 	printf("SPE %llu saying Goodbye\n", speid);
 	dsmcbe_terminate();
-
-	//Remove compiler warning
-	envp = 0;
-	argp = 0;
 
 	return 0;
 }

@@ -55,6 +55,10 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineid, unsigned int t
     char* prototein;
     unsigned int prototein_length;
 
+    UNUSED(speid);
+    UNUSED(machineid);
+    UNUSED(threadid);
+
 #ifndef USE_CHANNEL_COMMUNICATION
     unsigned int* synclock;
     GUID itemno;
@@ -100,6 +104,9 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineid, unsigned int t
     ((unsigned int*)prototein_object)[0]++;
     prototein_length = ((unsigned int*)prototein_object)[1];
     
+    //Mark as unused, as it is only used for debugging
+    UNUSED(thread_id);
+
     //printf(WHERESTR "SPU %d:%d is calling malloc for %d\n", WHEREARG, thread_id, dsmcbe_thread_current_id(), (unsigned int)(sizeof(char) * prototein_length));
 	prototein = (char*)MALLOC(sizeof(char) * prototein_length);
 	memcpy(prototein, prototein_object + (sizeof(unsigned int) * 2), prototein_length);

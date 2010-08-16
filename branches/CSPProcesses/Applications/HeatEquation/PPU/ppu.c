@@ -349,7 +349,7 @@ int main(int argc, char* argv[])
 	//Set before initialize
 	dsmcbe_SetHardwareThreads(hardware_threads);
 	
-	pthreads = dsmcbe_simpleInitialize(machineid, filename, spu_count);
+	pthreads = dsmcbe_simpleInitialize(machineid, filename, spu_count, 1);
 	
 	//printf(WHERESTR "Starting machine %d\n", WHEREARG, machineid);
 	

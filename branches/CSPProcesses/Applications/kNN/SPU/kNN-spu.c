@@ -62,7 +62,7 @@ void insert_element(size_t dimensions, size_t count, struct result_entry* list, 
 
 }
 
-int kNN()
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
 {
 	size_t blobsize, work_index, local_index, dimensions, k, next_counter, i;
 	unsigned int isFirstInner, terminate;
@@ -90,7 +90,9 @@ int kNN()
 
 	PROBLEM_TYPE distance;
 
-	dsmcbe_initialize();
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
 
 	terminate = FALSE;
 
@@ -274,7 +276,5 @@ int kNN()
 		FREE(result_counters);
 	}
 
-
-	dsmcbe_terminate();
 	return CSP_CALL_SUCCESS;
 }

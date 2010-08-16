@@ -27,7 +27,7 @@ extern spe_program_handle_t SPU;
 OBJECT_TABLE_ENTRY_TYPE dsmcbe_host_number = OBJECT_TABLE_RESERVED;
 static int dsmcbe_display_network_startup_value = 0;
 static unsigned int dsmcbe_spu_fibers = 1;
-unsigned int dsmcbe_spu_stacksize = 6 * 1024; //2k default stack
+unsigned int dsmcbe_spu_stacksize = 6 * 1024; //6k default stack
 
 void dsmcbe_display_network_startup(int value) { dsmcbe_display_network_startup_value = value; }
 

@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 	printf("Compile time - %s\n", __TIME__);
 	printf("Ready\n");
 	pthread_t* spu_threads;
-	spu_threads = dsmcbe_simpleInitialize(0, NULL, spu_count);
+	spu_threads = dsmcbe_simpleInitialize(0, NULL, spu_count, 1);
 
 	printf("Initialize done\n");
 

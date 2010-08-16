@@ -335,7 +335,7 @@ int main(int argc, char* argv[])
 	WIDTH = 576;
 	HEIGTH = 708;
 	
-	threads = dsmcbe_simpleInitialize(PPEid, file, SPU_THREADS);
+	threads = dsmcbe_simpleInitialize(PPEid, file, SPU_THREADS, 1);
 
 
 	unsigned int* speIDs = dsmcbe_create(SPEID + PPEid, 4);

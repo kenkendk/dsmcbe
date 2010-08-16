@@ -193,7 +193,7 @@ void solve(struct Work_Unit* work_item, PROBLEM_DATA_TYPE** fr)
 	//printf(WHERESTR "SPU %d has solved %d\n", WHEREARG, spu_no, work_item->block_no);
 }
 
-int main(long long id)
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
 {
     struct Work_Unit* work_item;
     unsigned long size;
@@ -207,9 +207,11 @@ int main(long long id)
     struct Barrier_Unit* barrier;
     unsigned int barrier_alternation = 0;
 #endif
-    
-    dsmcbe_initialize();
-    
+
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
+
     rc = 0;
     delta = 0.0;
     deltasum = 0.0;
@@ -456,9 +458,8 @@ int main(long long id)
 	dsmcbe_release(res);
 	
 	//printf(WHERESTR "SPU %d is terminating, delta was: %lf, epsilon was: %lf\n", WHEREARG, spu_no, delta, epsilon);
-	dsmcbe_terminate();
 	//printf(WHERESTR "SPU %d is done\n", WHEREARG, spu_no);
 	  
-	return id;  
+	return 0;
 }
 

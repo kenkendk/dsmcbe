@@ -79,10 +79,8 @@ void Move(struct SimulationArgs* args, struct Particle* particles, size_t size)
 	}
 }
 
-int main(int argc, char** argv) {
-	
-	dsmcbe_initialize();
-
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
+{
 	unsigned long size;
 	struct SimulationArgs* args;
 
@@ -109,6 +107,10 @@ int main(int argc, char** argv) {
 	void* putBuffer = NULL;
 
 	unsigned int forwardCount;
+
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
 
 	CSP_SAFE_CALL("read setup", dsmcbe_csp_channel_read(SIMULATION_SETUP, NULL, (void**)&args));
 
@@ -254,11 +256,6 @@ int main(int argc, char** argv) {
 	
 	CSP_SAFE_CALL("free initial particles", dsmcbe_csp_item_free(initialPackage));
 	CSP_SAFE_CALL("free args", dsmcbe_csp_item_free(args));
-	dsmcbe_terminate();
-	
-	//Remove compiler warnings
-	argc = 0;
-	argv = NULL;
 	
 	return 0;
 }

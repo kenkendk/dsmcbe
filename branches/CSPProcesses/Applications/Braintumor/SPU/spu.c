@@ -161,17 +161,14 @@ void calc(int id, unsigned char* buffer) {
 	//printf("SPU: Buffer with id: %i value is: %i\n", id, sum);
 }
 
-int main(unsigned long long speid, unsigned long long argp, unsigned long long envp)
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
 {
 	srand(1);
 	unsigned int i,j;
 	
-	
-	dsmcbe_initialize();
-
 	unsigned long size;
 	unsigned int speID;	
-	unsigned int* speIDs = dsmcbe_acquire(SPEID + argp, &size, ACQUIRE_MODE_WRITE);
+	unsigned int* speIDs = dsmcbe_acquire(SPEID + machineId, &size, ACQUIRE_MODE_WRITE);
 	speID = *speIDs;
 	*speIDs = *speIDs + 1;
 	dsmcbe_release(speIDs);
@@ -180,6 +177,10 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 	int jobID = 0;
 	
 	struct PACKAGE* package; 
+
+	UNUSED(speid);
+	UNUSED(machineId);
+	UNUSED(threadId);
 
 	while(1) 
 	{
@@ -402,10 +403,6 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 		//printf("SPU %i: Created FINISH package with id %i\n", speID, FINISHED + (jobID * 1000) + speID);
 		jobID++;
 	}
-
-	//Remove compiler warning
-	envp = 0;
-	speid = 0;
 
 	return 0;
 }

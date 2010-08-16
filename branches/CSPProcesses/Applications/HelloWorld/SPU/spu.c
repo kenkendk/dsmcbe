@@ -3,11 +3,10 @@
 
 #include "../PPU/guids.h"
 
-int main(unsigned long long speid, unsigned long long argp, unsigned long long envp)
+int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
 {
-	dsmcbe_initialize();
 	unsigned long size;
-	printf("SPE %llu saying Hallo World\n", speid);
+	printf("SPE %llu, thread %u on machine %u is saying Hello World\n", speid, threadId, machineId);
 		
 	unsigned int* count = dsmcbe_acquire(COUNT, &size, ACQUIRE_MODE_WRITE);
 	*count = *count - 1;
@@ -26,11 +25,6 @@ int main(unsigned long long speid, unsigned long long argp, unsigned long long e
 	}
 	
 	printf("SPE %llu saying Goodbye\n", speid);
-	dsmcbe_terminate();
-
-	//Remove compiler warning
-	argp = 0;
-	envp = 0;
 
 	return 0;
 }
