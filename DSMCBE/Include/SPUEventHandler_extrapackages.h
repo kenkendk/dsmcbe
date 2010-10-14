@@ -17,13 +17,26 @@
 
 #define PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST 310
 #define PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE 311
+#define PACKAGE_SPU_CSP_DIRECT_TRANSFER 312
 
 #define PACKAGE_SPU_CSP_FLUSH_ITEM 400
 
+#define PACKAGE_SPU_CSP_CHANNEL_SETUP_DIRECT 401
+#define PACKAGE_SPU_CSP_CHANNEL_POISON_DIRECT 402
+
+//The data object is in use by a SPU
 #define CSP_ITEM_MODE_IN_USE 1
+//The data object is on the source SPE, but no longer in use
 #define CSP_ITEM_MODE_READY_FOR_TRANSFER 2
+//The data object is currently being transfered
 #define CSP_ITEM_MODE_IN_TRANSIT 3
-#define CSP_ITEM_MODE_TRANSFERED 4
+//The data object has been flushed into main memory
+#define CSP_ITEM_MODE_FLUSHED 4
+//The data object has been transfered onto the target SPU
+#define CSP_ITEM_MODE_SENT 5
+
+//The number of elements each pending write consumes
+#define SPE_PENDING_WRITE_SIZE (3)
 
 //To make the SPU stop each time it awaits external data, activate this flag
 //#define SPU_STOP_AND_WAIT

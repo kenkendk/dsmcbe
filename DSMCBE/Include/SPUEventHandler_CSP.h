@@ -57,6 +57,21 @@ unsigned int dsmcbe_spu_csp_FlushItems(struct dsmcbe_spu_state* state, unsigned 
 //Initiates a transfer request on another SPE
 void dsmcbe_spu_csp_RequestTransfer(struct dsmcbe_spu_state* state, struct dsmcbe_spu_pendingRequest* preq);
 
+//Handles a write request that crossed the directSetup request
+void dsmcbe_spu_csp_HandleRoundTripWriteRequest(struct dsmcbe_spu_state* localState, void* _resp);
+
+//Handles a request for setting up a direct transfer
+void dsmcbe_spu_csp_HandleDirectSetupResponse(struct dsmcbe_spu_state* state, void* resp);
+
+//Handles a write request on a direct channel
+void dsmcbe_spu_csp_HandleDirectWriteRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_directChannelObject* channel, unsigned int requestId, struct dsmcbe_spu_dataObject* obj, unsigned int allowBufferResponse);
+
+//Handles a read request on a direct channel
+void dsmcbe_spu_csp_HandleDirectReadRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_directChannelObject* channel, unsigned int requestId);
+
+//Handles a completed direct transfer
+void dsmcbe_spu_csp_HandleDirectTransferCompleted(struct dsmcbe_spu_state* state, struct dsmcbe_spu_pendingRequest* preq);
+
 #ifdef SPU_STOP_AND_WAIT
 //The callback handler used when stopping the SPE while awaiting data
 int dsmcbe_spu_csp_callback(void* ls_base, unsigned int data_ptr);

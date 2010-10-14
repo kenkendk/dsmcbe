@@ -86,6 +86,8 @@ int dsmcbe_thread_nextindex()
 	for(i = 0; i < dsmcbe_thread_count - 1; i++)
 	{
 		threadNo = (threadNo + 1) % dsmcbe_thread_count;
+		//threadNo = (threadNo == 0 ? dsmcbe_thread_count : threadNo) - 1;
+
 		if (dsmcbe_threads[threadNo].state == THREAD_STATE_READY)
 			return threadNo;
 		else if (firstBlocked == -1 && dsmcbe_threads[threadNo].state != THREAD_STATE_STOPPED)
@@ -172,7 +174,6 @@ int dsmcbe_thread_start(unsigned int fibers, unsigned int stacksize)
 		if (setjmp(dsmcbe_threads[i].env) == 0)
 		{
 			//Initial setjmp call, allocate and initialize stack
-
 			dsmcbe_threads[i].state = THREAD_STATE_READY;
 			dsmcbe_threads[i].stack = MALLOC_ALIGN(stacksize, 7);
 
@@ -268,6 +269,10 @@ int dsmcbe_thread_yield_any(int onlyReady)
 	if (!dsmcbe_thread_is_threaded())
 		return FALSE;
 
+	//Process any pending messages, this is done before we select the next thread
+	while (spu_stat_in_mbox() != 0)
+		spu_dsmcbe_readMailbox();
+
 	nextThread = dsmcbe_thread_nextindex();
 
 	if (nextThread == -1 || (dsmcbe_threads[nextThread].state != THREAD_STATE_READY && onlyReady))
@@ -284,6 +289,31 @@ int dsmcbe_thread_yield_any(int onlyReady)
 		dsmcbe_current_thread = nextThread;
 		longjmp(dsmcbe_threads[dsmcbe_current_thread].env ,1);
 	}
+
+	//We should never get here
+}
+
+int dsmcbe_thread_next_id(int onlyReady)
+{
+	int nextThread = dsmcbe_thread_nextindex();
+	if (nextThread == -1 || (dsmcbe_threads[nextThread].state != THREAD_STATE_READY && onlyReady))
+		return -1;
+	else
+		return nextThread;
+}
+
+void dsmcbe_thread_yield_to(int nextThread)
+{
+	if (nextThread < 0 || nextThread >= dsmcbe_thread_count)
+		return;
+
+	//Save state
+	if (setjmp(dsmcbe_threads[dsmcbe_current_thread].env) != 0)
+		return; //Return when we are awakened
+
+	//Activate the other thread
+	dsmcbe_current_thread = nextThread;
+	longjmp(dsmcbe_threads[dsmcbe_current_thread].env ,1);
 
 	//We should never get here
 }

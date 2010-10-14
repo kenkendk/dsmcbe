@@ -45,6 +45,9 @@
 	} \
 	dsmcbe_spu_free_PendingRequest(preq);
 
+//We need this to check the number of hardware threads
+unsigned int dsmcbe_spu_ppu_threadcount;
+
 //This function handles incoming create channel requests from an SPU
 void dsmcbe_spu_csp_HandleChannelCreateRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id, unsigned int buffersize, unsigned int type)
 {
@@ -71,16 +74,72 @@ void dsmcbe_spu_csp_HandleChannelCreateResponse(struct dsmcbe_spu_state* state, 
 //This function handles incoming create channel requests from an SPU
 void dsmcbe_spu_csp_HandleChannelPoisonRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id)
 {
-	//Record the ongoing request
-	CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_POISON_REQUEST);
+	//If the channel is direct, we absorb it here before any malloc etc is done
+	struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)id);
+	if (channel != NULL)
+	{
+		//Don't respond if the poison was initiated elsewhere
+		if (requestId != UINT_MAX)
+		{
+			dsmcbe_spu_SendMessagesToSPU(
+					state,
+					channel->poisoned ? PACKAGE_NACK : PACKAGE_CSP_CHANNEL_POISON_RESPONSE,
+					requestId,
+					0,
+					0
+			);
+		}
 
-	//Create a matching request for the request coordinator
-	struct dsmcbe_cspChannelPoisonRequest* req;
-	if (dsmcbe_new_cspChannelPoisonRequest(&req, id, requestId) != CSP_CALL_SUCCESS)
-		exit(-1);
+		channel->poisoned = TRUE;
 
-	//Forward the request
-	dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
+		if (channel->readerRequestId != UINT_MAX && channel->writerRequestIds->count != 0)
+		{
+			//Odd situation, but there is a match and a transfer is in progress,
+			// the poison came later and is thus deferred
+		}
+		else if (channel->readerRequestId != UINT_MAX)
+		{
+			dsmcbe_spu_SendMessagesToSPU(channel->readerState, PACKAGE_CSP_CHANNEL_POISONED_RESPONSE, channel->readerRequestId, 0, 0);
+			channel->readerRequestId = UINT_MAX;
+		}
+		else if (channel->writerRequestIds->count == channel->writerRequestIds->size)
+		{
+			//Get the id of the blocked request
+			unsigned int wReqId = (unsigned int)dsmcbe_ringbuffer_peek_nth(channel->writerRequestIds, channel->writerRequestIds->count - 1);
+
+			dsmcbe_spu_SendMessagesToSPU(channel->writerState, PACKAGE_CSP_CHANNEL_POISONED_RESPONSE, wReqId, 0, 0);
+
+			//HACK: Remove the unused entries
+			channel->writerRequestIds->count--;
+			channel->writerDataEAs->count--;
+			channel->dataObjs->count--;
+
+			//TODO: If the transfer is in progress...
+		}
+
+		//If the channel is optimized to be on the SPE, notify the SPE too
+		if (channel->readerState == channel->writerState)
+		{
+			//printf(WHERESTR "Forward external poison request to SPE for channel %d\n", WHEREARG, channel->id);
+			dsmcbe_spu_SendMessagesToSPU(channel->writerState, PACKAGE_SPU_CSP_CHANNEL_POISON_DIRECT, UINT_MAX, channel->id, 0);
+		}
+		return;
+	}
+
+	//Don't forward if the poison was initiated elsewhere
+	if (requestId != UINT_MAX)
+	{
+		//Record the ongoing request
+		CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_POISON_REQUEST);
+
+		//Create a matching request for the request coordinator
+		struct dsmcbe_cspChannelPoisonRequest* req;
+		if (dsmcbe_new_cspChannelPoisonRequest(&req, id, requestId) != CSP_CALL_SUCCESS)
+			exit(-1);
+
+		//Forward the request
+		dsmcbe_spu_SendRequestCoordinatorMessage(state, req);
+	}
 }
 
 //This function handles incoming create channel responses from the request coordinator
@@ -211,7 +270,7 @@ void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, unsign
 		return;
 	}
 
-	if (obj->mode != CSP_ITEM_MODE_IN_USE)
+	if (obj->mode != CSP_ITEM_MODE_IN_USE && obj->mode != CSP_ITEM_MODE_SENT)
 	{
 		REPORT_ERROR2("Unable to free item, as it is in an invalid state, %d", obj->mode);
 		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
@@ -229,12 +288,28 @@ void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, unsign
 //This function handles incoming channel read requests from an SPU
 void dsmcbe_spu_csp_HandleChannelReadRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id)
 {
+	//printf(WHERESTR "Context %u got read request for channel %u, with requestId: %u\n", WHEREARG, (unsigned int) state->context, id, requestId);
+	//If the channel is direct, we absorb it here before any malloc etc is done
+	struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)id);
+	if (channel != NULL)
+	{
+		if (channel->readerRequestId != UINT_MAX)
+		{
+			REPORT_ERROR2("Duplicate read request for direct channel %d", channel->id);
+			dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
+		}
+		else
+			dsmcbe_spu_csp_HandleDirectReadRequest(state, channel, requestId);
+
+		return;
+	}
+
 	//Record the ongoing request
 	CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_READ_REQUEST)
 
 	//Create a matching request for the request coordinator
 	struct dsmcbe_cspChannelReadRequest* req;
-	if (dsmcbe_new_cspChannelReadRequest_single(&req, id, requestId) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelReadRequest_single(&req, id, requestId, (unsigned int)state) != CSP_CALL_SUCCESS)
 	{
 		printf("Error?\n");
 		exit(-1);
@@ -264,7 +339,7 @@ void dsmcbe_spu_csp_HandleChannelReadRequestAlt(struct dsmcbe_spu_state* state, 
 }
 
 
-//This function handles incoming create channel responses from the request coordinator
+//This function handles incoming channel read responses from the request coordinator
 void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, void* package)
 {
 	struct dsmcbe_cspChannelReadResponse* resp = (struct dsmcbe_cspChannelReadResponse*)package;
@@ -291,7 +366,7 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 			exit(-1);
 		}
 
-		if (oldObj->mode == CSP_ITEM_MODE_TRANSFERED)
+		if (oldObj->mode == CSP_ITEM_MODE_FLUSHED)
 		{
 			//The transfer is for this SPE, but the item was flushed out, so we move it back in
 			g_hash_table_remove(state->csp_inactive_items, resp->data);
@@ -405,6 +480,18 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
 		return;
 	}
+
+	//printf(WHERESTR "Context %u got write request for channel %u, with requestId: %u, dataObj: %u, mode: %u\n", WHEREARG, (unsigned int)state->context, id, requestId, (unsigned int)obj, obj->mode);
+
+	//If the channel is direct, we absorb it here before any malloc etc is done
+	struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)id);
+	if (channel != NULL)
+	{
+		dsmcbe_spu_csp_HandleDirectWriteRequest(state, channel, requestId, obj, TRUE);
+		return;
+	}
+
+	//printf(WHERESTR "Context %u handling normal write request for channel %u, with requestId: %u, dataObj: %u, mode: %u\n", WHEREARG, (unsigned int)state->context, id, requestId, (unsigned int)obj, obj->mode);
 
 #ifdef SPE_CSP_CHANNEL_EAGER_TRANSFER
 
@@ -523,7 +610,7 @@ void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, v
 
 	if (preq == NULL)
 	{
-		REPORT_ERROR("Got unmatched response");
+		fprintf(stderr, "* ERROR * " WHERESTR "Context %u, Got unmatched response, requestId: %d\n", WHEREARG, (unsigned int)state->context, requestId);
 		return;
 	}
 
@@ -600,6 +687,506 @@ void dsmcbe_spu_csp_HandleChannelPoisonNACKorSkipResponse(struct dsmcbe_spu_stat
 
 	dsmcbe_spu_free_PendingRequest(preq);
 }
+
+//Handles a write request that crossed the directSetup request
+void dsmcbe_spu_csp_HandleRoundTripWriteRequest(struct dsmcbe_spu_state* localState, void* _resp)
+{
+	struct dsmcbe_cspChannelWriteRequest* wreq = (struct dsmcbe_cspChannelWriteRequest*)_resp;
+
+	//printf(WHERESTR "Handling crossed write request for channel id %d\n", WHEREARG, wreq->channelId);
+
+	struct dsmcbe_spu_directChannelObject* chan = (struct dsmcbe_spu_directChannelObject*)g_hash_table_lookup(localState->csp_direct_channels, (void*)wreq->channelId);
+	if (chan == NULL)
+	{
+		REPORT_ERROR2("Got crossed write request, but channel %d was not direct?", wreq->channelId);
+		exit(-1);
+	}
+
+	if (wreq->speId != (unsigned int)chan->writerState)
+	{
+		REPORT_ERROR2("Multiple request found for optimized channel %d but with different sources", chan->id);
+		exit(-1);
+	}
+
+	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_FindPendingRequest(chan->writerState, wreq->requestID);
+	if (preq == NULL)
+	{
+		REPORT_ERROR2("Got crossed write request for channel %d, but could not find the pending request", wreq->channelId);
+		exit(-1);
+	}
+
+	//Extract the dataObj
+	struct dsmcbe_spu_dataObject* obj = preq->dataObj;
+	if (obj == NULL)
+	{
+		REPORT_ERROR2("Got crossed write request for channel %d, but there was no object at the address?", wreq->channelId);
+		REPORT_ERROR2("Got crossed write request, id was: %d", (unsigned int)wreq->data);
+		exit(-1);
+	}
+
+	if (obj->mode != CSP_ITEM_MODE_IN_USE)
+	{
+		REPORT_ERROR2("Got crossed write request for channel %d, but object has unsupported state?", wreq->channelId);
+		REPORT_ERROR2("Unsupported state is: %d?", obj->mode);
+		exit(-1);
+	}
+
+	//Clear resources for this preq
+	dsmcbe_spu_free_PendingRequest(preq);
+
+	dsmcbe_spu_csp_HandleDirectWriteRequest(chan->writerState, chan, wreq->requestID, obj, TRUE);
+}
+
+//Handles a request for setting up a direct transfer
+void dsmcbe_spu_csp_HandleDirectSetupResponse(struct dsmcbe_spu_state* localState, void* _resp)
+{
+	if (dsmcbe_spu_ppu_threadcount != 1)
+	{
+		REPORT_ERROR("Optimized channels are NOT supported with multiple PPE hardware threads for the SPE handler");
+		exit(-1);
+	}
+
+	struct dsmcbe_cspDirectSetupResponse* resp = (struct dsmcbe_cspDirectSetupResponse*)_resp;
+	struct dsmcbe_cspChannelWriteRequest* wreq = (struct dsmcbe_cspChannelWriteRequest*)resp->writeRequest;
+	struct dsmcbe_spu_state* remoteState = (struct dsmcbe_spu_state*)wreq->speId;
+
+	if (g_hash_table_lookup(localState->csp_direct_channels, (void*)resp->channelId) != NULL || g_hash_table_lookup(remoteState->csp_direct_channels, (void*)resp->channelId) != NULL)
+	{
+		REPORT_ERROR("ChannelId was already registered as a direct channel");
+		exit(-1);
+	}
+
+	struct dsmcbe_spu_directChannelObject* chan = (struct dsmcbe_spu_directChannelObject*)MALLOC(sizeof(struct dsmcbe_spu_directChannelObject));
+	if (chan == NULL)
+	{
+		REPORT_ERROR("Out of memory");
+		exit(-1);
+	}
+
+	//printf(WHERESTR "Got direct setup request for channel id %d\n", WHEREARG, resp->channelId);
+
+	//Setup the direct transfer block as empty
+	chan->id = resp->channelId;
+	chan->readerState = localState;
+	chan->writerState = remoteState;
+	chan->poisoned = FALSE;
+
+	chan->readerRequestId = UINT_MAX;
+	chan->readerDataEA = NULL;
+
+	chan->writerRequestIds = dsmcbe_ringbuffer_new(resp->bufferSize + 1);
+	chan->writerDataEAs = dsmcbe_ringbuffer_new(resp->bufferSize + 1);
+	chan->dataObjs = dsmcbe_ringbuffer_new(resp->bufferSize + 1);
+
+	g_hash_table_insert(localState->csp_direct_channels, (void*)chan->id, chan);
+	if (remoteState != localState)
+		g_hash_table_insert(remoteState->csp_direct_channels, (void*)chan->id, chan);
+
+	//printf(WHERESTR "Direct setup, readerState: %u, readerRequestId: %u, writerState: %u, writerRequestId: %u\n", WHEREARG, (unsigned int)localState, resp->requestID, (unsigned int)remoteState, wreq->requestID);
+
+	//Extract the current pending requests
+	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_FindPendingRequest(localState, resp->requestID);
+	if (preq == NULL)
+	{
+		REPORT_ERROR("Pending request was not found");
+		exit(-1);
+	}
+	dsmcbe_spu_free_PendingRequest(preq);
+
+	resp->writeRequest = NULL;
+
+	if (remoteState == localState)
+	{
+		//printf(WHERESTR "In setup, the item is intra SPE, setting up local on channel %d\n", WHEREARG, resp->channelId);
+
+		//Allocate the ringbuffer on the SPE
+		void* rb_ls = dsmcbe_spu_memory_malloc(localState->map, sizeof(struct dsmcbe_ringbuffer) + ((sizeof(void*) * SPE_PENDING_WRITE_SIZE) * (resp->bufferSize + 1)));
+		struct dsmcbe_ringbuffer* spe_rb = (struct dsmcbe_ringbuffer*)(spe_ls_area_get(localState->context) + (unsigned int)rb_ls);
+		spe_rb->count = 0;
+		spe_rb->head = 0;
+		spe_rb->tail = 0;
+		spe_rb->size = (resp->bufferSize + 1) * SPE_PENDING_WRITE_SIZE;
+
+		while(!g_queue_is_empty((GQueue*)(resp->pendingWrites)))
+		{
+			QueueableItem tmpq = (QueueableItem)g_queue_pop_head(resp->pendingWrites);
+			struct dsmcbe_cspChannelWriteRequest* tmpWReq = tmpq->dataRequest;
+
+			//printf(WHERESTR "Channelid: %d, localState: %u, remoteState_ %u, speId: %u\n", WHEREARG, chan->id, (unsigned int)localState, (unsigned int)remoteState, (unsigned int)tmpWReq->speId);
+			if (tmpWReq->speId != (unsigned int)localState)
+			{
+				REPORT_ERROR2("Multiple request found for optimized channel %d but with different sources", chan->id);
+				exit(-1);
+			}
+
+			//printf(WHERESTR "Direct setup on channel %d, processing %u\n", WHEREARG, resp->channelId, tmpWReq->requestID);
+
+			struct dsmcbe_spu_dataObject* obj;
+
+			preq = dsmcbe_spu_FindPendingRequest(localState, tmpWReq->requestID);
+			if (preq == NULL)
+			{
+				//If we get here, the response was already sent
+				obj = g_hash_table_lookup(localState->csp_inactive_items, tmpWReq->data);
+				if (obj == NULL)
+				{
+					REPORT_ERROR2("Unable to lookup WriteResponse with requestId: %d", tmpWReq->requestID);
+					exit(-1);
+				}
+
+				if (obj->mode != CSP_ITEM_MODE_READY_FOR_TRANSFER)
+				{
+					REPORT_ERROR2("Unsupported object mode %d", obj->mode);
+					exit(-1);
+				}
+
+				obj->mode = CSP_ITEM_MODE_IN_USE;
+				g_hash_table_remove(remoteState->csp_inactive_items, tmpWReq->data);
+				g_hash_table_insert(remoteState->csp_active_items, obj->LS, obj);
+
+			}
+			else
+			{
+				obj = preq->dataObj;
+
+				//Clean the pending request
+				preq->dataObj = NULL;
+				dsmcbe_spu_free_PendingRequest(preq);
+				preq = NULL;
+
+				if (obj->mode != CSP_ITEM_MODE_IN_USE)
+				{
+					REPORT_ERROR2("Unsupported object mode %d", obj->mode);
+					exit(-1);
+				}
+			}
+
+			//Enqueue the write request the the SPE
+			dsmcbe_ringbuffer_push(spe_rb, (void*)tmpWReq->requestID);
+			dsmcbe_ringbuffer_push(spe_rb, obj->LS);
+			dsmcbe_ringbuffer_push(spe_rb, (void*)obj->size);
+
+
+			//printf(WHERESTR "Resp-stats, channelId: %d, spe_rb->count: %u, tmpq->GQueue: %u\n", WHEREARG, chan->id, spe_rb->count, (unsigned int)tmpq->Gqueue);
+
+			if (spe_rb->count != spe_rb->size && tmpq->Gqueue != NULL)
+			{
+				//If Gqueue != NULL the RC has not responded to the message, so we need to do it here
+				dsmcbe_spu_SendMessagesToSPU(chan->writerState, PACKAGE_CSP_CHANNEL_WRITE_RESPONSE, tmpWReq->requestID, 0, 0);
+			}
+
+			//printf(WHERESTR "Inserting write request with id %u, LS: %u, size: %u, rb: %u, rb->count: %u\n", WHEREARG, tmpWReq->requestID, (unsigned int)obj->LS, (unsigned int)obj->size, (unsigned int)rb_ls, spe_rb->count);
+
+			//Clean up
+			if (tmpWReq->transferManager != NULL)
+			{
+				FREE(tmpWReq->transferManager);
+				tmpWReq->transferManager = NULL;
+			}
+
+			FREE(tmpWReq);
+			tmpWReq = NULL;
+			tmpq->dataRequest = NULL;
+			FREE(tmpq);
+			tmpq = NULL;
+		}
+
+		dsmcbe_spu_SendMessagesToSPU(localState, PACKAGE_SPU_CSP_CHANNEL_SETUP_DIRECT, resp->requestID, chan->id, (unsigned int)rb_ls);
+	}
+	else
+	{
+		while(!g_queue_is_empty((GQueue*)(resp->pendingWrites)))
+		{
+			QueueableItem tmpq = (QueueableItem)g_queue_pop_head(resp->pendingWrites);
+			struct dsmcbe_cspChannelWriteRequest* tmpWReq = tmpq->dataRequest;
+
+			if (tmpWReq->speId != (unsigned int)remoteState)
+			{
+				REPORT_ERROR2("Multiple request found for optimized channel %d but with different sources", chan->id);
+				exit(-1);
+			}
+
+			struct dsmcbe_spu_dataObject* obj;
+			preq = dsmcbe_spu_FindPendingRequest(remoteState, tmpWReq->requestID);
+			if (preq == NULL)
+			{
+				obj = g_hash_table_lookup(remoteState->csp_inactive_items, tmpWReq->data);
+				if (obj == NULL)
+				{
+					REPORT_ERROR2("Pending request with id: %d was not found", tmpWReq->requestID);
+					exit(-1);
+				}
+
+				if (obj->mode != CSP_ITEM_MODE_READY_FOR_TRANSFER)
+				{
+					REPORT_ERROR2("Unsupported object mode %d", obj->mode);
+					exit(-1);
+				}
+
+				//g_hash_table_remove(remoteState->csp_inactive_items, tmpWReq->data);
+			}
+			else
+			{
+				obj = preq->dataObj;
+
+				if (obj->mode != CSP_ITEM_MODE_IN_USE)
+				{
+					REPORT_ERROR2("Unsupported object mode %d", obj->mode);
+					exit(-1);
+				}
+
+				//Clean the pending request
+				preq->dataObj = NULL;
+				dsmcbe_spu_free_PendingRequest(preq);
+				preq = NULL;
+			}
+
+			obj->id = chan->id;
+
+			//printf(WHERESTR "Inserting write request with id %u, LS: %u, size: %u\n", WHEREARG, tmpWReq->requestID, (unsigned int)obj->LS, (unsigned int)obj->size);
+
+			//Record the request locally, respond if required
+			dsmcbe_spu_csp_HandleDirectWriteRequest(remoteState, chan, tmpWReq->requestID, obj, tmpq->Gqueue != NULL);
+
+			//Clean up
+			if (tmpWReq->transferManager != NULL)
+			{
+				FREE(tmpWReq->transferManager);
+				tmpWReq->transferManager = NULL;
+			}
+
+			FREE(tmpWReq);
+			tmpWReq = NULL;
+			tmpq->dataRequest = NULL;
+			FREE(tmpq);
+			tmpq = NULL;
+		}
+
+		//This will trigger the transfer, regardless of the items current state
+		dsmcbe_spu_csp_HandleDirectReadRequest(localState, chan, resp->requestID);
+	}
+}
+
+void dsmcbe_spu_csp_PreTransferItem(struct dsmcbe_spu_directChannelObject* channel, struct dsmcbe_spu_dataObject* obj)
+{
+	//We need a preq and a dataObj for the transfer to work
+	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_new_PendingRequest(channel->readerState, NEXT_SEQ_NO(channel->readerState->cspSeqNo, MAX_CSP_INACTIVE_ITEMS) + CSP_INACTIVE_BASE, PACKAGE_SPU_CSP_DIRECT_TRANSFER, channel->id, obj, 0, TRUE);
+
+	obj->preq = preq;
+	preq->dataObj = obj;
+
+	//This protects against a pre-transferred item
+	if (obj->EA == NULL)
+		obj->EA = dsmcbe_ringbuffer_peek(channel->writerDataEAs);
+	obj->isDMAToSPU = TRUE;
+
+	channel->readerDataEA = dsmcbe_spu_csp_attempt_get_pointer(channel->readerState, preq, obj->size);
+	if (channel->readerDataEA == NULL)
+	{
+		obj->LS = NULL;
+
+		//TODO: If we get here, do we record the requestId twice?
+		printf(WHERESTR "No space on target SPE, delaying transfer, channel %d --- WARNING - UNTESTED!!!\n", WHEREARG, channel->id);
+		return;
+	}
+
+	//printf(WHERESTR "Reader-Context %u, Writer allocated space on reader SPE, channel %d, got LS: %u\n", WHEREARG, (unsigned int)channel->readerState, channel->id, (unsigned int)channel->readerDataEA);
+
+	//Get the LS to pretend the reader started the transfer
+	obj->LS = channel->readerDataEA;
+
+	//The pointer is returned in LS, convert to EA
+	channel->readerDataEA = spe_ls_area_get(channel->readerState->context) + (unsigned int)channel->readerDataEA;
+
+	//printf(WHERESTR "Writer is performing DMA transfer on channel %d, readerLS: %u\n", WHEREARG, channel->id, (unsigned int)obj->LS);
+
+	//Transfer the item to the target SPE
+	obj->mode = CSP_ITEM_MODE_IN_TRANSIT;
+	dsmcbe_spu_TransferObject(channel->readerState, preq, obj);
+
+}
+
+//Handles a write request on a direct channel
+void dsmcbe_spu_csp_HandleDirectWriteRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_directChannelObject* channel, unsigned int requestId, struct dsmcbe_spu_dataObject* obj, unsigned int allowBufferResponse)
+{
+	if (channel->poisoned)
+	{
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_CSP_CHANNEL_POISONED_RESPONSE, requestId, 0, 0);
+		return;
+	}
+
+	//printf(WHERESTR "Context: %u, Handling direct write request for channel %d\n", WHEREARG, (unsigned int)state->context, channel->id);
+	obj->id = channel->id;
+
+	if (channel->writerRequestIds->count == channel->writerRequestIds->size)
+	{
+		REPORT_ERROR2("Invalid use of optimized one2one channel %d", channel->id);
+		exit(-1);
+	}
+
+	obj->id = channel->id;
+
+	if (channel->readerState == state)
+	{
+		//We are on the same SPE, so the request must have crossed the setup, re-direct to SPE
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_CSP_CHANNEL_WRITE_REQUEST, requestId, (unsigned int)obj->LS, obj->size);
+	}
+	else
+	{
+
+		if (obj->mode == CSP_ITEM_MODE_IN_TRANSIT)
+		{
+			printf(WHERESTR "Direct write request for channel %d is INTER SPE, item is being flushed, waiting\n", WHEREARG, channel->id);
+			REPORT_ERROR("Unsupported state!");
+			return;
+		}
+
+		//Record the request
+		void* writerEA = spe_ls_area_get(channel->writerState->context) + (unsigned int)obj->LS;
+		dsmcbe_ringbuffer_push(channel->writerRequestIds, (void*)requestId);
+		dsmcbe_ringbuffer_push(channel->writerDataEAs, writerEA);
+		dsmcbe_ringbuffer_push(channel->dataObjs, obj);
+
+		//If the channel is buffered, respond to the writer immediately
+		if (allowBufferResponse && channel->writerRequestIds->count != channel->writerRequestIds->size)
+			dsmcbe_spu_SendMessagesToSPU(channel->writerState, PACKAGE_CSP_CHANNEL_WRITE_RESPONSE, requestId, 0, 0);
+
+		//printf(WHERESTR "Direct write request for channel %d is INTER SPE, writerLS: %u, buffer->count: %u\n", WHEREARG, channel->id, (unsigned int)obj->LS, channel->writerRequestIds->count);
+
+		//Allocate space on target SPE, if not already done
+		if (channel->writerDataEAs->count == 1)
+		{
+			if (channel->readerDataEA != NULL)
+			{
+				REPORT_ERROR2("The reader EA was not null for channel %d", channel->id);
+				exit(-1);
+			}
+
+			//printf(WHERESTR "Writer is allocating space on reader SPE, channel %d, obj->id: %d\n", WHEREARG, channel->id, obj->id);
+			dsmcbe_spu_csp_PreTransferItem(channel, obj);
+		}
+		else
+		{
+			//printf(WHERESTR "Channel %d already had a transfered item, waiting with next transfer\n", WHEREARG, channel->id);
+		}
+
+	}
+}
+
+//Handles a read request on a direct channel
+void dsmcbe_spu_csp_HandleDirectReadRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_directChannelObject* channel, unsigned int requestId)
+{
+	if (channel->poisoned && channel->writerRequestIds->count == 0)
+	{
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_CSP_CHANNEL_POISONED_RESPONSE, requestId, 0, 0);
+		return;
+	}
+
+	//printf(WHERESTR "Handling direct write request for channel %d\n", WHEREARG, channel->id);
+
+	channel->readerRequestId = requestId;
+
+	if (channel->writerRequestIds->count == 0)
+	{
+		//printf(WHERESTR "Read request for channel %d, write is not ready\n", WHEREARG, channel->id);
+		//The data is not yet ready, just wait
+		return;
+	}
+
+	struct dsmcbe_spu_dataObject* obj = (struct dsmcbe_spu_dataObject*)dsmcbe_ringbuffer_peek(channel->dataObjs);
+	void* writerEA = dsmcbe_ringbuffer_peek(channel->writerDataEAs);
+
+	//If the transfer is completed, just respond
+	if (obj->mode == CSP_ITEM_MODE_SENT)
+	{
+		if (channel->writerState == state)
+		{
+			//printf(WHERESTR "Read request, writer is ready, exchanging intra SPE pointers, channel %d\n", WHEREARG, channel->id);
+			dsmcbe_spu_SendMessagesToSPU(channel->readerState, PACKAGE_CSP_CHANNEL_READ_RESPONSE, requestId, (unsigned int)writerEA - (unsigned int)spe_ls_area_get(state->context), obj->size);
+		}
+		else
+		{
+			//printf(WHERESTR "Read request, writer is ready, exchanging INTER SPE pointers, channel %d\n", WHEREARG, channel->id);
+
+			//Remove the object from the writers address space
+			void* writerLS = writerEA - (unsigned int)spe_ls_area_get(channel->writerState->context);
+			g_hash_table_remove(channel->writerState->csp_active_items, writerLS);
+			dsmcbe_spu_memory_free(channel->writerState->map, writerLS);
+			dsmcbe_spu_ManageDelayedAllocation(channel->writerState);
+
+			//Insert the object in the readers address space
+			void* readerLS = channel->readerDataEA - (unsigned int)spe_ls_area_get(channel->readerState->context);
+			g_hash_table_insert(channel->readerState->csp_active_items, readerLS, obj);
+			obj->EA = NULL;
+
+			dsmcbe_spu_SendMessagesToSPU(channel->readerState, PACKAGE_CSP_CHANNEL_READ_RESPONSE, requestId, (unsigned int)readerLS, obj->size);
+		}
+
+		obj->mode = CSP_ITEM_MODE_IN_USE;
+
+		//If this response pops up the last blocked item, notify it
+		if (channel->writerRequestIds->count == channel->writerRequestIds->size)
+			dsmcbe_spu_SendMessagesToSPU(channel->writerState, PACKAGE_CSP_CHANNEL_WRITE_RESPONSE, (unsigned int)dsmcbe_ringbuffer_peek_nth(channel->writerRequestIds, channel->writerRequestIds->count - 1), 0, 0);
+
+		//Remove the entry
+		dsmcbe_ringbuffer_pop(channel->writerRequestIds);
+		dsmcbe_ringbuffer_pop(channel->writerDataEAs);
+		dsmcbe_ringbuffer_pop(channel->dataObjs);
+
+		channel->readerRequestId = UINT_MAX;
+		channel->readerDataEA = NULL;
+
+		//If there is another write request pending, start the transfer now
+		if (channel->writerRequestIds->count != 0)
+		{
+			//printf(WHERESTR "Channel %d was claimed pre-transferring next item in queue, count: %d\n", WHEREARG, channel->id, channel->writerRequestIds->count);
+			dsmcbe_spu_csp_PreTransferItem(channel, dsmcbe_ringbuffer_peek(channel->dataObjs));
+		}
+	}
+	else
+	{
+		//The transfer should be in transit of sorts by now
+		if (obj->mode != CSP_ITEM_MODE_IN_TRANSIT)
+		{
+			//REPORT_ERROR2("Item is not in transit as expected, hopefully it is awaiting a malloc, mode: %d", obj->mode);
+		}
+		else
+		{
+			//printf(WHERESTR "Read request, writer is currently transferring data, channel %d\n", WHEREARG, channel->id);
+		}
+	}
+}
+
+//Handles a completed direct transfer
+void dsmcbe_spu_csp_HandleDirectTransferCompleted(struct dsmcbe_spu_state* state, struct dsmcbe_spu_pendingRequest* preq)
+{
+	struct dsmcbe_spu_directChannelObject* channel = (struct dsmcbe_spu_directChannelObject*)g_hash_table_lookup(state->csp_direct_channels, (void*)preq->dataObj->id);
+	if (channel == NULL)
+	{
+		REPORT_ERROR("Direct channel is missing");
+		exit(-1);
+	}
+
+	//printf(WHERESTR "Context %u, Transfer of object on channel %d completed\n", WHEREARG, (unsigned int)state->context, channel->id);
+	preq->dataObj->mode = CSP_ITEM_MODE_SENT;
+
+	//The item is now transfered, if the reader is ready, send everything
+	if (channel->readerRequestId != UINT_MAX)
+	{
+		//printf(WHERESTR "Transfer completed and reader ready for channel %d\n", WHEREARG, channel->id);
+		dsmcbe_spu_csp_HandleDirectReadRequest(channel->readerState, channel, channel->readerRequestId);
+	}
+	else
+	{
+		//printf(WHERESTR "Transfer completed but reader was not ready for channel %d\n", WHEREARG, channel->id);
+
+	}
+
+	preq->dataObj = NULL;
+	dsmcbe_spu_free_PendingRequest(preq);
+	preq = NULL;
+}
+
 #ifdef SPU_STOP_AND_WAIT
 int dsmcbe_spu_csp_callback(void* ls_base, unsigned int data_ptr)
 {

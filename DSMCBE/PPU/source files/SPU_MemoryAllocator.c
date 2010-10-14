@@ -262,9 +262,10 @@ SPU_Memory_Map* dsmcbe_spu_memory_create(unsigned int offset, unsigned int size)
 }
 
 void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
-#ifdef DEBUGMAP	
+#ifdef DEBUGMAP
 	printf(WHERESTR "MEMMGR - Trying to malloc %i\n", WHEREARG, size);
-#endif	
+#endif
+	size = ALIGNED_SIZE(size);
 	unsigned int bitsize = SIZE_TO_BITS(size);
 	void* data = dsmcbe_spu_memory_find_chunk(map, size);
 	if (data == NULL)
@@ -273,6 +274,14 @@ void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 	g_hash_table_insert(map->allocated, data, (void*)bitsize);
 	map->free_mem -= bitsize * ALIGN_SIZE_COUNT;
 
+#ifdef DEBUG
+	if (((unsigned int)data) % 16 != 0)
+	{
+		printf(WHERESTR "Requested size: %d\n", WHEREARG, size);
+		REPORT_ERROR2("Allocated block had a non-aligned offset: %u", (unsigned int)data);
+		exit(-1);
+	}
+#endif
 	return data; 
 }
 

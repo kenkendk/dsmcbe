@@ -58,6 +58,8 @@
 #define PACKAGE_TRANSFER_REQUEST 61
 #define PACKAGE_TRANSFER_RESPONSE 62
 
+#define PACKAGE_DIRECT_SETUP_RESPONSE 63
+
 #define PACKAGE_DMA_COMPLETE 70
 
 #define STREAM_STATUS_QUEUED 0
@@ -312,6 +314,7 @@ struct dsmcbe_cspChannelReadRequest
 	//These are set if the request is an ALT request
 	unsigned int mode;
 	unsigned int channelcount;
+	unsigned int speId;
 	GUID* channels;
 };
 
@@ -419,6 +422,17 @@ struct dsmcbe_transferResponse
     void* to;
 };
 
+struct dsmcbe_cspDirectSetupResponse
+{
+    unsigned int packageCode; // = 63
+    unsigned int requestID;
+    GUID channelId;
+
+    unsigned int bufferSize;
+    struct dsmcbe_cspChannelWriteRequest* writeRequest;
+    void* pendingWrites;
+};
+
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
@@ -461,7 +475,8 @@ struct dsmcbe_transferResponse
 		MAX(sizeof(struct dsmcbe_transferRequest), \
 		MAX(sizeof(struct dsmcbe_transferResponse), \
 		MAX(sizeof(struct dsmcbe_freeRequest), \
-			0)))
+		MAX(sizeof(struct dsmcbe_cspDirectSetupResponse), \
+			0))))
 
 #define MAX_PACKAGE_SIZE MAX(MAX(MAX_PACKAGE_SIZE_A, MAX_PACKAGE_SIZE_B), MAX_PACKAGE_SIZE_C)
 
@@ -495,7 +510,8 @@ struct dsmcbe_transferResponse
 		( x == PACKAGE_TRANSFER_REQUEST ? sizeof(struct dsmcbe_transferRequest) : \
 		( x == PACKAGE_TRANSFER_RESPONSE ? sizeof(struct dsmcbe_transferResponse) : \
 		( x == PACKAGE_FREE_REQUEST ? sizeof(struct dsmcbe_freeRequest) : \
-				0))))) ))))) ))))) ))))) ))))) )))
+		( x == PACKAGE_DIRECT_SETUP_RESPONSE ? sizeof(struct dsmcbe_cspDirectSetupResponse) : \
+				0))))) ))))) ))))) ))))) ))))) ))))
 
 struct packageBuffer
 {

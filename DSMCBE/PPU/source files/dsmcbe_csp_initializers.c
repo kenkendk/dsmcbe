@@ -28,6 +28,7 @@ int dsmcbe_new_cspChannelCreateRequest(struct dsmcbe_cspChannelCreateRequest** r
 		case CSP_CHANNEL_TYPE_ONE2ANY:
 		case CSP_CHANNEL_TYPE_ANY2ONE:
 		case CSP_CHANNEL_TYPE_ANY2ANY:
+		case CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE:
 			break;
 		default:
 			REPORT_ERROR2("Invalid channel type requested: %d", type);
@@ -96,7 +97,7 @@ int dsmcbe_new_cspChannelReadRequest_multiple(struct dsmcbe_cspChannelReadReques
 	return CSP_CALL_SUCCESS;
 }
 
-int dsmcbe_new_cspChannelReadRequest_single(struct dsmcbe_cspChannelReadRequest** result, GUID channelid, unsigned int requestId)
+int dsmcbe_new_cspChannelReadRequest_single(struct dsmcbe_cspChannelReadRequest** result, GUID channelid, unsigned int requestId, unsigned int speId)
 {
 	if (channelid == CSP_SKIP_GUARD || channelid == CSP_TIMEOUT_GUARD)
 	{
@@ -115,6 +116,7 @@ int dsmcbe_new_cspChannelReadRequest_single(struct dsmcbe_cspChannelReadRequest*
 
 	(*result)->channelcount = 0;
 	(*result)->channels = NULL;
+	(*result)->speId = speId;
 
 	SETUP_ORIGINATOR(*result);
 
@@ -307,6 +309,31 @@ int dsmcbe_new_cspChannelWriteResponse(struct dsmcbe_cspChannelWriteResponse** r
 	COMMON_SETUP(*result, PACKAGE_CSP_CHANNEL_WRITE_RESPONSE);
 
 	SETUP_ORIGINATOR(*result);
+
+	return CSP_CALL_SUCCESS;
+}
+
+int dsmcbe_new_cspDirectSetupResponse(struct dsmcbe_cspDirectSetupResponse** result, GUID channelid, unsigned int requestId, unsigned int bufferSize, struct dsmcbe_cspChannelWriteRequest* writeRequest, void* pendingWrites)
+{
+
+	if (channelid == CSP_SKIP_GUARD || channelid == CSP_TIMEOUT_GUARD)
+	{
+		REPORT_ERROR2("Cannot write the %s channel", channelid == CSP_SKIP_GUARD ? "skip" : "timeout");
+		return CSP_CALL_ERROR;
+	}
+
+	*result = (struct dsmcbe_cspDirectSetupResponse*)MALLOC(sizeof(struct dsmcbe_cspDirectSetupResponse));
+	if (*result == NULL)
+	{
+		REPORT_ERROR("Out of memory?");
+		return CSP_CALL_ERROR;
+	}
+
+	COMMON_SETUP(*result, PACKAGE_DIRECT_SETUP_RESPONSE);
+
+	(*result)->bufferSize = bufferSize;
+	(*result)->writeRequest = writeRequest;
+	(*result)->pendingWrites = pendingWrites;
 
 	return CSP_CALL_SUCCESS;
 }

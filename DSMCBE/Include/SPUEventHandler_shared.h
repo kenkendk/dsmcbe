@@ -11,6 +11,7 @@
 #include <SPU_MemoryAllocator.h>
 #include "SPUEventHandler_extrapackages.h"
 #include <RequestCoordinator.h>
+#include "ringbuffer.h"
 
 //This is the lowest number a release request can have.
 //Make sure that this is larger than the MAX_PENDING_REQUESTS number defined on the SPU
@@ -75,6 +76,34 @@ struct dsmcbe_spu_dataObject
 	unsigned int csp_seq_no;
 #endif
 
+};
+
+//This structure represents a direct transfer channel
+struct dsmcbe_spu_directChannelObject
+{
+	//The channelId
+	GUID id;
+
+	//The state object for the reader
+	struct dsmcbe_spu_state* readerState;
+	//The state object for the writer
+	struct dsmcbe_spu_state* writerState;
+
+	//The requestId for the reader, UINT_MAX if no request has been made
+	unsigned int readerRequestId;
+	//The list of waiting writer request ids, note that this list is one larger than the buffer size
+	struct dsmcbe_ringbuffer* writerRequestIds;
+
+	//The list of dataBuffers on the writer, note that this list is one larger than the buffer size
+	struct dsmcbe_ringbuffer* writerDataEAs;
+	//The pointer to the dataBuffer on the reader, NULL if writerRequestId is UINT_MAX
+	void* readerDataEA;
+
+	//The list of associated dataObjs, note that this list is one larger than the buffer size
+	struct dsmcbe_ringbuffer* dataObjs;
+
+	//The poison flag
+	unsigned int poisoned;
 };
 
 //This structure represents a request that is not yet completed
@@ -181,6 +210,9 @@ struct dsmcbe_spu_state
 
 	//This is a hashtable of active CSP items, key is the pointer in LS, value is a dataObj
 	GHashTable* csp_active_items;
+
+	//This is a hashtable of direct transfer channels, key is the channelId, the value is a directChannelObj
+	GHashTable* csp_direct_channels;
 
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 	//This is a hashtable of inactive CSP items, key is a sequence number, value is a dataObj

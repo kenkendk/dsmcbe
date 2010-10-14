@@ -36,6 +36,7 @@
 		(x == 60 ? "FreeRequest" : \
 		(x == 61 ? "TransferRequest" : \
 		(x == 62 ? "TransferResponse" : \
+		(x == 63 ? "DirectSetupRequest" : \
 		(x == 70 ? "DMAComplete" : \
 		(x == 300 ? "SPU MallocSetup" : \
 		(x == 301 ? "SPU MallocRequest" : \
@@ -49,8 +50,9 @@
 		(x == 309 ? "SPU CSP ReadAltResponse" : \
 		(x == 310 ? "SPU CSP WriteAltRequest" : \
 		(x == 311 ? "SPU CSP WriteAltResponse" : \
+		(x == 312 ? "SPU CSP Direct transfer" : \
 		(x == 400 ? "SPU CSP FlushItem" : \
-				"Unknown")))))))))))))))))))))))))))))))))))))))))
+				"Unknown")))))))))))))))))))))))))))))))))))))))))))
 
 //#define DEBUG_COMMUNICATION
 //#define EVENT_BASED

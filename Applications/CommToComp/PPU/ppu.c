@@ -34,39 +34,67 @@ int main(int argc, char **argv)
 
 	if (argc == 5) {
 		spu_threadcount = atoi(argv[1]);
-		workCount = atoi(argv[2]);
-		spu_fibers = atoi(argv[3]);
+		spu_fibers = atoi(argv[2]);
+		workCount = atoi(argv[3]);
 		dataSize = atoi(argv[4]);
 	} else {
-		printf("Wrong number of arguments \"./CommToCompPPU spu-threads work-count data-size\"\n");
+		printf("Wrong number of arguments \"./CommToCompPPU spu-threads spu-fibers work-count data-size\"\n");
 		return -1;
 	}
 
-	if (spu_threadcount < 1)
+	if (spu_threadcount * spu_fibers < 1)
 	{
 		perror("There must be at least one SPE\n");
 		exit(1);
 	}
 
-	if (spu_fibers < 1)
-	{
-		perror("There must be at least one SPE fiber\n");
-		exit(1);
-	}
+	printf(WHERESTR "Using %u hardware threads\n", WHEREARG, PPE_HARDWARE_THREADS);
+	dsmcbe_SetHardwareThreads(PPE_HARDWARE_THREADS);
 
-
-
-    pthread_t* spu_threads = dsmcbe_simpleInitialize(0, NULL, spu_threadcount, spu_fibers);
+	pthread_t* spu_threads = dsmcbe_simpleInitialize(0, NULL, spu_threadcount, spu_fibers);
 
 	CSP_SAFE_CALL("create setup channel", dsmcbe_csp_channel_create(SETUP_CHANNEL, 0, CSP_CHANNEL_TYPE_ONE2ANY));
-	CSP_SAFE_CALL("create delta channel", dsmcbe_csp_channel_create(DELTA_CHANNEL, 0, CSP_CHANNEL_TYPE_ONE2ONE));
+	CSP_SAFE_CALL("create delta channel", dsmcbe_csp_channel_create(DELTA_CHANNEL, 0, CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE));
 
-	for(i = 0; i < (spu_threadcount * spu_fibers); i++)
+	unsigned int workers = (spu_threadcount * spu_fibers);
+
+#ifdef SINGLE_PACKAGE
+	printf(WHERESTR "Using COMMSTIME setup, generators: ", WHEREARG);
+
+	unsigned int ids[] = SINGLE_PACKAGE;
+	int idcounter = 0;
+
+	while(ids[idcounter] != UINT_MAX)
+		printf("%u ", ids[idcounter++]);
+
+	printf("\n");
+#else
+	printf(WHERESTR "Using COMM-2-COMP setup\n", WHEREARG);
+#endif
+
+#ifdef BUFFERED_STARTUP_CHANNEL
+	printf(WHERESTR "Using BUFFERED start channel\n", WHEREARG);
+#else
+	printf(WHERESTR "Using NON-BUFFERED start channel\n", WHEREARG);
+#endif
+
+#ifdef SMART_ID_ASSIGNMENT
+	printf(WHERESTR "Using STRUCTURED ID assignment\n", WHEREARG);
+
+	for(i = 0; i < spu_threadcount; i++)
 	{
-		CSP_SAFE_CALL("create setup item", dsmcbe_csp_item_create(&data, sizeof(unsigned int) * 4));
+		CSP_SAFE_CALL("create setup item", dsmcbe_csp_item_create(&data, sizeof(unsigned int) * 5));
+		((unsigned int*)data)[0] = i * spu_fibers;
+
+#else
+	printf(WHERESTR "Using RANDOM ID assignment\n", WHEREARG);
+	for(i = 0; i < workers; i++)
+	{
+		CSP_SAFE_CALL("create setup item", dsmcbe_csp_item_create(&data, sizeof(unsigned int) * 5));
 		((unsigned int*)data)[0] = i;
-		((unsigned int*)data)[1] = spu_threadcount;
-		((unsigned int*)data)[2] = workCount / spu_threadcount;
+#endif
+		((unsigned int*)data)[1] = workers;
+		((unsigned int*)data)[2] = workCount / workers;
 		((unsigned int*)data)[3] = dataSize;
 		CSP_SAFE_CALL("write setup", dsmcbe_csp_channel_write(SETUP_CHANNEL, data));
 	}
@@ -74,12 +102,9 @@ int main(int argc, char **argv)
 	sw_init();
 	sw_start();
 
-	int counter = 0;
-	int repcount = 0;
+	int count = 0;
 
 	double totalseconds = 0;
-
-#define ROUNDS 10
 
 	while(1)
 	{
@@ -87,33 +112,35 @@ int main(int argc, char **argv)
 		CSP_SAFE_CALL("read delta", dsmcbe_csp_channel_read(DELTA_CHANNEL, &size, &data));
 		CSP_SAFE_CALL("free delta", dsmcbe_csp_item_free(data));
 
-		if (counter >= REPETITIONS)
+		sw_stop();
+		sw_timeString(buf);
+		totalseconds += sw_getSecondsElapsed();
+		printf("CommToComp: %f usec, datasize: %d, work-ops: %d (%d each), %d ops on %d:%d processes's in %s.\n", (sw_getSecondsElapsed() / SPE_REPETITIONS / workers) * 1000000, size, workCount, workCount / workers, SPE_REPETITIONS, spu_threadcount, spu_fibers, buf);
+		sw_start();
+
+		count++;
+		if (count >= ROUND_COUNT)
 		{
-			sw_stop();
-			sw_timeString(buf);
-			totalseconds += sw_getSecondsElapsed();
-			printf("CommToComp: %f usec, datasize: %d, work-ops: %d (%d each), %d ops on %d processes's in %s.\n", (sw_getSecondsElapsed() / counter / spu_threadcount) * 1000000, size, workCount, workCount / spu_threadcount, counter, spu_threadcount, buf);
-			counter = 0;
-			sw_start();
-			repcount ++;
-			if (repcount >= ROUNDS)
+			for(i = 0; i < workers; i++)
 			{
-				CSP_SAFE_CALL("poison delta", dsmcbe_csp_channel_poison(DELTA_CHANNEL));
-				printf("CommToComp avg: %f usec,\nTotal Seconds are: %lf\n", (totalseconds / (ROUNDS * REPETITIONS) / spu_threadcount) * 1000000, totalseconds);
-				break;
+				//printf(WHERESTR "Poison channel %d\n", WHEREARG, RING_CHANNEL_BASE + i);
+				CSP_SAFE_CALL("poison a comm chan", dsmcbe_csp_channel_poison(RING_CHANNEL_BASE + i));
 			}
-		}
-		else
-		{
-			//printf("Run %d completed\n", counter);
-			counter++;
+
+			//printf(WHERESTR "Poison channel %d\n", WHEREARG, DELTA_CHANNEL);
+			CSP_SAFE_CALL("poison delta", dsmcbe_csp_channel_poison(DELTA_CHANNEL));
+			printf("CommToComp avg: %f usec,\nTotal Seconds are: %lf\n", (totalseconds / (ROUND_COUNT * SPE_REPETITIONS) / workers) * 1000000, totalseconds);
+			break;
 		}
 	}
 
-	printf("PPU is waiting for threads to complete\n");
+	//printf("PPU is waiting for threads to complete\n");
 
 	for(i = 0; i < spu_threadcount; i++)
+	{
+		//printf(WHERESTR "PPE is waiting for spe %d to finish\n", WHEREARG, i);
 		pthread_join(spu_threads[i], NULL);
+	}
 
 	printf("PPU is terminating\n");
 

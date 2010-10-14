@@ -21,7 +21,7 @@ extern int dsmcbe_main(unsigned long long speid, unsigned int machineid, unsigne
 #define FREE_ALIGN(x) spu_dsmcbe_memory_free(x)
 
 
-#include "dsmcbe_spu_threads.h"
+#include "SPUThreads.h"
 #include "dsmcbe_spu_async.h"
 
 

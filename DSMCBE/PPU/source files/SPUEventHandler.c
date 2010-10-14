@@ -22,7 +22,7 @@ unsigned int doPrint = FALSE;
 
 //When testing for thread race conditions, activate this flag to
 // prevent the intentional race conditions
-//#define NO_DIRTY_READS
+#define NO_DIRTY_READS
 
 //When testing for memory errors, activate this flag
 // to clear memory that is written by the MFC, so
@@ -123,7 +123,7 @@ struct dsmcbe_spu_pendingRequest* dsmcbe_spu_new_PendingRequest(struct dsmcbe_sp
 #ifdef DEBUG
 	struct dsmcbe_spu_pendingRequest* xxx = dsmcbe_spu_FindPendingRequest(state, requestId);
 	if (xxx != NULL)
-		fprintf(stderr, WHERESTR "Creating package %s (%d) with requestId %d, but there already exists a package with the same id of type %s (%d)\n", WHEREARG, PACKAGE_NAME(operation), operation, requestId, PACKAGE_NAME(xxx->operation), xxx->operation);
+		fprintf(stderr, WHERESTR "Creating package %s (%d) with requestId %d, but there already exists a package with the same id of type %s (%d), channel/obj Id: %u -> %u\n", WHEREARG, PACKAGE_NAME(operation), operation, requestId, PACKAGE_NAME(xxx->operation), xxx->operation, xxx->objId, objId);
 #endif
 
 	preq->requestId = requestId;
@@ -224,6 +224,10 @@ void dsmcbe_SetHardwareThreads(unsigned int count)
 
 void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int packageCode, unsigned int requestId, unsigned int data, unsigned int size)
 {
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Context %u, Sending message %s (%d) with requestId %d to SPU\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(packageCode), packageCode, requestId);
+#endif
+
 	//TODO: Determine if it is possible to accidentally insert a response because it fits in mbox, but still have messages in queue
 	// this would lead to mixing of package data
 
@@ -281,6 +285,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 				}
 				break;
 			case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE:
+			case PACKAGE_SPU_CSP_CHANNEL_POISON_DIRECT:
 				if (spe_in_mbox_status(state->context) >= 3)
 				{
 					spe_in_mbox_write(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
@@ -292,6 +297,8 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 			case PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE:
 			case PACKAGE_CSP_CHANNEL_READ_RESPONSE:
 			case PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE:
+			case PACKAGE_SPU_CSP_CHANNEL_SETUP_DIRECT:
+			case PACKAGE_CSP_CHANNEL_WRITE_REQUEST:
 				if (spe_in_mbox_status(state->context) >= 4)
 				{
 					spe_in_mbox_write(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
@@ -352,6 +359,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 			g_queue_push_tail(state->mailboxQueue, (void*)packageCode);
 			return;
 		case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE:
+		case PACKAGE_SPU_CSP_CHANNEL_POISON_DIRECT:
 			g_queue_push_tail(state->mailboxQueue, (void*)requestId);
 			g_queue_push_tail(state->mailboxQueue, (void*)packageCode);
 			g_queue_push_tail(state->mailboxQueue, (void*)data);
@@ -359,6 +367,8 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 		case PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE:
 		case PACKAGE_CSP_CHANNEL_READ_RESPONSE:
 		case PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE:
+		case PACKAGE_SPU_CSP_CHANNEL_SETUP_DIRECT:
+		case PACKAGE_CSP_CHANNEL_WRITE_REQUEST:
 			g_queue_push_tail(state->mailboxQueue, (void*)requestId);
 			g_queue_push_tail(state->mailboxQueue, (void*)packageCode);
 			g_queue_push_tail(state->mailboxQueue, (void*)data);
@@ -731,7 +741,7 @@ void dsmcbe_spu_TransferObject(struct dsmcbe_spu_state* state, struct dsmcbe_spu
 
 
 #ifdef DEBUG_COMMUNICATION
-		printf(WHERESTR "Context %u, Starting DMA transfer, %s ea: %d, ls: %d, size: %d\n", WHEREARG, (unsigned int)state->context, obj->isDMAToSPU ? "(EA->LS)" : "(LS->EA)", (unsigned int)obj->EA, (unsigned int)obj->LS, (unsigned int)ALIGNED_SIZE(obj->size));
+		printf(WHERESTR "Context %u, Starting DMA transfer, %s ea: %d, ls: %d, size: %d, obj: %u\n", WHEREARG, (unsigned int)state->context, obj->isDMAToSPU ? "(EA->LS)" : "(LS->EA)", (unsigned int)obj->EA, (unsigned int)obj->LS, (unsigned int)ALIGNED_SIZE(obj->size), (unsigned int)obj);
 		/*if (obj->isDMAToSPU)
 			printf("EA: {%u, %u, %u, %u, ...}\n", ((char*)obj->EA)[0], ((char*)obj->EA)[1], ((char*)obj->EA)[2],((char*)obj->EA)[3] );
 		else
@@ -1076,36 +1086,51 @@ void dsmcbe_spu_ManageDelayedAllocation(struct dsmcbe_spu_state* state)
 			//printf("Delayed operation %s (%d) with reqId=%d\n", PACKAGE_NAME(preq->operation), preq->operation, preq->requestId);
 
 			g_queue_pop_head(state->releaseWaiters);
-			if (preq->isCSP)
-				g_hash_table_insert(state->csp_active_items, obj->LS, obj);
-			else if (preq->operation != PACKAGE_SPU_MEMORY_MALLOC_REQUEST)
-				g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
 
-			if (preq->operation == PACKAGE_SPU_CSP_ITEM_CREATE_REQUEST)
+			if (preq->operation == PACKAGE_SPU_CSP_DIRECT_TRANSFER)
 			{
-				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
-				dsmcbe_spu_free_PendingRequest(preq);
-			}
-			else if (preq->operation == PACKAGE_CSP_CHANNEL_READ_REQUEST || preq->operation == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST)
-			{
-				if (preq->transferHandler != NULL)
-					dsmcbe_spu_csp_RequestTransfer(state, preq); //Remote object
-				else
-					dsmcbe_spu_TransferObject(state, preq, obj); //Local object
-			}
-			else if (preq->operation == PACKAGE_SPU_MEMORY_MALLOC_REQUEST)
-			{
-				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_MEMORY_MALLOC_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
+				//Special case, the object is cross-SPE and needs special handling
+				struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)obj->id);
+				channel->readerDataEA = spe_ls_area_get(state->context) + (unsigned int)obj->LS;
 
-				//We don't need these anymore
-				FREE(obj);
-				obj = NULL;
-				preq->dataObj = NULL;
-				dsmcbe_spu_free_PendingRequest(preq);
+				printf(WHERESTR "Writer is performing delayed DMA transfer on channel %d\n", WHEREARG, channel->id);
+
+				preq->dataObj->mode = CSP_ITEM_MODE_IN_TRANSIT;
+				dsmcbe_spu_TransferObject(state, preq, obj);
 			}
 			else
 			{
-				dsmcbe_spu_TransferObject(state, preq, obj);
+				if (preq->isCSP)
+					g_hash_table_insert(state->csp_active_items, obj->LS, obj);
+				else if (preq->operation != PACKAGE_SPU_MEMORY_MALLOC_REQUEST)
+					g_hash_table_insert(state->itemsByPointer, obj->LS, obj);
+
+				if (preq->operation == PACKAGE_SPU_CSP_ITEM_CREATE_REQUEST)
+				{
+					dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
+					dsmcbe_spu_free_PendingRequest(preq);
+				}
+				else if (preq->operation == PACKAGE_CSP_CHANNEL_READ_REQUEST || preq->operation == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST)
+				{
+					if (preq->transferHandler != NULL)
+						dsmcbe_spu_csp_RequestTransfer(state, preq); //Remote object
+					else
+						dsmcbe_spu_TransferObject(state, preq, obj); //Local object
+				}
+				else if (preq->operation == PACKAGE_SPU_MEMORY_MALLOC_REQUEST)
+				{
+					dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_MEMORY_MALLOC_RESPONSE, preq->requestId, (unsigned int)obj->LS, obj->size);
+
+					//We don't need these anymore
+					FREE(obj);
+					obj = NULL;
+					preq->dataObj = NULL;
+					dsmcbe_spu_free_PendingRequest(preq);
+				}
+				else
+				{
+					dsmcbe_spu_TransferObject(state, preq, obj);
+				}
 			}
 		}
 	}
@@ -1182,6 +1207,8 @@ void dsmcbe_spu_HandleTransferRequestCompleted(struct dsmcbe_spu_state* state, s
 //This function handles completed DMA transfers
 void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsigned int groupID)
 {
+	size_t i;
+
 	//Get the corresponding request
 	struct dsmcbe_spu_pendingRequest* preq = state->activeDMATransfers[groupID];
 
@@ -1224,6 +1251,12 @@ void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsig
 #ifdef DEBUG_COMMUNICATION
 		printf(WHERESTR "Handling completed DMA transfer, dmaId: %d, id: %d, notifying %s\n", WHEREARG, groupID, preq->objId, obj->isDMAToSPU ? "SPU" : "RC");
 #endif
+
+		if (preq->isCSP && preq->operation == PACKAGE_SPU_CSP_DIRECT_TRANSFER)
+		{
+			dsmcbe_spu_csp_HandleDirectTransferCompleted(state, preq);
+			return;
+		}
 
 		//If the transfer was from PPU to SPU, we can now give the pointer to the SPU
 		if (
@@ -1290,10 +1323,30 @@ void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsig
 				{
 					dsmcbe_spu_memory_free(state->map, obj->LS);
 					obj->LS = NULL;
-					obj->mode = CSP_ITEM_MODE_TRANSFERED;
+					obj->mode = CSP_ITEM_MODE_FLUSHED;
 
 					dsmcbe_spu_ManageDelayedAllocation(state);
 					dsmcbe_spu_free_PendingRequest(preq);
+
+					struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)obj->id);
+					if (channel != NULL && channel->writerRequestIds->count != 0)
+					{
+						unsigned int wReqId = UINT_MAX;
+						for(i = 0; i < channel->writerRequestIds->count; i++)
+							if (dsmcbe_ringbuffer_peek_nth(channel->dataObjs, i) == obj)
+							{
+								wReqId = (unsigned int)dsmcbe_ringbuffer_peek_nth(channel->writerRequestIds, i);
+								break;
+							}
+
+						if (wReqId == UINT_MAX)
+						{
+							REPORT_ERROR("DMA transfer completed, but was unable to find the matching write request");
+							exit(-1);
+						}
+
+						dsmcbe_spu_csp_HandleDirectWriteRequest(channel->writerState, channel, wReqId, obj, TRUE);
+					}
 				}
 #else
 				if (preq->operation == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST)
@@ -1462,7 +1515,7 @@ void dsmcbe_spu_HandleTransferRequest(struct dsmcbe_spu_state* state, void* pack
 	//printf(WHERESTR "Context %u, Got transfer request %u, obj is @%u\n", WHEREARG, (unsigned int)state->context, req->requestID, (unsigned int)obj);
 	g_hash_table_remove(state->csp_inactive_items, (void*)req->from);
 
-	if (obj->mode == CSP_ITEM_MODE_TRANSFERED)
+	if (obj->mode == CSP_ITEM_MODE_FLUSHED)
 	{
 		dsmcbe_spu_HandleTransferRequestCompleted(state, req, obj);
 		return;
@@ -1580,7 +1633,7 @@ void dsmcbe_spu_MailboxHandler(struct dsmcbe_spu_state* state, struct dsmcbe_spu
 	if (args != NULL)
 	{
 #ifdef DEBUG_COMMUNICATION
-				printf(WHERESTR "Context %u, Handling %s (%d) request from SPU with requestId %d\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(args->packageCode), args->packageCode, args->requestId);
+		printf(WHERESTR "Context %u, Handling %s (%d) request from SPU with requestId %d, id/channel: %d\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(args->packageCode), args->packageCode, args->requestId, args->id);
 #endif
 
 		switch(args->packageCode)
@@ -2048,7 +2101,7 @@ void dsmcbe_spu_HandleMessagesFromQueue(struct dsmcbe_spu_state* state, void* pa
 	size_t i;
 
 #ifdef DEBUG_COMMUNICATION
-	printf(WHERESTR "Context %u, Handling response message: %s (%d)\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(((struct dsmcbe_acquireResponse*)package)->packageCode), ((struct dsmcbe_acquireResponse*)package)->packageCode);
+	printf(WHERESTR "Context %u, Handling response message: %s (%d), requestId: %u, channel/id: %d\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(((struct dsmcbe_acquireResponse*)package)->packageCode), ((struct dsmcbe_acquireResponse*)package)->packageCode, ((struct dsmcbe_createRequest*)package)->requestID, ((struct dsmcbe_createRequest*)package)->dataItem);
 #endif
 	switch(((struct dsmcbe_createRequest*)package)->packageCode)
 	{
@@ -2078,6 +2131,9 @@ void dsmcbe_spu_HandleMessagesFromQueue(struct dsmcbe_spu_state* state, void* pa
 		case PACKAGE_CSP_CHANNEL_POISON_RESPONSE:
 			dsmcbe_spu_csp_HandleChannelPoisonResponse(state, ((struct dsmcbe_cspChannelCreateResponse*)package)->packageCode, ((struct dsmcbe_cspChannelCreateResponse*)package)->requestID);
 			break;
+		case PACKAGE_CSP_CHANNEL_POISON_REQUEST:
+			dsmcbe_spu_csp_HandleChannelPoisonRequest(state, ((struct dsmcbe_cspChannelCreateResponse*)package)->requestID, ((struct dsmcbe_cspChannelCreateResponse*)package)->channelId);
+			break;
 		case PACKAGE_CSP_CHANNEL_READ_RESPONSE:
 			dsmcbe_spu_csp_HandleChannelReadResponse(state, package);
 			package = NULL;
@@ -2089,6 +2145,12 @@ void dsmcbe_spu_HandleMessagesFromQueue(struct dsmcbe_spu_state* state, void* pa
 		case PACKAGE_CSP_CHANNEL_SKIP_RESPONSE:
 		case PACKAGE_NACK:
 			dsmcbe_spu_csp_HandleChannelPoisonNACKorSkipResponse(state, package);
+			break;
+		case PACKAGE_DIRECT_SETUP_RESPONSE:
+			dsmcbe_spu_csp_HandleDirectSetupResponse(state, package);
+			break;
+		case PACKAGE_CSP_CHANNEL_WRITE_REQUEST:
+			dsmcbe_spu_csp_HandleRoundTripWriteRequest(state, package);
 			break;
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 		case PACKAGE_TRANSFER_REQUEST:
@@ -2267,6 +2329,7 @@ void dsmcbe_spu_initialize(spe_context_ptr_t* threads, unsigned int thread_count
 		dsmcbe_spu_states[i].releaseSeqNo = 0;
 		dsmcbe_spu_states[i].streamItems = g_queue_new();
 		dsmcbe_spu_states[i].csp_active_items = g_hash_table_new(NULL, NULL);
+		dsmcbe_spu_states[i].csp_direct_channels = g_hash_table_new(NULL, NULL);
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 		dsmcbe_spu_states[i].csp_inactive_items = g_hash_table_new(NULL, NULL);
 		dsmcbe_spu_states[i].cspSeqNo = 0;
@@ -2391,6 +2454,7 @@ void dsmcbe_spu_terminate(int force)
 		dsmcbe_spu_states[i].map = NULL;
 		g_hash_table_destroy(dsmcbe_spu_states[i].csp_active_items);
 		dsmcbe_spu_states[i].csp_active_items = NULL;
+		g_hash_table_destroy(dsmcbe_spu_states[i].csp_direct_channels);
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 		g_hash_table_destroy(dsmcbe_spu_states[i].csp_inactive_items);
 		dsmcbe_spu_states[i].csp_inactive_items = NULL;
