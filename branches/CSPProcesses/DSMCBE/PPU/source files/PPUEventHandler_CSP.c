@@ -41,6 +41,7 @@ int dsmcbe_csp_item_create(void** data, size_t size)
 		return CSP_CALL_ERROR;
 	}
 
+	//TODO: If the recipient is the SPE, this block does not get de-allocated
 	*data = MALLOC_ALIGN(ALIGNED_SIZE(size), 7);
 
 	pthread_mutex_lock(&dsmcbe_ppu_csp_allocatedPointersMutex);
@@ -217,7 +218,7 @@ int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 	}
 
 	struct dsmcbe_cspChannelReadRequest* req;
-	int res = dsmcbe_new_cspChannelReadRequest_single(&req, channelid, 0);
+	int res = dsmcbe_new_cspChannelReadRequest_single(&req, channelid, 0, 0);
 	if (res != CSP_CALL_SUCCESS)
 		return res;
 

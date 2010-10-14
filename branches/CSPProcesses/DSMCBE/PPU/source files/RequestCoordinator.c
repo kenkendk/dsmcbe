@@ -1578,7 +1578,7 @@ void* dsmcbe_rc_ProccessWork(void* data)
 		while (g_queue_is_empty(dsmcbe_rc_GbagOfTasks) && g_queue_is_empty(dsmcbe_rc_GpriorityResponses) && !dsmcbe_rc_do_terminate)
 		{
 			clock_gettime(CLOCK_REALTIME, &ts);
-			ts.tv_sec += 6;
+			ts.tv_sec += 10;
 
 			timedWaitReturnValue = pthread_cond_timedwait(&dsmcbe_rc_queue_ready, &dsmcbe_rc_queue_mutex, &ts);
 
@@ -1590,8 +1590,13 @@ void* dsmcbe_rc_ProccessWork(void* data)
 				printf("RequestCoordinator got timeout %d, return value: %d\n", consecutiveTimeouts, timedWaitReturnValue);
 #endif
 
-				//A full minute with no activity is not good for any HPC app
-				if (consecutiveTimeouts > 10)
+#ifdef DEBUG
+				//One minute in DEBUG mode
+				if (consecutiveTimeouts > 6)
+#else
+				//Five minutes in RELEASE mode
+				if (consecutiveTimeouts > 30)
+#endif
 				{
 					REPORT_ERROR("Terminating because RequestCoordinator got 10 consecutive timeouts (60 seconds of waittime)");
 					exit(-1);

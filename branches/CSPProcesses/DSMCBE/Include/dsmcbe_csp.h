@@ -21,6 +21,8 @@
 #define CSP_CHANNEL_TYPE_ANY2ONE (3)
 //Defines that there can be multiple readers and writers
 #define CSP_CHANNEL_TYPE_ANY2ANY (4)
+//Defines that there can be only one reader and one writer, and the channel is not used for ALT request
+#define CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE (5)
 
 //Defines fair scheduling in external choice
 #define CSP_ALT_MODE_FAIR (0x0)

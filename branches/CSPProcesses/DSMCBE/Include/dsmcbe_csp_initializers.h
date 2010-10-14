@@ -11,7 +11,7 @@ int dsmcbe_new_cspChannelCreateRequest(struct dsmcbe_cspChannelCreateRequest** r
 
 int dsmcbe_new_cspChannelPoisonRequest(struct dsmcbe_cspChannelPoisonRequest** result, GUID channelid, unsigned int requestId);
 int dsmcbe_new_cspChannelReadRequest_multiple(struct dsmcbe_cspChannelReadRequest** result, unsigned int requestId, unsigned int mode, GUID* channels, size_t channelcount);
-int dsmcbe_new_cspChannelReadRequest_single(struct dsmcbe_cspChannelReadRequest** result, GUID channelid, unsigned int requestId);
+int dsmcbe_new_cspChannelReadRequest_single(struct dsmcbe_cspChannelReadRequest** result, GUID channelid, unsigned int requestId, unsigned int speId);
 
 int dsmcbe_new_cspChannelWriteRequest_multiple(struct dsmcbe_cspChannelWriteRequest** result, unsigned int requestId, unsigned int mode, GUID* channels, size_t channelcount, size_t size, void* data, unsigned int speId, struct dsmcbe_QueueableItemStruct* transferManager);
 int dsmcbe_new_cspChannelWriteRequest_single(struct dsmcbe_cspChannelWriteRequest** result, GUID channelid, unsigned int requestId, void* data, size_t size, unsigned int speId, struct dsmcbe_QueueableItemStruct* transferManager);
@@ -22,5 +22,7 @@ int dsmcbe_new_cspChannelPoisonedResponse(struct dsmcbe_cspChannelPoisonedRespon
 int dsmcbe_new_cspChannelSkipResponse(struct dsmcbe_cspChannelSkipResponse** result, unsigned int requestId);
 int dsmcbe_new_cspChannelReadResponse(struct dsmcbe_cspChannelReadResponse** result, GUID channelid, unsigned int requestId, void* data, unsigned int size, unsigned int speId, struct dsmcbe_QueueableItemStruct* transferManager);
 int dsmcbe_new_cspChannelWriteResponse(struct dsmcbe_cspChannelWriteResponse** result, GUID channelid, unsigned int requestId);
+
+int dsmcbe_new_cspDirectSetupResponse(struct dsmcbe_cspDirectSetupResponse** result, GUID channelid, unsigned int requestId, unsigned int bufferSize, struct dsmcbe_cspChannelWriteRequest* writeRequest, void* pendingWrites);
 
 #endif /* DSMCBE_CSP_INITIALIZERS_H_ */

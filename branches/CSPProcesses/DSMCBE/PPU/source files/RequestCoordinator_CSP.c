@@ -33,6 +33,8 @@ GHashTable* dsmcbe_rc_cspMultiWaiters;
 //Indicates that the channel is poisoned
 #define POISON_STATE_POISONED 2
 
+//Defines that the channel is a direct type but has been paired
+#define DIRECT_TYPE_BUT_USED (0x20)
 
 //This structure defines a single CSP channel
 struct dsmcbe_cspChannelStruct {
@@ -50,6 +52,9 @@ struct dsmcbe_cspChannelStruct {
 	GQueue* Greaders;
 	//The list of pending write requests
 	GQueue* Gwriters;
+
+	//A reference to the direct setup recipient, used to forward poison
+	QueueableItem directRecipient;
 };
 
 typedef struct dsmcbe_cspChannelStruct* cspChannel;
@@ -183,6 +188,16 @@ void dsmcbe_rc_csp_PoisonAndFlushChannel(cspChannel chan)
 
 	chan->Greaders = NULL;
 	chan->Gwriters = NULL;
+
+	if (chan->type == DIRECT_TYPE_BUT_USED && chan->directRecipient != NULL)
+	{
+		struct dsmcbe_cspChannelPoisonRequest* preq;
+		if (dsmcbe_new_cspChannelPoisonRequest(&preq, chan->id, UINT_MAX) != CSP_CALL_SUCCESS)
+			exit(-1);
+
+		dsmcbe_rc_SendMessage(chan->directRecipient, preq);
+		chan->directRecipient = NULL;
+	}
 }
 
 //Handles a match between a read and a write by responding to both
@@ -193,45 +208,71 @@ void dsmcbe_rc_csp_MatchedReaderAndWriter(cspChannel chan, QueueableItem reader,
 	dsmcbe_rc_csp_RemoveMultiPair(writer);
 
 	struct dsmcbe_cspChannelWriteRequest* wrq = (struct dsmcbe_cspChannelWriteRequest*)writer->dataRequest;
+	struct dsmcbe_cspChannelReadRequest* rrq = (struct dsmcbe_cspChannelReadRequest*)reader->dataRequest;
 
-	if (wrq->packageCode == PACKAGE_CSP_CHANNEL_POISON_REQUEST)
+	if (chan->type == CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE && wrq->speId != 0 && rrq->speId != 0)
 	{
-		dsmcbe_rc_csp_RespondChannelPoison(writer);
+		//SPE-to-SPE communication detected
+		//printf(WHERESTR "Auto-upgrade channel %u to direct type (%u -> %u), wrq->transferManager %u, queue-len: %d\n", WHEREARG, chan->id, rrq->speId, wrq->speId, (unsigned int)wrq->transferManager, g_queue_get_length(chan->Gwriters));
 
-		//This request is not in queue, so we respond here
-		dsmcbe_rc_csp_RespondChannelPoisoned(reader, chan->id);
+		//If we have buffered write requests, attach them to the setup response, and remove them from local queue
+		GQueue* pendingWrites = chan->Gwriters;
+		chan->Gwriters = g_queue_new();
 
-		//Update the flag and poison the channel, flushing any remaining items
-		dsmcbe_rc_csp_PoisonAndFlushChannel(chan);
+		//Store the writer in the queue as well
+		g_queue_push_head(pendingWrites, writer);
+
+		chan->directRecipient = dsmcbe_rc_new_QueueableItem(reader->mutex, reader->event, reader->Gqueue, NULL, reader->callback);
+
+		struct dsmcbe_cspDirectSetupResponse* resp;
+		dsmcbe_new_cspDirectSetupResponse(&resp, chan->id, rrq->requestID, chan->buffersize, wrq, pendingWrites);
+
+		dsmcbe_rc_RespondAny(reader, resp);
+
+		//Mark the channel as used
+		chan->type = DIRECT_TYPE_BUT_USED;
 	}
 	else
 	{
-		if (writer->Gqueue == NULL)
+		if (wrq->packageCode == PACKAGE_CSP_CHANNEL_POISON_REQUEST)
 		{
-			dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->speId, wrq->transferManager);
+			dsmcbe_rc_csp_RespondChannelPoison(writer);
 
-			//The write request was buffered, so we have already responded, just clean up
-			FREE(writer->dataRequest);
-			writer->dataRequest = NULL;
-			FREE(writer);
-			writer = NULL;
+			//This request is not in queue, so we respond here
+			dsmcbe_rc_csp_RespondChannelPoisoned(reader, chan->id);
+
+			//Update the flag and poison the channel, flushing any remaining items
+			dsmcbe_rc_csp_PoisonAndFlushChannel(chan);
 		}
 		else
 		{
-			//Respond as normal, we must respond to the write first, then the read,
-			// otherwise there is a race with the transferRequest and the writeResponse
-			//Unfortunately, when responding to the write request, the request gets
-			// free'd, so we need to copy some stuff before we can respond
-			void* data = wrq->data;
-			size_t size = wrq->size;
-			unsigned int speId = wrq->speId;
-			QueueableItem transferManager = wrq->transferManager;
+			if (writer->Gqueue == NULL)
+			{
+				dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, wrq->data, wrq->size, wrq->speId, wrq->transferManager);
 
-			//printf(WHERESTR "Responding to write with pointer @%u\n", WHEREARG, (unsigned int)data);
-			dsmcbe_rc_csp_RespondChannelWrite(writer, chan->id);
+				//The write request was buffered, so we have already responded, just clean up
+				FREE(writer->dataRequest);
+				writer->dataRequest = NULL;
+				FREE(writer);
+				writer = NULL;
+			}
+			else
+			{
+				//Respond as normal, we must respond to the write first, then the read,
+				// otherwise there is a race with the transferRequest and the writeResponse
+				//Unfortunately, when responding to the write request, the request gets
+				// free'd, so we need to copy some stuff before we can respond
+				void* data = wrq->data;
+				size_t size = wrq->size;
+				unsigned int speId = wrq->speId;
+				QueueableItem transferManager = wrq->transferManager;
 
-			//printf(WHERESTR "Responding to read with pointer @%u\n", WHEREARG, (unsigned int)data);
-			dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, data, size, speId, transferManager);
+				//printf(WHERESTR "Responding to write with pointer @%u\n", WHEREARG, (unsigned int)data);
+				dsmcbe_rc_csp_RespondChannelWrite(writer, chan->id);
+
+				//printf(WHERESTR "Responding to read with pointer @%u\n", WHEREARG, (unsigned int)data);
+				dsmcbe_rc_csp_RespondChannelRead(reader, chan->id, data, size, speId, transferManager);
+			}
 		}
 	}
 }
@@ -264,9 +305,15 @@ void dsmcbe_rc_csp_RespondWriteChannelWithCopy(cspChannel chan, QueueableItem it
 //Attempts to pair a read request with write requests for the given channel
 int dsmcbe_rc_csp_AttemptPairRead(cspChannel chan, QueueableItem item, unsigned int addToQueue)
 {
-	if ((chan->type == CSP_CHANNEL_TYPE_ONE2ONE || chan->type == CSP_CHANNEL_TYPE_ANY2ONE) && !g_queue_is_empty (chan->Greaders))
+	if ((chan->type == CSP_CHANNEL_TYPE_ONE2ONE || chan->type == CSP_CHANNEL_TYPE_ANY2ONE || chan->type == CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE) && !g_queue_is_empty (chan->Greaders))
 	{
 		REPORT_ERROR2("Attempted to use multiple readers on single reader channel: %d", chan->id);
+		dsmcbe_rc_RespondNACK(item);
+		return TRUE;
+	}
+	else if (chan->type == DIRECT_TYPE_BUT_USED)
+	{
+		REPORT_ERROR2("Attempted to re-use a direct channel: %d", chan->id);
 		dsmcbe_rc_RespondNACK(item);
 		return TRUE;
 	}
@@ -311,10 +358,23 @@ int dsmcbe_rc_csp_AttemptPairRead(cspChannel chan, QueueableItem item, unsigned 
 int dsmcbe_rc_csp_AttemptPairWrite(cspChannel chan, QueueableItem item, unsigned int addToQueue)
 {
 	//TODO: See if the multiwriter check can be better
-	if (chan->created && (chan->type == CSP_CHANNEL_TYPE_ONE2ONE || chan->type == CSP_CHANNEL_TYPE_ONE2ANY) && g_queue_get_length(chan->Gwriters) > chan->buffersize)
+	if (chan->created && (chan->type == CSP_CHANNEL_TYPE_ONE2ONE || chan->type == CSP_CHANNEL_TYPE_ONE2ANY || chan->type == CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE) && g_queue_get_length(chan->Gwriters) > chan->buffersize)
 	{
 		REPORT_ERROR2("Attempted to use multiple writers on single writer channel: %d", chan->id);
 		dsmcbe_rc_RespondNACK(item);
+		return TRUE;
+	}
+	else if (chan->type == DIRECT_TYPE_BUT_USED)
+	{
+		//A slight race here, because the direct setup response and the write request crossed paths
+		QueueableItem tmp = dsmcbe_rc_new_QueueableItem(chan->directRecipient->mutex, chan->directRecipient->event, chan->directRecipient->Gqueue, item->dataRequest, chan->directRecipient->callback);
+		FREE(item);
+		item = NULL;
+
+		void* req = tmp->dataRequest;
+		tmp->dataRequest = NULL;
+
+		dsmcbe_rc_SendMessage(tmp, req);
 		return TRUE;
 	}
 	else
@@ -345,6 +405,13 @@ int dsmcbe_rc_csp_AttemptPairWrite(cspChannel chan, QueueableItem item, unsigned
 		}
 		else
 		{
+#ifdef DEBUG
+			if (!g_queue_is_empty(chan->Gwriters))
+			{
+				REPORT_ERROR2("Queue had readers, but there was also a queue of writers? Channelid: %d", chan->id);
+				exit(-1);
+			}
+#endif
 			dsmcbe_rc_csp_MatchedReaderAndWriter(chan, g_queue_pop_head(chan->Greaders), item);
 			return TRUE;
 		}

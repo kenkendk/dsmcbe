@@ -34,10 +34,10 @@ unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
 	for(i = 0; i < MAX_PENDING_REQUESTS; i++)
 		if (spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].requestCode == 0)
 		{
-			spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].requestCode = requestCode;
-			spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].responseCode = 0;
 			value = spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS;
-			spu_dsmcbe_nextRequestNo = (spu_dsmcbe_nextRequestNo + 1) % MAX_PENDING_REQUESTS;
+			spu_dsmcbe_pendingRequests[value].requestCode = requestCode;
+			spu_dsmcbe_pendingRequests[value].responseCode = 0;
+			spu_dsmcbe_nextRequestNo = (value + 1) % MAX_PENDING_REQUESTS;
 			return value;
 		}
 		else
@@ -58,14 +58,33 @@ void spu_dsmcbe_readMailbox() {
 
 	unsigned int requestID = spu_read_in_mbox();
 	
+	//UINT_MAX is used to signal non-spe initiated messages
+	if (requestID == UINT_MAX)
+	{
+		//printf(WHERESTR "Got a UINT_MAX request\n", WHEREARG);
+		//Using "requestID" to store packageCode
+		requestID = spu_read_in_mbox();
+		//printf(WHERESTR "Got a %s (%d) request\n", WHEREARG, PACKAGE_NAME(requestID), requestID);
+		switch(requestID /*actually package code*/)
+		{
+			case PACKAGE_SPU_CSP_CHANNEL_POISON_DIRECT:
+				//Extract the channel ID
+				requestID = spu_read_in_mbox();
+				//printf(WHERESTR "Got a poison request for channel %d\n", WHEREARG, requestID);
+				dsmcbe_csp_channel_poison_internal(requestID);
+			break;
+		}
+		return;
+	}
+
 	if (requestID > MAX_PENDING_REQUESTS)
 	{
-		REPORT_ERROR("Invalid request id detected");
+		REPORT_ERROR2("Invalid request id detected: %d", requestID);
 		return;
 	}
 	
-	if (&(spu_dsmcbe_pendingRequests[requestID]) == NULL)
-		REPORT_ERROR("Request not found in PendingRequests")
+	if (spu_dsmcbe_pendingRequests[requestID].requestCode == 0)
+		REPORT_ERROR2("Request not found in PendingRequests: %d", requestID)
 
 	dsmcbe_thread_set_ready_by_requestId(requestID);
 
@@ -118,21 +137,37 @@ void spu_dsmcbe_readMailbox() {
 		case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST:
 			spu_dsmcbe_pendingRequests[requestID].responseCode = spu_read_in_mbox();
 
-			if (spu_dsmcbe_pendingRequests[requestID].responseCode == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE)
-				spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
-			else if (
-					spu_dsmcbe_pendingRequests[requestID].responseCode == PACKAGE_CSP_CHANNEL_READ_RESPONSE ||
-					spu_dsmcbe_pendingRequests[requestID].responseCode == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE ||
-					spu_dsmcbe_pendingRequests[requestID].responseCode == PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE
-			)
+			switch(spu_dsmcbe_pendingRequests[requestID].responseCode)
 			{
-				spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
-				spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
+				case PACKAGE_SPU_CSP_CHANNEL_SETUP_DIRECT:
+					//Extract channelId
+					spu_dsmcbe_pendingRequests[requestID].responseCode = spu_read_in_mbox();
+					//Extract the buffer pointer
+					spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
+					dsmcbe_csp_setupDirectChannel(requestID, spu_dsmcbe_pendingRequests[requestID].responseCode, (void*)spu_dsmcbe_pendingRequests[requestID].size);
+					break;
+				case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE:
+					spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
+					break;
+				case PACKAGE_CSP_CHANNEL_READ_RESPONSE:
+				case PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE:
+				case PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE:
+					spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
+					spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
+					break;
+				case PACKAGE_CSP_CHANNEL_WRITE_REQUEST:
+					spu_dsmcbe_pendingRequests[requestID].pointer = (void*)spu_read_in_mbox();
+					spu_dsmcbe_pendingRequests[requestID].size = spu_read_in_mbox();
+					dsmcbe_csp_handleCrossWrite(requestID);
+					break;
+				case PACKAGE_NACK:
+					break;
 			}
-
 			break;
+
 		default:
-			fprintf(stderr, WHERESTR "Unknown package received: %i, message: %s", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, strerror(errno));
+			//fprintf(stderr, WHERESTR "Unknown package received: %i, requestId: %d, message: %s\n", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, requestID, strerror(errno));
+			printf(WHERESTR "Unknown package received: %i, requestId: %d, message: %s\n", WHEREARG, spu_dsmcbe_pendingRequests[requestID].requestCode, requestID, strerror(errno));
 	};	
 }
 
@@ -366,41 +401,42 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 		REPORT_ERROR2("endAsync called on non-existing operation: %d", requestNo);
 		return NULL;
 	}
-	
+
 #ifdef TIMEOUT_DETECTION
 	unsigned int i = 0;
-	while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
-	{
-		//Should get response before we can count to this
+#endif
 
-		if (i++ == 4000000000U) 
-		{
-			REPORT_ERROR2("Detected timeout for request id %d", requestNo);
-			SPU_WRITE_OUT_MBOX(PACKAGE_DEBUG_PRINT_STATUS);
-			SPU_WRITE_OUT_MBOX(requestNo);
-			i = 0;
-		}
-
-		if (dsmcbe_thread_is_threaded())
-		{
-			printf(WHERESTR "Yielding\n", WHEREARG);
-			dsmcbe_thread_yield();
-		}
-	}
-#else
-	while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
+	//Non-threaded is only active during startup
+	if (!dsmcbe_thread_is_threaded())
 	{
-		if (dsmcbe_thread_is_threaded())
-		{
-			dsmcbe_thread_set_status(dsmcbe_thread_current_id(), requestNo);
-			if (!dsmcbe_thread_yield_ready())
-				spu_dsmcbe_readMailbox();
-		}
-		else
+		while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
 			spu_dsmcbe_readMailbox();
 	}
-#endif
-	
+	else
+	{
+		while ((status = spu_dsmcbe_getAsyncStatus(requestNo)) == SPU_DSMCBE_ASYNC_BUSY)
+		{
+			dsmcbe_thread_set_status(dsmcbe_thread_current_id(), requestNo);
+	#ifdef TIMEOUT_DETECTION
+			if (i++ == 1000000U)
+			{
+				REPORT_ERROR2("Detected timeout for request id %d", requestNo);
+				SPU_WRITE_OUT_MBOX(PACKAGE_DEBUG_PRINT_STATUS);
+				SPU_WRITE_OUT_MBOX(requestNo);
+				i = 0;
+			}
+
+			dsmcbe_thread_yield_ready();
+	#else
+			if(!dsmcbe_thread_yield_ready())
+			{
+				dsmcbe_thread_yield();
+				//spu_dsmcbe_readMailbox();
+			}
+	#endif
+		}
+	}
+
 	//printf(WHERESTR "Done waiting\n", WHEREARG);
 
 	if (status == SPU_DSMCBE_ASYNC_ERROR)
@@ -425,6 +461,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	}
 	
 	spu_dsmcbe_pendingRequests[requestNo].requestCode = 0;
+	spu_dsmcbe_pendingRequests[requestNo].channelId = 0;
 	return spu_dsmcbe_pendingRequests[requestNo].pointer;
 }
 
@@ -554,7 +591,8 @@ void dsmcbe_initializeReserved(unsigned int reservedMemory)
 {
 	//printf(WHERESTR "Setting up malloc\n", WHEREARG);
 	spu_dsmcbe_memory_setup(reservedMemory);
-	memset(spu_dsmcbe_pendingRequests, 0, MAX_PENDING_REQUESTS * sizeof(unsigned int));
+	memset(spu_dsmcbe_pendingRequests, 0, MAX_PENDING_REQUESTS * sizeof(struct spu_dsmcbe_pendingRequestStruct));
+	memset(spu_dsmcbe_directChannels, 0, MAX_DIRECT_CHANNELS * sizeof(struct spu_dsmcbe_directChannelStruct));
 	spu_dsmcbe_initialized = TRUE;
 }
 
