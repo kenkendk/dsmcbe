@@ -518,6 +518,8 @@ void dsmcbe_rc_csp_ProcessChannelReadOrWriteRequest(QueueableItem item, unsigned
 		GUID** channelIds = (isWrite ? &((struct dsmcbe_cspChannelWriteRequest*)item->dataRequest)->channels : &((struct dsmcbe_cspChannelReadRequest*)item->dataRequest)->channels);
 		cspChannel* channels = MALLOC(sizeof(cspChannel) * channelcount);
 
+		//printf("--------- Got %s request for channel %d, with channels %d: ", isWrite ? "write" : "read", channelId, channelcount);
+
 		unsigned int hasSkip = FALSE;
 		unsigned int hasTimeout = FALSE;
 
