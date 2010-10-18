@@ -389,7 +389,7 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 			else if (preq->operation == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST)
 			{
 				if (preq->channelPointer != NULL)
-					*((unsigned int*)preq->channelPointer) = preq->objId;
+					*((unsigned int*)preq->channelPointer) = resp->channelId;
 				dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE, preq->requestId, (unsigned int)oldObj->LS, oldObj->size);
 				dsmcbe_spu_free_PendingRequest(preq);
 			}
@@ -510,13 +510,13 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 
 	obj->csp_seq_no = NEXT_SEQ_NO(state->cspSeqNo, MAX_CSP_INACTIVE_ITEMS) + CSP_INACTIVE_BASE;
 
-	int max_tries = CSP_INACTIVE_BASE + 1;
+	int max_tries = MAX_CSP_INACTIVE_ITEMS + 1;
 	while (max_tries-- > 0 && g_hash_table_lookup(state->csp_inactive_items, (void*)obj->csp_seq_no) != NULL)
 	{
 #ifdef DEBUG
-		printf(WHERESTR "Retry set id, seq_no=%d, tries left=%d, current pending count=%d, to avoid this increase MAX_CSP_INACTIVE_ITEMS which is currently %d\n", WHEREARG, obj->csp_seq_no, max_tries, g_hash_table_size(state->csp_inactive_items), MAX_CSP_INACTIVE_ITEMS);
+		//printf(WHERESTR "Retry set id, seq_no=%d, tries left=%d, current pending count=%d, to avoid this increase MAX_CSP_INACTIVE_ITEMS which is currently %d\n", WHEREARG, obj->csp_seq_no, max_tries, g_hash_table_size(state->csp_inactive_items), MAX_CSP_INACTIVE_ITEMS);
 #endif
-		obj->csp_seq_no = NEXT_SEQ_NO(state->cspSeqNo, CSP_INACTIVE_BASE) + CSP_INACTIVE_BASE;
+		obj->csp_seq_no = NEXT_SEQ_NO(state->cspSeqNo, MAX_CSP_INACTIVE_ITEMS) + CSP_INACTIVE_BASE;
 	}
 
 	if (max_tries == 0)
