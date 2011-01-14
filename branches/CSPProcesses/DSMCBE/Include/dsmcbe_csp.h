@@ -79,17 +79,17 @@ int dsmcbe_csp_item_create(void** data, size_t size);
 //Releases all resources allocated by the item
 int dsmcbe_csp_item_free(void* data);
 
-//Writes the object to the given channel, using the channel ID, return value should be zero if no errors
+//Writes the object to the given channel, using the channel ID, return value is zero if no errors occurred
 int dsmcbe_csp_channel_write(GUID channelid, void* data);
 
-//Writes the object to the given channel, using the channel ID, return value should be zero if no errors
+//Writes the object to the given channel, using the channel ID, return value is zero if no errors occurred
 int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data);
 
 //Reads a value from any of the channels presented, selection is based on the mode argument.
 //If the call succeeds, the channelid value indicates the channel index that was read
 int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channelcount, GUID* channelid, size_t* size, void** data);
 
-//Reads a value from any of the channels presented, selection is based on the mode argument.
+//Writes a value to any of the channels presented, selection is based on the mode argument.
 //If the call succeeds, the channelid value indicates the channel index that was written
 int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t channelcount, void* data, GUID* channelid);
 
