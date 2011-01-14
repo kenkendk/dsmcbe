@@ -82,7 +82,7 @@ int dsmcbe_csp_item_free(void* data);
 //Writes the object to the given channel, using the channel ID, return value is zero if no errors occurred
 int dsmcbe_csp_channel_write(GUID channelid, void* data);
 
-//Writes the object to the given channel, using the channel ID, return value is zero if no errors occurred
+//Reads an object from the given channel, using the channel ID, return value is zero if no errors occurred
 int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data);
 
 //Reads a value from any of the channels presented, selection is based on the mode argument.
