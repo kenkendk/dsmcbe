@@ -173,8 +173,8 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 			break;
 		TRACE_PROGRESS_DATA("is reading", readChannel);
 
-		if (((unsigned int*)data)[1] != (procId == 0 ? procCount - 1 : procId - 1))
-			printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u, got item last touched by %d\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel, ((unsigned int*)data)[1]);
+		/*if (((unsigned int*)data)[1] != (procId == 0 ? procCount - 1 : procId - 1))
+			printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u, got item last touched by %d\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel, ((unsigned int*)data)[1]);*/
 
 		if (procId == TICK_EMITTER && ((unsigned int*)data)[2] == UINT_MAX)
 		{

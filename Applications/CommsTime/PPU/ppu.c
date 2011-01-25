@@ -21,6 +21,7 @@
 	};
 
 //HACK:, use the same code for all CSP processes, simply import the C files into this file
+#define COMPILE_FOR_PPE
 #include "../SPU/csp_commons.c"
 #include "../SPU/csp_main.c"
 
