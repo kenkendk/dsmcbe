@@ -232,6 +232,14 @@
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1187743557" name="Pthread library (-lpthread)" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
 <option id="cell.ppu.gnu.c.linker.option.libs.361979008" name="Libraries (-l)" superClass="cell.ppu.gnu.c.linker.option.libs" valueType="libs">
 <listOptionValue builtIn="false" value="m"/>
+<listOptionValue builtIn="false" value="tinyptc"/>
+<listOptionValue builtIn="false" value="Xext"/>
+<listOptionValue builtIn="false" value="Xxf86dga"/>
+<listOptionValue builtIn="false" value="Xxf86vm"/>
+<listOptionValue builtIn="false" value="Xv"/>
+<listOptionValue builtIn="false" value="X11"/>
+<listOptionValue builtIn="false" value="Xau"/>
+<listOptionValue builtIn="false" value="Xdmcp"/>
 <listOptionValue builtIn="false" value="spe2"/>
 <listOptionValue builtIn="false" value="glib-2.0"/>
 <listOptionValue builtIn="false" value="gthread-2.0"/>

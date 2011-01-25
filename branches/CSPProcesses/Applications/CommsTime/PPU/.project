@@ -5,6 +5,7 @@
 	<projects>
 		<project>CommsTime SPU</project>
 		<project>dsmcbe_ppu</project>
+		<project>dsmcbe_spu</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
@@ -33,7 +34,7 @@
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.buildLocation</key>
-					<value>${workspace_loc:/PPU/ppu-gnu32-debug}</value>
+					<value>${workspace_loc:/PPU/ppu-gnu32-release}</value>
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.cleanBuildTarget</key>

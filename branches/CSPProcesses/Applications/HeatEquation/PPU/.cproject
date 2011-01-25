@@ -114,7 +114,6 @@
 <listOptionValue builtIn="false" value="Xv"/>
 <listOptionValue builtIn="false" value="Xxf86dga"/>
 <listOptionValue builtIn="false" value="Xxf86vm"/>
-<listOptionValue builtIn="false" value="Xxf86misc"/>
 <listOptionValue builtIn="false" value="Xau"/>
 <listOptionValue builtIn="false" value="Xdmcp"/>
 <listOptionValue builtIn="false" value="dl"/>
@@ -128,7 +127,7 @@
 <option id="gnu.c.link.option.paths.1319664881" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/ppu-gnu32-release}&quot;"/>
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/HeatEquation PPU}/../TinyPTC&quot;"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/../../glib-ppc32/usr/lib/&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu}/../../glib/lib/&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/lib"/>
 </option>
 <option id="cell.ppu.gnu.c.linker.option.libs.lpthread.1105637046" name="Pthread library (-lpthread)" superClass="cell.ppu.gnu.c.linker.option.libs.lpthread" value="true" valueType="boolean"/>
@@ -139,7 +138,7 @@
 <option id="gnu.c.compiler.option.include.paths.2068652079" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/HeatEquation PPU}/../TinyPTC&quot;"/>
 <listOptionValue builtIn="false" value="/opt/cell/sysroot/usr/include/"/>
-<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_common}/..&quot;"/>
+<listOptionValue builtIn="false" value="&quot;${workspace_loc:/dsmcbe_ppu/header files}&quot;"/>
 </option>
 <option defaultValue="gnu.c.optimization.level.most" id="cell.ppu.gnu32.c.compiler.release.option.optimization.level.757672906" name="Optimization Level" superClass="cell.ppu.gnu32.c.compiler.release.option.optimization.level" valueType="enumerated"/>
 <option id="cell.ppu.gnu32.c.compiler.release.option.debugging.level.700393414" name="Debug Level" superClass="cell.ppu.gnu32.c.compiler.release.option.debugging.level"/>

@@ -14,6 +14,9 @@ inline int dsmcbe_thread_is_threaded();
 //The return value is true if a yield was performed, false otherwise
 inline int dsmcbe_thread_yield();
 
+//Gets the number of threads created
+inline int dsmcbe_thread_get_count();
+
 //If another thread is ready, it is activated.
 //The return value is true if a yield was performed, false otherwise
 inline int dsmcbe_thread_yield_ready();

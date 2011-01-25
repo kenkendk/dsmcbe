@@ -204,7 +204,6 @@
 <option id="cell.gnu.c.linker.option.libs.112960877" name="Libraries (-l)" superClass="cell.gnu.c.linker.option.libs" valueType="libs">
 <listOptionValue builtIn="false" value="m"/>
 <listOptionValue builtIn="false" value="dsmcbe_spu"/>
-<listOptionValue builtIn="false" value="sputimer"/>
 </option>
 <option id="cell.gnu.c.linker.option.libs.lm.253716906" name="Math library (-lm)" superClass="cell.gnu.c.linker.option.libs.lm" value="true" valueType="boolean"/>
 <option id="gnu.c.link.option.paths.1119930162" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="stringList">

@@ -16,6 +16,8 @@
 //Disable this if there are long wait periods in the program.
 //#define TIMEOUT_DETECTION
 
+int dsmcbe_thread_count;
+
 //The stack space allocated for the main thread
 #define MAIN_THREAD_STACKSPACE (1024 * 6)
 
@@ -428,11 +430,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 
 			dsmcbe_thread_yield_ready();
 	#else
-			if(!dsmcbe_thread_yield_ready())
-			{
-				dsmcbe_thread_yield();
-				//spu_dsmcbe_readMailbox();
-			}
+			dsmcbe_thread_yield();
 	#endif
 		}
 	}

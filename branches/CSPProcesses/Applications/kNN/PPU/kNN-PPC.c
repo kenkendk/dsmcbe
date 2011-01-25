@@ -99,7 +99,7 @@ int Find_kNN(unsigned int spu_count, unsigned int k, unsigned int d, unsigned in
 	for(i = 0; i < blocks; i++)
 	{
 		CSP_SAFE_CALL("harvest result", dsmcbe_csp_channel_read(RESULT_CHANNEL, NULL, &result));
-#if DEBUG
+#ifdef DEBUG
 		printf("PPC has received results for block %u with %u elements\n", ((unsigned int*)result)[0], ((unsigned int*)result)[1]);
 #endif
 		CSP_SAFE_CALL("free result", dsmcbe_csp_item_free(result));
