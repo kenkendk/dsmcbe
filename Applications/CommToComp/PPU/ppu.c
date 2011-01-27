@@ -13,7 +13,6 @@
 #define MAX(x,y) ((x > y) ? (x) : (y))
 #endif
 
-
 int main(int argc, char **argv)
 {
 	printf("Compile time - %s\n", __TIME__);
@@ -47,6 +46,13 @@ int main(int argc, char **argv)
 		perror("There must be at least one SPE\n");
 		exit(1);
 	}
+
+	if (dataSize < 16) {
+		perror("Datasize must be at least 16\n");
+		exit(1);
+	}
+
+	dsmcbe_rc_register_keyboard_debug_handler();
 
 	printf(WHERESTR "Using %u hardware threads\n", WHEREARG, PPE_HARDWARE_THREADS);
 	dsmcbe_SetHardwareThreads(PPE_HARDWARE_THREADS);
@@ -116,20 +122,17 @@ int main(int argc, char **argv)
 		sw_timeString(buf);
 		totalseconds += sw_getSecondsElapsed();
 		printf("CommToComp: %f usec, datasize: %d, work-ops: %d (%d each), %d ops on %d:%d processes's in %s.\n", (sw_getSecondsElapsed() / SPE_REPETITIONS / workers) * 1000000, size, workCount, workCount / workers, SPE_REPETITIONS, spu_threadcount, spu_fibers, buf);
+		//fprintf(stderr, "CommToComp: %f usec, datasize: %d, work-ops: %d (%d each), %d ops on %d:%d processes's in %s.\n", (sw_getSecondsElapsed() / SPE_REPETITIONS / workers) * 1000000, size, workCount, workCount / workers, SPE_REPETITIONS, spu_threadcount, spu_fibers, buf);
+
 		sw_start();
 
 		count++;
 		if (count >= ROUND_COUNT)
 		{
-			for(i = 0; i < workers; i++)
-			{
-				//printf(WHERESTR "Poison channel %d\n", WHEREARG, RING_CHANNEL_BASE + i);
-				CSP_SAFE_CALL("poison a comm chan", dsmcbe_csp_channel_poison(RING_CHANNEL_BASE + i));
-			}
-
 			//printf(WHERESTR "Poison channel %d\n", WHEREARG, DELTA_CHANNEL);
 			CSP_SAFE_CALL("poison delta", dsmcbe_csp_channel_poison(DELTA_CHANNEL));
 			printf("CommToComp avg: %f usec,\nTotal Seconds are: %lf\n", (totalseconds / (ROUND_COUNT * SPE_REPETITIONS) / workers) * 1000000, totalseconds);
+			//fprintf(stderr, "CommToComp avg: %f usec,\nTotal Seconds are: %lf\n", (totalseconds / (ROUND_COUNT * SPE_REPETITIONS) / workers) * 1000000, totalseconds);
 			break;
 		}
 	}

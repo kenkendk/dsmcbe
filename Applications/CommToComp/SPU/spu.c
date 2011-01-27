@@ -8,6 +8,8 @@
 #include <limits.h>
 #include "../PPU/guids.h"
 
+#include <dsmcbe_spu_internal.h>
+
 //Shared variables for all SPE threads
 unsigned int IsFetchingData = 0;
 unsigned int NextProcId = UINT_MAX;
@@ -29,10 +31,10 @@ unsigned int Shared_dataSize = 0;
 #endif
 
 
-unsigned long oprcount = 0;
-
 int copyItem(void* dataItem, size_t size, GUID targetChannel)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
+
 	void* copy;
 	int res;
 
@@ -65,6 +67,8 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 	UNUSED(machineId);
 	UNUSED(threadId);
 
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
+
 #ifdef SMART_ID_ASSIGNMENT
 	//This shared variable works as a barrier
 	while (IsFetchingData == 1)
@@ -77,6 +81,8 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 
 #endif
 		//printf(WHERESTR "Spe %llu, thread %u is reading setup\n",WHEREARG, speid, threadId);
+
+		SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
 
 		CSP_SAFE_CALL("get setup", dsmcbe_csp_channel_read(SETUP_CHANNEL, NULL, &data));
 		NextProcId = ((int*)data)[0];
@@ -94,6 +100,8 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 		IsFetchingData = 0;
 	}
 #endif
+
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
 
 	//Each thread will copy the shared data into the non-shared variables
 	procId = NextProcId;
@@ -114,9 +122,14 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 
 	//printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel);
 
-	CSP_SAFE_CALL("create work channel", dsmcbe_csp_channel_create(readChannel, 1, CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE));
+	CSP_SAFE_CALL("create work channel", dsmcbe_csp_channel_create(readChannel, 1, CSP_CHANNEL_TYPE_ONE2ONE));
+
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
 
 	unsigned int skipFirstWrite = 0;
+	unsigned long oprcount = 0;
+
+
 
 #ifdef SINGLE_PACKAGE
 	unsigned int ids[] = SINGLE_PACKAGE;
@@ -153,31 +166,44 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 
 	while(1)
 	{
+		SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
+
 		if (!skipFirstWrite)
 		{
+			SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
+
 			TRACE_PROGRESS_DATA("is writing", writeChannel);
 			if(dsmcbe_csp_channel_write(writeChannel, data) != CSP_CALL_SUCCESS)
 			{
 				//printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u, is free'in item\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel);
 				CSP_SAFE_CALL("free copy", dsmcbe_csp_item_free(data));
 				//printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u, is terminating\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel);
+
 				break;
 			}
 			TRACE_PROGRESS_NODATA("wrote", writeChannel);
+
+			SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
 		}
 		else
 			skipFirstWrite = 0;
 
 		TRACE_PROGRESS_NODATA("is reading", readChannel);
-		if(dsmcbe_csp_channel_read(readChannel, NULL, &data) != CSP_CALL_SUCCESS)
+		if(dsmcbe_csp_channel_read(readChannel, NULL, &data) != CSP_CALL_SUCCESS) {
+			CSP_SAFE_CALL("forward poison", dsmcbe_csp_channel_poison(writeChannel));
 			break;
-		TRACE_PROGRESS_DATA("is reading", readChannel);
+		}
+		TRACE_PROGRESS_DATA("read", readChannel);
 
 		/*if (((unsigned int*)data)[1] != (procId == 0 ? procCount - 1 : procId - 1))
 			printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u, got item last touched by %d\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel, ((unsigned int*)data)[1]);*/
 
+		SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
+
 		if (procId == TICK_EMITTER && ((unsigned int*)data)[2] == UINT_MAX)
 		{
+			SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
+
 			if (oprcount >= SPE_REPETITIONS)
 			{
 				TRACE_PROGRESS_DATA("is writing delta copy", DELTA_CHANNEL);
@@ -188,6 +214,13 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 					//printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u, is free'in item\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel);
 					CSP_SAFE_CALL("free copy", dsmcbe_csp_item_free(data));
 					//printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u, is terminating\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel);
+
+					CSP_SAFE_CALL("poison write", dsmcbe_csp_channel_poison(writeChannel));
+
+					while(dsmcbe_csp_channel_read(readChannel, NULL, &data) == CSP_CALL_SUCCESS) {
+						CSP_SAFE_CALL("free extra", dsmcbe_csp_item_free(data));
+					}
+
 					break;
 				}
 
@@ -197,6 +230,8 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 				oprcount++;
 		}
 
+		SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
+
 		//Simulate some amount of work
 		a = 1.1;
 		for(i = 0; i < workCount; i++)
@@ -204,10 +239,13 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 
 		((unsigned int*)data)[0] = (unsigned int)a;
 		((unsigned int*)data)[1] = procId;
+
+		SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
 	}
 
 	//printf(WHERESTR "Spe %llu (%u), thread %u is terminating\n",WHEREARG, speid, procId, threadId);
 
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
 	return 0;
 }
 
