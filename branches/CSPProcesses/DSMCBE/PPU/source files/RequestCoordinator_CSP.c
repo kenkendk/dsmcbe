@@ -59,6 +59,36 @@ struct dsmcbe_cspChannelStruct {
 
 typedef struct dsmcbe_cspChannelStruct* cspChannel;
 
+
+void dsmcbe_rc_csp_dumpChannelState() {
+
+	GHashTableIter iter;
+	void* key;
+	void* data;
+
+	fprintf(stderr, " * DEADLOCK * " WHERESTR "Dumping CSP channel states\n", WHEREARG);
+
+	g_hash_table_iter_init(&iter, dsmcbe_rc_cspChannels);
+	while(g_hash_table_iter_next(&iter, &key, &data)) {
+		cspChannel chan = (cspChannel)data;
+
+		fprintf(stderr, " * DEADLOCK * " WHERESTR "CSP channel %d state:\n\tbufferSize: %d\n\twriters: %d\n\treaders: %d\n\tpoisonstate: %s (%d)\n\n", WHEREARG,
+				chan->id,
+				chan->buffersize,
+				chan->Gwriters == NULL ? -1 : g_queue_get_length(chan->Gwriters),
+				chan->Greaders == NULL ? -1 : g_queue_get_length(chan->Greaders),
+				chan->poisonState == POISON_STATE_NONE ? "Normal" : (chan->poisonState == POISON_STATE_PENDING ? "pending" : "poisoned"),
+				chan->poisonState
+		);
+
+
+
+
+	}
+
+}
+
+
 //Initializes a new cspChannelStruct object
 cspChannel dsmcbe_rc_csp_createChannelObject(GUID channelId)
 {
@@ -358,7 +388,7 @@ int dsmcbe_rc_csp_AttemptPairRead(cspChannel chan, QueueableItem item, unsigned 
 int dsmcbe_rc_csp_AttemptPairWrite(cspChannel chan, QueueableItem item, unsigned int addToQueue)
 {
 	//TODO: See if the multiwriter check can be better
-	if (chan->created && (chan->type == CSP_CHANNEL_TYPE_ONE2ONE || chan->type == CSP_CHANNEL_TYPE_ONE2ANY || chan->type == CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE) && g_queue_get_length(chan->Gwriters) > chan->buffersize)
+	if (chan->created && chan->poisonState == POISON_STATE_NONE && (chan->type == CSP_CHANNEL_TYPE_ONE2ONE || chan->type == CSP_CHANNEL_TYPE_ONE2ANY || chan->type == CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE) && g_queue_get_length(chan->Gwriters) > chan->buffersize)
 	{
 		REPORT_ERROR2("Attempted to use multiple writers on single writer channel: %d", chan->id);
 		dsmcbe_rc_RespondNACK(item);
@@ -482,7 +512,7 @@ void dsmcbe_rc_csp_ProcessChannelPoisonRequest(QueueableItem item)
 
 			//If we are writing within the buffer range, the poison is now pending
 			// otherwise, it will be discovered at some later point
-			if (chan->buffersize > g_queue_get_length(chan->Gwriters))
+			if (g_queue_get_length(chan->Gwriters) <= chan->buffersize)
 				chan->poisonState = POISON_STATE_PENDING;
 
 			g_queue_push_tail(chan->Gwriters, item);
@@ -503,10 +533,10 @@ void dsmcbe_rc_csp_ProcessChannelReadOrWriteRequest(QueueableItem item, unsigned
 
 	if (channelcount == 0)
 	{
-		//printf("--------- Got %s request for channel %d\n", isWrite ? "write" : "read", channelId);
-		//Single channel mode
-
 		cspChannel chan = dsmcbe_rc_csp_getChannelObject(channelId);
+
+		//printf(WHERESTR "--------- Got %s request for channel %d, writequeue: %d, readqueue: %d, buffersize: %d\n", WHEREARG, isWrite ? "write" : "read", channelId, chan->Gwriters == NULL ? -1 : g_queue_get_length(chan->Gwriters), chan->Greaders == NULL ? -1 : g_queue_get_length(chan->Greaders), chan->buffersize);
+		//Single channel mode
 
 		if (chan->poisonState == POISON_STATE_POISONED)
 			dsmcbe_rc_csp_RespondChannelPoisoned(item, chan->id);

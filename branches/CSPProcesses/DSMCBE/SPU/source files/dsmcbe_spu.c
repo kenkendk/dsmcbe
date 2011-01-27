@@ -31,9 +31,12 @@ unsigned int spu_dsmcbe_initialized = FALSE;
 //This function gets the next available request number, and sets the response flag to "not ready"
 unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
 {
+	//SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	size_t i;
 	unsigned int value;
-	for(i = 0; i < MAX_PENDING_REQUESTS; i++)
+	for(i = 0; i < MAX_PENDING_REQUESTS; i++) {
+
 		if (spu_dsmcbe_pendingRequests[spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS].requestCode == 0)
 		{
 			value = spu_dsmcbe_nextRequestNo % MAX_PENDING_REQUESTS;
@@ -46,9 +49,22 @@ unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
 		{
 			spu_dsmcbe_nextRequestNo++;
 		}
-		
+	}
 	REPORT_ERROR("No available request slots found, consider raising the MAX_PENDING_REQUESTS");
 	return UINT_MAX;
+}
+
+void spu_dsmcbe_dumpState(unsigned int state) {
+
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
+	fprintf(stderr, WHERESTR "* DEADLOCK * dumping SPU %d pending requests\n", WHEREARG, state);
+	size_t i;
+	for(i = 0; i < MAX_PENDING_REQUESTS; i++) {
+		if (spu_dsmcbe_pendingRequests[i].requestCode != 0) {
+			fprintf(stderr, " * DEADLOCK * " WHERESTR "%d spu_preq found\n\tRequestId: %d\n\tRequestCode: %s (%d)\n\tResponseCode: %s (%d)\n", WHEREARG, state, (unsigned int)i, PACKAGE_NAME(spu_dsmcbe_pendingRequests[i].requestCode), spu_dsmcbe_pendingRequests[i].requestCode, PACKAGE_NAME(spu_dsmcbe_pendingRequests[i].responseCode), spu_dsmcbe_pendingRequests[i].responseCode);
+		}
+	}
 }
 
 //Reads mailbox messages, blocking
@@ -58,6 +74,7 @@ void spu_dsmcbe_readMailbox() {
 	printf(WHERESTR "Reading mailbox, blocking\n", WHEREARG);
 #endif
 
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
 	unsigned int requestID = spu_read_in_mbox();
 	
 	//UINT_MAX is used to signal non-spe initiated messages
@@ -74,7 +91,12 @@ void spu_dsmcbe_readMailbox() {
 				requestID = spu_read_in_mbox();
 				//printf(WHERESTR "Got a poison request for channel %d\n", WHEREARG, requestID);
 				dsmcbe_csp_channel_poison_internal(requestID);
-			break;
+				break;
+			case PACKAGE_SPU_CSP_DUMP_STATE:
+				//Extract the context pointer
+				requestID = spu_read_in_mbox();
+				spu_dsmcbe_dumpState(requestID);
+				break;
 		}
 		return;
 	}
@@ -176,6 +198,8 @@ void spu_dsmcbe_readMailbox() {
 //Initiates a create operation
 unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("Cannot request object table");
@@ -213,6 +237,8 @@ unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 
 unsigned int spu_dsmcbe_acquire_barrier_begin(GUID id)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("Cannot request object table");
@@ -250,6 +276,8 @@ unsigned int spu_dsmcbe_acquire_barrier_begin(GUID id)
 //Initiates an acquire operation
 unsigned int spu_dsmcbe_acquire_begin(GUID id, int type)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("Cannot request object table");
@@ -286,6 +314,8 @@ unsigned int spu_dsmcbe_acquire_begin(GUID id, int type)
 //Initiates a release operation
 void spu_dsmcbe_release_begin(void* data)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -303,6 +333,8 @@ void spu_dsmcbe_release_begin(void* data)
 //Initiates a malloc operation
 unsigned int spu_dsmcbe_memory_malloc_begin(unsigned int size)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -323,6 +355,8 @@ unsigned int spu_dsmcbe_memory_malloc_begin(unsigned int size)
 //Initiates a free operation
 void spu_dsmcbe_memory_free_begin(void* data)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -338,6 +372,8 @@ void spu_dsmcbe_memory_free_begin(void* data)
 //Cleanly terminates the DSMCBE system
 void dsmcbe_terminate()
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -365,6 +401,8 @@ void dsmcbe_terminate()
 //Returns a SPU_DSMCBE_ASYNC_* value indicating the state of the operation
 unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	//Process any pending messages
 	while (spu_stat_in_mbox() != 0)
 		spu_dsmcbe_readMailbox();
@@ -378,6 +416,8 @@ unsigned int spu_dsmcbe_getAsyncStatus(unsigned int requestNo)
 //Ends an async operation. Blocking if the operation is not complete on entry
 void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	unsigned int status;
 	
 #ifdef DEBUG_COMMUNICATION	
@@ -465,6 +505,8 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 
 void spu_dsmcbe_enqueueStreamAcquire(GUID id, int type)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("Cannot request object table");
@@ -494,6 +536,8 @@ void spu_dsmcbe_enqueueStreamAcquire(GUID id, int type)
 
 void* spu_dsmcbe_dequeueStreamAcquire(GUID* id, unsigned long* size)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	if (id == OBJECT_TABLE_ID)
 	{
 		REPORT_ERROR("Cannot request object table");
@@ -544,26 +588,38 @@ void dsmcbe_acquireBarrier(GUID id) {
 }
  
 void* dsmcbe_acquire(GUID id, unsigned long* size, int type) {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	return spu_dsmcbe_endAsync(spu_dsmcbe_acquire_begin(id, type), size);
 }
 
 void dsmcbe_release(void* data) {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	spu_dsmcbe_release_begin(data);
 }
 
 void* dsmcbe_create(GUID id, unsigned long size) {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	return spu_dsmcbe_endAsync(spu_dsmcbe_create_begin(id, size), NULL);
 }
 
 void* spu_dsmcbe_memory_malloc(unsigned long size) {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	return spu_dsmcbe_endAsync(spu_dsmcbe_memory_malloc_begin(size), NULL);;
 }
 void spu_dsmcbe_memory_free(void* data) {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	spu_dsmcbe_memory_free_begin(data);
 }
 
 void spu_dsmcbe_memory_setup(unsigned int reservedMemory)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	void* start;
 	unsigned int size;
 	
@@ -579,14 +635,16 @@ void spu_dsmcbe_memory_setup(unsigned int reservedMemory)
 	if (start == NULL)
 		REPORT_ERROR("Failed to allocated the desired amount of bytes, consider increasing MAIN_THREAD_STACKSPACE or reservedMemory");
 	
-	spu_write_out_intr_mbox(PACKAGE_SPU_MEMORY_SETUP);
-	spu_write_out_intr_mbox((unsigned int)start);
-	spu_write_out_intr_mbox(size);
+	SPU_WRITE_OUT_MBOX(PACKAGE_SPU_MEMORY_SETUP);
+	SPU_WRITE_OUT_MBOX((unsigned int)start);
+	SPU_WRITE_OUT_MBOX(size);
 }
 
 //Initializes the DSMCBE system
 void dsmcbe_initializeReserved(unsigned int reservedMemory)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	//printf(WHERESTR "Setting up malloc\n", WHEREARG);
 	spu_dsmcbe_memory_setup(reservedMemory);
 	memset(spu_dsmcbe_pendingRequests, 0, MAX_PENDING_REQUESTS * sizeof(struct spu_dsmcbe_pendingRequestStruct));
@@ -597,12 +655,16 @@ void dsmcbe_initializeReserved(unsigned int reservedMemory)
 //Initializes the DSMCBE system
 void dsmcbe_initialize()
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	dsmcbe_initializeReserved(0);
 }
 
 //Creates a new barrier
 void dsmcbe_createBarrier(GUID id, unsigned int count)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
 	unsigned int* tmp = dsmcbe_create(id, sizeof(unsigned int) * 2);
 	if (tmp == NULL)
 	{

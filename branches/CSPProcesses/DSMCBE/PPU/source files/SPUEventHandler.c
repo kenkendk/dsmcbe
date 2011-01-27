@@ -17,12 +17,19 @@
 //TODO: Remove ask Morten
 unsigned int doPrint = FALSE;
 
+//If mailbox type is changed, be sure to change it in SPUEventHandler.c as well
+#define SPE_MBOX_READ(spe, data) spe_out_intr_mbox_read(spe, data, 1, SPE_MBOX_ALL_BLOCKING)
+#define SPE_MBOX_STATUS(spe) spe_out_intr_mbox_status(spe)
+
+//#define SPE_MBOX_READ(spe, data) { while(spe_out_mbox_read(spe, data, 1) != 1) ; }
+//#define SPE_MBOX_STATUS(spe) spe_out_mbox_status(spe)
+
 //Indicate if Events should be used instead of the great spinning lock.
 //#define USE_EVENTS
 
 //When testing for thread race conditions, activate this flag to
 // prevent the intentional race conditions
-#define NO_DIRTY_READS
+//#define NO_DIRTY_READS
 
 //When testing for memory errors, activate this flag
 // to clear memory that is written by the MFC, so
@@ -286,6 +293,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 				break;
 			case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE:
 			case PACKAGE_SPU_CSP_CHANNEL_POISON_DIRECT:
+			case PACKAGE_SPU_CSP_DUMP_STATE:
 				if (spe_in_mbox_status(state->context) >= 3)
 				{
 					spe_in_mbox_write(state->context, &requestId, 1, SPE_MBOX_ALL_BLOCKING);
@@ -360,6 +368,7 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 			return;
 		case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE:
 		case PACKAGE_SPU_CSP_CHANNEL_POISON_DIRECT:
+		case PACKAGE_SPU_CSP_DUMP_STATE:
 			g_queue_push_tail(state->mailboxQueue, (void*)requestId);
 			g_queue_push_tail(state->mailboxQueue, (void*)packageCode);
 			g_queue_push_tail(state->mailboxQueue, (void*)data);
@@ -379,6 +388,76 @@ void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int p
 			break;
 	}
 #endif
+}
+
+void dsmcbe_spu_DumpDataObject(struct dsmcbe_spu_dataObject* obj) {
+	if (obj == NULL)
+		fprintf(stderr, "\t<NULL>");
+	else
+		fprintf(stderr, "\tChannelId: %d\n\tEA: %d\n\tLS: %d\n\tSize: %d\n\tPreq: %d", obj->id, (unsigned int)obj->EA, (unsigned int)obj->LS, (int)obj->size, obj->preq == NULL ? -1 : obj->preq->requestId);
+
+
+	fprintf(stderr, "\n\n");
+}
+
+void dsmcbe_spu_DumpPendingRequest(struct dsmcbe_spu_pendingRequest* preq) {
+	if (preq == NULL)
+		fprintf(stderr, "\t<NULL>");
+	else
+		fprintf(stderr, "\tRequestId: %d\n\tOperation: %s (%d)\n\tObjId: %d", preq->requestId, PACKAGE_NAME(preq->operation), preq->operation, preq->objId);
+
+
+	fprintf(stderr, "\n\n");
+
+}
+
+void dsmcbe_spu_DumpCurrentStates()
+{
+	size_t i;
+	size_t j;
+	struct dsmcbe_spu_state* state;
+	GHashTableIter iter;
+	void* key;
+	void* value;
+
+	struct dsmcbe_spu_dataObject* obj;
+
+	for(i = 0; i < dsmcbe_spu_thread_count; i++)
+	{
+		 state = &dsmcbe_spu_states[i];
+		 fprintf(stderr, "* DEADLOCK * " WHERESTR "Dumping context %u\n", WHEREARG, (unsigned int)state->context);
+		 unsigned int* ls = (unsigned int*)spe_ls_area_get(state->context);
+		 fprintf(stderr, "* DEADLOCK * " WHERESTR "First 4 ints of LS: %d, %d, %d, %d\n", WHEREARG, ls[0], ls[1], ls[2], ls[3]);
+
+		 g_hash_table_iter_init(&iter, state->csp_active_items);
+		 while(g_hash_table_iter_next(&iter, &key, &value)) {
+			 obj = (struct dsmcbe_spu_dataObject*)value;
+
+			 fprintf(stderr, "* DEADLOCK * " WHERESTR "Active item\n", WHEREARG);
+			 dsmcbe_spu_DumpDataObject(obj);
+		 }
+
+		 g_hash_table_iter_init(&iter, state->csp_inactive_items);
+		 while(g_hash_table_iter_next(&iter, &key, &value)) {
+			 obj = (struct dsmcbe_spu_dataObject*)value;
+
+			 fprintf(stderr, "* DEADLOCK * " WHERESTR "Inactive item\n", WHEREARG);
+			 dsmcbe_spu_DumpDataObject(obj);
+		 }
+
+		 for(j = 0; j < MAX_PENDING_REQUESTS; j++) {
+			 if (state->pendingRequestsPointer[j]->requestId != UINT_MAX) {
+				 fprintf(stderr, "* DEADLOCK * " WHERESTR "Pending request\n", WHEREARG);
+				 dsmcbe_spu_DumpPendingRequest(state->pendingRequestsPointer[j]);
+			 }
+		 }
+	}
+
+	for(i = 0; i < dsmcbe_spu_thread_count; i++)
+	{
+		 state = &dsmcbe_spu_states[i];
+		 dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_DUMP_STATE, UINT_MAX, (unsigned int)state->context, 0);
+	}
 }
 
 //This function releases all resources reserved for the object, and sends out invalidate responses, if required
@@ -1709,7 +1788,7 @@ void dsmcbe_spu_MailboxHandler(struct dsmcbe_spu_state* state, struct dsmcbe_spu
 void dsmcbe_spu_SPUMailboxReader(struct dsmcbe_spu_state* state)
 {
 #ifndef USE_EVENTS
-	if (spe_out_intr_mbox_status(state->context) <= 0)
+	if (SPE_MBOX_STATUS(state->context) <= 0)
 		return;
 #endif
 
@@ -1722,13 +1801,12 @@ void dsmcbe_spu_SPUMailboxReader(struct dsmcbe_spu_state* state)
 	struct dsmcbe_spu_internalMboxArgs args_storage;
 	args = &args_storage;
 #endif
-
-	spe_out_intr_mbox_read(state->context, &args->packageCode, 1, SPE_MBOX_ALL_BLOCKING);
+	SPE_MBOX_READ(state->context, &args->packageCode);
 
 	switch(args->packageCode)
 	{
 		case PACKAGE_TERMINATE_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
 			break;
 		case PACKAGE_SPU_MEMORY_SETUP:
 			if (state->map != NULL)
@@ -1738,8 +1816,8 @@ void dsmcbe_spu_SPUMailboxReader(struct dsmcbe_spu_state* state)
 			else
 			{
 				state->terminated = UINT_MAX;
-				spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-				spe_out_intr_mbox_read(state->context, &args->size, 1, SPE_MBOX_ALL_BLOCKING);
+				SPE_MBOX_READ(state->context, &args->requestId);
+				SPE_MBOX_READ(state->context, &args->size);
 				state->map = dsmcbe_spu_memory_create((unsigned int)args->requestId, args->size);
 #ifdef USE_EVENTS
 				FREE(args);
@@ -1749,72 +1827,72 @@ void dsmcbe_spu_SPUMailboxReader(struct dsmcbe_spu_state* state)
 			break;
 		case PACKAGE_ACQUIRE_REQUEST_READ:
 		case PACKAGE_ACQUIRE_REQUEST_WRITE:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->id, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->id);
 			break;
 		case PACKAGE_CREATE_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->id, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->size, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->id);
+			SPE_MBOX_READ(state->context, &args->size);
 			break;
 		case PACKAGE_RELEASE_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
 			break;
 		case PACKAGE_SPU_MEMORY_FREE:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
 			break;
 		case PACKAGE_SPU_MEMORY_MALLOC_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->size, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->size);
 			break;
 		case PACKAGE_ACQUIRE_BARRIER_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->id, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->id);
 			break;
 		case PACKAGE_DEBUG_PRINT_STATUS:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
 			break;
 
 		case PACKAGE_SPU_CSP_ITEM_CREATE_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->size, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->size);
 			break;
 		case PACKAGE_SPU_CSP_ITEM_FREE_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->data, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->data);
 			break;
 		case PACKAGE_CSP_CHANNEL_WRITE_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->id, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->data, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->id);
+			SPE_MBOX_READ(state->context, &args->data);
 			break;
 		case PACKAGE_CSP_CHANNEL_READ_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->id, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->id);
 			break;
 		case PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST: //TODO: Maybe its faster to just memcpy these?
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->mode, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->channels, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->size, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->channelId, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->mode);
+			SPE_MBOX_READ(state->context, &args->channels);
+			SPE_MBOX_READ(state->context, &args->size);
+			SPE_MBOX_READ(state->context, &args->channelId);
 			break;
 		case PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST: //TODO: Maybe its faster to just memcpy these?
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->mode, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->channels, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->size, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->data, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->mode);
+			SPE_MBOX_READ(state->context, &args->channels);
+			SPE_MBOX_READ(state->context, &args->size);
+			SPE_MBOX_READ(state->context, &args->data);
 			break;
 		case PACKAGE_CSP_CHANNEL_POISON_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->id, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->id);
 			break;
 		case PACKAGE_CSP_CHANNEL_CREATE_REQUEST:
-			spe_out_intr_mbox_read(state->context, &args->requestId, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->id, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->size, 1, SPE_MBOX_ALL_BLOCKING);
-			spe_out_intr_mbox_read(state->context, &args->mode, 1, SPE_MBOX_ALL_BLOCKING);
+			SPE_MBOX_READ(state->context, &args->requestId);
+			SPE_MBOX_READ(state->context, &args->id);
+			SPE_MBOX_READ(state->context, &args->size);
+			SPE_MBOX_READ(state->context, &args->mode);
 			break;
 
 		default:
@@ -2225,6 +2303,15 @@ void* dsmcbe_spu_mainthreadSpinning(void* threadranges)
 			dsmcbe_spu_HandleDMAEvent(&dsmcbe_spu_states[i]);
 			if (!dsmcbe_spu_SPUMailboxWriter(&dsmcbe_spu_states[i]))
 				dsmcbe_spu_states[i].writerDirtyReadFlag = 0;
+		}
+
+		if (dsmcbe_rc_deadlock_detected != 0) {
+			dsmcbe_spu_DumpCurrentStates();
+
+			while(dsmcbe_rc_deadlock_detected != 0)
+				;
+
+			fprintf(stderr, "No more deadlock\n");
 		}
 	}
 

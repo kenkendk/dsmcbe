@@ -26,6 +26,8 @@ int __send_to_ppe(unsigned int signalcode, unsigned int opcode, void *data);
 
 int dsmcbe_csp_item_create(void** data, size_t size)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -50,6 +52,8 @@ int dsmcbe_csp_item_create(void** data, size_t size)
 
 int dsmcbe_csp_item_free(void* data)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -73,26 +77,33 @@ int dsmcbe_csp_item_free(void* data)
 
 int dsmcbe_csp_channel_write(GUID channelid, void* data)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
 		return CSP_CALL_ERROR;
 	}
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
 
 	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_CSP_CHANNEL_WRITE_REQUEST);
 	if (nextId == UINT_MAX)
 		return CSP_CALL_ERROR;
 
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	spu_dsmcbe_pendingRequests[nextId].channelId = channelid;
 	struct spu_dsmcbe_directChannelStruct* channel = dsmcbe_csp_findDirectChannelIndex(channelid);
 	if (channel != NULL)
 	{
+		SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
 		//printf(WHERESTR "Handling a direct write request with id %d, channelId: %d\n", WHEREARG, nextId, channelid);
 		//TODO: We need to store the size?
 		dsmcbe_csp_handleDirectWriteRequest(channel, nextId, data, 0);
 	}
 	else
 	{
+		SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
 		//printf(WHERESTR "Handling a normal write request with id %d, channelId: %d\n", WHEREARG, nextId, channelid);
 
 		SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
@@ -103,7 +114,9 @@ int dsmcbe_csp_channel_write(GUID channelid, void* data)
 		STOP_AND_WAIT
 	}
 
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
 	spu_dsmcbe_endAsync(nextId, NULL);
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
 	if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_CSP_CHANNEL_WRITE_RESPONSE)
 		return CSP_CALL_SUCCESS;
 	else if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_CSP_CHANNEL_POISONED_RESPONSE)
@@ -114,6 +127,8 @@ int dsmcbe_csp_channel_write(GUID channelid, void* data)
 
 int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -151,6 +166,8 @@ int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 
 int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channelcount, GUID* channelid, size_t* size, void** data)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -188,6 +205,8 @@ int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channe
 
 int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t channelcount, void* data, GUID* channelid)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -225,6 +244,8 @@ int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t chann
 
 void dsmcbe_csp_channel_poison_internal(GUID channelid)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	struct spu_dsmcbe_directChannelStruct* channel = dsmcbe_csp_findDirectChannelIndex(channelid);
 	if (channel != NULL)
 	{
@@ -266,6 +287,8 @@ void dsmcbe_csp_channel_poison_internal(GUID channelid)
 
 int dsmcbe_csp_channel_poison(GUID channelid)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -310,6 +333,8 @@ int dsmcbe_csp_channel_poison(GUID channelid)
 
 int dsmcbe_csp_channel_create(GUID channelid, unsigned int buffersize, unsigned int type)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (!spu_dsmcbe_initialized)
 	{
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
@@ -339,6 +364,8 @@ int dsmcbe_csp_channel_create(GUID channelid, unsigned int buffersize, unsigned 
 //Searches for a direct channel with the given id, returns the direct channel object or NULL
 struct spu_dsmcbe_directChannelStruct* dsmcbe_csp_findDirectChannelIndex(GUID channelId)
 {
+	//SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	int index = channelId % MAX_DIRECT_CHANNELS;
 	size_t i;
 
@@ -353,6 +380,8 @@ struct spu_dsmcbe_directChannelStruct* dsmcbe_csp_findDirectChannelIndex(GUID ch
 
 int dsmcbe_csp_respondToDirectReader(struct spu_dsmcbe_directChannelStruct* channel, unsigned int readerId, void* data, unsigned int size)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	//printf(WHERESTR "Responding to readReq: %u, writerId: %u, data: %u, size: %u, rb->count: %u\n", WHEREARG, readerId, (unsigned int)dsmcbe_ringbuffer_peek_nth(channel->pendingWrites, 0), (unsigned int)data, size, channel->pendingWrites->count);
 
 	spu_dsmcbe_pendingRequests[readerId].responseCode = PACKAGE_CSP_CHANNEL_READ_RESPONSE;
@@ -367,6 +396,8 @@ int dsmcbe_csp_respondToDirectReader(struct spu_dsmcbe_directChannelStruct* chan
 
 int dsmcbe_csp_respondToDirectWriter(unsigned int writerId)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	//printf(WHERESTR "Responding to writeReq, writerId: %u\n", WHEREARG, writerId);
 
 	spu_dsmcbe_pendingRequests[writerId].responseCode = PACKAGE_CSP_CHANNEL_WRITE_RESPONSE;
@@ -380,6 +411,8 @@ int dsmcbe_csp_respondToDirectWriter(unsigned int writerId)
 //Handles a request for read on a local direct channel
 void dsmcbe_csp_handleDirectReadRequest(struct spu_dsmcbe_directChannelStruct* channel, unsigned int requestId)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (channel->readerId != UINT_MAX)
 	{
 		//Wrong use of ONE2ONE channel
@@ -435,6 +468,8 @@ void dsmcbe_csp_handleDirectReadRequest(struct spu_dsmcbe_directChannelStruct* c
 //Handles a request for write on a local direct channel
 void dsmcbe_csp_handleDirectWriteRequest(struct spu_dsmcbe_directChannelStruct* channel, unsigned int requestId, void* data, unsigned int size)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (channel->pendingWrites->count == channel->pendingWrites->size)
 	{
 		//Wrong use of ONE2ONE channel
@@ -482,6 +517,8 @@ void dsmcbe_csp_handleDirectWriteRequest(struct spu_dsmcbe_directChannelStruct* 
 //Handles a write request that crosses a direct setup response
 void dsmcbe_csp_handleCrossWrite(unsigned int requestID)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	unsigned int channelId = spu_dsmcbe_pendingRequests[requestID].channelId;
 	struct spu_dsmcbe_directChannelStruct* channel = dsmcbe_csp_findDirectChannelIndex(channelId);
 	if (channel == NULL)
@@ -504,6 +541,8 @@ void dsmcbe_csp_handleCrossWrite(unsigned int requestID)
 //Sets up a direct local channel
 void dsmcbe_csp_setupDirectChannel(unsigned int requestID, GUID channelId, void* pendingWrites)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
+
 	if (dsmcbe_csp_findDirectChannelIndex(channelId) != NULL)
 	{
 		REPORT_ERROR2("Duplicate direct setup of channel %d detected", channelId);
