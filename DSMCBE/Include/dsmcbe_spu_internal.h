@@ -5,10 +5,22 @@
 #ifndef DSMCBE_SPU_INTERNAL_H_
 #define DSMCBE_SPU_INTERNAL_H_
 
-//Switch to interrupt mailbox in order to enable the PPU eventhandler
-#define SPU_WRITE_OUT_MBOX spu_write_out_intr_mbox
-//#define SPU_WRITE_OUT_MBOX spu_write_out_mbox
+//Debugging, writes data in location 0 + 1 of the LS
+#define FILE_DSMCBE_SPU (1)
+#define FILE_DSMCBE_CSP (2)
+#define FILE_DSMCBE_THREAD (3)
+#define FILE_DSMCBE_USER (4)
+//#define SET_CURRENT_FUNCTION(file) { ((unsigned int*)0)[0] = file; ((unsigned int*)0)[1] = __LINE__; };
+//#define SET_EXTRA_DEBUG(offset, value) { ((unsigned int*)0)[2 + offset] = value; }
+#define SET_CURRENT_FUNCTION(file) ;
 
+
+//If mailbox type is changed, be sure to change it in SPUEventHandler.c as well
+#define SPU_WRITE_OUT_MBOX spu_write_out_intr_mbox
+#define SPU_STAT_OUT_MBOX spu_stat_out_intr_mbox
+
+//#define SPU_WRITE_OUT_MBOX spu_write_out_mbox
+//#define SPU_STAT_OUT_MBOX spu_stat_out_mbox
 
 #define FALSE (0)
 #define TRUE (!FALSE)

@@ -77,6 +77,8 @@ inline void dsmcbe_thread_set_status(int id, int status)
 //Returns the id of the next waiting thread, or -1 if no threads are waiting
 int dsmcbe_thread_nextindex()
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_THREAD);
+
 	int i;
 	int threadNo = dsmcbe_current_thread;
 	int firstBlocked = -1;
@@ -100,6 +102,8 @@ int dsmcbe_thread_nextindex()
 //Terminates the current running thread
 void dsmcbe_thread_exit() {
 
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_THREAD);
+
 	if (!dsmcbe_thread_is_threaded())
 		return;
 
@@ -122,6 +126,7 @@ void dsmcbe_thread_exit() {
 //Runs a number of threads, returns 0 when all threads are done, non-zero indicates an error
 int dsmcbe_thread_start(unsigned int fibers, unsigned int stacksize)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_THREAD);
 	//printf(WHERESTR "dsmcbe_thread_start invoked with %u threads and stacksize %u\n", WHEREARG, fibers, stacksize);
 
 	int i;
@@ -244,6 +249,8 @@ inline int dsmcbe_thread_is_threaded()
 //If no thread was activated, the function returns false, and otherwise true
 int dsmcbe_thread_set_ready_by_requestId(int requestId)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_THREAD);
+
 	int i;
 	int retval = FALSE;
 
@@ -263,6 +270,8 @@ int dsmcbe_thread_set_ready_by_requestId(int requestId)
 //If another thread is ready to run, it is activated, otherwise false is returned
 int dsmcbe_thread_yield_any(int onlyReady)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_THREAD);
+
 	int nextThread;
 
 	//Ignore this function, if we are not threaded
@@ -295,6 +304,8 @@ int dsmcbe_thread_yield_any(int onlyReady)
 
 int dsmcbe_thread_next_id(int onlyReady)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_THREAD);
+
 	int nextThread = dsmcbe_thread_nextindex();
 	if (nextThread == -1 || (dsmcbe_threads[nextThread].state != THREAD_STATE_READY && onlyReady))
 		return -1;
@@ -304,6 +315,8 @@ int dsmcbe_thread_next_id(int onlyReady)
 
 void dsmcbe_thread_yield_to(int nextThread)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_THREAD);
+
 	if (nextThread < 0 || nextThread >= dsmcbe_thread_count)
 		return;
 
@@ -341,6 +354,8 @@ inline int dsmcbe_thread_yield_ready()
 //The main entry point for the SPU application
 int main(unsigned long long speid, unsigned long long argp, unsigned long long envp)
 {
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_THREAD);
+
 	dsmcbe_speid = speid;
 	dsmcbe_machineid = (unsigned int)argp;
 

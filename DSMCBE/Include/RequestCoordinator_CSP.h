@@ -15,5 +15,6 @@ void dsmcbe_rc_csp_ProcessChannelCreateRequest(QueueableItem item);
 void dsmcbe_rc_csp_ProcessChannelPoisonRequest(QueueableItem item);
 void dsmcbe_rc_csp_ProcessChannelReadRequest(QueueableItem item);
 void dsmcbe_rc_csp_ProcessChannelWriteRequest(QueueableItem item);
+void dsmcbe_rc_csp_dumpChannelState();
 
 #endif /* REQUESTCOORDINATOR_CSP_H_ */

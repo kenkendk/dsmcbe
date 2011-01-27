@@ -52,4 +52,6 @@ extern void dsmcbe_rc_SendMessage(QueueableItem item, void* data);
 
 OBJECT_TABLE_ENTRY_TYPE dsmcbe_rc_GetMachineID(GUID id);
 
+volatile int dsmcbe_rc_deadlock_detected;
+
 #endif /*REQUESTCOORDINATOR_H_*/

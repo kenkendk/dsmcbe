@@ -28,6 +28,7 @@
 // (out of MAX_RECORDED_WRITE_REQUESTS) for migration to activate 
 #define MIGRATION_THRESHOLD 4
 
+volatile int dsmcbe_rc_deadlock_detected = 0;
 
 volatile int dsmcbe_rc_do_terminate;
 
@@ -41,6 +42,11 @@ pthread_t dsmcbe_rc_workthread;
 
 #define MAX_SEQUENCE_NR 1000000
 unsigned int dsmcbe_rc_sequence_nr;
+
+//The debug keyboard handler thread
+pthread_t dsmcbe_rc_keyboard_thread;
+unsigned int dsmcbe_rc_keyboard_thread_active = 0;
+
 
 //This is the table of all pending creates
 GHashTable* dsmcbe_rc_GpendingCreates;
@@ -533,11 +539,11 @@ void dsmcbe_rc_DoCreate(QueueableItem item, struct dsmcbe_createRequest* request
 			return;
 		}
 
-		GQueue* waitQueue = g_hash_table_lookup(dsmcbe_rc_Gwaiters, (void*)object->id);
+		GQueue* waitQueue = g_hash_table_lookup(dsmcbe_rc_Gwaiters, (void*)request->dataItem);
 		
 		//If there are pending acquires, add them to the list
 		if (waitQueue != NULL)
-			g_hash_table_remove(dsmcbe_rc_Gwaiters, (void*)object->id);
+			g_hash_table_remove(dsmcbe_rc_Gwaiters, (void*)request->dataItem);
 		else
 			waitQueue = g_queue_new();
 		
@@ -1558,6 +1564,53 @@ void dsmcbe_rc_PerformMigration(QueueableItem item, struct dsmcbe_acquireRequest
 	dsmcbe_net_Update(OBJECT_TABLE_ID, sizeof(OBJECT_TABLE_ENTRY_TYPE) * obj->id, sizeof(OBJECT_TABLE_ENTRY_TYPE), &(dsmcbe_rc_GetObjectTable()[obj->id]));
 }
 
+void* dsmcbe_rc_keyboard_thread_function(void* dummy) {
+
+	pthread_mutex_t m;
+	pthread_cond_t c;
+	struct timespec ts;
+
+	pthread_mutex_init(&m, NULL);
+	pthread_cond_init(&c, NULL);
+
+	while(1) {
+		fprintf(stderr, "Waiting for keypress\n");
+
+		while (getc(stdin) != 10)
+			;
+
+		fprintf(stderr, "Dumping program state\n");
+
+		dsmcbe_rc_csp_dumpChannelState();
+
+		dsmcbe_rc_deadlock_detected = 1;
+
+		clock_gettime(CLOCK_REALTIME, &ts);
+		ts.tv_sec += 1;
+
+		pthread_cond_timedwait(&c, &m, &ts);
+
+		dsmcbe_rc_deadlock_detected = 0;
+	}
+
+	return dummy;
+}
+
+void dsmcbe_rc_register_keyboard_debug_handler() {
+	if (dsmcbe_rc_keyboard_thread_active == 0) {
+		pthread_create(&dsmcbe_rc_keyboard_thread, NULL, dsmcbe_rc_keyboard_thread_function, NULL);
+		dsmcbe_rc_keyboard_thread_active = 1;
+	}
+}
+
+void dsmcbe_rc_unregister_keyboard_debug_handler() {
+	if (dsmcbe_rc_keyboard_thread_active != 0) {
+		pthread_kill(dsmcbe_rc_keyboard_thread, SIGABRT);
+		dsmcbe_rc_keyboard_thread_active = 0;
+	}
+}
+
+
 //This is the main thread function
 void* dsmcbe_rc_ProccessWork(void* data)
 {
@@ -1593,13 +1646,30 @@ void* dsmcbe_rc_ProccessWork(void* data)
 #ifdef DEBUG
 				//One minute in DEBUG mode
 				if (consecutiveTimeouts > 6)
+				{
+					REPORT_ERROR("Terminating because RequestCoordinator got 6 consecutive timeouts (60 seconds of waittime)");
 #else
 				//Five minutes in RELEASE mode
 				if (consecutiveTimeouts > 30)
-#endif
 				{
-					REPORT_ERROR("Terminating because RequestCoordinator got 10 consecutive timeouts (60 seconds of waittime)");
-					exit(-1);
+					REPORT_ERROR("Terminating because RequestCoordinator got 30 consecutive timeouts (300 seconds of waittime)");
+#endif
+					//Flag that we have a deadlock, and wait 5 sec for them to report
+				   dsmcbe_rc_deadlock_detected = 1;
+				   dsmcbe_rc_csp_dumpChannelState();
+
+				   pthread_mutex_t sleep_mutex;
+				   pthread_cond_t sleep_cond;
+
+				   pthread_mutex_init(&sleep_mutex, NULL);
+				   pthread_cond_init(&sleep_cond, NULL);
+
+				   clock_gettime(CLOCK_REALTIME, &ts);
+				   ts.tv_sec += 5;
+
+				   pthread_cond_timedwait(&sleep_cond, &sleep_mutex, &ts);
+
+				   exit(-1);
 				}
 				continue;
 			}
