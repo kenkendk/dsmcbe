@@ -468,7 +468,7 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 	}
 	else
 	{
-		if (resp->transferManager != NULL) {
+		if (resp != NULL && resp->transferManager != NULL) {
 			FREE(resp->transferManager);
 			resp->transferManager = NULL;
 		}
