@@ -14,6 +14,7 @@
 //#define SET_EXTRA_DEBUG(offset, value) { ((unsigned int*)0)[2 + offset] = value; }
 #define SET_CURRENT_FUNCTION(file) ;
 
+#define MAILBOX_BUFFER_SIZE (8)
 
 //If mailbox type is changed, be sure to change it in SPUEventHandler.c as well
 #define SPU_WRITE_OUT_MBOX spu_write_out_intr_mbox
@@ -110,5 +111,8 @@ void dsmcbe_csp_setupDirectChannel(unsigned int requestId, GUID channelId, void*
 
 //Poison a channel internally
 void dsmcbe_csp_channel_poison_internal(GUID channelId);
+
+//Sends a message to the PPE over the mailbox
+void spu_dsmcbe_sendMboxMessage(unsigned int packageCode, unsigned int requestId, unsigned int data, unsigned int size, unsigned int id, unsigned int mode, unsigned int channels, unsigned int channelId);
 
 #endif /* DSMCBE_SPU_INTERNAL_H_ */

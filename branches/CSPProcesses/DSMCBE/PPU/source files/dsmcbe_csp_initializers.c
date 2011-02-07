@@ -196,7 +196,6 @@ int dsmcbe_new_cspChannelCreateResponse(struct dsmcbe_cspChannelCreateResponse**
 	}
 
 	COMMON_SETUP(*result, PACKAGE_CSP_CHANNEL_CREATE_RESPONSE);
-
 	SETUP_ORIGINATOR(*result);
 
 	return CSP_CALL_SUCCESS;

@@ -38,9 +38,7 @@ int dsmcbe_csp_item_create(void** data, size_t size)
 	if (nextId == UINT_MAX)
 		return CSP_CALL_ERROR;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX(size);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, size, 0, 0, 0, 0);
 
 	*data = spu_dsmcbe_endAsync(nextId, NULL);
 	if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE)
@@ -64,9 +62,7 @@ int dsmcbe_csp_item_free(void* data)
 	if (nextId == UINT_MAX)
 		return CSP_CALL_ERROR;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX((unsigned int)data);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, (unsigned int)data, 0, 0, 0, 0, 0);
 
 	spu_dsmcbe_endAsync(nextId, NULL);
 	if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_SPU_CSP_ITEM_FREE_RESPONSE)
@@ -106,10 +102,7 @@ int dsmcbe_csp_channel_write(GUID channelid, void* data)
 		SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
 		//printf(WHERESTR "Handling a normal write request with id %d, channelId: %d\n", WHEREARG, nextId, channelid);
 
-		SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-		SPU_WRITE_OUT_MBOX(nextId);
-		SPU_WRITE_OUT_MBOX(channelid);
-		SPU_WRITE_OUT_MBOX((unsigned int)data);
+		spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, (unsigned int)data, 0, channelid, 0, 0, 0);
 
 		STOP_AND_WAIT
 	}
@@ -149,9 +142,7 @@ int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 	else
 	{
 		//printf(WHERESTR "Handling a normal read request with id %d, channelId: %d\n", WHEREARG, nextId, channelid);
-		SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-		SPU_WRITE_OUT_MBOX(nextId);
-		SPU_WRITE_OUT_MBOX(channelid);
+		spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, 0, channelid, 0, 0, 0);
 		STOP_AND_WAIT
 	}
 
@@ -178,12 +169,7 @@ int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channe
 	if (nextId == UINT_MAX)
 		return CSP_CALL_ERROR;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX(mode);
-	SPU_WRITE_OUT_MBOX((unsigned int)channels);
-	SPU_WRITE_OUT_MBOX(channelcount);
-	SPU_WRITE_OUT_MBOX((unsigned int)channelid);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, channelcount, 0, mode, (unsigned int)channels, (unsigned int)channelid);
 
 	STOP_AND_WAIT
 
@@ -217,12 +203,7 @@ int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t chann
 	if (nextId == UINT_MAX)
 		return CSP_CALL_ERROR;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX(mode);
-	SPU_WRITE_OUT_MBOX((unsigned int)channels);
-	SPU_WRITE_OUT_MBOX(channelcount);
-	SPU_WRITE_OUT_MBOX((unsigned int)data);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, channelcount, 0, mode, (unsigned int)channels, (unsigned int)data);
 
 	STOP_AND_WAIT
 
@@ -317,9 +298,7 @@ int dsmcbe_csp_channel_poison(GUID channelid)
 	}
 	else
 	{
-		SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-		SPU_WRITE_OUT_MBOX(nextId);
-		SPU_WRITE_OUT_MBOX(channelid);
+		spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, 0, channelid, 0, 0, 0);
 
 		STOP_AND_WAIT
 	}
@@ -345,11 +324,7 @@ int dsmcbe_csp_channel_create(GUID channelid, unsigned int buffersize, unsigned 
 	if (nextId == UINT_MAX)
 		return CSP_CALL_ERROR;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX(channelid);
-	SPU_WRITE_OUT_MBOX(buffersize);
-	SPU_WRITE_OUT_MBOX(type);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, buffersize, channelid, type, 0, 0);
 
 	spu_dsmcbe_endAsync(nextId, NULL);
 

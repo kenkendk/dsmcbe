@@ -6,13 +6,14 @@
 #define SPUEVENTHANDLER_CSP_H_
 
 //This function handles incoming create channel requests from an SPU
-void dsmcbe_spu_csp_HandleChannelCreateRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id, unsigned int buffersize, unsigned int type);
+void dsmcbe_spu_csp_HandleChannelCreateRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args);
 
 //This function handles incoming create channel responses from the request coordinator
 void dsmcbe_spu_csp_HandleChannelCreateResponse(struct dsmcbe_spu_state* state, unsigned int packagecode, unsigned int requestId);
 
 //This function handles incoming create channel requests from an SPU
-void dsmcbe_spu_csp_HandleChannelPoisonRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id);
+void dsmcbe_spu_csp_HandleChannelPoisonRequest(struct dsmcbe_spu_state* state, unsigned int requestId, unsigned int id);
+void dsmcbe_spu_csp_HandleChannelPoisonRequest_Eventhandler(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args);
 
 //This function handles incoming create channel responses from the request coordinator
 void dsmcbe_spu_csp_HandleChannelPoisonResponse(struct dsmcbe_spu_state* state, unsigned int packagecode, unsigned int requestId);
@@ -25,25 +26,25 @@ void dsmcbe_spu_csp_HandleChannelPoisonResponse(struct dsmcbe_spu_state* state, 
 void* dsmcbe_spu_csp_attempt_get_pointer(struct dsmcbe_spu_state* state, struct dsmcbe_spu_pendingRequest* preq, unsigned int size);
 
 //This function handles incoming create item requests from an SPU
-void dsmcbe_spu_csp_HandleItemCreateRequest(struct dsmcbe_spu_state* state, unsigned int requestId, unsigned int size);
+void dsmcbe_spu_csp_HandleItemCreateRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args);
 
 //This function handles incoming free item requests from an SPU
-void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, unsigned int requestId, void* data);
+void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args);
 
 //This function handles incoming channel read requests from an SPU
-void dsmcbe_spu_csp_HandleChannelReadRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id);
+void dsmcbe_spu_csp_HandleChannelReadRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args);
 
 //This function handles incoming channel read requests from an SPU
-void dsmcbe_spu_csp_HandleChannelReadRequestAlt(struct dsmcbe_spu_state* state, unsigned int requestId, void* guids, unsigned int count, void* channelId, unsigned int mode);
+void dsmcbe_spu_csp_HandleChannelReadRequestAlt(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args);
 
 //This function handles incoming create channel responses from the request coordinator
 void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, void* resp);
 
 //This function handles incoming channel write requests from an SPU
-void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id, void* data);
+void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args);
 
 //This function handles incoming channel write requests from an SPU
-void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state, unsigned int requestId, void* data, void* guids, unsigned int count, unsigned int mode);
+void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args);
 
 //This function handles incoming create channel responses from the request coordinator
 void dsmcbe_spu_csp_HandleChannelWriteResponse(struct dsmcbe_spu_state* state, void* resp);
