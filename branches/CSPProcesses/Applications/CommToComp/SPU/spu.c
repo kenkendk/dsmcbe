@@ -122,7 +122,7 @@ int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int t
 
 	//printf(WHERESTR "Spe %llu (%u), thread %u is reading from %u and writing to %u\n",WHEREARG, speid, procId, threadId, readChannel, writeChannel);
 
-	CSP_SAFE_CALL("create work channel", dsmcbe_csp_channel_create(readChannel, 1, CSP_CHANNEL_TYPE_ONE2ONE));
+	CSP_SAFE_CALL("create work channel", dsmcbe_csp_channel_create(readChannel, 1, CSP_CHANNEL_TYPE_ONE2ONE_SIMPLE));
 
 	SET_CURRENT_FUNCTION(FILE_DSMCBE_USER);
 
