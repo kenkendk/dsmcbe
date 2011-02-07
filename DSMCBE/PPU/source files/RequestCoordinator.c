@@ -192,7 +192,6 @@ void dsmcbe_rc_UnregisterInvalidateSubscriber(GQueue** q)
 //Stops the coordination thread and releases all resources
 void dsmcbe_rc_terminate(int force)
 {
-	
 	int queueEmpty;
 	
 	if (force)
@@ -940,7 +939,6 @@ void dsmcbe_rc_DoAcquire(QueueableItem item, struct dsmcbe_acquireRequest* reque
 //Performs all actions related to a release
 void dsmcbe_rc_DoRelease(QueueableItem item, struct dsmcbe_releaseRequest* request, dataObject obj)
 {
-	
 	GQueue* q;
 	QueueableItem next;
 	
@@ -1113,7 +1111,6 @@ void dsmcbe_rc_HandleCreateRequest(QueueableItem item)
 
 void dsmcbe_rc_HandleAcquireRequest(QueueableItem item)
 {
-	
 	struct dsmcbe_acquireRequest* req = item->dataRequest;
 	OBJECT_TABLE_ENTRY_TYPE machineId = dsmcbe_rc_GetMachineID(req->dataItem);
 	void* obj;
@@ -1278,7 +1275,6 @@ void dsmcbe_rc_HandleUpdateRequest(QueueableItem item)
 
 void dsmcbe_rc_HandleInvalidateResponse(QueueableItem item)
 {
-	
 	dataObject object;
 	struct dsmcbe_invalidateResponse* req = item->dataRequest;
 	
@@ -1377,7 +1373,6 @@ void dsmcbe_rc_SingleInvalidate(QueueableItem item, GUID id)
 
 void dsmcbe_rc_HandleAcquireResponse(QueueableItem item)
 {
-	
 	struct dsmcbe_acquireResponse* req = item->dataRequest;
 	dataObject object;
 
@@ -1686,7 +1681,7 @@ void* dsmcbe_rc_ProccessWork(void* data)
 			pthread_mutex_unlock(&dsmcbe_rc_queue_mutex);
 			break;
 		}
-		
+
 		//We prioritize object table responses
 		if (!g_queue_is_empty(dsmcbe_rc_GpriorityResponses))
 		{
@@ -1717,13 +1712,13 @@ void* dsmcbe_rc_ProccessWork(void* data)
 
 #ifdef DEBUG_PACKAGES
 		printf(WHERESTR "processing type %s (%d), reqId: %d, possible id: %d\n", WHEREARG, PACKAGE_NAME(datatype), datatype, CAST_TO_PACKAGE(item)->requestID, CAST_TO_PACKAGE(item)->dataItem);
-#endif		
+#endif
 
 		handler = datatype >= MAX_PACKAGE_ID ? NULL : dsmcbe_rc_packagehandlers[datatype];
 
 		if (handler == NULL)
 		{
-			REPORT_ERROR2("Unknown package recieved with code %i recieved", datatype);
+			REPORT_ERROR2("Unknown package with code %i received", datatype);
 			handler = dsmcbe_rc_RespondNACK;
 		}
 

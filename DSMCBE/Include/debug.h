@@ -1,7 +1,7 @@
 #include <errno.h>
 #include <string.h>
 
-#define UNUSED(var) var = var
+#define UNUSED(var) (var = var)
 
 #define WHERESTR "[file %s, line %d]: "
 #define WHEREARG __FILE__,__LINE__
@@ -21,6 +21,9 @@
 		( x == 9 ? "NACK" : \
 		( x == 10 ? "InvalidateRequest" : \
 		( x == 11 ? "InvalidateResponse" : \
+		( x == 12 ? "Package Update" : \
+		( x == 14 ? "Terminate Request" : \
+		( x == 15 ? "Terminate Response" : \
 		( x == 16 ? "AcquireBarrierRequest" : \
 		( x == 17 ? "AcquireBarrierResponse" : \
 		(x == 50 ? "CspChannelCreateRequest": \
@@ -38,21 +41,24 @@
 		(x == 62 ? "TransferResponse" : \
 		(x == 63 ? "DirectSetupRequest" : \
 		(x == 70 ? "DMAComplete" : \
-		(x == 300 ? "SPU MallocSetup" : \
-		(x == 301 ? "SPU MallocRequest" : \
-		(x == 302 ? "SPU MallocResponse" : \
-		(x == 303 ? "SPU MallocFree" : \
-		(x == 304 ? "SPU CSP ItemCreateRequest" : \
-		(x == 305 ? "SPU CSP ItemCreateResponse" : \
-		(x == 306 ? "SPU CSP ItemFreeRequest" : \
-		(x == 307 ? "SPU CSP ItemFreeResponse" : \
-		(x == 308 ? "SPU CSP ReadAltRequest" : \
-		(x == 309 ? "SPU CSP ReadAltResponse" : \
-		(x == 310 ? "SPU CSP WriteAltRequest" : \
-		(x == 311 ? "SPU CSP WriteAltResponse" : \
-		(x == 312 ? "SPU CSP Direct transfer" : \
-		(x == 400 ? "SPU CSP FlushItem" : \
-				"Unknown")))))))))))))))))))))))))))))))))))))))))))
+		(x == 200 ? "SPU MallocSetup" : \
+		(x == 201 ? "SPU MallocRequest" : \
+		(x == 202 ? "SPU MallocResponse" : \
+		(x == 203 ? "SPU MallocFree" : \
+		(x == 204 ? "SPU CSP ItemCreateRequest" : \
+		(x == 205 ? "SPU CSP ItemCreateResponse" : \
+		(x == 206 ? "SPU CSP ItemFreeRequest" : \
+		(x == 207 ? "SPU CSP ItemFreeResponse" : \
+		(x == 208 ? "SPU CSP ReadAltRequest" : \
+		(x == 209 ? "SPU CSP ReadAltResponse" : \
+		(x == 210 ? "SPU CSP WriteAltRequest" : \
+		(x == 211 ? "SPU CSP WriteAltResponse" : \
+		(x == 212 ? "SPU CSP Direct transfer" : \
+		(x == 250 ? "SPU CSP FlushItem" : \
+		(x == 251 ? "SPU CSP Setup Direct" : \
+		(x == 252 ? "SPU CSP Poison Direct" : \
+		(x == 253 ? "SPU CSP Dump State" : \
+				"Unknown")))))))))))))))))))))))))))))))))))))))))))))))))
 
 //#define DEBUG_COMMUNICATION
 //#define EVENT_BASED

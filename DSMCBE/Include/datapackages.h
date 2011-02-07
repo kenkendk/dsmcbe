@@ -396,7 +396,11 @@ struct dsmcbe_freeRequest
     unsigned int requestID;
     GUID dataItem;
 
-    void* data;
+    unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
+
+	void* data;
 };
 
 struct dsmcbe_transferRequest
@@ -405,7 +409,11 @@ struct dsmcbe_transferRequest
     unsigned int requestID;
     GUID dataItem;
 
-    void* mutex;
+    unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
+
+	void* mutex;
     void* cond;
     void* queue;
     void* from;
@@ -418,7 +426,11 @@ struct dsmcbe_transferResponse
     unsigned int requestID;
     GUID dataItem;
 
-    void* from;
+    unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
+
+	void* from;
     void* to;
 };
 
@@ -428,7 +440,11 @@ struct dsmcbe_cspDirectSetupResponse
     unsigned int requestID;
     GUID channelId;
 
-    unsigned int bufferSize;
+    unsigned int originator;
+	unsigned int originalRecipient;
+	unsigned int originalRequestID;
+
+	unsigned int bufferSize;
     struct dsmcbe_cspChannelWriteRequest* writeRequest;
     void* pendingWrites;
 };
@@ -480,7 +496,7 @@ struct dsmcbe_cspDirectSetupResponse
 
 #define MAX_PACKAGE_SIZE MAX(MAX(MAX_PACKAGE_SIZE_A, MAX_PACKAGE_SIZE_B), MAX_PACKAGE_SIZE_C)
 
-#define MAX_PACKAGE_ID 100
+#define MAX_PACKAGE_ID 300
 
 #define PACKAGE_SIZE(x) (x == 0 ? 0 : \
 		( x == PACKAGE_CREATE_REQUEST ? sizeof(struct dsmcbe_createRequest) : \

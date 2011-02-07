@@ -227,6 +227,9 @@ struct dsmcbe_spu_state
 	pthread_cond_t csp_sleep_cond;
 	unsigned int csp_sleep_flag;
 #endif
+
+	//The current LS mailbox buffer
+	unsigned int lsMboxBuffer;
 };
 
 //Warning: Do not change the structure layout as it is used to send data to the SPU's
@@ -263,6 +266,9 @@ struct dsmcbe_spu_state* dsmcbe_spu_states;
 
 //This is the number of SPU's allocated
 unsigned int dsmcbe_spu_thread_count;
+
+//The signature for all event handlers
+typedef void (*spu_eventhandler_function)(struct dsmcbe_spu_state*, struct dsmcbe_spu_internalMboxArgs*);
 
 
 //Declarations for functions that have interdependencies

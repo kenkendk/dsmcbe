@@ -75,8 +75,8 @@ void dsmcbe_rc_csp_dumpChannelState() {
 		fprintf(stderr, " * DEADLOCK * " WHERESTR "CSP channel %d state:\n\tbufferSize: %d\n\twriters: %d\n\treaders: %d\n\tpoisonstate: %s (%d)\n\n", WHEREARG,
 				chan->id,
 				chan->buffersize,
-				chan->Gwriters == NULL ? -1 : g_queue_get_length(chan->Gwriters),
-				chan->Greaders == NULL ? -1 : g_queue_get_length(chan->Greaders),
+				chan->Gwriters == NULL ? -1 : (int)g_queue_get_length(chan->Gwriters),
+				chan->Greaders == NULL ? -1 : (int)g_queue_get_length(chan->Greaders),
 				chan->poisonState == POISON_STATE_NONE ? "Normal" : (chan->poisonState == POISON_STATE_PENDING ? "pending" : "poisoned"),
 				chan->poisonState
 		);
@@ -307,7 +307,6 @@ void dsmcbe_rc_csp_MatchedReaderAndWriter(cspChannel chan, QueueableItem reader,
 	}
 }
 
-
 void dsmcbe_rc_csp_RespondWriteChannelWithCopy(cspChannel chan, QueueableItem item)
 {
 	//Create a copy of the request, as it is free'd when responding
@@ -451,6 +450,7 @@ int dsmcbe_rc_csp_AttemptPairWrite(cspChannel chan, QueueableItem item, unsigned
 //Handles an incoming CSP Channel Create Request
 void dsmcbe_rc_csp_ProcessChannelCreateRequest(QueueableItem item)
 {
+	size_t i;
 	struct dsmcbe_cspChannelCreateRequest* req = (struct dsmcbe_cspChannelCreateRequest*)item->dataRequest;
 
 	cspChannel chan = dsmcbe_rc_csp_getChannelObject(req->channelId);
@@ -469,12 +469,22 @@ void dsmcbe_rc_csp_ProcessChannelCreateRequest(QueueableItem item)
 
 		dsmcbe_rc_csp_RespondChannelCreate(item);
 
-		//Empty pending read/write pairs, we check on the writer side, as that may also be buffered
-		while(!g_queue_is_empty (chan->Gwriters))
+		//Empty pending read/write pairs, we start with flushing all readers
+		while(!g_queue_is_empty(chan->Greaders))
 		{
-			QueueableItem w = g_queue_pop_head(chan->Gwriters);
-			if (!dsmcbe_rc_csp_AttemptPairWrite(chan, w, TRUE))
-				break; //It gets re-inserted in the AttemptPairWrite function
+			QueueableItem r = g_queue_pop_head(chan->Greaders);
+			if (!dsmcbe_rc_csp_AttemptPairRead(chan, r, TRUE))
+				break; //It gets re-inserted in the AttemptPairRead function we are done
+		}
+
+		size_t buffered_responses = MIN(g_queue_get_length(chan->Gwriters), chan->buffersize);
+
+		//If there are any writers left, and the channel is buffered, we must respond to those now
+		if (buffered_responses > 0) {
+			for(i = 0; i < buffered_responses; i++) {
+				QueueableItem w = g_queue_peek_nth(chan->Gwriters, i);
+				dsmcbe_rc_csp_RespondWriteChannelWithCopy(chan, w);
+			}
 		}
 	}
 }

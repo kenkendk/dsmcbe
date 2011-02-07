@@ -49,14 +49,16 @@
 unsigned int dsmcbe_spu_ppu_threadcount;
 
 //This function handles incoming create channel requests from an SPU
-void dsmcbe_spu_csp_HandleChannelCreateRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id, unsigned int buffersize, unsigned int type)
+void dsmcbe_spu_csp_HandleChannelCreateRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args)
 {
 	//Record the ongoing request
+	unsigned int requestId = args->requestId;
+	unsigned int id = args->id;
 	CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_CREATE_REQUEST);
 
 	//Create a matching request for the request coordinator
 	struct dsmcbe_cspChannelCreateRequest* req;
-	if (dsmcbe_new_cspChannelCreateRequest(&req, id, requestId, buffersize, type) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelCreateRequest(&req, args->id, args->requestId, args->size, args->mode) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	//Forward the request
@@ -71,8 +73,13 @@ void dsmcbe_spu_csp_HandleChannelCreateResponse(struct dsmcbe_spu_state* state, 
 	dsmcbe_spu_SendMessagesToSPU(state, packagecode, requestId, 0, 0);
 }
 
+void dsmcbe_spu_csp_HandleChannelPoisonRequest_Eventhandler(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args) {
+	dsmcbe_spu_csp_HandleChannelPoisonRequest(state, args->requestId, args->id);
+}
+
+
 //This function handles incoming create channel requests from an SPU
-void dsmcbe_spu_csp_HandleChannelPoisonRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id)
+void dsmcbe_spu_csp_HandleChannelPoisonRequest(struct dsmcbe_spu_state* state, unsigned int requestId, unsigned int id)
 {
 	//If the channel is direct, we absorb it here before any malloc etc is done
 	struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)id);
@@ -241,75 +248,78 @@ void* dsmcbe_spu_csp_attempt_get_pointer(struct dsmcbe_spu_state* state, struct 
 }
 
 //This function handles incoming create item requests from an SPU
-void dsmcbe_spu_csp_HandleItemCreateRequest(struct dsmcbe_spu_state* state, unsigned int requestId, unsigned int size)
+void dsmcbe_spu_csp_HandleItemCreateRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args)
 {
 	GUID id = 0;
+	unsigned int requestId = args->requestId;
 	struct dsmcbe_spu_pendingRequest*  preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_ITEM_CREATE_REQUEST);
-	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(0, TRUE, CSP_ITEM_MODE_IN_USE, 0, UINT_MAX, NULL, NULL, UINT_MAX, size, TRUE, FALSE, preq);
+	struct dsmcbe_spu_dataObject* obj = dsmcbe_spu_new_dataObject(0, TRUE, CSP_ITEM_MODE_IN_USE, 0, UINT_MAX, NULL, NULL, UINT_MAX, args->size, TRUE, FALSE, preq);
 	preq->dataObj = obj;
 
-	obj->LS = dsmcbe_spu_csp_attempt_get_pointer(state, preq, size);
+	obj->LS = dsmcbe_spu_csp_attempt_get_pointer(state, preq, args->size);
 
 	if (obj->LS != NULL)
 	{
 		g_hash_table_insert(state->csp_active_items, obj->LS, obj);
 
 		dsmcbe_spu_free_PendingRequest(preq);
-		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE, requestId, (unsigned int)obj->LS, size);
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE, requestId, (unsigned int)obj->LS, args->size);
 	}
 }
 
 //This function handles incoming free item requests from an SPU
-void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, unsigned int requestId, void* data)
+void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args)
 {
-	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, data);
+	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, (void*)args->data);
 	if (obj == NULL)
 	{
-		REPORT_ERROR2("Attempted to release unknown pointer: %d", (unsigned int)data);
-		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
+		REPORT_ERROR2("Attempted to release unknown pointer: %d", args->data);
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, args->requestId, 0, 0);
 		return;
 	}
 
 	if (obj->mode != CSP_ITEM_MODE_IN_USE && obj->mode != CSP_ITEM_MODE_SENT)
 	{
 		REPORT_ERROR2("Unable to free item, as it is in an invalid state, %d", obj->mode);
-		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, args->requestId, 0, 0);
 		return;
 	}
 
 	FREE(obj);
-	g_hash_table_remove(state->csp_active_items, data);
-	dsmcbe_spu_memory_free(state->map, data);
-	dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_FREE_RESPONSE, requestId, 0, 0);
+	g_hash_table_remove(state->csp_active_items, (void*)args->data);
+	dsmcbe_spu_memory_free(state->map, (void*)args->data);
+	dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_FREE_RESPONSE, args->requestId, 0, 0);
 
 	dsmcbe_spu_ManageDelayedAllocation(state);
 }
 
 //This function handles incoming channel read requests from an SPU
-void dsmcbe_spu_csp_HandleChannelReadRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id)
+void dsmcbe_spu_csp_HandleChannelReadRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args)
 {
 	//printf(WHERESTR "Context %u got read request for channel %u, with requestId: %u\n", WHEREARG, (unsigned int) state->context, id, requestId);
 	//If the channel is direct, we absorb it here before any malloc etc is done
-	struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)id);
+	struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)args->id);
 	if (channel != NULL)
 	{
 		if (channel->readerRequestId != UINT_MAX)
 		{
 			REPORT_ERROR2("Duplicate read request for direct channel %d", channel->id);
-			dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
+			dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, args->requestId, 0, 0);
 		}
 		else
-			dsmcbe_spu_csp_HandleDirectReadRequest(state, channel, requestId);
+			dsmcbe_spu_csp_HandleDirectReadRequest(state, channel, args->requestId);
 
 		return;
 	}
 
 	//Record the ongoing request
+	unsigned int requestId = args->requestId;
+	unsigned int id = args->id;
 	CREATE_PENDING_REQUEST(PACKAGE_CSP_CHANNEL_READ_REQUEST)
 
 	//Create a matching request for the request coordinator
 	struct dsmcbe_cspChannelReadRequest* req;
-	if (dsmcbe_new_cspChannelReadRequest_single(&req, id, requestId, (unsigned int)state) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelReadRequest_single(&req, args->id, args->requestId, (unsigned int)state) != CSP_CALL_SUCCESS)
 	{
 		printf("Error?\n");
 		exit(-1);
@@ -320,18 +330,19 @@ void dsmcbe_spu_csp_HandleChannelReadRequest(struct dsmcbe_spu_state* state, uns
 }
 
 //This function handles incoming channel read requests from an SPU
-void dsmcbe_spu_csp_HandleChannelReadRequestAlt(struct dsmcbe_spu_state* state, unsigned int requestId, void* guids, unsigned int count, void* channelId, unsigned int mode)
+void dsmcbe_spu_csp_HandleChannelReadRequestAlt(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args)
 {
 	GUID id = CSP_SKIP_GUARD;
 
 	//Record the ongoing request
+	unsigned int requestId = args->requestId;
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_CHANNEL_READ_ALT_REQUEST);
-	if (channelId != NULL)
-		preq->channelPointer = spe_ls_area_get(state->context) + (unsigned int)channelId;
+	if (args->channelId != 0)
+		preq->channelPointer = spe_ls_area_get(state->context) + args->channelId;
 
 	//Create a matching request for the request coordinator
 	struct dsmcbe_cspChannelReadRequest* req;
-	if (dsmcbe_new_cspChannelReadRequest_multiple(&req, requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelReadRequest_multiple(&req, args->requestId, args->mode, spe_ls_area_get(state->context) + (unsigned int)args->channels, args->size) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	//Forward the request
@@ -365,6 +376,9 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 			REPORT_ERROR("Broḱen self-transfer");
 			exit(-1);
 		}
+
+		FREE(resp->transferManager);
+		resp->transferManager = NULL;
 
 		if (oldObj->mode == CSP_ITEM_MODE_FLUSHED)
 		{
@@ -417,6 +431,9 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 	preq->objId = resp->channelId;
 	if (resp->speId != 0)
 	{
+		if (resp->transferManager == NULL)
+			printf(WHERESTR "Unexpected missing transfer manager, speId = %d\n", WHEREARG, resp->speId);
+
 		preq->transferHandler = resp;
 		obj->EA = NULL; //This is not a valid pointer
 	}
@@ -449,6 +466,13 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 			dsmcbe_spu_TransferObject(state, preq, obj);
 		}
 	}
+	else
+	{
+		if (resp->transferManager != NULL) {
+			FREE(resp->transferManager);
+			resp->transferManager = NULL;
+		}
+	}
 }
 
 //Initiates a transfer request on another SPE
@@ -463,6 +487,8 @@ void dsmcbe_spu_csp_RequestTransfer(struct dsmcbe_spu_state* state, struct dsmcb
 	pthread_cond_t* cond = NULL;
 #endif
 
+	//printf(WHERESTR "Requesting transfer, resp: @%u, resp->tfm: @%u, package: %s (%d), reqId: %d\n", WHEREARG, (unsigned int)resp, (unsigned int)resp->transferManager, PACKAGE_NAME(resp->packageCode), resp->packageCode, resp->requestID);
+
 	struct dsmcbe_transferRequest* req = dsmcbe_new_transferRequest(resp->requestID, &state->inMutex, cond, &state->inQueue, resp->data, spe_ls_area_get(state->context)  + (unsigned int)preq->dataObj->LS);
 	dsmcbe_rc_SendMessage(resp->transferManager, req);
 	FREE(resp);
@@ -471,27 +497,30 @@ void dsmcbe_spu_csp_RequestTransfer(struct dsmcbe_spu_state* state, struct dsmcb
 }
 
 //This function handles incoming channel write requests from an SPU
-void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, unsigned int requestId, GUID id, void* data)
+void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args)
 {
-	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, data);
+	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, (void*)args->data);
 	if (obj == NULL)
 	{
-		REPORT_ERROR2("Attempted to use unknown pointer for write: %d", (unsigned int)data);
-		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
+		REPORT_ERROR2("Attempted to use unknown pointer for write: %d", args->data);
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, args->requestId, 0, 0);
 		return;
 	}
 
 	//printf(WHERESTR "Context %u got write request for channel %u, with requestId: %u, dataObj: %u, mode: %u\n", WHEREARG, (unsigned int)state->context, id, requestId, (unsigned int)obj, obj->mode);
 
 	//If the channel is direct, we absorb it here before any malloc etc is done
-	struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)id);
+	struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)args->id);
 	if (channel != NULL)
 	{
-		dsmcbe_spu_csp_HandleDirectWriteRequest(state, channel, requestId, obj, TRUE);
+		dsmcbe_spu_csp_HandleDirectWriteRequest(state, channel, args->requestId, obj, TRUE);
 		return;
 	}
 
 	//printf(WHERESTR "Context %u handling normal write request for channel %u, with requestId: %u, dataObj: %u, mode: %u\n", WHEREARG, (unsigned int)state->context, id, requestId, (unsigned int)obj, obj->mode);
+
+	unsigned int requestId = args->requestId;
+	unsigned int id = args->id;
 
 #ifdef SPE_CSP_CHANNEL_EAGER_TRANSFER
 
@@ -531,6 +560,8 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 	if(dsmcbe_new_cspChannelWriteRequest_single(&req, id, requestId, (void*)obj->csp_seq_no, obj->size, (unsigned int)state, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
 		exit(-1);
 
+	//printf(WHERESTR "Creating a transferManager with Reqid: %u, and tfm: @%u\n", WHEREARG, req->requestID, (unsigned int)req->transferManager);
+
 	preq->transferHandler = req->transferManager;
 	preq->dataObj = obj;
 
@@ -540,19 +571,21 @@ void dsmcbe_spu_csp_HandleChannelWriteRequest(struct dsmcbe_spu_state* state, un
 }
 
 //This function handles incoming channel write requests from an SPU
-void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state, unsigned int requestId, void* data, void* guids, unsigned int count, unsigned int mode)
+void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args)
 {
 	GUID id = CSP_SKIP_GUARD;
 
-	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, data);
+	struct dsmcbe_spu_dataObject* obj = g_hash_table_lookup(state->csp_active_items, (void*)args->data);
 	if (obj == NULL)
 	{
-		REPORT_ERROR2("Attempted to use unknown pointer for write: %d", (unsigned int)data);
-		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, requestId, 0, 0);
+		REPORT_ERROR2("Attempted to use unknown pointer for write: %d", args->data);
+		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, args->requestId, 0, 0);
 		return;
 	}
 
+	unsigned int requestId = args->requestId;
 #ifdef SPE_CSP_CHANNEL_EAGER_TRANSFER
+
 
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST);
 	preq->dataObj = obj;
@@ -562,7 +595,7 @@ void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state,
 	if (obj->EA == NULL)
 		obj->EA = MALLOC_ALIGN(ALIGNED_SIZE(obj->size), 7);
 
-	if (dsmcbe_new_cspChannelWriteRequest_multiple((struct dsmcbe_cspChannelWriteRequest**)&(preq->channelPointer), requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, obj->EA, 0, NULL) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelWriteRequest_multiple((struct dsmcbe_cspChannelWriteRequest**)&(preq->channelPointer), args->requestId, args->mode, spe_ls_area_get(state->context) + (unsigned int)args->channels, args->size, obj->size, obj->EA, 0, NULL) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	dsmcbe_spu_TransferObject(state, preq, obj);
@@ -589,7 +622,7 @@ void dsmcbe_spu_csp_HandleChannelWriteRequestAlt(struct dsmcbe_spu_state* state,
 	struct dsmcbe_spu_pendingRequest* preq = CREATE_PENDING_REQUEST(PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST);
 
 	struct dsmcbe_cspChannelWriteRequest* req;
-	if (dsmcbe_new_cspChannelWriteRequest_multiple(&req, requestId, mode, spe_ls_area_get(state->context) + (unsigned int)guids, count, obj->size, (void*)obj->csp_seq_no, (unsigned int)state, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
+	if (dsmcbe_new_cspChannelWriteRequest_multiple(&req, args->requestId, args->mode, spe_ls_area_get(state->context) + (unsigned int)args->channels, args->size, obj->size, (void*)obj->csp_seq_no, (unsigned int)state, dsmcbe_spu_createTransferManager(state)) != CSP_CALL_SUCCESS)
 		exit(-1);
 
 	preq->transferHandler = req->transferManager;

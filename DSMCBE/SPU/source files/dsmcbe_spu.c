@@ -28,6 +28,82 @@ int dsmcbe_thread_count;
 unsigned int spu_dsmcbe_nextRequestNo = 0;
 unsigned int spu_dsmcbe_initialized = FALSE;
 
+struct spu_dsmcbe_mailbox_args {
+	unsigned int next;
+	unsigned int dummy1;
+	unsigned int dummy2;
+	unsigned int dummy3;
+
+	unsigned int packageCode;
+	unsigned int requestId;
+	unsigned int data;
+	unsigned int size;
+	unsigned int id;
+	unsigned int mode;
+	unsigned int channels;
+	unsigned int channelId;
+} __attribute__ ((aligned (16)));
+
+struct spu_dsmcbe_mailbox_args spu_dsmcbe_mbox_buffer[MAILBOX_BUFFER_SIZE * sizeof(struct spu_dsmcbe_mailbox_args)];
+volatile unsigned int spu_dsmcbe_mbox_buffer_full = FALSE;
+
+unsigned int spu_dsmcbe_mbox_next = 0;
+
+void spu_dsmcbe_sendMboxMessage(unsigned int packageCode, unsigned int requestId, unsigned int data, unsigned int size, unsigned int id, unsigned int mode, unsigned int channels, unsigned int channelId) {
+
+	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
+	//printf(WHERESTR "In sendMbox\n", WHEREARG);
+
+	//If the buffer is currently full, just wait until there is space left
+	if (spu_dsmcbe_mbox_buffer_full == TRUE) {
+		printf(WHERESTR "Mailbox buffer is full, waiting\n", WHEREARG);
+
+		while(spu_dsmcbe_mbox_buffer_full == TRUE)
+			dsmcbe_thread_yield();
+	}
+
+	//printf(WHERESTR "Buffer is not full\n", WHEREARG);
+
+	int next = (spu_dsmcbe_mbox_next + 1) % MAILBOX_BUFFER_SIZE;
+
+	struct spu_dsmcbe_mailbox_args* curEl = &spu_dsmcbe_mbox_buffer[spu_dsmcbe_mbox_next];
+	struct spu_dsmcbe_mailbox_args* nextEl = &spu_dsmcbe_mbox_buffer[next];
+
+	//If there is no space for this entry, wait until there is
+	if (curEl->next != 0 || nextEl->next != 0) {
+		printf(WHERESTR "Waiting for entry to become free, curEl @%d, curEl->next @%d, nextEl @%d, nextEl->next @%d\n", WHEREARG, (unsigned int)curEl, curEl->next, (unsigned int)nextEl, nextEl->next);
+
+		spu_dsmcbe_mbox_buffer_full = TRUE;
+		while (curEl->next != 0 || nextEl->next != 0)
+			dsmcbe_thread_yield();
+
+		spu_dsmcbe_mbox_buffer_full = FALSE;
+	}
+
+	//printf(WHERESTR "Setting up mailbox entry %d in ls @%d, next is %d @%d\n", WHEREARG, spu_dsmcbe_mbox_next, (unsigned int)curEl, next, (unsigned int)nextEl);
+
+	curEl->packageCode = packageCode;
+	curEl->requestId = requestId;
+	curEl->data = data;
+	curEl->size = size;
+	curEl->id = id;
+	curEl->mode = mode;
+	curEl->channels = channels;
+	curEl->channelId = channelId;
+
+	//Important: Because this is essentially dirty write, the "busy" state must be written last
+	curEl->next = (unsigned int)nextEl;
+
+	//Signal PPE
+	if (SPU_STAT_OUT_MBOX() != 0) {
+		//printf(WHERESTR "Signaling SPE with address @%d\n", WHEREARG, (unsigned int)curEl);
+		SPU_WRITE_OUT_MBOX((unsigned int)curEl);
+	}
+
+	spu_dsmcbe_mbox_next = next;
+}
+
 //This function gets the next available request number, and sets the response flag to "not ready"
 unsigned int spu_dsmcbe_getNextReqNo(unsigned int requestCode)
 {
@@ -223,10 +299,7 @@ unsigned int spu_dsmcbe_create_begin(GUID id, unsigned long size)
 	if (nextId == UINT_MAX)
 		return UINT_MAX;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX(id);
-	SPU_WRITE_OUT_MBOX(size);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, size, id, 0, 0, 0);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "CREATE package sent\n", WHEREARG);
@@ -261,9 +334,7 @@ unsigned int spu_dsmcbe_acquire_barrier_begin(GUID id)
 	if (nextId == UINT_MAX)
 		return UINT_MAX;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX(id);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, 0, id, 0, 0, 0);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "ACQUIRE_BARRIRER package sent, id: %d\n", WHEREARG, nextId);
@@ -300,9 +371,7 @@ unsigned int spu_dsmcbe_acquire_begin(GUID id, int type)
 	if (nextId == UINT_MAX)
 		return UINT_MAX;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX(id);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, 0, id, 0, 0, 0);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "ACQUIRE package sent, id: %d\n", WHEREARG, nextId);
@@ -322,8 +391,7 @@ void spu_dsmcbe_release_begin(void* data)
 		return;
 	}
 
-	SPU_WRITE_OUT_MBOX(PACKAGE_RELEASE_REQUEST);
-	SPU_WRITE_OUT_MBOX((unsigned int)data);	
+	spu_dsmcbe_sendMboxMessage(PACKAGE_RELEASE_REQUEST, (unsigned int)data, 0, 0, 0, 0, 0, 0);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "RELEASE package sent @: %d\n", WHEREARG, (unsigned int)data);
@@ -345,9 +413,7 @@ unsigned int spu_dsmcbe_memory_malloc_begin(unsigned int size)
 	if (nextId == UINT_MAX)
 		return UINT_MAX;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX(size);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, size, 0, 0, 0, 0);
 	
 	return nextId;
 }
@@ -363,8 +429,7 @@ void spu_dsmcbe_memory_free_begin(void* data)
 		return;
 	}
 
-	SPU_WRITE_OUT_MBOX(PACKAGE_SPU_MEMORY_FREE);
-	SPU_WRITE_OUT_MBOX((unsigned int)data);	
+	spu_dsmcbe_sendMboxMessage(PACKAGE_SPU_MEMORY_FREE, 0, (unsigned int)data, 0, 0, 0, 0, 0);
 }
 
 
@@ -381,8 +446,7 @@ void dsmcbe_terminate()
 	}
 
 	unsigned int reqid = spu_dsmcbe_getNextReqNo(PACKAGE_TERMINATE_REQUEST);
-	SPU_WRITE_OUT_MBOX(PACKAGE_TERMINATE_REQUEST);
-	SPU_WRITE_OUT_MBOX(reqid);
+	spu_dsmcbe_sendMboxMessage(PACKAGE_TERMINATE_REQUEST, reqid, 0, 0, 0, 0, 0, 0);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "TERMINATE package sent\n", WHEREARG);
@@ -463,8 +527,7 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 			if (i++ == 1000000U)
 			{
 				REPORT_ERROR2("Detected timeout for request id %d", requestNo);
-				SPU_WRITE_OUT_MBOX(PACKAGE_DEBUG_PRINT_STATUS);
-				SPU_WRITE_OUT_MBOX(requestNo);
+				spu_dsmcbe_sendMboxMessage(PACKAGE_DEBUG_PRINT_STATUS, requestNo, 0, 0, 0, 0, 0, 0);
 				i = 0;
 			}
 
@@ -525,9 +588,7 @@ void spu_dsmcbe_enqueueStreamAcquire(GUID id, int type)
 		return;
 	}
 
-	SPU_WRITE_OUT_MBOX(PACKAGE_ENQUEUE_STREAM_JOB);
-	SPU_WRITE_OUT_MBOX(id);
-	SPU_WRITE_OUT_MBOX(type);
+	spu_dsmcbe_sendMboxMessage(PACKAGE_ENQUEUE_STREAM_JOB, id, type, 0, 0, 0, 0, 0);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "Enqueue ACQUIRE stream package sent, id: %d\n", WHEREARG, id);
@@ -560,9 +621,7 @@ void* spu_dsmcbe_dequeueStreamAcquire(GUID* id, unsigned long* size)
 	if (nextId == UINT_MAX)
 		return (void*)UINT_MAX;
 
-	SPU_WRITE_OUT_MBOX(spu_dsmcbe_pendingRequests[nextId].requestCode);
-	SPU_WRITE_OUT_MBOX(nextId);
-	SPU_WRITE_OUT_MBOX((unsigned int)&id);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, (unsigned int)&id, 0, 0, 0, 0, 0);
 
 #ifdef DEBUG_COMMUNICATION	
 	printf(WHERESTR "DEQUEUE stream package sent, id: %d\n", WHEREARG, nextId);
@@ -635,15 +694,16 @@ void spu_dsmcbe_memory_setup(unsigned int reservedMemory)
 	if (start == NULL)
 		REPORT_ERROR("Failed to allocated the desired amount of bytes, consider increasing MAIN_THREAD_STACKSPACE or reservedMemory");
 	
-	SPU_WRITE_OUT_MBOX(PACKAGE_SPU_MEMORY_SETUP);
-	SPU_WRITE_OUT_MBOX((unsigned int)start);
-	SPU_WRITE_OUT_MBOX(size);
+	spu_dsmcbe_sendMboxMessage(PACKAGE_SPU_MEMORY_SETUP, (unsigned int)start, 0, size, 0, 0, 0, 0);
 }
 
 //Initializes the DSMCBE system
 void dsmcbe_initializeReserved(unsigned int reservedMemory)
 {
 	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
+
+	//Clear the mailbox buffer
+	memset(spu_dsmcbe_mbox_buffer, MAILBOX_BUFFER_SIZE * sizeof(struct spu_dsmcbe_mailbox_args), 0);
 
 	//printf(WHERESTR "Setting up malloc\n", WHEREARG);
 	spu_dsmcbe_memory_setup(reservedMemory);
