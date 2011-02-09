@@ -102,8 +102,9 @@ int main(int argc, char* argv[])
 
 			unsigned int w = j == fragments_w - 1 ? (inputImage.width - (fragment_size * (fragments_w - 1))) : fragment_size;
 			unsigned int h = i == fragments_h - 1 ? (inputImage.height - (fragment_size * (fragments_h - 1))) : fragment_size;
+			unsigned int fragmentMemSize = w * h;
 
-			CSP_SAFE_CALL("create fragment", dsmcbe_csp_item_create((void**)&data, w * h));
+			CSP_SAFE_CALL("create fragment", dsmcbe_csp_item_create((void**)&data, fragmentMemSize));
 
 			int offsetx = fragment_size * j;
 			int offsety = fragment_size * i;
@@ -126,8 +127,8 @@ int main(int argc, char* argv[])
 			for(k = 1; k < fragment_replicas; k++)
 			{
 				void* tmpCpy;
-				CSP_SAFE_CALL("create replica", dsmcbe_csp_item_create(&tmpCpy, fragment_size * fragment_size));
-				memcpy(tmpCpy, data, fragment_size * fragment_size);
+				CSP_SAFE_CALL("create replica", dsmcbe_csp_item_create(&tmpCpy, fragmentMemSize));
+				memcpy(tmpCpy, data, fragmentMemSize);
 				CSP_SAFE_CALL("write replica", dsmcbe_csp_channel_write(channelId, tmpCpy));
 			}
 
