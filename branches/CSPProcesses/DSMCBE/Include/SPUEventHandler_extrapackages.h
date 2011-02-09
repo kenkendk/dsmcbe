@@ -25,6 +25,9 @@
 #define PACKAGE_SPU_CSP_CHANNEL_POISON_DIRECT 252
 #define PACKAGE_SPU_CSP_DUMP_STATE 253
 
+#define PACKAGE_SPU_CSP_DIRECT_WRITE_REQUEST 254
+
+
 //The data object is in use by a SPU
 #define CSP_ITEM_MODE_IN_USE 1
 //The data object is on the source SPE, but no longer in use

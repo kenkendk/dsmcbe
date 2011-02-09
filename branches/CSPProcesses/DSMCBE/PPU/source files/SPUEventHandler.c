@@ -99,6 +99,7 @@ struct dsmcbe_spu_dataObject* dsmcbe_spu_new_dataObject(GUID id, unsigned int is
 	res->isDMAToSPU = isDMAToSPU;
 	res->preq = preq;
 	res->isCSP = isCSP;
+	res->flushPreq = NULL;
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 	res->csp_seq_no = 0;
 #endif
@@ -1288,8 +1289,6 @@ void dsmcbe_spu_HandleTransferRequestCompleted(struct dsmcbe_spu_state* state, s
 //This function handles completed DMA transfers
 void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsigned int groupID)
 {
-	size_t i;
-
 	//Get the corresponding request
 	struct dsmcbe_spu_pendingRequest* preq = state->activeDMATransfers[groupID];
 
@@ -1409,24 +1408,39 @@ void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsig
 					dsmcbe_spu_ManageDelayedAllocation(state);
 					dsmcbe_spu_free_PendingRequest(preq);
 
-					struct dsmcbe_spu_directChannelObject* channel = g_hash_table_lookup(state->csp_direct_channels, (void*)obj->id);
-					if (channel != NULL && channel->writerRequestIds->count != 0)
+					//If an operation was registered during the flush operation, we can now complete it
+					if (obj->flushPreq != NULL)
 					{
-						unsigned int wReqId = UINT_MAX;
-						for(i = 0; i < channel->writerRequestIds->count; i++)
-							if (dsmcbe_ringbuffer_peek_nth(channel->dataObjs, i) == obj)
+						struct dsmcbe_spu_pendingRequest* flushPreq = obj->flushPreq;
+						obj->flushPreq = NULL;
+
+						if (flushPreq->operation == PACKAGE_TRANSFER_REQUEST) {
+							dsmcbe_spu_HandleTransferRequest(state, flushPreq->transferHandler);
+							dsmcbe_spu_free_PendingRequest(flushPreq);
+						} else if (flushPreq->operation == PACKAGE_SPU_CSP_DIRECT_WRITE_REQUEST) {
+							struct dsmcbe_spu_directChannelObject* channel = (struct dsmcbe_spu_directChannelObject*)g_hash_table_lookup(state->csp_direct_channels, (void*)obj->id);
+							if (channel == NULL)
 							{
-								wReqId = (unsigned int)dsmcbe_ringbuffer_peek_nth(channel->writerRequestIds, i);
-								break;
+								REPORT_ERROR2("Got direct write request for channel %d but the channel was not a direct channel?", obj->id);
+								exit(-1);
 							}
 
-						if (wReqId == UINT_MAX)
-						{
-							REPORT_ERROR("DMA transfer completed, but was unable to find the matching write request");
-							exit(-1);
-						}
+							if (channel->writerDataEAs->count == 1)
+							{
+								if (channel->readerDataEA != NULL)
+								{
+									REPORT_ERROR2("The reader EA was not null for channel %d", channel->id);
+									exit(-1);
+								}
 
-						dsmcbe_spu_csp_HandleDirectWriteRequest(channel->writerState, channel, wReqId, obj, TRUE);
+								dsmcbe_spu_csp_PreTransferItem(channel, obj);
+							}
+
+							dsmcbe_spu_free_PendingRequest(flushPreq);
+						} else {
+							fprintf(stderr, WHERESTR "Unsupported package %s (%d) registered while flushing\n", WHEREARG, PACKAGE_NAME(flushPreq->operation), flushPreq->operation);
+							dsmcbe_spu_free_PendingRequest(flushPreq);
+						}
 					}
 				}
 #else
@@ -1584,8 +1598,9 @@ void dsmcbe_spu_HandleTransferResponse(struct dsmcbe_spu_state* state, void* pac
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 void dsmcbe_spu_HandleTransferRequest(struct dsmcbe_spu_state* state, void* package)
 {
-	struct dsmcbe_transferRequest* req = (struct dsmcbe_transferRequest*)package;
+	//printf(WHERESTR "Context %u, Got transfer request %u, obj is @%u\n", WHEREARG, (unsigned int)state->context, req->requestID, (unsigned int)obj);
 
+	struct dsmcbe_transferRequest* req = (struct dsmcbe_transferRequest*)package;
 	struct dsmcbe_spu_dataObject* obj = (struct dsmcbe_spu_dataObject*)g_hash_table_lookup(state->csp_inactive_items, req->from);
 	if (obj == NULL)
 	{
@@ -1593,46 +1608,66 @@ void dsmcbe_spu_HandleTransferRequest(struct dsmcbe_spu_state* state, void* pack
 		exit(-1);
 	}
 
-	//printf(WHERESTR "Context %u, Got transfer request %u, obj is @%u\n", WHEREARG, (unsigned int)state->context, req->requestID, (unsigned int)obj);
-	g_hash_table_remove(state->csp_inactive_items, (void*)req->from);
-
-	if (obj->mode == CSP_ITEM_MODE_FLUSHED)
+	if (obj->mode == CSP_ITEM_MODE_IN_TRANSIT)
 	{
-		dsmcbe_spu_HandleTransferRequestCompleted(state, req, obj);
-		return;
-	}
+		if (obj->preq == NULL)
+		{
+			REPORT_ERROR("Unexpected preq=NULL");
+			exit(-1);
+		}
 
-	if (obj->mode != CSP_ITEM_MODE_READY_FOR_TRANSFER)
-	{
-		//TODO: Handle a transfer request in the middle of a transfer
-		REPORT_ERROR2("Unsupported timing problem, mode is %d", obj->mode);
-		exit(-1);
-	}
+		if (obj->preq->operation != PACKAGE_SPU_CSP_FLUSH_ITEM)
+		{
+			fprintf(stderr, WHERESTR "Unexpected preq package code %s %d while handling a transfer request for an item in transit\n", WHEREARG, PACKAGE_NAME(obj->preq->operation), obj->preq->operation);
+			exit(-1);
+		}
 
-	if (obj->LS == NULL)
-		REPORT_ERROR("Bad LS detected!");
-
-	if (req->to == NULL)
-	{
-		if (obj->EA == NULL)
-			obj->EA = MALLOC_ALIGN(ALIGNED_SIZE(obj->size), 7);
+		obj->flushPreq = dsmcbe_spu_new_PendingRequest(state, NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE, req->packageCode, 0, obj, 0, TRUE);
+		//printf(WHERESTR "Created a flushPreq with code %d\n", WHEREARG, obj->flushPreq->operation);
+		obj->flushPreq->transferHandler = req;
 	}
 	else
 	{
-		if (obj->EA != NULL)
-			FREE_ALIGN(obj->EA);
+		g_hash_table_remove(state->csp_inactive_items, (void*)req->from);
 
-		obj->EA = req->to;
+		if (obj->mode == CSP_ITEM_MODE_FLUSHED)
+		{
+			dsmcbe_spu_HandleTransferRequestCompleted(state, req, obj);
+			return;
+		}
+
+
+		if (obj->mode != CSP_ITEM_MODE_READY_FOR_TRANSFER)
+		{
+			REPORT_ERROR2("Unsupported timing problem, mode is %d", obj->mode);
+			exit(-1);
+		}
+
+		if (obj->LS == NULL)
+			REPORT_ERROR("Bad LS detected!");
+
+		if (req->to == NULL)
+		{
+			if (obj->EA == NULL)
+				obj->EA = MALLOC_ALIGN(ALIGNED_SIZE(obj->size), 7);
+		}
+		else
+		{
+			if (obj->EA != NULL)
+				FREE_ALIGN(obj->EA);
+
+			obj->EA = req->to;
+		}
+
+		obj->mode = CSP_ITEM_MODE_IN_TRANSIT;
+		obj->isDMAToSPU = FALSE;
+		struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_new_PendingRequest(state, NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE, req->packageCode, 0, obj, 0, TRUE);
+		obj->preq = preq;
+
+		preq->transferHandler = req;
+
+		dsmcbe_spu_TransferObject(state, preq, obj);
 	}
-
-	obj->mode = CSP_ITEM_MODE_IN_TRANSIT;
-	obj->isDMAToSPU = FALSE;
-	struct dsmcbe_spu_pendingRequest* preq = dsmcbe_spu_new_PendingRequest(state, NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE, req->packageCode, 0, obj, 0, TRUE);
-	obj->preq = preq;
-
-	preq->transferHandler = req;
-
-	dsmcbe_spu_TransferObject(state, preq, obj);
 }
 #endif
 
