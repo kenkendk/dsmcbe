@@ -58,7 +58,8 @@
 		(x == 251 ? "SPU CSP Setup Direct" : \
 		(x == 252 ? "SPU CSP Poison Direct" : \
 		(x == 253 ? "SPU CSP Dump State" : \
-				"Unknown")))))))))))))))))))))))))))))))))))))))))))))))))
+		(x == 254 ? "SPU CSP Direct Write Request" : \
+				"Unknown"))))))))))))))))))))))))))))))))))))))))))))))))))
 
 //#define DEBUG_COMMUNICATION
 //#define EVENT_BASED

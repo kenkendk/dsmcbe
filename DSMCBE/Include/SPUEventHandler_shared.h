@@ -24,7 +24,7 @@
 #define CSP_INACTIVE_BASE (4000)
 
 //The max number of inactive items
-#define MAX_CSP_INACTIVE_ITEMS (500)
+#define MAX_CSP_INACTIVE_ITEMS (1500)
 
 //The number of available DMA group ID's
 //NOTE: On the PPU this is 0-15, NOT 0-31 as on the SPU!
@@ -70,6 +70,9 @@ struct dsmcbe_spu_dataObject
 
 	//The pending request currently assigned to the object
 	struct dsmcbe_spu_pendingRequest* preq;
+
+	//The pending request to perform after flushing has completed
+	struct dsmcbe_spu_pendingRequest* flushPreq;
 
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 	//The current csp sequence number, used to track inactive items
@@ -274,6 +277,9 @@ typedef void (*spu_eventhandler_function)(struct dsmcbe_spu_state*, struct dsmcb
 //Declarations for functions that have interdependencies
 void dsmcbe_spu_HandleObjectRelease(struct dsmcbe_spu_state* state, struct dsmcbe_spu_dataObject* obj);
 void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsigned int groupID);
+
+void dsmcbe_spu_HandleTransferRequest(struct dsmcbe_spu_state* state, void* package);
+void dsmcbe_spu_csp_PreTransferItem(struct dsmcbe_spu_directChannelObject* channel, struct dsmcbe_spu_dataObject* obj);
 
 void dsmcbe_spu_SendRequestCoordinatorMessage(struct dsmcbe_spu_state* state, void* req);
 void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int packageCode, unsigned int requestId, unsigned int data, unsigned int size);

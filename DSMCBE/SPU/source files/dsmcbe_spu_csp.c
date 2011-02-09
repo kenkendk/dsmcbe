@@ -203,7 +203,7 @@ int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t chann
 	if (nextId == UINT_MAX)
 		return CSP_CALL_ERROR;
 
-	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, channelcount, 0, mode, (unsigned int)channels, (unsigned int)data);
+	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, (unsigned int)data, channelcount, 0, mode, (unsigned int)channels, 0);
 
 	STOP_AND_WAIT
 

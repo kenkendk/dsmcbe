@@ -466,13 +466,6 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 			dsmcbe_spu_TransferObject(state, preq, obj);
 		}
 	}
-	else
-	{
-		if (resp != NULL && resp->transferManager != NULL) {
-			FREE(resp->transferManager);
-			resp->transferManager = NULL;
-		}
-	}
 }
 
 //Initiates a transfer request on another SPE
@@ -1067,11 +1060,9 @@ void dsmcbe_spu_csp_HandleDirectWriteRequest(struct dsmcbe_spu_state* state, str
 	else
 	{
 
-		if (obj->mode == CSP_ITEM_MODE_IN_TRANSIT)
-		{
-			printf(WHERESTR "Direct write request for channel %d is INTER SPE, item is being flushed, waiting\n", WHEREARG, channel->id);
-			REPORT_ERROR("Unsupported state!");
-			return;
+		if (obj->mode == CSP_ITEM_MODE_IN_TRANSIT && obj->flushPreq != NULL) {
+			REPORT_ERROR("Got a direct write request on an item in transit, and another package was already registered for flush");
+			exit(-1);
 		}
 
 		//Record the request
@@ -1085,6 +1076,13 @@ void dsmcbe_spu_csp_HandleDirectWriteRequest(struct dsmcbe_spu_state* state, str
 			dsmcbe_spu_SendMessagesToSPU(channel->writerState, PACKAGE_CSP_CHANNEL_WRITE_RESPONSE, requestId, 0, 0);
 
 		//printf(WHERESTR "Direct write request for channel %d is INTER SPE, writerLS: %u, buffer->count: %u\n", WHEREARG, channel->id, (unsigned int)obj->LS, channel->writerRequestIds->count);
+
+		if (obj->mode == CSP_ITEM_MODE_IN_TRANSIT)
+		{
+			obj->flushPreq = dsmcbe_spu_new_PendingRequest(state, requestId, PACKAGE_SPU_CSP_DIRECT_WRITE_REQUEST, obj->id, obj, 0, TRUE);
+			//printf(WHERESTR "Created a flushPreq with code %d\n", WHEREARG, obj->flushPreq->operation);
+			return;
+		}
 
 		//Allocate space on target SPE, if not already done
 		if (channel->writerDataEAs->count == 1)

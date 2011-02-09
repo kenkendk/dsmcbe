@@ -57,7 +57,7 @@ void spu_dsmcbe_sendMboxMessage(unsigned int packageCode, unsigned int requestId
 
 	//If the buffer is currently full, just wait until there is space left
 	if (spu_dsmcbe_mbox_buffer_full == TRUE) {
-		printf(WHERESTR "Mailbox buffer is full, waiting\n", WHEREARG);
+		//printf(WHERESTR "Mailbox buffer is full, waiting\n", WHEREARG);
 
 		while(spu_dsmcbe_mbox_buffer_full == TRUE)
 			dsmcbe_thread_yield();
@@ -72,7 +72,7 @@ void spu_dsmcbe_sendMboxMessage(unsigned int packageCode, unsigned int requestId
 
 	//If there is no space for this entry, wait until there is
 	if (curEl->next != 0 || nextEl->next != 0) {
-		printf(WHERESTR "Waiting for entry to become free, curEl @%d, curEl->next @%d, nextEl @%d, nextEl->next @%d\n", WHEREARG, (unsigned int)curEl, curEl->next, (unsigned int)nextEl, nextEl->next);
+		//printf(WHERESTR "Waiting for entry to become free, curEl @%d, curEl->next @%d, nextEl @%d, nextEl->next @%d\n", WHEREARG, (unsigned int)curEl, curEl->next, (unsigned int)nextEl, nextEl->next);
 
 		spu_dsmcbe_mbox_buffer_full = TRUE;
 		while (curEl->next != 0 || nextEl->next != 0)
