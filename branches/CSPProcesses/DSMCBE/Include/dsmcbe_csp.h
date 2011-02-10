@@ -99,4 +99,7 @@ int dsmcbe_csp_channel_poison(GUID channel);
 //Creates a new CSP channel of the given type
 int dsmcbe_csp_channel_create(GUID channelid, unsigned int buffersize, unsigned int type);
 
+//A helper function that allows all SPE fibers to read the same channel object
+int dsmcbe_csp_spu_sharedChannelRead(GUID channelId, size_t* size, void** data, size_t* readerCount);
+
 #endif /* DSMCBE_CSP_H_ */

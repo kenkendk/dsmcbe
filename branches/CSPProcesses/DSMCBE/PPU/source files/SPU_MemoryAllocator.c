@@ -261,11 +261,19 @@ SPU_Memory_Map* dsmcbe_spu_memory_create(unsigned int offset, unsigned int size)
 	return map;
 }
 
-void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
+void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, spe_context_ptr_t context, unsigned int size) {
 #ifdef DEBUGMAP
 	printf(WHERESTR "MEMMGR - Trying to malloc %i\n", WHEREARG, size);
 #endif
-	size = ALIGNED_SIZE(size);
+	if (size == 0) {
+		REPORT_ERROR("Got request for allocating zero bytes on SPE, quitting");
+		exit(-1);
+	}
+
+	unsigned int requestedsize = size;
+
+	//HACK: We allocate a 16 byte area before the pointer for storing the pointer size
+	size = ALIGNED_SIZE(size + 16);
 	unsigned int bitsize = SIZE_TO_BITS(size);
 	void* data = dsmcbe_spu_memory_find_chunk(map, size);
 	if (data == NULL)
@@ -282,13 +290,22 @@ void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, unsigned int size) {
 		exit(-1);
 	}
 #endif
-	return data; 
+
+	//Store the size in the extra allocated area
+	((unsigned int*)(spe_ls_area_get(context) + (unsigned int)data))[0] = requestedsize;
+
+	//Return the adjusted pointer so the memory user cannot see the hack
+	return data + 16;
 }
 
 void dsmcbe_spu_memory_free(SPU_Memory_Map* map, void* data) {
 #ifdef DEBUGMAP		
 	printf(WHERESTR "MEMMGR - Trying to free %i\n", WHEREARG, (unsigned int)data);
-#endif	
+#endif
+
+	//HACK: Adjust the pointer to the real allocated area
+	data -= 16;
+
 	unsigned int bitsize = (unsigned int)g_hash_table_lookup(map->allocated, data);
 	if (bitsize == 0)
 	{

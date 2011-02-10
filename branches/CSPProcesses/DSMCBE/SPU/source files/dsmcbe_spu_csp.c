@@ -6,11 +6,17 @@
 #include <datapackages.h>
 #include <SPUEventHandler_extrapackages.h>
 #include <dsmcbe_spu_internal.h>
+#include <dsmcbe_spu.h>
 #include <limits.h>
 #include <debug.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "SPUThreads.h"
+
+//Macro to read out the prefixed pointer size
+#define GET_POINTER_SIZE(x) (((unsigned int*)((x) - 16))[0])
+
+//#define DEBUG_COMMUNICATION
 
 #ifdef SPU_STOP_AND_WAIT
 //This is from syscall.h
@@ -41,6 +47,11 @@ int dsmcbe_csp_item_create(void** data, size_t size)
 	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, 0, size, 0, 0, 0, 0);
 
 	*data = spu_dsmcbe_endAsync(nextId, NULL);
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Thread %d created item @%u\n", WHEREARG, dsmcbe_thread_current_id(), (unsigned int)*data);
+#endif
+
 	if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE)
 		return CSP_CALL_SUCCESS;
 	else
@@ -57,6 +68,10 @@ int dsmcbe_csp_item_free(void* data)
 		REPORT_ERROR("Please call initialize() before calling any DSMCBE functions");
 		return CSP_CALL_ERROR;
 	}
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Thread %d free'ing item @%u\n", WHEREARG, dsmcbe_thread_current_id(), (unsigned int)data);
+#endif
 
 	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_SPU_CSP_ITEM_FREE_REQUEST);
 	if (nextId == UINT_MAX)
@@ -88,14 +103,18 @@ int dsmcbe_csp_channel_write(GUID channelid, void* data)
 
 	SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
 
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Thread %d writing item @%u\n", WHEREARG, dsmcbe_thread_current_id(), (unsigned int)data);
+#endif
+
+
 	spu_dsmcbe_pendingRequests[nextId].channelId = channelid;
 	struct spu_dsmcbe_directChannelStruct* channel = dsmcbe_csp_findDirectChannelIndex(channelid);
 	if (channel != NULL)
 	{
 		SET_CURRENT_FUNCTION(FILE_DSMCBE_CSP);
 		//printf(WHERESTR "Handling a direct write request with id %d, channelId: %d\n", WHEREARG, nextId, channelid);
-		//TODO: We need to store the size?
-		dsmcbe_csp_handleDirectWriteRequest(channel, nextId, data, 0);
+		dsmcbe_csp_handleDirectWriteRequest(channel, nextId, data, GET_POINTER_SIZE(data));
 	}
 	else
 	{
@@ -147,6 +166,11 @@ int dsmcbe_csp_channel_read(GUID channelid, size_t* size, void** data)
 	}
 
 	*data = spu_dsmcbe_endAsync(nextId, size);
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Thread %d read item @%u\n", WHEREARG, dsmcbe_thread_current_id(), (unsigned int)*data);
+#endif
+
 	if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_CSP_CHANNEL_READ_RESPONSE)
 		return CSP_CALL_SUCCESS;
 	else if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_CSP_CHANNEL_POISONED_RESPONSE)
@@ -174,6 +198,11 @@ int dsmcbe_csp_channel_read_alt(unsigned int mode, GUID* channels, size_t channe
 	STOP_AND_WAIT
 
 	*data = spu_dsmcbe_endAsync(nextId, size);
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Thread %d read item @%u\n", WHEREARG, dsmcbe_thread_current_id(), (unsigned int)data);
+#endif
+
 	if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE)
 		return CSP_CALL_SUCCESS;
 	else if (spu_dsmcbe_pendingRequests[nextId].responseCode == PACKAGE_CSP_CHANNEL_POISONED_RESPONSE)
@@ -202,6 +231,10 @@ int dsmcbe_csp_channel_write_alt(unsigned int mode, GUID* channels, size_t chann
 	unsigned int nextId = spu_dsmcbe_getNextReqNo(PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_REQUEST);
 	if (nextId == UINT_MAX)
 		return CSP_CALL_ERROR;
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Thread %d writes item @%u\n", WHEREARG, dsmcbe_thread_current_id(), (unsigned int)data);
+#endif
 
 	spu_dsmcbe_sendMboxMessage(spu_dsmcbe_pendingRequests[nextId].requestCode, nextId, (unsigned int)data, channelcount, 0, mode, (unsigned int)channels, 0);
 
@@ -561,4 +594,87 @@ void dsmcbe_csp_setupDirectChannel(unsigned int requestID, GUID channelId, void*
 		dsmcbe_csp_respondToDirectWriter((unsigned int)dsmcbe_ringbuffer_peek(channel->pendingWrites));
 
 	//printf(WHERESTR "After setup, writeId: %u, readId: %u, size: %u, ls: %u, rb: %u, rb->count: %u\n", WHEREARG, wreqId, requestID, spu_dsmcbe_pendingRequests[requestID].size, (unsigned int)spu_dsmcbe_pendingRequests[requestID].pointer, (unsigned int)channel->pendingWrites, channel->pendingWrites->count);
+}
+
+struct dsmcbe_spu_linked_list
+{
+	void* data;
+	GUID channelId;
+	size_t size;
+	size_t count;
+	void* next;
+};
+
+volatile unsigned int dsmcbe_spu_csp_settingUpShared = FALSE;
+struct dsmcbe_spu_linked_list* dsmcbe_spu_csp_firstSharedRead = NULL;
+
+//A helper function that allows all SPE fibers to read the same channel object
+int dsmcbe_csp_spu_sharedChannelRead(GUID channelId, size_t* size, void** data, size_t* readerCount)
+{
+	while(dsmcbe_spu_csp_settingUpShared)
+		dsmcbe_thread_yield();
+
+	struct dsmcbe_spu_linked_list* cur = dsmcbe_spu_csp_firstSharedRead;
+	struct dsmcbe_spu_linked_list* prev = dsmcbe_spu_csp_firstSharedRead;
+
+	while(cur != NULL && cur->channelId != channelId)
+	{
+		prev = cur;
+		cur = cur->next;
+	}
+
+	//If the shared object did not exist, get it
+	if (cur == NULL)
+	{
+		//printf(WHERESTR "Thread %d is setting up shared\n", WHEREARG, dsmcbe_thread_current_id());
+		dsmcbe_spu_csp_settingUpShared = TRUE;
+		cur = (struct dsmcbe_spu_linked_list*)MALLOC(sizeof(struct dsmcbe_spu_linked_list));
+
+		if (prev == NULL)
+			dsmcbe_spu_csp_firstSharedRead = cur;
+		else
+			prev->next = cur;
+
+		cur->channelId = channelId;
+		cur->size = 0;
+		cur->data = NULL;
+		cur->count = *readerCount;
+
+		CSP_SAFE_CALL("reading shared", dsmcbe_csp_channel_read(channelId, &(cur->size), &(cur->data)));
+		dsmcbe_spu_csp_settingUpShared = FALSE;
+		//printf(WHERESTR "Thread %d finished setting up shared\n", WHEREARG, dsmcbe_thread_current_id());
+
+	}
+
+	*data = cur->data;
+	if (size != NULL)
+		*size = cur->size;
+
+	//printf(WHERESTR "Thread %d got shared pointer %d with size %d\n", WHEREARG, dsmcbe_thread_current_id(), (unsigned int)*data, cur->size);
+
+	cur->count--;
+	*readerCount = cur->count;
+
+	if (cur->count == 0)
+	{
+		//printf(WHERESTR "Thread %d is cleaning up shared\n", WHEREARG, dsmcbe_thread_current_id());
+
+		struct dsmcbe_spu_linked_list* prev = dsmcbe_spu_csp_firstSharedRead;
+		while(prev != NULL && prev->next != cur)
+			prev = prev->next;
+
+		if (prev == cur && cur == dsmcbe_spu_csp_firstSharedRead)
+			dsmcbe_spu_csp_firstSharedRead = NULL;
+		else
+			prev->next = cur->next;
+
+		cur->data = NULL;
+		cur->channelId = 0;
+		cur->next = NULL;
+		FREE(cur);
+
+		//printf(WHERESTR "Thread %d cleaned up shared\n", WHEREARG, dsmcbe_thread_current_id());
+	}
+
+	return CSP_CALL_SUCCESS;
 }

@@ -2,6 +2,7 @@
 #define SPU_MEMORYALLOCATOR_H_
 
 #include <glib/ghash.h>
+#include <libspe2.h>
 
 #define USEDYNAMICPARTITIONSCHEME
 
@@ -41,7 +42,7 @@ SPU_Memory_Map* dsmcbe_spu_memory_create(unsigned int offset, unsigned int size)
 
 void dsmcbe_spu_memory_destroy(SPU_Memory_Map* map);
 
-void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, unsigned int size);
+void* dsmcbe_spu_memory_malloc(SPU_Memory_Map* map, spe_context_ptr_t context, unsigned int size);
 
 void dsmcbe_spu_memory_free(SPU_Memory_Map* map, void* data);
 

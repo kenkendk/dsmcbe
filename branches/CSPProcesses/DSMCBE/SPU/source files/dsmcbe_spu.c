@@ -550,15 +550,17 @@ void* spu_dsmcbe_endAsync(unsigned int requestNo, unsigned long* size)
 	printf(WHERESTR "Got result %d\n", WHEREARG, (unsigned int)spu_dsmcbe_pendingRequests[requestNo].pointer);
 #endif
 
+	unsigned int respCode = spu_dsmcbe_pendingRequests[requestNo].responseCode;
 	if (size != NULL)
 	{
-		if (spu_dsmcbe_pendingRequests[requestNo].responseCode == PACKAGE_ACQUIRE_RESPONSE ||
-			spu_dsmcbe_pendingRequests[requestNo].responseCode == PACKAGE_CSP_CHANNEL_READ_RESPONSE ||
-			spu_dsmcbe_pendingRequests[requestNo].responseCode == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE)
+		if (respCode == PACKAGE_ACQUIRE_RESPONSE ||
+			respCode == PACKAGE_CSP_CHANNEL_READ_RESPONSE ||
+			respCode == PACKAGE_SPU_CSP_CHANNEL_READ_ALT_RESPONSE ||
+			respCode == PACKAGE_SPU_CSP_CHANNEL_WRITE_ALT_RESPONSE)
 
 			*size = spu_dsmcbe_pendingRequests[requestNo].size;
 		else
-			size = 0;
+			*size = 0;
 	}
 	
 	spu_dsmcbe_pendingRequests[requestNo].requestCode = 0;
@@ -667,8 +669,9 @@ void* dsmcbe_create(GUID id, unsigned long size) {
 void* spu_dsmcbe_memory_malloc(unsigned long size) {
 	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
 
-	return spu_dsmcbe_endAsync(spu_dsmcbe_memory_malloc_begin(size), NULL);;
+	return spu_dsmcbe_endAsync(spu_dsmcbe_memory_malloc_begin(size), NULL);
 }
+
 void spu_dsmcbe_memory_free(void* data) {
 	SET_CURRENT_FUNCTION(FILE_DSMCBE_SPU);
 

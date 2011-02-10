@@ -235,7 +235,7 @@ void dsmcbe_SetHardwareThreads(unsigned int count)
 void dsmcbe_spu_SendMessagesToSPU(struct dsmcbe_spu_state* state, unsigned int packageCode, unsigned int requestId, unsigned int data, unsigned int size)
 {
 #ifdef DEBUG_COMMUNICATION
-	printf(WHERESTR "Context %u, Sending message %s (%d) with requestId %d to SPU\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(packageCode), packageCode, requestId);
+	printf(WHERESTR "Context %u, Sending message %s (%d) with requestId %d to SPU, data: %d, size: %d\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(packageCode), packageCode, requestId, data, size);
 #endif
 
 	//TODO: Determine if it is possible to accidentally insert a response because it fits in mbox, but still have messages in queue
@@ -598,7 +598,7 @@ void* dsmcbe_spu_AllocateSpaceForObject(struct dsmcbe_spu_state* state, unsigned
 	
 	//If there is no way the object can fit, skip the initial try
 	if (state->map->free_mem >= size)
-		temp = dsmcbe_spu_memory_malloc(state->map, size);
+		temp = dsmcbe_spu_memory_malloc(state->map, state->context, size);
 
 	//Try to remove a object of the same size as the object
 	// we want to alloc.
@@ -617,7 +617,7 @@ void* dsmcbe_spu_AllocateSpaceForObject(struct dsmcbe_spu_state* state, unsigned
 					//Remove the object, and try to allocate again
 					//printf(WHERESTR "Disposing object: %d\n", WHEREARG, obj->id);
 					dsmcbe_spu_DisposeObject(state, obj);
-					temp = dsmcbe_spu_memory_malloc(state->map, size);
+					temp = dsmcbe_spu_memory_malloc(state->map, state->context, size);
 					break;			
 				}		
 			}
@@ -647,7 +647,7 @@ void* dsmcbe_spu_AllocateSpaceForObject(struct dsmcbe_spu_state* state, unsigned
 				//printf(WHERESTR "Disposing object: %d\n", WHEREARG, obj->id);
 				dsmcbe_spu_DisposeObject(state, obj);
 				if (state->map->free_mem >= size)
-					temp = dsmcbe_spu_memory_malloc(state->map, size);
+					temp = dsmcbe_spu_memory_malloc(state->map, state->context, size);
 			}
 		}
 	}
@@ -1158,7 +1158,8 @@ void dsmcbe_spu_ManageDelayedAllocation(struct dsmcbe_spu_state* state)
 		{
 			if (dsmcbe_spu_EstimatePendingReleaseSize(state) == 0 && dsmcbe_spu_csp_FlushItems(state, obj->size) == 0)
 			{
-				REPORT_ERROR("Out of memory on SPU");
+				REPORT_ERROR2("Out of memory on SPU while allocating %d bytes", obj->size);
+				dsmcbe_spu_memory_printMap(state->map);
 				exit(-3);
 			}
 			return;
@@ -1598,8 +1599,6 @@ void dsmcbe_spu_HandleTransferResponse(struct dsmcbe_spu_state* state, void* pac
 #ifndef SPE_CSP_CHANNEL_EAGER_TRANSFER
 void dsmcbe_spu_HandleTransferRequest(struct dsmcbe_spu_state* state, void* package)
 {
-	//printf(WHERESTR "Context %u, Got transfer request %u, obj is @%u\n", WHEREARG, (unsigned int)state->context, req->requestID, (unsigned int)obj);
-
 	struct dsmcbe_transferRequest* req = (struct dsmcbe_transferRequest*)package;
 	struct dsmcbe_spu_dataObject* obj = (struct dsmcbe_spu_dataObject*)g_hash_table_lookup(state->csp_inactive_items, req->from);
 	if (obj == NULL)
@@ -1607,6 +1606,10 @@ void dsmcbe_spu_HandleTransferRequest(struct dsmcbe_spu_state* state, void* pack
 		REPORT_ERROR2("Got an unmatched transfer request for item @ %d", (unsigned int)req->from);
 		exit(-1);
 	}
+
+#ifdef DEBUG_COMMUNICATION
+	printf(WHERESTR "Context %u, Got transfer request %u, obj is @%u, obj->ls: %d\n", WHEREARG, (unsigned int)state->context, req->requestID, (unsigned int)obj, (unsigned int)obj->LS);
+#endif
 
 	if (obj->mode == CSP_ITEM_MODE_IN_TRANSIT)
 	{
@@ -1732,6 +1735,8 @@ void dsmcbe_spu_HandleMallocRequest(struct dsmcbe_spu_state* state, struct dsmcb
 }
 
 void dsmcbe_spu_HandleMemoryFreeRequest(struct dsmcbe_spu_state* state, struct dsmcbe_spu_internalMboxArgs* args) {
+	//printf(WHERESTR "Free'ing memory region %u\n", WHEREARG, args->data);
+
 	dsmcbe_spu_memory_free(state->map, (void*)args->data);
 	dsmcbe_spu_ManageDelayedAllocation(state);
 }
@@ -1797,6 +1802,10 @@ void dsmcbe_spu_SPUMailboxReader(struct dsmcbe_spu_state* state)
 
 		//args = (struct dsmcbe_spu_internalMboxArgs*)(((void*)nextEl) + 16);
 		//printf(WHERESTR "Entry in @%d is %d, packageCode %s (%d), args: %d, lsEntry: %d\n", WHEREARG, state->lsMboxBuffer, *nextEl, PACKAGE_NAME(args->packageCode), args->packageCode, (unsigned int)args, (unsigned int)nextEl);
+
+#ifdef DEBUG_COMMUNICATION
+		printf(WHERESTR "Context %u, Handling SPU message %s (%d) with requestId %d, data: %d, size: %d\n", WHEREARG, (unsigned int)state->context, PACKAGE_NAME(args->packageCode), args->packageCode, args->requestId, args->data, args->size);
+#endif
 
 		spu_eventhandler_function handler = args->packageCode > MAX_PACKAGE_ID ? NULL : dsmcbe_spu_eventhandlers[args->packageCode];
 
