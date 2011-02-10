@@ -239,7 +239,9 @@ void* dsmcbe_spu_csp_attempt_get_pointer(struct dsmcbe_spu_state* state, struct 
 	{
 		if (g_hash_table_lookup(state->csp_active_items, ls) != NULL)
 		{
-			REPORT_ERROR("Newly allocated pointer was found in csp table");
+			REPORT_ERROR2("Newly allocated pointer @%u was found in csp table", (unsigned int)ls);
+			dsmcbe_spu_DumpCurrentStates();
+			dsmcbe_spu_printMemoryStatus(state);
 			exit(-1);
 		}
 	}
@@ -265,6 +267,9 @@ void dsmcbe_spu_csp_HandleItemCreateRequest(struct dsmcbe_spu_state* state, stru
 		dsmcbe_spu_free_PendingRequest(preq);
 		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_SPU_CSP_ITEM_CREATE_RESPONSE, requestId, (unsigned int)obj->LS, args->size);
 	}
+
+	//printf(WHERESTR "Handled item create request for %u\n", WHEREARG, (unsigned int)obj->LS);
+
 }
 
 //This function handles incoming free item requests from an SPU
@@ -284,6 +289,8 @@ void dsmcbe_spu_csp_HandleItemFreeRequest(struct dsmcbe_spu_state* state, struct
 		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_NACK, args->requestId, 0, 0);
 		return;
 	}
+
+	//printf(WHERESTR "Handling item free request for %u\n", WHEREARG, args->data);
 
 	FREE(obj);
 	g_hash_table_remove(state->csp_active_items, (void*)args->data);
@@ -826,7 +833,7 @@ void dsmcbe_spu_csp_HandleDirectSetupResponse(struct dsmcbe_spu_state* localStat
 		//printf(WHERESTR "In setup, the item is intra SPE, setting up local on channel %d\n", WHEREARG, resp->channelId);
 
 		//Allocate the ringbuffer on the SPE
-		void* rb_ls = dsmcbe_spu_memory_malloc(localState->map, sizeof(struct dsmcbe_ringbuffer) + ((sizeof(void*) * SPE_PENDING_WRITE_SIZE) * (resp->bufferSize + 1)));
+		void* rb_ls = dsmcbe_spu_memory_malloc(localState->map, localState->context, sizeof(struct dsmcbe_ringbuffer) + ((sizeof(void*) * SPE_PENDING_WRITE_SIZE) * (resp->bufferSize + 1)));
 		struct dsmcbe_ringbuffer* spe_rb = (struct dsmcbe_ringbuffer*)(spe_ls_area_get(localState->context) + (unsigned int)rb_ls);
 		spe_rb->count = 0;
 		spe_rb->head = 0;
