@@ -298,5 +298,6 @@ QueueableItem dsmcbe_spu_createTransferManager(struct dsmcbe_spu_state* state);
 void dsmcbe_spu_ManageDelayedAllocation(struct dsmcbe_spu_state* state);
 
 void dsmcbe_spu_printMemoryStatus(struct dsmcbe_spu_state* state);
+void dsmcbe_spu_DumpCurrentStates();
 
 #endif /* SPUEVENTHANDLER_SHARED_H_ */

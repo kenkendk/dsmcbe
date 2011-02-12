@@ -384,6 +384,27 @@ void dsmcbe_spu_csp_HandleChannelReadResponse(struct dsmcbe_spu_state* state, vo
 			exit(-1);
 		}
 
+		 if (oldObj->mode == CSP_ITEM_MODE_IN_TRANSIT )
+		{
+			//printf(WHERESTR "Hit item in transit \n", WHEREARG);
+			if (oldObj->preq == NULL || oldObj->preq->operation != PACKAGE_SPU_CSP_FLUSH_ITEM)
+			{
+				REPORT_ERROR("Object was in transit but not being flushed?");
+				exit(-1);
+			}
+
+			if (oldObj->flushPreq != NULL)
+			{
+				REPORT_ERROR("Object was being flushed but already in use?");
+				exit(-1);
+			}
+
+			//Sane situation, register the read request so we can handle it after the flush has completed
+			oldObj->flushPreq = dsmcbe_spu_new_PendingRequest(state, NEXT_SEQ_NO(state->releaseSeqNo, MAX_PENDING_RELEASE_REQUESTS) + RELEASE_NUMBER_BASE, resp->packageCode, resp->channelId, oldObj, 0, 0);
+			oldObj->flushPreq->transferHandler = resp;
+			return;
+		}
+
 		FREE(resp->transferManager);
 		resp->transferManager = NULL;
 
