@@ -1158,7 +1158,7 @@ void dsmcbe_spu_ManageDelayedAllocation(struct dsmcbe_spu_state* state)
 		{
 			if (dsmcbe_spu_EstimatePendingReleaseSize(state) == 0 && dsmcbe_spu_csp_FlushItems(state, obj->size) == 0)
 			{
-				REPORT_ERROR2("Out of memory on SPU while allocating %d bytes", obj->size);
+				REPORT_ERROR2("Out of memory on SPU while allocating %u bytes", (unsigned int)obj->size);
 				dsmcbe_spu_memory_printMap(state->map);
 				exit(-3);
 			}
@@ -1417,6 +1417,9 @@ void dsmcbe_spu_HandleDMATransferCompleted(struct dsmcbe_spu_state* state, unsig
 
 						if (flushPreq->operation == PACKAGE_TRANSFER_REQUEST) {
 							dsmcbe_spu_HandleTransferRequest(state, flushPreq->transferHandler);
+							dsmcbe_spu_free_PendingRequest(flushPreq);
+						} else if (flushPreq->operation == PACKAGE_CSP_CHANNEL_READ_RESPONSE) {
+							dsmcbe_spu_csp_HandleChannelReadResponse(state, flushPreq->transferHandler);
 							dsmcbe_spu_free_PendingRequest(flushPreq);
 						} else if (flushPreq->operation == PACKAGE_SPU_CSP_DIRECT_WRITE_REQUEST) {
 							struct dsmcbe_spu_directChannelObject* channel = (struct dsmcbe_spu_directChannelObject*)g_hash_table_lookup(state->csp_direct_channels, (void*)obj->id);
