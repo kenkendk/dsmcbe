@@ -19,16 +19,7 @@
 #define MIN_VALUE (-273)
 #define MAX_VALUE (40)
 
-#define MIN_VALUE_ABS (273)
-#define VALUE_RANGE (MAX_VALUE + MIN_VALUE_ABS)
-
-
-
-
-#define RED_COMPONENT(x) (((x) + MIN_VALUE_ABS) * (255 / VALUE_RANGE))
-#define GREEN_COMPONENT(x) (0)
-#define BLUE_COMPONENT(x) (255 - RED_COMPONENT(x))
-
+#define SINGLE_DELTA
 
 int dropImage(int index, unsigned int vrows, unsigned int rows_pr_vrow, unsigned int image_width, unsigned int image_height) {
 
@@ -46,7 +37,7 @@ int dropImage(int index, unsigned int vrows, unsigned int rows_pr_vrow, unsigned
 	struct RGB* img;
 
 	for(i = 0; i < vrows; i++) {
-		CSP_SAFE_CALL("read vrow for display", dsmcbe_csp_channel_read(VROW_CHANNEL_BASE + i, NULL, (void**)&vrow));
+		CSP_SAFE_CALL("read vrow for display", dsmcbe_csp_channel_read(VROW_PPU_CHANNEL_BASE + i, NULL, (void**)&vrow));
 
 		data = (DATATYPE*)((vrow) + 1);
 		img = format.image + (image_width * vrow->rowNo * rows_pr_vrow);
@@ -74,7 +65,7 @@ int dropImage(int index, unsigned int vrows, unsigned int rows_pr_vrow, unsigned
 			img += format.width;
 		}
 
-		CSP_SAFE_CALL("write vrow back", dsmcbe_csp_channel_write(VROW_CHANNEL_BASE + i, (void*)vrow));
+		CSP_SAFE_CALL("write vrow back", dsmcbe_csp_channel_write(VROW_PPU_CHANNEL_BASE + i, (void*)vrow));
 	}
 
 
@@ -95,9 +86,8 @@ int main(int argc, char* argv[])
 	unsigned int image_width = 348;
 	unsigned int image_height = 348;
 	unsigned int rows_pr_vrow = 10;
-	int vrow_size = 10;
 
-	struct MACHINE_SETUP* setup;
+	struct WORKER_SETUP* setup;
 	struct VROW* vrow;
 	DATATYPE* data;
 	size_t x;
@@ -119,7 +109,7 @@ int main(int argc, char* argv[])
 		spu_fibers = atoi(argv[2]);
 		image_width = atoi(argv[3]);
 		image_height = atoi(argv[4]);
-		vrow_size = atoi(argv[5]);
+		rows_pr_vrow = atoi(argv[5]);
 		iteration_count = atoi(argv[6]);
 	} else {
 		printf("Wrong number of arguments %i\n", argc);
@@ -153,6 +143,11 @@ int main(int argc, char* argv[])
 
 	//Figure out how many virtual rows we need to create
 	vrows = (image_height + (rows_pr_vrow - 1)) / rows_pr_vrow;
+
+	if (vrows > (VROW_SPU_CHANNEL_BASE_DOWN - VROW_PPU_CHANNEL_BASE) || vrows > (VROW_SPU_CHANNEL_BASE_UP - VROW_SPU_CHANNEL_BASE_DOWN)) {
+		REPORT_ERROR2("Invalid number of vrows: %d", vrows);
+		exit(-1);
+	}
 
 	//Create all the virtual rows
 	for(vrowindex = 0; vrowindex < vrows; vrowindex++)
@@ -188,8 +183,10 @@ int main(int argc, char* argv[])
 		vrow->rowNo = vrowindex;
 		vrow->rowWidth = image_width;
 
-		CSP_SAFE_CALL("create vrow channel", dsmcbe_csp_channel_create(VROW_CHANNEL_BASE + vrowindex, 1, CSP_CHANNEL_TYPE_ONE2ONE));
-		CSP_SAFE_CALL("write work item", dsmcbe_csp_channel_write(VROW_CHANNEL_BASE + vrowindex, (void*)vrow));
+		CSP_SAFE_CALL("create vrow channel", dsmcbe_csp_channel_create(VROW_PPU_CHANNEL_BASE + vrowindex, 1, CSP_CHANNEL_TYPE_ONE2ONE));
+		CSP_SAFE_CALL("create vrow channel", dsmcbe_csp_channel_create(VROW_SPU_CHANNEL_BASE_DOWN + vrowindex, 1, CSP_CHANNEL_TYPE_ONE2ONE));
+		CSP_SAFE_CALL("create vrow channel", dsmcbe_csp_channel_create(VROW_SPU_CHANNEL_BASE_UP + vrowindex, 1, CSP_CHANNEL_TYPE_ONE2ONE));
+		CSP_SAFE_CALL("write work item", dsmcbe_csp_channel_write(VROW_PPU_CHANNEL_BASE + vrowindex, (void*)vrow));
 	}
 
 	vrowindex = 0;
@@ -209,7 +206,7 @@ int main(int argc, char* argv[])
 	//Create the worker setups
 	for(i = 0; i < workercount; i++)
 	{
-		CSP_SAFE_CALL("create worker", dsmcbe_csp_item_create((void**)&setup, sizeof(struct MACHINE_SETUP)));
+		CSP_SAFE_CALL("create worker", dsmcbe_csp_item_create((void**)&setup, sizeof(struct WORKER_SETUP)));
 
 		int rows_for_worker = i < oddrows ? rowsprworker + 1 : rowsprworker;
 
@@ -222,9 +219,13 @@ int main(int argc, char* argv[])
 		setup->numberOfRowsInVRow = rows_pr_vrow;
 		setup->numberOfVRows = vrows;
 		setup->rowWidth = image_width;
+#ifdef SINGLE_DELTA
+		setup->deltaSyncIterations = iteration_count * 2;
+#else
+		setup->deltaSyncIterations = 1;
+#endif
 
 		//printf(WHERESTR "Created worker number %d, with [%d - %d]\n", WHEREARG, setup->workerNumber, setup->minRow, setup->maxRow);
-
 		CSP_SAFE_CALL("write worker", dsmcbe_csp_channel_write(WORK_CHANNEL, (void*)setup));
 		vrowindex += rows_for_worker;
 	}
@@ -239,8 +240,12 @@ int main(int argc, char* argv[])
 	//All ready just collect the results
 	DATATYPE** storage = (DATATYPE**)malloc(sizeof(DATATYPE*) * workercount);
 
+#ifdef SINGLE_DELTA
+	iteration_count = 1;
+#else
 	//The iterations are only half a round
 	iteration_count *= 2;
+#endif
 	for(i = 0; i < iteration_count; i++) {
 		delta = 0;
 
@@ -252,10 +257,6 @@ int main(int argc, char* argv[])
 		}
 
 		//printf("All workers synced for iteration %d, delta is %f\n", i, delta);
-
-		//If we want a nice animation, this is the spot to drop images
-		/*if (i % 2 == 1)
-			dropImage(i / 2, vrows, rows_pr_vrow, image_width, image_height);*/
 
 		if (i != iteration_count - 1) {
 			for(j = 0; j < workercount; j++) {

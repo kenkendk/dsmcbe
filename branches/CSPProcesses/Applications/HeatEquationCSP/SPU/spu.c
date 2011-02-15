@@ -12,6 +12,7 @@
 #include <dsmcbe_spu_internal.h>
 
 //HACK: Inject the code for the solver in the SPU
+#define COMPILE_FOR_SPE
 #include "../PPU/source_files/RowSolver.c"
 
 int dsmcbe_main(unsigned long long speid, unsigned int machineId, unsigned int threadId)
