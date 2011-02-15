@@ -14,9 +14,6 @@
 #include <dsmcbe_csp.h>
 #include <SPUEventHandler_CSP.h>
 
-//TODO: Remove ask Morten
-unsigned int doPrint = FALSE;
-
 //If mailbox type is changed, be sure to change it in SPUEventHandler.c as well
 #define SPE_MBOX_READ(spe, data) spe_out_intr_mbox_read(spe, data, 1, SPE_MBOX_ALL_BLOCKING)
 #define SPE_MBOX_STATUS(spe) spe_out_intr_mbox_status(spe)
@@ -1983,21 +1980,6 @@ void* dsmcbe_spu_thread_HandleEvents()
 		mask = 0;
 		eventCount = 0;
 
-		if (doPrint)
-		{
-			doStop = TRUE;
-
-			for(i = 0; i < dsmcbe_spu_thread_count; i++)
-				if (!dsmcbe_spu_states[i].shutdown)
-					doStop = FALSE;
-
-			if (doStop)
-			{
-				printf(WHERESTR "Stopping Event handler thread\n", WHEREARG);
-				return NULL;
-			}
-		}
-
 #ifdef DEBUG_EVENT
 		printf(WHERESTR "Waiting for new event\n", WHEREARG);
 #endif
@@ -2068,7 +2050,6 @@ void* dsmcbe_spu_thread_HandleEvents()
 			if ((eventPend[j].events & SPE_EVENT_SPE_STOPPED) == SPE_EVENT_SPE_STOPPED)
 			{
 				printf(WHERESTR "In terminate event\n", WHEREARG);
-				doPrint = TRUE;
 
 				if (SPU_IsReg[eventPend[j].data.u32] == 1)
 				{
