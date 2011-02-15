@@ -1082,6 +1082,12 @@ void dsmcbe_spu_csp_HandleDirectWriteRequest(struct dsmcbe_spu_state* state, str
 
 	if (channel->readerState == state)
 	{
+		if(obj->mode == CSP_ITEM_MODE_IN_TRANSIT || obj->mode == CSP_ITEM_MODE_FLUSHED)
+		{
+			REPORT_ERROR("Invalid object state");
+			exit(-1);
+		}
+
 		//We are on the same SPE, so the request must have crossed the setup, re-direct to SPE
 		dsmcbe_spu_SendMessagesToSPU(state, PACKAGE_CSP_CHANNEL_WRITE_REQUEST, requestId, (unsigned int)obj->LS, obj->size);
 	}
@@ -1169,6 +1175,9 @@ void dsmcbe_spu_csp_HandleDirectReadRequest(struct dsmcbe_spu_state* state, stru
 
 			//Remove the object from the writers address space
 			void* writerLS = writerEA - (unsigned int)spe_ls_area_get(channel->writerState->context);
+			if (g_hash_table_lookup(channel->writerState->csp_active_items, writerLS) == NULL)
+				fprintf(stderr, "* ERROR *" WHERESTR "Found a writer that did not exist during handling of a direct write, obj->EA: %d, obj->LS: %d, obj->mode: %d, channel->id: %d, writerEA: %d, writerLS: %d\n", WHEREARG, (unsigned int)obj->EA, (unsigned int)obj->LS, (unsigned int)obj->mode, (unsigned int)channel->id, (unsigned int)writerEA, (unsigned int)writerLS);
+
 			g_hash_table_remove(channel->writerState->csp_active_items, writerLS);
 			dsmcbe_spu_memory_free(channel->writerState->map, writerLS);
 			dsmcbe_spu_ManageDelayedAllocation(channel->writerState);

@@ -1630,7 +1630,7 @@ void* dsmcbe_rc_ProccessWork(void* data)
 
 			timedWaitReturnValue = pthread_cond_timedwait(&dsmcbe_rc_queue_ready, &dsmcbe_rc_queue_mutex, &ts);
 
-			if (g_queue_is_empty(dsmcbe_rc_GpriorityResponses) && g_queue_is_empty(dsmcbe_rc_GbagOfTasks))
+			if (timedWaitReturnValue != 0 && g_queue_is_empty(dsmcbe_rc_GpriorityResponses) && g_queue_is_empty(dsmcbe_rc_GbagOfTasks))
 			{
 				consecutiveTimeouts++;
 
