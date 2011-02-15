@@ -19,7 +19,7 @@
 #define ABS(x) ((x) > 0 ? (x) : ((x) * -1))
 #endif
 
-struct MACHINE_SETUP
+struct WORKER_SETUP
 {
 	//The total number of rows to process
 	unsigned int numberOfRows;
@@ -41,6 +41,9 @@ struct MACHINE_SETUP
 	unsigned int isFirstWorker;
 	//The worker number, used to debug
 	unsigned int workerNumber;
+
+	//The number of iterations to perform between exchanging deltas
+	unsigned int deltaSyncIterations;
 
 
 };
